@@ -65,7 +65,6 @@ _ARITHMETIC_OPS = {
 
 class Raster:
     def __init__(self, raster):
-        # TODO: get original file type to use for saving results
         rs = _parse_input(raster)
         if _is_raster_class(rs):
             self._rs = rs._rs
