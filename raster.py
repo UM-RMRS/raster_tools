@@ -153,7 +153,6 @@ class Raster:
 
     def convolve2d(self, kernel, fill_value=0):
         # TODO: validate kernel
-        # TODO: handle attr propagation
         nr, nc = kernel.shape
         kernel = xr.DataArray(kernel, dims=("kx", "ky"))
         min_periods = (nr // 2 + 1) * (nc // 2 + 1)
@@ -162,6 +161,9 @@ class Raster:
             .construct(x="kx", y="ky", fill_value=fill_value)
             .dot(kernel)
         )
+        # There seems to be a bug where the attributes aren't propagated
+        # through construct().
+        rs_out.attrs = self._rs.attrs
         return Raster(rs_out)
 
 
