@@ -1,5 +1,7 @@
 import operator
 import os
+# rioxarray adds ability to save to tiff files to xarray
+import rioxarray  # noqa: F401
 import xarray as xr
 from numbers import Number
 
@@ -73,11 +75,13 @@ class Raster:
     def save(self, path):
         ext = os.path.splitext(path)[-1].lower()
         if ext in TIFF_EXTS:
-            # TODO: handle saving to tiff
-            NotImplementedError()
+            # XXX: only works for single band
+            # TODO: figure out method for multi-band tiffs
+            self._rs.rio.to_raster(path)
         elif ext in NC_EXTS:
             self._rs.to_netcdf(path)
         else:
+            # TODO: populate
             raise NotImplementedError()
 
     def eval(self):
