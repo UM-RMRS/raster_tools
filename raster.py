@@ -1,6 +1,7 @@
 import operator
 import os
 import xarray as xr
+from numbers import Number
 
 
 def _validate_file(path):
@@ -14,13 +15,7 @@ def _is_str(value):
 
 
 def _is_scalar(value):
-    if _is_str(value):
-        return False
-    try:
-        float(value)
-        return True
-    except (ValueError, TypeError):
-        return False
+    return isinstance(value, Number)
 
 
 def _is_raster_class(value):
