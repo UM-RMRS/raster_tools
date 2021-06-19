@@ -1,5 +1,7 @@
+import collections
 import operator
 import os
+
 # rioxarray adds ability to save to tiff files to xarray
 import rioxarray  # noqa: F401
 import xarray as xr
@@ -52,6 +54,10 @@ def _parse_input(rs_in):
         return rs_in
 
 
+def _new_rs_copy_attrs(rs, rs_with_attrs):
+    return Raster(rs, attrs=rs_with_attrs.attrs.copy())
+
+
 _ARITHMETIC_OPS = {
     "+": operator.add,
     "-": operator.sub,
@@ -61,13 +67,15 @@ _ARITHMETIC_OPS = {
 
 
 class Raster:
-    def __init__(self, raster):
+    def __init__(self, raster, attrs=None):
         rs = _parse_input(raster)
         if _is_raster_class(rs):
             self._rs = rs._rs
         else:
             self._rs = rs
         self.shape = self._rs.shape
+        if attrs is not None and isinstance(attrs, collections.Mapping):
+            self._rs.attrs = attrs
 
     def close(self):
         self._rs.close()
@@ -98,7 +106,9 @@ class Raster:
             operand = raster_or_scalar._rs
         else:
             operand = _parse_input(raster_or_scalar)
-        return Raster(_ARITHMETIC_OPS[op](self._rs, operand))
+        return _new_rs_copy_attrs(
+            _ARITHMETIC_OPS[op](self._rs, operand), self._rs
+        )
 
     def add(self, raster_or_scalar):
         return self.arithmetic(raster_or_scalar, "+")
@@ -137,7 +147,7 @@ class Raster:
         return self.pow(-1).multiply(other)
 
     def pow(self, value):
-        return Raster(self._rs ** value)
+        return _new_rs_copy_attrs(self._rs ** value, self._rs)
 
     def __pow__(self, value):
         return self.pow(value)
@@ -146,6 +156,7 @@ class Raster:
         return self
 
     def negate(self):
+        # Don't need to copy attrs here
         return Raster(-self._rs)
 
     def __neg__(self):
@@ -163,8 +174,7 @@ class Raster:
         )
         # There seems to be a bug where the attributes aren't propagated
         # through construct().
-        rs_out.attrs = self._rs.attrs
-        return Raster(rs_out)
+        return _new_rs_copy_attrs(rs_out, self._rs)
 
 
 def test():
