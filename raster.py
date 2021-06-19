@@ -1,9 +1,7 @@
 import collections
 import operator
 import os
-
-# rioxarray adds ability to save to tiff files to xarray
-import rioxarray  # noqa: F401
+import rioxarray  # noqa: F401; adds ability to save tiffs to xarray
 import xarray as xr
 from numbers import Number
 
