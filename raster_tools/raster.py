@@ -57,6 +57,7 @@ _ARITHMETIC_OPS = {
     "-": operator.sub,
     "*": operator.mul,
     "/": operator.truediv,
+    "**": operator.pow,
 }
 
 
@@ -143,7 +144,7 @@ class Raster:
         return self.pow(-1).multiply(other)
 
     def pow(self, value):
-        return Raster(self._rs ** value, self._attrs)
+        return self.arithmetic(value, "**")
 
     def __pow__(self, value):
         return self.pow(value)

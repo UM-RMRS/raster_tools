@@ -103,6 +103,30 @@ class TestRasterMath(unittest.TestCase):
             rst = v / self.rs1
             np.testing.assert_array_almost_equal(rst._rs.values, 1 / truth)
 
+    def test_power(self):
+        # Raster ** raster
+        rs1 = self.rs1 / self.rs1._rs.max() * 2
+        rs2 = self.rs2 / self.rs2._rs.max() * 2
+        rs1_np = self.rs1_np / self.rs1_np.max() * 2
+        rs2_np = self.rs2_np / self.rs2_np.max() * 2
+        truth = rs1_np ** rs2_np
+        rst = rs1.pow(rs2)
+        self.assertTrue(rs_eq_array(rst, truth))
+        rst = rs2.pow(rs1)
+        self.assertTrue(rs_eq_array(rst, truth))
+        rst = rs1 ** rs2
+        self.assertTrue(rs_eq_array(rst, truth))
+        truth = rs2_np ** rs1_np
+        rst = rs2 ** rs1
+        self.assertTrue(rs_eq_array(rst, truth))
+        # Raster ** scalar, scalar ** raster
+        for v in [-10, -1, 1, 2, 11]:
+            truth = rs1_np ** v
+            rst = rs1.pow(v)
+            self.assertTrue(rs_eq_array(rst, truth))
+            rst = rs1 ** v
+            self.assertTrue(rs_eq_array(rst, truth))
+
 
 if __name__ == "__main__":
     unittest.main()
