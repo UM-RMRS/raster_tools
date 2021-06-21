@@ -52,10 +52,6 @@ def _parse_input(rs_in):
         return rs_in
 
 
-def _new_rs_copy_attrs(rs, rs_with_attrs):
-    return Raster(rs, attrs=rs_with_attrs.attrs.copy())
-
-
 _ARITHMETIC_OPS = {
     "+": operator.add,
     "-": operator.sub,
@@ -74,6 +70,8 @@ class Raster:
         self.shape = self._rs.shape
         if attrs is not None and isinstance(attrs, collections.Mapping):
             self._rs.attrs = attrs
+        # Dict containing raster metadata like projection, etc.
+        self._attrs = self._rs.attrs
 
     def close(self):
         self._rs.close()
@@ -104,9 +102,7 @@ class Raster:
             operand = raster_or_scalar._rs
         else:
             operand = _parse_input(raster_or_scalar)
-        return _new_rs_copy_attrs(
-            _ARITHMETIC_OPS[op](self._rs, operand), self._rs
-        )
+        return Raster(_ARITHMETIC_OPS[op](self._rs, operand), self._attrs)
 
     def add(self, raster_or_scalar):
         return self.arithmetic(raster_or_scalar, "+")
@@ -145,7 +141,7 @@ class Raster:
         return self.pow(-1).multiply(other)
 
     def pow(self, value):
-        return _new_rs_copy_attrs(self._rs ** value, self._rs)
+        return Raster(self._rs ** value, self._attrs)
 
     def __pow__(self, value):
         return self.pow(value)
@@ -172,7 +168,7 @@ class Raster:
         )
         # There seems to be a bug where the attributes aren't propagated
         # through construct().
-        return _new_rs_copy_attrs(rs_out, self._rs)
+        return Raster(rs_out, self._attrs)
 
 
 def test():
