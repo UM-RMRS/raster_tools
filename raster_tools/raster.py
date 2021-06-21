@@ -172,25 +172,3 @@ class Raster:
         # There seems to be a bug where the attributes aren't propagated
         # through construct().
         return Raster(rs_out, self._attrs)
-
-
-def test():
-    # Quick function to see if any errors get thrown
-    r1 = Raster(
-        "../datasets/DC_Example/data/NoMGT_2022/Total3Run_DF_10_NoMGT_2022_V20210420.tif"
-    )
-    r2 = Raster(
-        "../datasets/DC_Example/data/NoMGT_2022/Total3Run_DF_15_NoMGT_2022_V20210420.tif"
-    )
-    r3 = (
-        r1.add(r2)
-        .multiply(r1)
-        .multiply(3)
-        .multiply(0.3)
-        .subtract(r2)
-        .divide(2)
-        .eval()
-    )
-
-
-test()
