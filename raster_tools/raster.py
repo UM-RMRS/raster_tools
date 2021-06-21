@@ -102,6 +102,7 @@ class Raster:
             operand = raster_or_scalar._rs
         else:
             operand = _parse_input(raster_or_scalar)
+        # Attributes are not propagated through math ops
         return Raster(_ARITHMETIC_OPS[op](self._rs, operand), self._attrs)
 
     def add(self, raster_or_scalar):
