@@ -90,6 +90,7 @@ class Raster:
 
     def eval(self):
         self._rs.compute()
+        return self
 
     def arithmetic(self, raster_or_scalar, op):
         # TODO: handle mapping of list of values to bands
