@@ -24,6 +24,10 @@ def _is_raster_class(value):
     return isinstance(value, Raster)
 
 
+def _get_extension(path):
+    return os.path.splitext(path)[-1].lower()
+
+
 TIFF_EXTS = frozenset((".tif", ".tiff"))
 BATCH_EXTS = frozenset((".bch",))
 NC_EXTS = frozenset((".nc",))
@@ -31,7 +35,7 @@ NC_EXTS = frozenset((".nc",))
 
 def _parse_path(path):
     _validate_file(path)
-    ext = os.path.splitext(path)[-1].lower()
+    ext = _get_extension(path)
     if not ext:
         raise ValueError("Could not determine file type")
     if ext in TIFF_EXTS:
@@ -79,7 +83,7 @@ class Raster:
         self._rs.close()
 
     def save(self, path):
-        ext = os.path.splitext(path)[-1].lower()
+        ext = _get_extension(path)
         if ext in TIFF_EXTS:
             # XXX: only works for single band
             # TODO: figure out method for multi-band tiffs
