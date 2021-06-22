@@ -52,7 +52,7 @@ def _parse_input(rs_in):
         return rs_in
 
 
-_ARITHMETIC_OPS = {
+_BINARY_ARITHMETIC_OPS = {
     "+": operator.add,
     "-": operator.sub,
     "*": operator.mul,
@@ -93,9 +93,9 @@ class Raster:
         self._rs.compute()
         return self
 
-    def arithmetic(self, raster_or_scalar, op):
+    def _binary_arithmetic(self, raster_or_scalar, op):
         # TODO: handle mapping of list of values to bands
-        if op not in _ARITHMETIC_OPS:
+        if op not in _BINARY_ARITHMETIC_OPS:
             raise ValueError(f"Unknown arithmetic operation: '{op}'")
         # TODO:Fix this ugly block
         if _is_scalar(raster_or_scalar):
@@ -105,10 +105,12 @@ class Raster:
         else:
             operand = _parse_input(raster_or_scalar)
         # Attributes are not propagated through math ops
-        return Raster(_ARITHMETIC_OPS[op](self._rs, operand), self._attrs)
+        return Raster(
+            _BINARY_ARITHMETIC_OPS[op](self._rs, operand), self._attrs
+        )
 
     def add(self, raster_or_scalar):
-        return self.arithmetic(raster_or_scalar, "+")
+        return self._binary_arithmetic(raster_or_scalar, "+")
 
     def __add__(self, other):
         return self.add(other)
@@ -117,7 +119,7 @@ class Raster:
         return self.add(other)
 
     def subtract(self, raster_or_scalar):
-        return self.arithmetic(raster_or_scalar, "-")
+        return self._binary_arithmetic(raster_or_scalar, "-")
 
     def __sub__(self, other):
         return self.subtract(other)
@@ -126,7 +128,7 @@ class Raster:
         return self.negate().add(other)
 
     def multiply(self, raster_or_scalar):
-        return self.arithmetic(raster_or_scalar, "*")
+        return self._binary_arithmetic(raster_or_scalar, "*")
 
     def __mul__(self, other):
         return self.multiply(other)
@@ -135,7 +137,7 @@ class Raster:
         return self.multiply(other)
 
     def divide(self, raster_or_scalar):
-        return self.arithmetic(raster_or_scalar, "/")
+        return self._binary_arithmetic(raster_or_scalar, "/")
 
     def __truediv__(self, other):
         return self.divide(other)
@@ -144,7 +146,7 @@ class Raster:
         return self.pow(-1).multiply(other)
 
     def pow(self, value):
-        return self.arithmetic(value, "**")
+        return self._binary_arithmetic(value, "**")
 
     def __pow__(self, value):
         return self.pow(value)
