@@ -53,7 +53,7 @@ def _open_raster_from_path(path, open_lazy=True):
     _validate_file(path)
     ext = _get_extension(path)
     if not ext:
-        raise ValueError("Could not determine file type")
+        raise RasterInputError("Could not determine file type")
     if ext in TIFF_EXTS:
         # TODO: smarter chunking logic
         rs = xr.open_rasterio(path)
@@ -66,7 +66,7 @@ def _open_raster_from_path(path, open_lazy=True):
         # TODO: chunking logic
         return xr.open_dataset(path)
     else:
-        raise ValueError("Unknown file type")
+        raise RasterInputError("Unknown file type")
 
 
 _BINARY_ARITHMETIC_OPS = {
