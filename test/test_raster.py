@@ -39,6 +39,14 @@ class TestRasterMath(unittest.TestCase):
             self.assertTrue(rs_eq_array(rst, truth))
             rst = v + self.rs1
             self.assertTrue(rs_eq_array(rst, truth))
+        for v in [-23.3, 0.0, 1.0, 2.0, 321.4]:
+            truth = self.rs1_np + v
+            rst = self.rs1.add(v)
+            self.assertTrue(rs_eq_array(rst, truth))
+            rst = self.rs1 + v
+            self.assertTrue(rs_eq_array(rst, truth))
+            rst = v + self.rs1
+            self.assertTrue(rs_eq_array(rst, truth))
 
     def test_subtract(self):
         # Raster - raster
@@ -53,6 +61,14 @@ class TestRasterMath(unittest.TestCase):
         self.assertTrue(rs_eq_array(rst, -truth))
         # Raster - scalar
         for v in [-1359, 0, 1, 2, 42]:
+            truth = self.rs1_np - v
+            rst = self.rs1.subtract(v)
+            self.assertTrue(rs_eq_array(rst, truth))
+            rst = self.rs1 - v
+            self.assertTrue(rs_eq_array(rst, truth))
+            rst = v - self.rs1
+            self.assertTrue(rs_eq_array(rst, -truth))
+        for v in [-1359.2, 0.0, 1.0, 2.0, 42.5]:
             truth = self.rs1_np - v
             rst = self.rs1.subtract(v)
             self.assertTrue(rs_eq_array(rst, truth))
@@ -81,6 +97,14 @@ class TestRasterMath(unittest.TestCase):
             self.assertTrue(rs_eq_array(rst, truth))
             rst = v * self.rs1
             self.assertTrue(rs_eq_array(rst, truth))
+        for v in [-123.9, 0.0, 1.0, 2.0, 345.3]:
+            truth = self.rs1_np * v
+            rst = self.rs1.multiply(v)
+            self.assertTrue(rs_eq_array(rst, truth))
+            rst = self.rs1 * v
+            self.assertTrue(rs_eq_array(rst, truth))
+            rst = v * self.rs1
+            self.assertTrue(rs_eq_array(rst, truth))
 
     def test_div(self):
         # Raster / raster
@@ -95,6 +119,14 @@ class TestRasterMath(unittest.TestCase):
         self.assertTrue(rs_eq_array(rst, 1 / truth))
         # Raster / scalar, scalar / raster
         for v in [-123, -1, 1, 2, 345]:
+            truth = self.rs1_np / v
+            rst = self.rs1.divide(v)
+            self.assertTrue(rs_eq_array(rst, truth))
+            rst = self.rs1 / v
+            self.assertTrue(rs_eq_array(rst, truth))
+            rst = v / self.rs1
+            np.testing.assert_array_almost_equal(rst._rs.values, 1 / truth)
+        for v in [-123.8, -1.0, 1.0, 2.0, 345.6]:
             truth = self.rs1_np / v
             rst = self.rs1.divide(v)
             self.assertTrue(rs_eq_array(rst, truth))
@@ -121,6 +153,12 @@ class TestRasterMath(unittest.TestCase):
         self.assertTrue(rs_eq_array(rst, truth))
         # Raster ** scalar, scalar ** raster
         for v in [-10, -1, 1, 2, 11]:
+            truth = rs1_np ** v
+            rst = rs1.pow(v)
+            self.assertTrue(rs_eq_array(rst, truth))
+            rst = rs1 ** v
+            self.assertTrue(rs_eq_array(rst, truth))
+        for v in [-10.5, -1.0, 1.0, 2.0, 11.3]:
             truth = rs1_np ** v
             rst = rs1.pow(v)
             self.assertTrue(rs_eq_array(rst, truth))
