@@ -4,6 +4,7 @@ import os
 import rioxarray  # noqa: F401; adds ability to save tiffs to xarray
 import xarray as xr
 from numbers import Number
+from pathlib import Path
 
 
 def _validate_file(path):
@@ -24,6 +25,10 @@ def _is_raster_class(value):
     return isinstance(value, Raster)
 
 
+def _is_xarray(rs):
+    return isinstance(rs, xr.DataArray, xr.Dataset)
+
+
 def _get_extension(path):
     return os.path.splitext(path)[-1].lower()
 
@@ -33,27 +38,32 @@ BATCH_EXTS = frozenset((".bch",))
 NC_EXTS = frozenset((".nc",))
 
 
-def _parse_path(path):
+class RasterInputError(BaseException):
+    pass
+
+
+def _open_raster_from_path(path):
+    if isinstance(path, Path) or _is_str(path):
+        path = str(path)
+        path = os.path.abspath(path)
+    else:
+        raise RasterInputError(
+            f"Could not resolve input to a raster: '{path}'"
+        )
     _validate_file(path)
     ext = _get_extension(path)
     if not ext:
         raise ValueError("Could not determine file type")
     if ext in TIFF_EXTS:
-        # TODO: chunking logic
-        return xr.open_rasterio(path)
+        # TODO: smarter chunking logic
+        return xr.open_rasterio(path, chunks={"band": 1, "x": 4000, "y": 4000})
     elif ext in BATCH_EXTS:
         raise NotImplementedError()
+    elif ext in NC_EXTS:
+        # TODO: chunking logic
+        return xr.open_dataset(path)
     else:
         raise ValueError("Unknown file type")
-
-
-def _parse_input(rs_in):
-    if _is_str(rs_in):
-        return _parse_path(rs_in)
-    elif isinstance(rs_in, Raster):
-        return rs_in
-    elif isinstance(rs_in, (xr.DataArray, xr.Dataset)):
-        return rs_in
 
 
 _BINARY_ARITHMETIC_OPS = {
@@ -68,11 +78,12 @@ _BINARY_ARITHMETIC_OPS = {
 
 class Raster:
     def __init__(self, raster, attrs=None):
-        rs = _parse_input(raster)
-        if _is_raster_class(rs):
-            self._rs = rs._rs
+        if _is_raster_class(raster):
+            self._rs = raster._rs
+        elif _is_xarray(raster):
+            self._rs = raster
         else:
-            self._rs = rs
+            self._rs = _open_raster_from_path(raster)
         self.shape = self._rs.shape
         if attrs is not None and isinstance(attrs, collections.Mapping):
             self._rs.attrs = attrs
@@ -102,13 +113,12 @@ class Raster:
         # TODO: handle mapping of list of values to bands
         if op not in _BINARY_ARITHMETIC_OPS:
             raise ValueError(f"Unknown arithmetic operation: '{op}'")
-        # TODO:Fix this ugly block
         if _is_scalar(raster_or_scalar):
             operand = raster_or_scalar
         elif _is_raster_class(raster_or_scalar):
             operand = raster_or_scalar._rs
         else:
-            operand = _parse_input(raster_or_scalar)
+            operand = _open_raster_from_path(raster_or_scalar)
         # Attributes are not propagated through math ops
         return Raster(
             _BINARY_ARITHMETIC_OPS[op](self._rs, operand), self._attrs
