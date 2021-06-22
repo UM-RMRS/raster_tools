@@ -26,7 +26,7 @@ def _is_raster_class(value):
 
 
 def _is_xarray(rs):
-    return isinstance(rs, xr.DataArray, xr.Dataset)
+    return isinstance(rs, (xr.DataArray, xr.Dataset))
 
 
 def _get_extension(path):
