@@ -2,6 +2,7 @@ import numpy as np
 import unittest
 
 from raster_tools import Raster
+from raster_tools.raster import _BINARY_ARITHMETIC_OPS
 
 
 def rs_eq_array(rs, ar):
@@ -206,6 +207,31 @@ class TestRasterMath(unittest.TestCase):
                 truth = v ** rs1_np
                 rst = v ** rs1
                 self.assertTrue(rs_eq_array(rst, truth))
+
+
+class TestRasterAttrs(unittest.TestCase):
+    def test_binary_arithmetic_attr_propagation(self):
+        r1 = Raster("test/data/elevation.tif")
+        true_attrs = r1._attrs
+        v = 2.1
+        for op in _BINARY_ARITHMETIC_OPS.keys():
+            r2 = r1._binary_arithmetic(v, op).eval()
+            self.assertEqual(r2._rs.attrs, true_attrs)
+            self.assertEqual(r2._attrs, true_attrs)
+        for r in [+r1, -r1]:
+            self.assertEqual(r._rs.attrs, true_attrs)
+            self.assertEqual(r._attrs, true_attrs)
+
+    def test_ctor_attr_propagation(self):
+        r1 = Raster("test/data/elevation.tif")
+        true_attrs = r1._attrs.copy()
+        r2 = Raster(Raster("test/data/elevation.tif"))
+        r3 = Raster(Raster("test/data/elevation.tif"), true_attrs)
+        test_attrs = {"test": 0}
+        r4 = Raster(Raster("test/data/elevation.tif"), test_attrs)
+        self.assertEqual(r2._attrs, true_attrs)
+        self.assertEqual(r3._attrs, true_attrs)
+        self.assertEqual(r4._attrs, test_attrs)
 
 
 if __name__ == "__main__":
