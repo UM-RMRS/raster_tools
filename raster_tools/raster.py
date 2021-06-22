@@ -42,7 +42,7 @@ class RasterInputError(BaseException):
     pass
 
 
-def _open_raster_from_path(path):
+def _open_raster_from_path(path, open_lazy=True):
     if isinstance(path, Path) or _is_str(path):
         path = str(path)
         path = os.path.abspath(path)
@@ -56,7 +56,10 @@ def _open_raster_from_path(path):
         raise ValueError("Could not determine file type")
     if ext in TIFF_EXTS:
         # TODO: smarter chunking logic
-        return xr.open_rasterio(path, chunks={"band": 1, "x": 4000, "y": 4000})
+        rs = xr.open_rasterio(path)
+        if open_lazy:
+            rs = rs.chunk({"band": 1, "x": 4000, "y": 4000})
+        return rs
     elif ext in BATCH_EXTS:
         raise NotImplementedError()
     elif ext in NC_EXTS:
@@ -77,7 +80,7 @@ _BINARY_ARITHMETIC_OPS = {
 
 
 class Raster:
-    def __init__(self, raster, attrs=None):
+    def __init__(self, raster, attrs=None, open_lazy=True):
         if _is_raster_class(raster):
             self._rs = raster._rs
             if attrs is None:
@@ -85,7 +88,7 @@ class Raster:
         elif _is_xarray(raster):
             self._rs = raster
         else:
-            self._rs = _open_raster_from_path(raster)
+            self._rs = _open_raster_from_path(raster, open_lazy)
         self.shape = self._rs.shape
         if attrs is not None and isinstance(attrs, collections.Mapping):
             self._rs.attrs = attrs.copy()
