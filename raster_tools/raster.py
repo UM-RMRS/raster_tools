@@ -80,13 +80,15 @@ class Raster:
     def __init__(self, raster, attrs=None):
         if _is_raster_class(raster):
             self._rs = raster._rs
+            if attrs is None:
+                attrs = raster._attrs.copy()
         elif _is_xarray(raster):
             self._rs = raster
         else:
             self._rs = _open_raster_from_path(raster)
         self.shape = self._rs.shape
         if attrs is not None and isinstance(attrs, collections.Mapping):
-            self._rs.attrs = attrs
+            self._rs.attrs = attrs.copy()
         # Dict containing raster metadata like projection, etc.
         self._attrs = self._rs.attrs
 
