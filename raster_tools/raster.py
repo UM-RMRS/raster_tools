@@ -113,7 +113,8 @@ class Raster:
         # TODO: handle mapping of list of values to bands
         if op not in _BINARY_ARITHMETIC_OPS:
             raise ValueError(f"Unknown arithmetic operation: '{op}'")
-        if _is_scalar(raster_or_scalar):
+        # TODO: consider disallowing xarray objects
+        if _is_scalar(raster_or_scalar) or _is_xarray(raster_or_scalar):
             operand = raster_or_scalar
         elif _is_raster_class(raster_or_scalar):
             operand = raster_or_scalar._rs
