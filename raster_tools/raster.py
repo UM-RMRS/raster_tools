@@ -98,9 +98,9 @@ class Raster:
         if ext in TIFF_EXTS:
             # XXX: only works for single band
             # TODO: figure out method for multi-band tiffs
-            self._rs.rio.to_raster(path)
+            self._rs.rio.to_raster(path, compute=True)
         elif ext in NC_EXTS:
-            self._rs.to_netcdf(path)
+            self._rs.to_netcdf(path, compute=True)
         else:
             # TODO: populate
             raise NotImplementedError()
