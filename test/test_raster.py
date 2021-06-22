@@ -158,12 +158,22 @@ class TestRasterMath(unittest.TestCase):
             self.assertTrue(rs_eq_array(rst, truth))
             rst = rs1 ** v
             self.assertTrue(rs_eq_array(rst, truth))
+            # Avoid complex numbers issues
+            if v >= 0:
+                truth = v ** rs1_np
+                rst = v ** rs1
+                self.assertTrue(rs_eq_array(rst, truth))
         for v in [-10.5, -1.0, 1.0, 2.0, 11.3]:
             truth = rs1_np ** v
             rst = rs1.pow(v)
             self.assertTrue(rs_eq_array(rst, truth))
             rst = rs1 ** v
             self.assertTrue(rs_eq_array(rst, truth))
+            # Avoid complex numbers issues
+            if v >= 0:
+                truth = v ** rs1_np
+                rst = v ** rs1
+                self.assertTrue(rs_eq_array(rst, truth))
 
 
 if __name__ == "__main__":

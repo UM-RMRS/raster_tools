@@ -149,6 +149,9 @@ class Raster:
     def __pow__(self, value):
         return self.pow(value)
 
+    def __rpow__(self, value):
+        return Raster(value ** self._rs, self._attrs)
+
     def __pos__(self):
         return self
 
