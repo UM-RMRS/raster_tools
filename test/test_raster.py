@@ -135,6 +135,38 @@ class TestRasterMath(unittest.TestCase):
             rst = v / self.rs1
             np.testing.assert_array_almost_equal(rst._rs.values, 1 / truth)
 
+    def test_mod(self):
+        # Raster % raster
+        truth = self.rs1_np % self.rs2_np
+        rst = self.rs1.mod(self.rs2)
+        self.assertTrue(rs_eq_array(rst, truth))
+        rst = self.rs1 % self.rs2
+        self.assertTrue(rs_eq_array(rst, truth))
+        truth = self.rs2_np % self.rs1_np
+        rst = self.rs2.mod(self.rs1)
+        self.assertTrue(rs_eq_array(rst, truth))
+        rst = self.rs2 % self.rs1
+        self.assertTrue(rs_eq_array(rst, truth))
+        # Raster % scalar, scalar % raster
+        for v in [-123, -1, 1, 2, 345]:
+            truth = self.rs1_np % v
+            rst = self.rs1.mod(v)
+            self.assertTrue(rs_eq_array(rst, truth))
+            rst = self.rs1 % v
+            self.assertTrue(rs_eq_array(rst, truth))
+            truth = v % self.rs1_np
+            rst = v % self.rs1
+            self.assertTrue(rs_eq_array(rst, truth))
+        for v in [-123.8, -1.0, 1.0, 2.0, 345.6]:
+            truth = self.rs1_np % v
+            rst = self.rs1.mod(v)
+            self.assertTrue(rs_eq_array(rst, truth))
+            rst = self.rs1 % v
+            self.assertTrue(rs_eq_array(rst, truth))
+            truth = v % self.rs1_np
+            rst = v % self.rs1
+            self.assertTrue(rs_eq_array(rst, truth))
+
     def test_power(self):
         # Raster ** raster
         rs1 = self.rs1 / self.rs1._rs.max() * 2

@@ -58,6 +58,7 @@ _BINARY_ARITHMETIC_OPS = {
     "*": operator.mul,
     "/": operator.truediv,
     "**": operator.pow,
+    "%": operator.mod,
 }
 
 
@@ -144,6 +145,15 @@ class Raster:
 
     def __rtruediv__(self, other):
         return self.pow(-1).multiply(other)
+
+    def mod(self, raster_or_scalar):
+        return self._binary_arithmetic(raster_or_scalar, "%")
+
+    def __mod__(self, other):
+        return self.mod(other)
+
+    def __rmod__(self, other):
+        return Raster(other % self._rs, self._attrs)
 
     def pow(self, value):
         return self._binary_arithmetic(value, "**")
