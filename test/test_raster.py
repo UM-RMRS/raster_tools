@@ -11,9 +11,9 @@ def rs_eq_array(rs, ar):
 
 class TestRasterMath(unittest.TestCase):
     def setUp(self):
-        self.rs1 = Raster("test/data/elevation.tif")
+        self.rs1 = Raster("test/data/elevation_small.tif")
         self.rs1_np = self.rs1._rs.values
-        self.rs2 = Raster("test/data/elevation2.tif")
+        self.rs2 = Raster("test/data/elevation2_small.tif")
         self.rs2_np = self.rs2._rs.values
 
     def tearDown(self):
