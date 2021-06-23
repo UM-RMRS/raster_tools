@@ -212,3 +212,6 @@ class Raster:
         # There seems to be a bug where the attributes aren't propagated
         # through construct().
         return Raster(rs_out, self._attrs)
+
+    def __repr__(self):
+        return repr(self._rs)
