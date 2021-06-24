@@ -259,6 +259,14 @@ class Raster:
     def __neg__(self):
         return self.negate()
 
+    def log(self):
+        # Don't need to copy attrs here
+        return Raster(np.log(self._rs))
+
+    def log10(self):
+        # Don't need to copy attrs here
+        return Raster(np.log10(self._rs))
+
     def convolve2d(self, kernel, fill_value=0):
         # TODO: validate kernel
         nr, nc = kernel.shape
