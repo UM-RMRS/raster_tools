@@ -179,6 +179,7 @@ class Raster:
 
     def _binary_arithmetic(self, raster_or_scalar, op):
         # TODO: handle mapping of list of values to bands
+        # TODO: handle case where shapes match but geo references don't
         if op not in _BINARY_ARITHMETIC_OPS:
             raise ValueError(f"Unknown arithmetic operation: '{op}'")
         # TODO: consider disallowing xarray objects
@@ -245,6 +246,7 @@ class Raster:
         return self.pow(value)
 
     def __rpow__(self, value):
+        # Fall back to xarray implementation
         return Raster(value ** self._rs, self._attrs)
 
     def __pos__(self):
