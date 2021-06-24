@@ -4,6 +4,7 @@ import dask
 import numpy as np
 import operator
 import os
+import rasterio as rio
 import rioxarray  # noqa: F401; adds ability to save tiffs to xarray
 import xarray as xr
 from numbers import Number
@@ -48,6 +49,35 @@ NC_EXTS = frozenset((".nc",))
 
 class RasterInputError(BaseException):
     pass
+
+
+def write_tif_with_rasterio(rs, path, tile=False, compress=False, **kwargs):
+    if len(rs.shape) == 3:
+        bands, rows, cols = rs.shape
+    else:
+        rows, cols = rs.shape
+        bands = 1
+    compress = None if not compress else "lzw"
+    with rio.open(
+        path,
+        "w",
+        driver="GTiff",
+        height=rows,
+        width=cols,
+        count=bands,
+        dtype=rs.dtype,
+        nodata=rs.nodatavals,
+        crs=rs.crs,
+        transform=rs.transform,
+        tile=tile,
+        compress=compress,
+    ) as dst:
+        for band in range(bands):
+            if len(rs.shape) == 3:
+                values = rs[band].values
+            else:
+                values = rs.values
+            dst.write(values, band + 1)
 
 
 def _open_raster_from_path(path, open_lazy=True):
@@ -144,9 +174,15 @@ class Raster:
     def save(self, path):
         ext = _get_extension(path)
         if ext in TIFF_EXTS:
-            # XXX: only works for single band
-            # TODO: figure out method for multi-band tiffs
-            self._rs.rio.to_raster(path, compute=True)
+            # TODO: figure out method for multi-band tiffs that respects dask
+            # lazy eval/loading
+            nbands = 1
+            if len(self.shape) == 3:
+                nbands = self.shape[0]
+            if nbands == 1:
+                self._rs.rio.to_raster(path, compute=True)
+            else:
+                write_tif_with_rasterio(self._rs, path)
         elif ext in NC_EXTS:
             self._rs.to_netcdf(path, compute=True)
         else:
