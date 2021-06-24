@@ -1,4 +1,6 @@
 import collections
+import cupy
+import numpy as np
 import operator
 import os
 import rioxarray  # noqa: F401; adds ability to save tiffs to xarray
@@ -79,6 +81,20 @@ _BINARY_ARITHMETIC_OPS = {
 }
 
 
+def _chunk_replace_null(chunk, args):
+    null_values, new_value = args
+    null_values = set(null_values)
+    if np.nan in null_values:
+        null_values.remove(np.nan)
+    mod = np if isinstance(chunk, np.ndarray) else cupy
+    match = mod.isnan(chunk)
+    chunk[match] = new_value
+    for nv in null_values:
+        mod.equal(chunk, nv, out=match)
+        chunk[match] = new_value
+    return chunk
+
+
 class Raster:
     def __init__(self, raster, attrs=None, open_lazy=True):
         if _is_raster_class(raster):
@@ -118,6 +134,14 @@ class Raster:
     def eval(self):
         self._rs.compute()
         return self
+
+    def replace_null(self, value):
+        null_values = self._attrs["nodatavals"]
+        rs = self.copy()
+        rs._rs.data = rs._rs.data.map_blocks(
+            _chunk_replace_null, args=(null_values, value)
+        )
+        return rs
 
     def _binary_arithmetic(self, raster_or_scalar, op):
         # TODO: handle mapping of list of values to bands

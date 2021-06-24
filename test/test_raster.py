@@ -234,5 +234,17 @@ class TestRasterAttrs(unittest.TestCase):
         self.assertEqual(r4._attrs, test_attrs)
 
 
+class TestReplaceNull(unittest.TestCase):
+    def test_replace_null(self):
+        fill_value = 0
+        rs = Raster("test/data/null_values.tiff")
+        rsnp = rs._rs.values
+        rsnp_replaced = rsnp.copy()
+        rsnp_replaced[np.isnan(rsnp)] = fill_value
+        rsnp_replaced[rsnp == rs._attrs["nodatavals"][0]] = fill_value
+        rs = rs.replace_null(fill_value)
+        self.assertTrue(rs_eq_array(rs, rsnp_replaced))
+
+
 if __name__ == "__main__":
     unittest.main()
