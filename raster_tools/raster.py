@@ -1,5 +1,6 @@
 import collections
 import cupy
+import dask
 import numpy as np
 import operator
 import os
@@ -29,6 +30,11 @@ def _is_raster_class(value):
 
 def _is_xarray(rs):
     return isinstance(rs, (xr.DataArray, xr.Dataset))
+
+
+def _is_using_dask(raster):
+    rs = raster._rs if _is_raster_class(raster) else raster
+    return dask.is_dask_collection(rs)
 
 
 def _get_extension(path):
@@ -79,6 +85,14 @@ _BINARY_ARITHMETIC_OPS = {
     "**": operator.pow,
     "%": operator.mod,
 }
+
+
+def _map_chunk_function(raster, func, args, **kwargs):
+    if _is_using_dask(raster):
+        raster._rs.data = raster._rs.data.map_blocks(func, args, **kwargs)
+    else:
+        raster._rs.data = func(raster._rs.data, args)
+    return raster
 
 
 def _chunk_replace_null(chunk, args):
@@ -140,9 +154,8 @@ class Raster:
 
     def replace_null(self, value):
         null_values = self._attrs["nodatavals"]
-        rs = self.copy()
-        rs._rs.data = rs._rs.data.map_blocks(
-            _chunk_replace_null, args=(null_values, value)
+        rs = _map_chunk_function(
+            self.copy(), _chunk_replace_null, (null_values, value)
         )
         return rs
 
