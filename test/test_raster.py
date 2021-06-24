@@ -210,7 +210,7 @@ class TestRasterMath(unittest.TestCase):
 
 
 class TestRasterAttrs(unittest.TestCase):
-    def test_binary_arithmetic_attr_propagation(self):
+    def test_arithmetic_attr_propagation(self):
         r1 = Raster("test/data/elevation.tif")
         true_attrs = r1._attrs
         v = 2.1
