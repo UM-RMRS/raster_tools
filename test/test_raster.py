@@ -264,5 +264,21 @@ class TestReplaceNull(unittest.TestCase):
         self.assertTrue(rs_eq_array(rs, rsnp_replaced))
 
 
+class TestRemapRange(unittest.TestCase):
+    def test_remap_range(self):
+        rs = Raster("test/data/elevation_small.tif")
+        rsnp = rs._rs.values
+        min, max, new_value = rs._rs.values.min(), rs._rs.values.max(), 0
+        rng = (min, min + (0.2 * (max - min)))
+        match = rsnp >= rng[0]
+        match &= rsnp < rng[1]
+        rsnp[match] = new_value
+        rs = rs.remap_range(rng[0], rng[1], new_value)
+        self.assertTrue(rs_eq_array(rs, rsnp))
+        rs = Raster("test/data/elevation_small.tif", open_lazy=False)
+        rs = rs.remap_range(rng[0], rng[1], new_value)
+        self.assertTrue(rs_eq_array(rs, rsnp))
+
+
 if __name__ == "__main__":
     unittest.main()

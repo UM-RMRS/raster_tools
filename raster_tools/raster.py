@@ -109,6 +109,14 @@ def _chunk_replace_null(chunk, args):
     return chunk
 
 
+def _chunk_remap_range(chunk, args):
+    min_, max_, new_value = args
+    match = chunk >= min_
+    match &= chunk < max_
+    chunk[match] = new_value
+    return chunk
+
+
 class Raster:
     def __init__(self, raster, attrs=None, open_lazy=True):
         if _is_raster_class(raster):
@@ -156,6 +164,16 @@ class Raster:
         null_values = self._attrs["nodatavals"]
         rs = _map_chunk_function(
             self.copy(), _chunk_replace_null, (null_values, value)
+        )
+        return rs
+
+    def remap_range(self, min, max, new_value):
+        if np.isnan((min, max)).any():
+            raise ValueError("min and max cannot be NaN")
+        if min >= max:
+            raise ValueError(f"min must be less than max: ({min}, {max})")
+        rs = _map_chunk_function(
+            self.copy(), _chunk_remap_range, (min, max, new_value)
         )
         return rs
 
