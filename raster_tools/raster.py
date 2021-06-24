@@ -135,6 +135,9 @@ class Raster:
         self._rs.compute()
         return self
 
+    def copy(self):
+        return Raster(self._rs.copy())
+
     def replace_null(self, value):
         null_values = self._attrs["nodatavals"]
         rs = self.copy()

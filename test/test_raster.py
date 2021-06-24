@@ -234,6 +234,17 @@ class TestRasterAttrs(unittest.TestCase):
         self.assertEqual(r4._attrs, test_attrs)
 
 
+class TestCopy(unittest.TestCase):
+    def test_copy(self):
+        rs = Raster("test/data/elevation_small.tif")
+        copy = rs.copy()
+        self.assertIsNot(rs, copy)
+        self.assertIsNot(rs._rs, copy._rs)
+        self.assertIsNot(rs._attrs, copy._attrs)
+        self.assertTrue((rs._rs == copy._rs).all())
+        self.assertEqual(rs._attrs, copy._attrs)
+
+
 class TestReplaceNull(unittest.TestCase):
     def test_replace_null(self):
         fill_value = 0
