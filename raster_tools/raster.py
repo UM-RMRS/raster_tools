@@ -80,6 +80,11 @@ def _write_tif_with_rasterio(rs, path, tile=False, compress=False, **kwargs):
             dst.write(values, band + 1)
 
 
+def _chunk(xrs):
+    # TODO: smarter chunking logic
+    return xrs.chunk({"band": 1, "x": 4000, "y": 4000})
+
+
 def _open_raster_from_path(path):
     if isinstance(path, Path) or _is_str(path):
         path = str(path)
@@ -93,12 +98,11 @@ def _open_raster_from_path(path):
     if not ext:
         raise RasterInputError("Could not determine file type")
     if ext in TIFF_EXTS:
-        # TODO: smarter chunking logic
         rs = xr.open_rasterio(path)
         # XXX: comments on a few xarray issues mention better performance when
         # using the chunks keyword in open_*(). Consider combining opening and
         # chunking.
-        rs = rs.chunk({"band": 1, "x": 4000, "y": 4000})
+        rs = _chunk(rs)
         return rs
     elif ext in BATCH_EXTS:
         raise NotImplementedError()
@@ -201,6 +205,21 @@ class Raster:
         rs = self._rs.compute()
         # A new raster is returned to mirror the xarray and dask APIs
         return Raster(rs)
+
+    def to_lazy(self):
+        """
+        Convert a non-lazy Raster to a lazy one.
+
+        If this Raster is already lazy, a copy is returned.
+
+        Returns
+        -------
+        Raster
+            The new lazy Raster or a copy of the already lazy Raster
+        """
+        if _is_using_dask(self._rs):
+            return self.copy()
+        return Raster(_chunk(self._rs))
 
     def copy(self):
         return Raster(self._rs.copy())

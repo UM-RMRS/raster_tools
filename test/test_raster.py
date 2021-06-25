@@ -291,5 +291,15 @@ class TestEval(unittest.TestCase):
         self.assertFalse(dask.is_dask_collection(result._rs))
 
 
+class testToLazy(unittest.TestCase):
+    def test_to_lazy(self):
+        rs = Raster("test/data/elevation2_small.tif")
+        rs += rs
+        rs_nonlazy = rs.eval()
+        rs_lazy = rs_nonlazy.to_lazy()
+        self.assertFalse(dask.is_dask_collection(rs_nonlazy._rs))
+        self.assertTrue(dask.is_dask_collection(rs_lazy._rs))
+
+
 if __name__ == "__main__":
     unittest.main()
