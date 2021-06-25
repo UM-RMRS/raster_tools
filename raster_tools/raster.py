@@ -197,6 +197,8 @@ class Raster:
         return Raster(self._rs.copy())
 
     def replace_null(self, value):
+        if not _is_scalar(value):
+            raise TypeError("value must be a scalar")
         null_values = self._attrs["nodatavals"]
         rs = _map_chunk_function(
             self.copy(), _chunk_replace_null, (null_values, value)
