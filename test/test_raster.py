@@ -1,3 +1,4 @@
+import dask
 import numpy as np
 import unittest
 
@@ -268,6 +269,25 @@ class TestRemapRange(unittest.TestCase):
         rsnp[match] = new_value
         rs = rs.remap_range(rng[0], rng[1], new_value)
         self.assertTrue(rs_eq_array(rs, rsnp))
+
+
+class TestEval(unittest.TestCase):
+    def test_eval(self):
+        rs = Raster("test/data/elevation_small.tif")
+        rsnp = rs._rs.values
+        rs += 2
+        rsnp += 2
+        rs -= rs
+        rsnp -= rsnp
+        rs *= -1
+        rsnp *= -1
+        result = rs.eval()
+        # Make sure new raster returned
+        self.assertIsNot(rs, result)
+        self.assertIsNot(rs._rs, result._rs)
+        # Make sure that original raster is still lazy
+        self.assertTrue(dask.is_dask_collection(rs._rs))
+        self.assertTrue(rs_eq_array(result, rsnp))
 
 
 if __name__ == "__main__":

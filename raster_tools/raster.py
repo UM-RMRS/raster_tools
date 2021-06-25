@@ -192,8 +192,15 @@ class Raster:
             raise NotImplementedError()
 
     def eval(self):
-        self._rs.compute()
-        return self
+        """
+        Compute any applied operations and return the resulting raster.
+
+        Note that the unerlying sources will be loaded into memory for the
+        computations and the result will be fixed in memory.
+        """
+        rs = self._rs.compute()
+        # A new raster is returned to mirror the xarray and dask APIs
+        return Raster(rs)
 
     def copy(self):
         return Raster(self._rs.copy())
