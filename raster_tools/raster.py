@@ -331,7 +331,7 @@ class Raster:
         else:
             operand = _open_raster_from_path(raster_or_scalar)
         # Attributes are not propagated through math ops
-        return Raster(
+        return _new_raster_set_attrs(
             _BINARY_ARITHMETIC_OPS[op](self._rs, operand), self._attrs
         )
 

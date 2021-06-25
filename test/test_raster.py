@@ -227,12 +227,11 @@ class TestRasterAttrs(unittest.TestCase):
         r1 = Raster("test/data/elevation.tif")
         true_attrs = r1._attrs.copy()
         r2 = Raster(Raster("test/data/elevation.tif"))
-        r3 = Raster(Raster("test/data/elevation.tif"), true_attrs)
         test_attrs = {"test": 0}
-        r4 = Raster(Raster("test/data/elevation.tif"), test_attrs)
+        r3 = Raster("test/data/elevation.tif")
+        r3._attrs = test_attrs
         self.assertEqual(r2._attrs, true_attrs)
-        self.assertEqual(r3._attrs, true_attrs)
-        self.assertEqual(r4._attrs, test_attrs)
+        self.assertEqual(r3._attrs, test_attrs)
 
 
 class TestCopy(unittest.TestCase):
