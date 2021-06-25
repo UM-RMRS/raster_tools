@@ -279,11 +279,11 @@ class Raster:
         rs.device = GPU
         return rs
 
-    def _check_gpu_mismatch(self, other):
+    def _check_device_mismatch(self, other):
         if _is_scalar(other):
             return False
         if _is_raster_class(other):
-            return self.device and other.device
+            return self.device == other.device
         return True
 
     def cpu(self):
