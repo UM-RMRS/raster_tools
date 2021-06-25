@@ -51,7 +51,7 @@ class RasterInputError(BaseException):
     pass
 
 
-def write_tif_with_rasterio(rs, path, tile=False, compress=False, **kwargs):
+def _write_tif_with_rasterio(rs, path, tile=False, compress=False, **kwargs):
     if len(rs.shape) == 3:
         bands, rows, cols = rs.shape
     else:
@@ -182,7 +182,7 @@ class Raster:
             if nbands == 1:
                 self._rs.rio.to_raster(path, compute=True)
             else:
-                write_tif_with_rasterio(self._rs, path)
+                _write_tif_with_rasterio(self._rs, path)
         elif ext in NC_EXTS:
             self._rs.to_netcdf(path, compute=True)
         else:
