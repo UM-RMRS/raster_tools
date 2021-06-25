@@ -288,6 +288,7 @@ class TestEval(unittest.TestCase):
         # Make sure that original raster is still lazy
         self.assertTrue(dask.is_dask_collection(rs._rs))
         self.assertTrue(rs_eq_array(result, rsnp))
+        self.assertFalse(dask.is_dask_collection(result._rs))
 
 
 if __name__ == "__main__":
