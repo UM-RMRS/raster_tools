@@ -51,6 +51,10 @@ class RasterInputError(BaseException):
     pass
 
 
+class RasterDeviceMismatchError(BaseException):
+    pass
+
+
 def _write_tif_with_rasterio(rs, path, tile=False, compress=False, **kwargs):
     # This method uses rasterio to write multi-band tiffs to disk. It does not
     # respect dask and the result raster will be loaded into memory before
@@ -281,10 +285,12 @@ class Raster:
 
     def _check_device_mismatch(self, other):
         if _is_scalar(other):
-            return False
-        if _is_raster_class(other):
-            return self.device == other.device
-        return True
+            return
+        if _is_raster_class(other) and (self.device == other.device):
+            return
+        raise RasterDeviceMismatchError(
+            f"Raster devices must match: {self.device} != {other.device}"
+        )
 
     def cpu(self):
         if not self.device:
