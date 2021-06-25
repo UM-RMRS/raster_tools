@@ -80,7 +80,7 @@ def _write_tif_with_rasterio(rs, path, tile=False, compress=False, **kwargs):
             dst.write(values, band + 1)
 
 
-def _open_raster_from_path(path, open_lazy=True):
+def _open_raster_from_path(path):
     if isinstance(path, Path) or _is_str(path):
         path = str(path)
         path = os.path.abspath(path)
@@ -95,8 +95,10 @@ def _open_raster_from_path(path, open_lazy=True):
     if ext in TIFF_EXTS:
         # TODO: smarter chunking logic
         rs = xr.open_rasterio(path)
-        if open_lazy:
-            rs = rs.chunk({"band": 1, "x": 4000, "y": 4000})
+        # XXX: comments on a few xarray issues mention better performance when
+        # using the chunks keyword in open_*(). Consider combining opening and
+        # chunking.
+        rs = rs.chunk({"band": 1, "x": 4000, "y": 4000})
         return rs
     elif ext in BATCH_EXTS:
         raise NotImplementedError()
@@ -148,13 +150,13 @@ def _chunk_remap_range(chunk, args):
 
 
 class Raster:
-    def __init__(self, raster, attrs=None, open_lazy=True):
+    def __init__(self, raster, attrs=None):
         if _is_raster_class(raster):
             self._rs = raster._rs
         elif _is_xarray(raster):
             self._rs = raster
         else:
-            self._rs = _open_raster_from_path(raster, open_lazy)
+            self._rs = _open_raster_from_path(raster)
         self.shape = self._rs.shape
         # Dict containing raster metadata like projection, etc.
         if attrs is not None and isinstance(attrs, collections.Mapping):

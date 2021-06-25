@@ -255,13 +255,6 @@ class TestReplaceNull(unittest.TestCase):
         rsnp_replaced[rsnp == rs._attrs["nodatavals"][0]] = fill_value
         rs = rs.replace_null(fill_value)
         self.assertTrue(rs_eq_array(rs, rsnp_replaced))
-        rs = Raster("test/data/null_values.tiff", open_lazy=False)
-        rsnp = rs._rs.values
-        rsnp_replaced = rsnp.copy()
-        rsnp_replaced[np.isnan(rsnp)] = fill_value
-        rsnp_replaced[rsnp == rs._attrs["nodatavals"][0]] = fill_value
-        rs = rs.replace_null(fill_value)
-        self.assertTrue(rs_eq_array(rs, rsnp_replaced))
 
 
 class TestRemapRange(unittest.TestCase):
@@ -273,9 +266,6 @@ class TestRemapRange(unittest.TestCase):
         match = rsnp >= rng[0]
         match &= rsnp < rng[1]
         rsnp[match] = new_value
-        rs = rs.remap_range(rng[0], rng[1], new_value)
-        self.assertTrue(rs_eq_array(rs, rsnp))
-        rs = Raster("test/data/elevation_small.tif", open_lazy=False)
         rs = rs.remap_range(rng[0], rng[1], new_value)
         self.assertTrue(rs_eq_array(rs, rsnp))
 
