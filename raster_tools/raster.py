@@ -267,11 +267,12 @@ class Raster:
 
     def copy(self):
         """Returns a copy of this Raster."""
-        return Raster(self._rs.copy())
+        rs = Raster(self._rs.copy())
+        rs.device = self.device
+        return rs
 
     def gpu(self):
-        # TODO: update copy() for device
-        if self.device:
+        if self.device == GPU:
             return self
         rs = self.copy()
         rs._rs.data = rs._rs.data.map_blocks(cupy.asarray)
