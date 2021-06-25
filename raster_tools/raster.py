@@ -147,10 +147,16 @@ def _chunk_remap_range(chunk, args):
     return chunk
 
 
+GPU = "gpu"
+CPU = "cpu"
+
+
 class Raster:
     def __init__(self, raster, attrs=None, open_lazy=True):
+        self.device = GPU
         if _is_raster_class(raster):
             self._rs = raster._rs
+            self.device = raster.device
         elif _is_xarray(raster):
             self._rs = raster
         else:
@@ -195,6 +201,30 @@ class Raster:
 
     def copy(self):
         return Raster(self._rs.copy())
+
+    def gpu(self):
+        # TODO: update copy() for device
+        if self.device:
+            return self
+        rs = self.copy()
+        rs._rs.data = rs._rs.data.map_blocks(cupy.asarray)
+        rs.device = GPU
+        return rs
+
+    def _check_gpu_mismatch(self, other):
+        if _is_scalar(other):
+            return False
+        if _is_raster_class(other):
+            return self.device and other.device
+        return True
+
+    def cpu(self):
+        if not self.device:
+            return self
+        rs = self.copy()
+        rs._rs.data = rs._rs.data.map_blocks(np.asarray)
+        rs.device = CPU
+        return rs
 
     def replace_null(self, value):
         null_values = self._attrs["nodatavals"]
