@@ -52,6 +52,9 @@ class RasterInputError(BaseException):
 
 
 def _write_tif_with_rasterio(rs, path, tile=False, compress=False, **kwargs):
+    # This method uses rasterio to write multi-band tiffs to disk. It does not
+    # respect dask and the result raster will be loaded into memory before
+    # writing to disk.
     if len(rs.shape) == 3:
         bands, rows, cols = rs.shape
     else:
@@ -124,6 +127,7 @@ _BINARY_ARITHMETIC_OPS = {
 
 
 def _map_chunk_function(raster, func, args, **kwargs):
+    """Map a function to the dask chunks of a raster."""
     if _is_using_dask(raster):
         raster._rs.data = raster._rs.data.map_blocks(func, args, **kwargs)
     else:
@@ -132,6 +136,7 @@ def _map_chunk_function(raster, func, args, **kwargs):
 
 
 def _chunk_replace_null(chunk, args):
+    """Replace null values in a chunk."""
     null_values, new_value = args
     null_values = set(null_values)
     if np.nan in null_values:
@@ -146,6 +151,7 @@ def _chunk_replace_null(chunk, args):
 
 
 def _chunk_remap_range(chunk, args):
+    """Remap a range of value to a new value within a chunk."""
     min_, max_, new_value = args
     match = chunk >= min_
     match &= chunk < max_
@@ -182,9 +188,11 @@ class Raster:
             raise TypeError("attrs cannot be None and must be mapping type")
 
     def close(self):
+        """Close the underlying source"""
         self._rs.close()
 
     def save(self, path):
+        """Compute the final raster and save it to the provided location."""
         ext = _get_extension(path)
         if ext in TIFF_EXTS:
             # TODO: figure out method for multi-band tiffs that respects dask
@@ -204,10 +212,11 @@ class Raster:
 
     def eval(self):
         """
-        Compute any applied operations and return the resulting raster.
+        Compute any applied operations and return the result as a new Raster.
 
         Note that the unerlying sources will be loaded into memory for the
-        computations and the result will be fixed in memory.
+        computations and the result will be fixed in memory. The original
+        Raster will be unaltered.
         """
         rs = self._rs.compute()
         # A new raster is returned to mirror the xarray and dask APIs
@@ -229,9 +238,25 @@ class Raster:
         return Raster(_chunk(self._rs))
 
     def copy(self):
+        """Returns a copy of this Raster."""
         return Raster(self._rs.copy())
 
     def replace_null(self, value):
+        """
+        Replaces null values with a new value. Returns a new Raster.
+
+        Null values are NaN and the values specified by the underlying source.
+
+        Parameters
+        ----------
+        value : scalar
+            The new value to replace null values with.
+
+        Returns
+        -------
+        Raster
+            The new resulting Raster.
+        """
         if not _is_scalar(value):
             raise TypeError("value must be a scalar")
         null_values = self._attrs["nodatavals"]
@@ -241,6 +266,24 @@ class Raster:
         return rs
 
     def remap_range(self, min, max, new_value):
+        """
+        Remaps values in a the range [`min`, `max`) to `new_value`. Returns a
+        new Raster.
+
+        Parameters
+        ----------
+        min : scalar
+            The minimum value of the mapping range (inclusive).
+        max : scalar
+            The maximum value of the mapping range (exclusive).
+        new_value : scalar
+            The new value to map the range to.
+
+        Returns
+        -------
+        Raster
+            The resulting Raster.
+        """
         if np.isnan((min, max)).any():
             raise ValueError("min and max cannot be NaN")
         if min >= max:
@@ -268,6 +311,9 @@ class Raster:
         )
 
     def add(self, raster_or_scalar):
+        """
+        Add this Raster with another Raster or scalar. Returns a new Raster.
+        """
         return self._binary_arithmetic(raster_or_scalar, "+")
 
     def __add__(self, other):
@@ -277,6 +323,10 @@ class Raster:
         return self.add(other)
 
     def subtract(self, raster_or_scalar):
+        """
+        Subtract another Raster or scalar from This Raster. Returns a new
+        Raster.
+        """
         return self._binary_arithmetic(raster_or_scalar, "-")
 
     def __sub__(self, other):
@@ -286,6 +336,10 @@ class Raster:
         return self.negate().add(other)
 
     def multiply(self, raster_or_scalar):
+        """
+        Multiply this Raster with another Raster or scalar. Returns a new
+        Raster.
+        """
         return self._binary_arithmetic(raster_or_scalar, "*")
 
     def __mul__(self, other):
@@ -295,6 +349,9 @@ class Raster:
         return self.multiply(other)
 
     def divide(self, raster_or_scalar):
+        """
+        Divide this Raster by another Raster or scalar. Returns a new Raster.
+        """
         return self._binary_arithmetic(raster_or_scalar, "/")
 
     def __truediv__(self, other):
@@ -304,6 +361,10 @@ class Raster:
         return self.pow(-1).multiply(other)
 
     def mod(self, raster_or_scalar):
+        """
+        Perform the modulo operation on this Raster with another Raster or
+        scalar. Returns a new Raster.
+        """
         return self._binary_arithmetic(raster_or_scalar, "%")
 
     def __mod__(self, other):
@@ -313,6 +374,9 @@ class Raster:
         return _new_raster_set_attrs(other % self._rs, self._attrs)
 
     def pow(self, value):
+        """
+        Raise this raster by another Raster or scalar. Returns a new Raster.
+        """
         return self._binary_arithmetic(value, "**")
 
     def __pow__(self, value):
@@ -326,6 +390,7 @@ class Raster:
         return self
 
     def negate(self):
+        """Negate this Raster. Returns a new Raster."""
         # Don't need to copy attrs here
         return Raster(-self._rs)
 
@@ -333,14 +398,17 @@ class Raster:
         return self.negate()
 
     def log(self):
+        """Take the natural logarithm of this Raster. Returns a new Raster."""
         # Don't need to copy attrs here
         return Raster(np.log(self._rs))
 
     def log10(self):
+        """Take the base-10 logarithm of this Raster. Returns a new Raster."""
         # Don't need to copy attrs here
         return Raster(np.log10(self._rs))
 
     def convolve2d(self, kernel, fill_value=0):
+        """Convolve this Raster with a kernel. Warning: experimental"""
         # TODO: validate kernel
         nr, nc = kernel.shape
         kernel = xr.DataArray(kernel, dims=("kx", "ky"))
@@ -355,4 +423,5 @@ class Raster:
         return _new_raster_set_attrs(rs_out, self._attrs)
 
     def __repr__(self):
+        # TODO: implement
         return repr(self._rs)
