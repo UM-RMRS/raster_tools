@@ -66,7 +66,7 @@ def write_tif_with_rasterio(rs, path, tile=False, compress=False, **kwargs):
         width=cols,
         count=bands,
         dtype=rs.dtype,
-        nodata=rs.nodatavals,
+        nodata=rs.nodatavals[0],
         crs=rs.crs,
         transform=rs.transform,
         tile=tile,
