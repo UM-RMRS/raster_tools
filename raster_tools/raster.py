@@ -231,6 +231,7 @@ class Raster:
         else:
             # TODO: populate
             raise NotImplementedError()
+        return self
 
     def eval(self):
         """
@@ -306,6 +307,8 @@ class Raster:
         Raster
             The resulting Raster.
         """
+        if not all([_is_scalar(v) for v in (min, max, new_value)]):
+            raise TypeError("min, max, and new_value must all be scalars")
         if np.isnan((min, max)).any():
             raise ValueError("min and max cannot be NaN")
         if min >= max:
