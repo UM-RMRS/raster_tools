@@ -153,8 +153,14 @@ def _chunk_remap_range(chunk, args):
     return chunk
 
 
+def _new_raster_set_attrs(rs, attrs):
+    new_rs = Raster(rs)
+    new_rs._attrs = attrs
+    return new_rs
+
+
 class Raster:
-    def __init__(self, raster, attrs=None):
+    def __init__(self, raster):
         if _is_raster_class(raster):
             self._rs = raster._rs
         elif _is_xarray(raster):
@@ -162,17 +168,18 @@ class Raster:
         else:
             self._rs = _open_raster_from_path(raster)
         self.shape = self._rs.shape
-        # Dict containing raster metadata like projection, etc.
-        if attrs is not None and isinstance(attrs, collections.Mapping):
-            self._rs.attrs = attrs.copy()
 
     @property
     def _attrs(self):
+        # Dict containing raster metadata like projection, etc.
         return self._rs.attrs.copy()
 
     @_attrs.setter
     def _attrs(self, attrs):
-        self._rs.attrs = attrs.copy()
+        if attrs is not None and isinstance(attrs, collections.Mapping):
+            self._rs.attrs = attrs.copy()
+        else:
+            raise TypeError("attrs cannot be None and must be mapping type")
 
     def close(self):
         self._rs.close()
@@ -303,7 +310,7 @@ class Raster:
         return self.mod(other)
 
     def __rmod__(self, other):
-        return Raster(other % self._rs, self._attrs)
+        return _new_raster_set_attrs(other % self._rs, self._attrs)
 
     def pow(self, value):
         return self._binary_arithmetic(value, "**")
@@ -313,7 +320,7 @@ class Raster:
 
     def __rpow__(self, value):
         # Fall back to xarray implementation
-        return Raster(value ** self._rs, self._attrs)
+        return _new_raster_set_attrs(value ** self._rs, self._attrs)
 
     def __pos__(self):
         return self
@@ -345,7 +352,7 @@ class Raster:
         )
         # There seems to be a bug where the attributes aren't propagated
         # through construct().
-        return Raster(rs_out, self._attrs)
+        return _new_raster_set_attrs(rs_out, self._attrs)
 
     def __repr__(self):
         return repr(self._rs)
