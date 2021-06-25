@@ -166,8 +166,30 @@ def _new_raster_set_attrs(rs, attrs):
 
 
 class Raster:
+    """
+    An abstraction of georeferenced raster data with lazy function evaluation.
+
+    Raster is a wrapper around xarray Datasets and DataArrays. It takes
+    advantage of xarray's dask integration to allow lazy loading and
+    evaluation. It allows a pipeline of operations on underlying raster
+    sources to be built in a lazy fashion and then evaluated effiently.
+    Most mathematical operations have been overloaded so operations such as
+    `z = x - y` and `r = x**2` are possible.
+
+    All operations on a Raster return a new Raster.
+
+    Parameters
+    ----------
+    raster : str, Raster, xarray.Dataset, xarray.DataArray
+        The raster source to use for this Raster. If `raster` is a string,
+        it is treated like a path. If `raster` is a Raster, a copy is made
+        and its raster source is used. If `raster` is and xarray data
+        structure, it is used as the source.
+    """
+
     def __init__(self, raster):
         if _is_raster_class(raster):
+            raster = raster.copy()
             self._rs = raster._rs
         elif _is_xarray(raster):
             self._rs = raster
