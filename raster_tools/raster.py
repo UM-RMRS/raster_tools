@@ -198,7 +198,7 @@ class Raster:
     def __init__(self, raster):
         self.device = CPU
         if _is_raster_class(raster):
-            self._rs = raster._rs
+            self._rs = raster._rs.copy()
             self.device = raster.device
         elif _is_xarray(raster):
             self._rs = raster
@@ -271,9 +271,7 @@ class Raster:
 
     def copy(self):
         """Returns a copy of this Raster."""
-        rs = Raster(self._rs.copy())
-        rs.device = self.device
-        return rs
+        return Raster(self)
 
     def gpu(self):
         if self.device == GPU:
