@@ -189,8 +189,7 @@ class Raster:
 
     def __init__(self, raster):
         if _is_raster_class(raster):
-            raster = raster.copy()
-            self._rs = raster._rs
+            self._rs = raster._rs.copy()
         elif _is_xarray(raster):
             self._rs = raster
         else:
@@ -262,7 +261,7 @@ class Raster:
 
     def copy(self):
         """Returns a copy of this Raster."""
-        return Raster(self._rs.copy())
+        return Raster(self)
 
     def replace_null(self, value):
         """
