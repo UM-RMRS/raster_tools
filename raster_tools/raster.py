@@ -130,7 +130,7 @@ _BINARY_ARITHMETIC_OPS = {
 }
 
 
-def _map_chunk_function(raster, func, args, **kwargs):
+def _map_chunk_function(raster, func, args=(), **kwargs):
     """Map a function to the dask chunks of a raster."""
     if _is_using_dask(raster):
         raster._rs.data = raster._rs.data.map_blocks(func, args, **kwargs)
@@ -161,6 +161,14 @@ def _chunk_remap_range(chunk, args):
     match &= chunk < max_
     chunk[match] = new_value
     return chunk
+
+
+def _chunk_to_cpu(chunk, *args):
+    try:
+        return chunk.get()
+    except AttributeError:
+        # assume chunk is already on the cpu
+        return chunk
 
 
 GPU = "gpu"
@@ -276,8 +284,7 @@ class Raster:
     def gpu(self):
         if self.device == GPU:
             return self
-        rs = self.copy()
-        rs._rs.data = rs._rs.data.map_blocks(cupy.asarray)
+        rs = _map_chunk_function(self.copy(), cupy.asarray)
         rs.device = GPU
         return rs
 
@@ -291,10 +298,9 @@ class Raster:
         )
 
     def cpu(self):
-        if not self.device:
+        if self.device == CPU:
             return self
-        rs = self.copy()
-        rs._rs.data = rs._rs.data.map_blocks(np.asarray)
+        rs = _map_chunk_function(self.copy(), _chunk_to_cpu)
         rs.device = CPU
         return rs
 
@@ -352,22 +358,29 @@ class Raster:
         )
         return rs
 
-    def _binary_arithmetic(self, raster_or_scalar, op):
+    def _binary_arithmetic(self, raster_or_scalar, op, swap=False):
         # TODO: handle mapping of list of values to bands
         # TODO: handle case where shapes match but geo references don't
         if op not in _BINARY_ARITHMETIC_OPS:
             raise ValueError(f"Unknown arithmetic operation: '{op}'")
-        # TODO: consider disallowing xarray objects
-        if _is_scalar(raster_or_scalar) or _is_xarray(raster_or_scalar):
+        if _is_scalar(raster_or_scalar):
             operand = raster_or_scalar
         elif _is_raster_class(raster_or_scalar):
+            self._check_device_mismatch(raster_or_scalar)
             operand = raster_or_scalar._rs
         else:
             operand = _open_raster_from_path(raster_or_scalar)
+            if self.device == GPU:
+                operand = operand.gpu()._rs
         # Attributes are not propagated through math ops
-        return _new_raster_set_attrs(
-            _BINARY_ARITHMETIC_OPS[op](self._rs, operand), self._attrs
-        )
+        if not swap:
+            return _new_raster_set_attrs(
+                _BINARY_ARITHMETIC_OPS[op](self._rs, operand), self._attrs
+            )
+        else:
+            return _new_raster_set_attrs(
+                _BINARY_ARITHMETIC_OPS[op](operand, self._rs), self._attrs
+            )
 
     def add(self, raster_or_scalar):
         """
@@ -417,7 +430,7 @@ class Raster:
         return self.divide(other)
 
     def __rtruediv__(self, other):
-        return self.pow(-1).multiply(other)
+        return self._binary_arithmetic(other, "/", swap=True)
 
     def mod(self, raster_or_scalar):
         """
@@ -430,7 +443,7 @@ class Raster:
         return self.mod(other)
 
     def __rmod__(self, other):
-        return _new_raster_set_attrs(other % self._rs, self._attrs)
+        return self._binary_arithmetic(other, "%", swap=True)
 
     def pow(self, value):
         """
@@ -442,8 +455,7 @@ class Raster:
         return self.pow(value)
 
     def __rpow__(self, value):
-        # Fall back to xarray implementation
-        return _new_raster_set_attrs(value ** self._rs, self._attrs)
+        return self._binary_arithmetic(value, "**", swap=True)
 
     def __pos__(self):
         return self
