@@ -1,5 +1,5 @@
 import collections
-import cupy
+import cupy as cp
 import dask
 import numpy as np
 import operator
@@ -130,7 +130,7 @@ _BINARY_ARITHMETIC_OPS = {
 }
 
 
-def _map_chunk_function(raster, func, args=(), **kwargs):
+def _map_chunk_function(raster, func, args, **kwargs):
     """Map a function to the dask chunks of a raster."""
     if _is_using_dask(raster):
         raster._rs.data = raster._rs.data.map_blocks(func, args, **kwargs)
@@ -284,7 +284,7 @@ class Raster:
     def gpu(self):
         if self.device == GPU:
             return self
-        rs = _map_chunk_function(self.copy(), cupy.asarray)
+        rs = _map_chunk_function(self.copy(), cp.asarray, args=None)
         rs.device = GPU
         return rs
 
@@ -300,7 +300,7 @@ class Raster:
     def cpu(self):
         if self.device == CPU:
             return self
-        rs = _map_chunk_function(self.copy(), _chunk_to_cpu)
+        rs = _map_chunk_function(self.copy(), _chunk_to_cpu, args=None)
         rs.device = CPU
         return rs
 
