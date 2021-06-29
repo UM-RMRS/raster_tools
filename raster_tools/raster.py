@@ -145,11 +145,11 @@ def _chunk_replace_null(chunk, args):
     null_values = set(null_values)
     if np.nan in null_values:
         null_values.remove(np.nan)
-    mod = np if isinstance(chunk, np.ndarray) else cupy
-    match = mod.isnan(chunk)
+    xp = cp.get_array_module(chunk)
+    match = xp.isnan(chunk)
     chunk[match] = new_value
     for nv in null_values:
-        mod.equal(chunk, nv, out=match)
+        xp.equal(chunk, nv, out=match)
         chunk[match] = new_value
     return chunk
 
