@@ -10,11 +10,7 @@ import xarray as xr
 from numbers import Number
 from pathlib import Path
 
-
-def _validate_file(path):
-    if os.path.isfile(path):
-        return path
-    raise FileNotFoundError(f"Could not find file: '{path}'")
+from ._utils import validate_file
 
 
 def _is_str(value):
@@ -104,7 +100,7 @@ def _open_raster_from_path(path):
         raise RasterInputError(
             f"Could not resolve input to a raster: '{path}'"
         )
-    _validate_file(path)
+    validate_file(path)
     ext = _get_extension(path)
     if not ext:
         raise RasterInputError("Could not determine file type")
