@@ -61,6 +61,14 @@ def _write_tif_with_rasterio(rs, path, tile=False, compress=False, **kwargs):
         rows, cols = rs.shape
         bands = 1
     compress = None if not compress else "lzw"
+    nodatavals = set(rs.nodatavals)
+    if rs.dtype.kind in ("u", "i") and np.isnan(list(nodatavals)).any():
+        nodatavals.remove(np.nan)
+    if len(nodatavals):
+        # TODO: add warning if size > 1
+        nodataval = nodatavals.pop()
+    else:
+        nodataval = None
     with rio.open(
         path,
         "w",
@@ -69,7 +77,7 @@ def _write_tif_with_rasterio(rs, path, tile=False, compress=False, **kwargs):
         width=cols,
         count=bands,
         dtype=rs.dtype,
-        nodata=rs.nodatavals[0],
+        nodata=nodataval,
         crs=rs.crs,
         transform=rs.transform,
         tile=tile,
