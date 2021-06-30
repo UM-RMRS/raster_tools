@@ -171,8 +171,8 @@ class TestRasterMath(unittest.TestCase):
 
     def test_power(self):
         # Raster ** raster
-        rs1 = self.rs1 / self.rs1._rs.max() * 2
-        rs2 = self.rs2 / self.rs2._rs.max() * 2
+        rs1 = self.rs1 / self.rs1._rs.max().values.item() * 2
+        rs2 = self.rs2 / self.rs2._rs.max().values.item() * 2
         rs1_np = self.rs1_np / self.rs1_np.max() * 2
         rs2_np = self.rs2_np / self.rs2_np.max() * 2
         truth = rs1_np ** rs2_np
