@@ -93,7 +93,7 @@ def _write_tif_with_rasterio(rs, path, tile=False, compress=False, **kwargs):
 
 def _chunk(xrs):
     # TODO: smarter chunking logic
-    return xrs.chunk({"band": 1, "x": 4000, "y": 4000})
+    return xrs.chunk({"band": 1, "x": 10_000, "y": 10_000})
 
 
 def _open_raster_from_path(path):
