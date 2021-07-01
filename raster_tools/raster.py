@@ -378,13 +378,17 @@ class Raster:
                 operand = operand.gpu()._rs
         # Attributes are not propagated through math ops
         if not swap:
-            return _new_raster_set_attrs(
+            rs = _new_raster_set_attrs(
                 _BINARY_ARITHMETIC_OPS[op](self._rs, operand), self._attrs
             )
+            rs.device = self.device
+            return rs
         else:
-            return _new_raster_set_attrs(
+            rs = _new_raster_set_attrs(
                 _BINARY_ARITHMETIC_OPS[op](operand, self._rs), self._attrs
             )
+            rs.device = self.device
+            return rs
 
     def add(self, raster_or_scalar):
         """
