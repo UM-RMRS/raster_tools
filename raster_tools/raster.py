@@ -3,14 +3,10 @@ import cupy as cp
 import dask
 import numpy as np
 import operator
-import os
-import rasterio as rio
-import rioxarray  # noqa: F401; adds ability to save tiffs to xarray
 import xarray as xr
 from numbers import Number
-from pathlib import Path
 
-from ._utils import validate_file
+from .io import chunk, open_raster_from_path, write_raster
 
 
 def _is_str(value):
@@ -34,94 +30,8 @@ def _is_using_dask(raster):
     return dask.is_dask_collection(rs)
 
 
-def _get_extension(path):
-    return os.path.splitext(path)[-1].lower()
-
-
-TIFF_EXTS = frozenset((".tif", ".tiff"))
-BATCH_EXTS = frozenset((".bch",))
-NC_EXTS = frozenset((".nc",))
-
-
-class RasterInputError(BaseException):
-    pass
-
-
 class RasterDeviceMismatchError(BaseException):
     pass
-
-
-def _write_tif_with_rasterio(rs, path, tile=False, compress=False, **kwargs):
-    # This method uses rasterio to write multi-band tiffs to disk. It does not
-    # respect dask and the result raster will be loaded into memory before
-    # writing to disk.
-    if len(rs.shape) == 3:
-        bands, rows, cols = rs.shape
-    else:
-        rows, cols = rs.shape
-        bands = 1
-    compress = None if not compress else "lzw"
-    nodatavals = set(rs.nodatavals)
-    if rs.dtype.kind in ("u", "i") and np.isnan(list(nodatavals)).any():
-        nodatavals.remove(np.nan)
-    if len(nodatavals):
-        # TODO: add warning if size > 1
-        nodataval = nodatavals.pop()
-    else:
-        nodataval = None
-    with rio.open(
-        path,
-        "w",
-        driver="GTiff",
-        height=rows,
-        width=cols,
-        count=bands,
-        dtype=rs.dtype,
-        nodata=nodataval,
-        crs=rs.crs,
-        transform=rs.transform,
-        tile=tile,
-        compress=compress,
-    ) as dst:
-        for band in range(bands):
-            if len(rs.shape) == 3:
-                values = rs[band].values
-            else:
-                values = rs.values
-            dst.write(values, band + 1)
-
-
-def _chunk(xrs):
-    # TODO: smarter chunking logic
-    return xrs.chunk({"band": 1, "x": 10_000, "y": 10_000})
-
-
-def _open_raster_from_path(path):
-    if isinstance(path, Path) or _is_str(path):
-        path = str(path)
-        path = os.path.abspath(path)
-    else:
-        raise RasterInputError(
-            f"Could not resolve input to a raster: '{path}'"
-        )
-    validate_file(path)
-    ext = _get_extension(path)
-    if not ext:
-        raise RasterInputError("Could not determine file type")
-    if ext in TIFF_EXTS:
-        rs = xr.open_rasterio(path)
-        # XXX: comments on a few xarray issues mention better performance when
-        # using the chunks keyword in open_*(). Consider combining opening and
-        # chunking.
-        rs = _chunk(rs)
-        return rs
-    elif ext in BATCH_EXTS:
-        raise NotImplementedError()
-    elif ext in NC_EXTS:
-        # TODO: chunking logic
-        return xr.open_dataset(path)
-    else:
-        raise RasterInputError("Unknown file type")
 
 
 _BINARY_ARITHMETIC_OPS = {
@@ -215,7 +125,7 @@ class Raster:
         elif _is_xarray(raster):
             self._rs = raster
         else:
-            self._rs = _open_raster_from_path(raster)
+            self._rs = open_raster_from_path(raster)
         self.shape = self._rs.shape
 
     @property
@@ -236,22 +146,7 @@ class Raster:
 
     def save(self, path):
         """Compute the final raster and save it to the provided location."""
-        ext = _get_extension(path)
-        if ext in TIFF_EXTS:
-            # TODO: figure out method for multi-band tiffs that respects dask
-            # lazy eval/loading
-            nbands = 1
-            if len(self.shape) == 3:
-                nbands = self.shape[0]
-            if nbands == 1:
-                self._rs.rio.to_raster(path, compute=True)
-            else:
-                _write_tif_with_rasterio(self._rs, path)
-        elif ext in NC_EXTS:
-            self._rs.to_netcdf(path, compute=True)
-        else:
-            # TODO: populate
-            raise NotImplementedError()
+        write_raster(self._rs, path)
         return self
 
     def eval(self):
@@ -279,7 +174,7 @@ class Raster:
         """
         if _is_using_dask(self._rs):
             return self.copy()
-        return Raster(_chunk(self._rs))
+        return Raster(chunk(self._rs))
 
     def copy(self):
         """Returns a copy of this Raster."""
@@ -373,7 +268,7 @@ class Raster:
             self._check_device_mismatch(raster_or_scalar)
             operand = raster_or_scalar._rs
         else:
-            operand = _open_raster_from_path(raster_or_scalar)
+            operand = open_raster_from_path(raster_or_scalar)
             if self.device == GPU:
                 operand = operand.gpu()._rs
         # Attributes are not propagated through math ops
