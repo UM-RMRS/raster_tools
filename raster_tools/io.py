@@ -5,7 +5,6 @@ import rioxarray  # noqa: F401; adds ability to save tiffs to xarray
 import xarray as xr
 from pathlib import Path
 
-from .batch import BatchScript
 from ._utils import validate_file
 
 
@@ -30,9 +29,9 @@ TIFF_EXTS = frozenset((".tif", ".tiff"))
 BATCH_EXTS = frozenset((".bch",))
 NC_EXTS = frozenset((".nc",))
 
-FTYPE_TO_EXT = {
-    "TIFF": "tif",
-}
+
+def is_batch_file(path):
+    return _get_extension(path) in BATCH_EXTS
 
 
 def open_raster_from_path(path):
@@ -52,9 +51,6 @@ def open_raster_from_path(path):
         # chunking.
         rs = chunk(rs)
         return rs
-    elif ext in BATCH_EXTS:
-        bs = BatchScript(path)
-        return bs.parse().final_raster._rs
     elif ext in NC_EXTS:
         # TODO: chunking logic
         return xr.open_dataset(path)

@@ -8,7 +8,7 @@ import re
 import xarray as xr
 from numbers import Number
 
-from .io import chunk, open_raster_from_path, write_raster, FTYPE_TO_EXT
+from .io import chunk, is_batch_file, open_raster_from_path, write_raster
 from ._utils import validate_file
 
 
@@ -127,6 +127,8 @@ class Raster:
             self.device = raster.device
         elif _is_xarray(raster):
             self._rs = raster
+        elif is_batch_file(raster):
+            self._rs = BatchScript(raster).parse().final_raster._rs
         else:
             self._rs = open_raster_from_path(raster)
         self.shape = self._rs.shape
@@ -420,6 +422,11 @@ class BatchScriptParseError(BaseException):
 
 def _split_strip(s, delimeter):
     return [si.strip() for si in s.split(delimeter)]
+
+
+FTYPE_TO_EXT = {
+    "TIFF": "tif",
+}
 
 
 _ESRI_OP_TO_OP = {
