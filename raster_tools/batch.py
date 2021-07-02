@@ -35,7 +35,8 @@ _FUNC_PATTERN = re.compile(r"^(?P<func>[A-Za-z]+)\((?P<args>[^\(\)]+)\)$")
 class BatchScript:
     def __init__(self, path):
         validate_file(path)
-        self.path = path
+        self.path = os.path.abspath(path)
+        self.location = os.path.dirname(self.path)
         self.rasters = {}
         self.final_raster = None
 
@@ -174,5 +175,8 @@ class BatchScript:
         if name_or_path in self.rasters:
             return self.rasters[name_or_path]
         else:
+            # Handle relative paths. Assume they are relative to the batch file
+            if not os.path.isabs(name_or_path):
+                name_or_path = os.path.join(self.location, name_or_path)
             validate_file(name_or_path)
             return Raster(name_or_path)
