@@ -500,16 +500,21 @@ class BatchScript:
         return raster
 
     def _arithmetic_args_to_raster(self, args_str, line_no):
-        left_raster, right_raster, op = _split_strip(args_str, ";")
+        left_arg, right_arg, op = _split_strip(args_str, ";")
         op = _ESRI_OP_TO_OP[op]
-        if op not in _BINARY_ARITHMETIC_OPS:
+        if op not in _ESRI_OP_TO_OP:
             raise BatchScriptParseError(
-                f"Uknown arithmetic operation on line {line_no}: '{op}'"
+                f"Unknown arithmetic operation on line {line_no}: '{op}'"
             )
-        else:
-            op = _BINARY_ARITHMETIC_OPS[op]
-        left = self._get_raster(left_raster)
-        right = self._get_raster(right_raster)
+        op = _ESRI_OP_TO_OP[op]
+        try:
+            left = float(left_arg)
+        except ValueError:
+            left = self._get_raster(left_arg)
+        try:
+            right = float(right_arg)
+        except ValueError:
+            right = self._get_raster(right_arg)
         return left._binary_arithmetic(right, op)
 
     def _null_to_value_args_to_raster(self, args_str, line_no):
