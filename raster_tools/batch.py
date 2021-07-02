@@ -79,6 +79,8 @@ class BatchScript:
             raise BatchScriptParseError(
                 f"Unknown function on line {line_no}: '{func}'"
             )
+        if raster is None:
+            raise BatchScriptParseError(f"Could not parse line: {line_no}")
         return raster
 
     def _arithmetic_args_to_raster(self, args_str, line_no):
