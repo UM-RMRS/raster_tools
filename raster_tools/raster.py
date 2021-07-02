@@ -144,9 +144,19 @@ class Raster:
         """Close the underlying source"""
         self._rs.close()
 
-    def save(self, path):
+    def save(
+        self, path, no_data_value=None, blockwidth=None, blockheight=None
+    ):
         """Compute the final raster and save it to the provided location."""
-        write_raster(self._rs, path)
+        # TODO: add tiling flag
+        # TODO: warn of overwrite
+        write_raster(
+            self._rs,
+            path,
+            no_data_value=no_data_value,
+            blockwidth=blockwidth,
+            blockheight=blockheight,
+        )
         return self
 
     def eval(self):

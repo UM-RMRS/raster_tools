@@ -5,6 +5,7 @@ import rioxarray  # noqa: F401; adds ability to save tiffs to xarray
 import xarray as xr
 from pathlib import Path
 
+from .batch import BatchScript
 from ._utils import validate_file
 
 
@@ -29,6 +30,10 @@ TIFF_EXTS = frozenset((".tif", ".tiff"))
 BATCH_EXTS = frozenset((".bch",))
 NC_EXTS = frozenset((".nc",))
 
+FTYPE_TO_EXT = {
+    "TIFF": "tif",
+}
+
 
 def open_raster_from_path(path):
     if isinstance(path, Path) or _is_str(path):
@@ -48,7 +53,8 @@ def open_raster_from_path(path):
         rs = chunk(rs)
         return rs
     elif ext in BATCH_EXTS:
-        raise NotImplementedError()
+        bs = BatchScript(path)
+        return bs.parse().final_raster._rs
     elif ext in NC_EXTS:
         # TODO: chunking logic
         return xr.open_dataset(path)
@@ -56,7 +62,15 @@ def open_raster_from_path(path):
         raise RasterIOError("Unknown file type")
 
 
-def _write_tif_with_rasterio(rs, path, tile=False, compress=False, **kwargs):
+def _write_tif_with_rasterio(
+    rs,
+    path,
+    no_data_value=None,
+    compress=False,
+    blockwidth=None,
+    blockheight=None,
+    **kwargs,
+):
     # This method uses rasterio to write multi-band tiffs to disk. It does not
     # respect dask and the result raster will be loaded into memory before
     # writing to disk.
@@ -66,14 +80,17 @@ def _write_tif_with_rasterio(rs, path, tile=False, compress=False, **kwargs):
         rows, cols = rs.shape
         bands = 1
     compress = None if not compress else "lzw"
-    nodatavals = set(rs.nodatavals)
-    if rs.dtype.kind in ("u", "i") and np.isnan(list(nodatavals)).any():
-        nodatavals.remove(np.nan)
-    if len(nodatavals):
-        # TODO: add warning if size > 1
-        nodataval = nodatavals.pop()
+    if no_data_value is None:
+        nodatavals = set(rs.nodatavals)
+        if rs.dtype.kind in ("u", "i") and np.isnan(list(nodatavals)).any():
+            nodatavals.remove(np.nan)
+        if len(nodatavals):
+            # TODO: add warning if size > 1
+            nodataval = nodatavals.pop()
+        else:
+            nodataval = None
     else:
-        nodataval = None
+        nodataval = no_data_value
     with rio.open(
         path,
         "w",
@@ -85,7 +102,9 @@ def _write_tif_with_rasterio(rs, path, tile=False, compress=False, **kwargs):
         nodata=nodataval,
         crs=rs.crs,
         transform=rs.transform,
-        tile=tile,
+        tiled=True,
+        blockxsize=blockwidth,
+        blockysize=blockheight,
         compress=compress,
     ) as dst:
         for band in range(bands):
@@ -96,7 +115,9 @@ def _write_tif_with_rasterio(rs, path, tile=False, compress=False, **kwargs):
             dst.write(values, band + 1)
 
 
-def write_raster(rs, path):
+def write_raster(
+    rs, path, no_data_value=None, blockwidth=None, blockheight=None
+):
     ext = _get_extension(path)
     if ext in TIFF_EXTS:
         # TODO: figure out method for multi-band tiffs that respects dask
@@ -107,7 +128,13 @@ def write_raster(rs, path):
         if nbands == 1:
             rs.rio.to_raster(path, compute=True)
         else:
-            _write_tif_with_rasterio(rs, path)
+            _write_tif_with_rasterio(
+                rs,
+                path,
+                no_data_value=no_data_value,
+                blockwidth=blockwidth,
+                blockheight=blockheight,
+            )
     elif ext in NC_EXTS:
         rs.to_netcdf(path, compute=True)
     else:
