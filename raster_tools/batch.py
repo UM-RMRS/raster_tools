@@ -15,6 +15,7 @@ def _split_strip(s, delimeter):
 
 
 _ESRI_OP_TO_OP = {
+    "esriRasterPlus": "+",
     "+": "+",
     "esriRasterMinus": "-",
     "-": "-",
