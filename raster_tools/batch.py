@@ -29,7 +29,7 @@ _ESRI_OP_TO_OP = {
     "**": "**",
 }
 _ARITHMETIC_OPS_MAP = {}
-_FUNC_PATTERN = re.compile(r"^(?P<func>[A-Za-z]+)\((?P<args>[^(\)]+)\)$")
+_FUNC_PATTERN = re.compile(r"^(?P<func>[A-Za-z]+)\((?P<args>[^\(\)]+)\)$")
 
 
 class BatchScript:
