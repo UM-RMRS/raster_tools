@@ -37,6 +37,40 @@ class RasterDeviceMismatchError(BaseException):
     pass
 
 
+U8 = np.uint8
+U16 = np.uint16
+U32 = np.uint32
+U64 = np.uint64
+I8 = np.int8
+I16 = np.int16
+I32 = np.int32
+I64 = np.int64
+F16 = np.float16
+F32 = np.float32
+F64 = np.float64
+F128 = np.float128
+BOOL = np.bool_
+SUPPORTED_TYPES = frozenset(
+    (
+        U8,
+        U16,
+        U32,
+        U64,
+        I8,
+        I16,
+        I32,
+        I64,
+        F16,
+        F32,
+        F64,
+        F128,
+        BOOL,
+        float,
+        int,
+    )
+)
+
+
 _BINARY_ARITHMETIC_OPS = {
     "+": operator.add,
     "-": operator.sub,
@@ -145,6 +179,10 @@ class Raster:
         else:
             raise TypeError("attrs cannot be None and must be mapping type")
 
+    @property
+    def dtype(self):
+        return self._rs.dtype
+
     def close(self):
         """Close the underlying source"""
         self._rs.close()
@@ -217,6 +255,12 @@ class Raster:
         rs = _map_chunk_function(self.copy(), _chunk_to_cpu, args=None)
         rs.device = CPU
         return rs
+
+    def astype(self, type_):
+        """Return a copy of the Raster, cast to the specified type."""
+        if type_ not in SUPPORTED_TYPES:
+            raise ValueError(f"Unsupported type: '{type_}'")
+        return Raster(self._rs.astype(type_))
 
     def replace_null(self, value):
         """

@@ -3,7 +3,22 @@ import numpy as np
 import unittest
 
 from raster_tools import Raster
-from raster_tools.raster import _BINARY_ARITHMETIC_OPS
+from raster_tools.raster import (
+    _BINARY_ARITHMETIC_OPS,
+    U8,
+    U16,
+    U32,
+    U64,
+    I8,
+    I16,
+    I32,
+    I64,
+    F16,
+    F32,
+    F64,
+    F128,
+    BOOL,
+)
 
 
 def rs_eq_array(rs, ar):
@@ -208,6 +223,34 @@ class TestRasterMath(unittest.TestCase):
                 truth = v ** rs1_np
                 rst = v ** rs1
                 self.assertTrue(rs_eq_array(rst, truth))
+
+
+class TestAstype(unittest.TestCase):
+    def test_astype(self):
+        rs = Raster("test/data/elevation_small.tif")
+        self.assertTrue(rs.astype(U8).dtype, U8)
+        self.assertTrue(rs.astype(U16).dtype, U16)
+        self.assertTrue(rs.astype(U32).dtype, U32)
+        self.assertTrue(rs.astype(U64).dtype, U64)
+
+        self.assertTrue(rs.astype(I8).dtype, I8)
+        self.assertTrue(rs.astype(I16).dtype, I16)
+        self.assertTrue(rs.astype(I32).dtype, I32)
+        self.assertTrue(rs.astype(I64).dtype, I64)
+        self.assertTrue(rs.astype(int).dtype, I64)
+
+        self.assertTrue(rs.astype(F16).dtype, F16)
+        self.assertTrue(rs.astype(F32).dtype, F32)
+        self.assertTrue(rs.astype(F64).dtype, F64)
+        self.assertTrue(rs.astype(F128).dtype, F128)
+        self.assertTrue(rs.astype(float).dtype, F64)
+
+        self.assertTrue(rs.astype(BOOL).dtype, BOOL)
+
+    def test_astype_attrs(self):
+        rs = Raster("test/data/elevation_small.tif")
+        attrs = rs._attrs
+        self.assertEqual(rs.astype(I32)._attrs, attrs)
 
 
 class TestRasterAttrs(unittest.TestCase):
