@@ -225,6 +225,90 @@ class TestRasterMath(unittest.TestCase):
                 self.assertTrue(rs_eq_array(rst, truth))
 
 
+class TestLogicalOps(unittest.TestCase):
+    def setUp(self):
+        self.rs1 = Raster("test/data/elevation_small.tif")
+        self.rs1_np = self.rs1._rs.values
+        self.rs2 = Raster("test/data/elevation2_small.tif")
+        self.rs2_np = self.rs2._rs.values
+
+    def tearDown(self):
+        self.rs1.close()
+        self.rs2.close()
+
+    def test_eq(self):
+        for v, vnp in [
+            (self.rs2, self.rs2_np),
+            (0, 0),
+            (self.rs1_np[0, 10, 10], self.rs1_np[0, 10, 10]),
+        ]:
+            truth = self.rs1_np == vnp
+            rst = self.rs1.eq(v)
+            self.assertTrue(rs_eq_array(rst, truth))
+            rst = self.rs1 == v
+            self.assertTrue(rs_eq_array(rst, truth))
+
+    def test_ne(self):
+        for v, vnp in [
+            (self.rs2, self.rs2_np),
+            (0, 0),
+            (self.rs1_np[0, 10, 10], self.rs1_np[0, 10, 10]),
+        ]:
+            truth = self.rs1_np != vnp
+            rst = self.rs1.ne(v)
+            self.assertTrue(rs_eq_array(rst, truth))
+            rst = self.rs1 != v
+            self.assertTrue(rs_eq_array(rst, truth))
+
+    def test_le(self):
+        for v, vnp in [
+            (self.rs2, self.rs2_np),
+            (0, 0),
+            (self.rs1_np[0, 10, 10], self.rs1_np[0, 10, 10]),
+        ]:
+            truth = self.rs1_np <= vnp
+            rst = self.rs1.le(v)
+            self.assertTrue(rs_eq_array(rst, truth))
+            rst = self.rs1 <= v
+            self.assertTrue(rs_eq_array(rst, truth))
+
+    def test_ge(self):
+        for v, vnp in [
+            (self.rs2, self.rs2_np),
+            (0, 0),
+            (self.rs1_np[0, 10, 10], self.rs1_np[0, 10, 10]),
+        ]:
+            truth = self.rs1_np >= vnp
+            rst = self.rs1.ge(v)
+            self.assertTrue(rs_eq_array(rst, truth))
+            rst = self.rs1 >= v
+            self.assertTrue(rs_eq_array(rst, truth))
+
+    def test_lt(self):
+        for v, vnp in [
+            (self.rs2, self.rs2_np),
+            (0, 0),
+            (self.rs1_np[0, 10, 10], self.rs1_np[0, 10, 10]),
+        ]:
+            truth = self.rs1_np < vnp
+            rst = self.rs1.lt(v)
+            self.assertTrue(rs_eq_array(rst, truth))
+            rst = self.rs1 < v
+            self.assertTrue(rs_eq_array(rst, truth))
+
+    def test_gt(self):
+        for v, vnp in [
+            (self.rs2, self.rs2_np),
+            (0, 0),
+            (self.rs1_np[0, 10, 10], self.rs1_np[0, 10, 10]),
+        ]:
+            truth = self.rs1_np > vnp
+            rst = self.rs1.gt(v)
+            self.assertTrue(rs_eq_array(rst, truth))
+            rst = self.rs1 > v
+            self.assertTrue(rs_eq_array(rst, truth))
+
+
 class TestAstype(unittest.TestCase):
     def test_astype(self):
         rs = Raster("test/data/elevation_small.tif")

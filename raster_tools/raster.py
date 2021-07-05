@@ -79,6 +79,14 @@ _BINARY_ARITHMETIC_OPS = {
     "**": operator.pow,
     "%": operator.mod,
 }
+_BINARY_LOGICAL_OPS = {
+    "==": operator.eq,
+    "!=": operator.ne,
+    "<=": operator.le,
+    ">=": operator.ge,
+    "<": operator.lt,
+    ">": operator.gt,
+}
 
 
 def _map_chunk_function(raster, func, args, **kwargs):
@@ -316,11 +324,7 @@ class Raster:
         )
         return rs
 
-    def _binary_arithmetic(self, raster_or_scalar, op, swap=False):
-        # TODO: handle mapping of list of values to bands
-        # TODO: handle case where shapes match but geo references don't
-        if op not in _BINARY_ARITHMETIC_OPS:
-            raise ValueError(f"Unknown arithmetic operation: '{op}'")
+    def _handle_binary_op_input(self, raster_or_scalar):
         if _is_scalar(raster_or_scalar):
             operand = raster_or_scalar
         elif _is_raster_class(raster_or_scalar):
@@ -330,6 +334,14 @@ class Raster:
             operand = open_raster_from_path(raster_or_scalar)
             if self.device == GPU:
                 operand = operand.gpu()._rs
+        return operand
+
+    def _binary_arithmetic(self, raster_or_scalar, op, swap=False):
+        # TODO: handle mapping of list of values to bands
+        # TODO: handle case where shapes match but geo references don't
+        if op not in _BINARY_ARITHMETIC_OPS:
+            raise ValueError(f"Unknown arithmetic operation: '{op}'")
+        operand = self._handle_binary_op_input(raster_or_scalar)
         # Attributes are not propagated through math ops
         if not swap:
             rs = _new_raster_set_attrs(
@@ -343,6 +355,16 @@ class Raster:
             )
             rs.device = self.device
             return rs
+
+    def _binary_logical(self, raster_or_scalar, op):
+        if op not in _BINARY_LOGICAL_OPS:
+            raise ValueError(f"Unknown arithmetic operation: '{op}'")
+        operand = self._handle_binary_op_input(raster_or_scalar)
+        rs = _new_raster_set_attrs(
+            _BINARY_LOGICAL_OPS[op](self._rs, operand), self._attrs
+        )
+        rs.device = self.device
+        return rs.astype(F32)
 
     def add(self, raster_or_scalar):
         """
@@ -439,6 +461,66 @@ class Raster:
         """Take the base-10 logarithm of this Raster. Returns a new Raster."""
         # Don't need to copy attrs here
         return Raster(np.log10(self._rs))
+
+    def eq(self, other):
+        """
+        Perform element-wise equality test against `other`. Returns a new
+        Raster.
+        """
+        return self._binary_logical(other, "==")
+
+    def __eq__(self, other):
+        return self.eq(other)
+
+    def ne(self, other):
+        """
+        Perform element-wise not-equal test against `other`. Returns a new
+        Raster.
+        """
+        return self._binary_logical(other, "!=")
+
+    def __ne__(self, other):
+        return self.ne(other)
+
+    def le(self, other):
+        """
+        Perform element-wise less-than-or-equal test against `other`. Returns a
+        new Raster.
+        """
+        return self._binary_logical(other, "<=")
+
+    def __le__(self, other):
+        return self.le(other)
+
+    def ge(self, other):
+        """
+        Perform element-wise greater-than-or-equal test against `other`.
+        Returns a new Raster.
+        """
+        return self._binary_logical(other, ">=")
+
+    def __ge__(self, other):
+        return self.ge(other)
+
+    def lt(self, other):
+        """
+        Perform element-wise less-than test against `other`.  Returns a new
+        Raster.
+        """
+        return self._binary_logical(other, "<")
+
+    def __lt__(self, other):
+        return self.lt(other)
+
+    def gt(self, other):
+        """
+        Perform element-wise greater-than test against `other`.  Returns a new
+        Raster.
+        """
+        return self._binary_logical(other, ">")
+
+    def __gt__(self, other):
+        return self.gt(other)
 
     def convolve2d(self, kernel, fill_value=0):
         """Convolve this Raster with a kernel. Warning: experimental"""
