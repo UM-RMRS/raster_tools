@@ -417,7 +417,7 @@ class TestEval(unittest.TestCase):
         self.assertFalse(dask.is_dask_collection(result._rs))
 
 
-class testToLazy(unittest.TestCase):
+class TestToLazy(unittest.TestCase):
     def test_to_lazy(self):
         rs = Raster("test/data/elevation2_small.tif")
         rs += rs
