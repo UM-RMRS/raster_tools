@@ -5,20 +5,8 @@ import unittest
 from raster_tools import Raster
 from raster_tools.raster import (
     _BINARY_ARITHMETIC_OPS,
+    _BINARY_LOGICAL_OPS,
     _DTYPE_INPUT_TO_DTYPE,
-    U8,
-    U16,
-    U32,
-    U64,
-    I8,
-    I16,
-    I32,
-    I64,
-    F16,
-    F32,
-    F64,
-    F128,
-    BOOL,
 )
 
 
@@ -334,8 +322,8 @@ class TestAstype(unittest.TestCase):
                 self.assertEqual(rs.astype(type_code).eval().dtype, dtype)
 
 
-class TestRasterAttrs(unittest.TestCase):
-    def test_arithmetic_attr_propagation(self):
+class TestRasterAttrsPropagation(unittest.TestCase):
+    def test_arithmetic_attrs(self):
         r1 = Raster("test/data/elevation_small.tif")
         true_attrs = r1._attrs
         v = 2.1
@@ -347,7 +335,16 @@ class TestRasterAttrs(unittest.TestCase):
             self.assertEqual(r._rs.attrs, true_attrs)
             self.assertEqual(r._attrs, true_attrs)
 
-    def test_ctor_attr_propagation(self):
+    def test_logical_attrs(self):
+        r1 = Raster("test/data/elevation_small.tif")
+        true_attrs = r1._attrs
+        v = 1.0
+        for op in _BINARY_LOGICAL_OPS.keys():
+            r2 = r1._binary_logical(v, op).eval()
+            self.assertEqual(r2._rs.attrs, true_attrs)
+            self.assertEqual(r2._attrs, true_attrs)
+
+    def test_ctor_attrs(self):
         r1 = Raster("test/data/elevation_small.tif")
         true_attrs = r1._attrs.copy()
         r2 = Raster(Raster("test/data/elevation_small.tif"))
@@ -360,7 +357,7 @@ class TestRasterAttrs(unittest.TestCase):
     def test_astype_attrs(self):
         rs = Raster("test/data/elevation_small.tif")
         attrs = rs._attrs
-        self.assertEqual(rs.astype(I32)._attrs, attrs)
+        self.assertEqual(rs.astype(int)._attrs, attrs)
 
     def test_log_attrs(self):
         rs = Raster("test/data/elevation_small.tif")
