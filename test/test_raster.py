@@ -362,6 +362,12 @@ class TestRasterAttrs(unittest.TestCase):
         attrs = rs._attrs
         self.assertEqual(rs.astype(I32)._attrs, attrs)
 
+    def test_log_attrs(self):
+        rs = Raster("test/data/elevation_small.tif")
+        attrs = rs._attrs
+        self.assertEqual(rs.log()._attrs, attrs)
+        self.assertEqual(rs.log10()._attrs, attrs)
+
 
 class TestCopy(unittest.TestCase):
     def test_copy(self):
