@@ -191,7 +191,6 @@ class Raster:
             self._rs = BatchScript(raster).parse().final_raster._rs
         else:
             self._rs = open_raster_from_path(raster)
-        self.shape = self._rs.shape
 
     @property
     def _attrs(self):
@@ -208,6 +207,10 @@ class Raster:
     @property
     def dtype(self):
         return self._rs.dtype
+
+    @property
+    def shape(self):
+        return self._rs.shape
 
     def close(self):
         """Close the underlying source"""
