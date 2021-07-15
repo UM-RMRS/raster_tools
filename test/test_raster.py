@@ -336,7 +336,7 @@ class TestAstype(unittest.TestCase):
 
 class TestRasterAttrs(unittest.TestCase):
     def test_arithmetic_attr_propagation(self):
-        r1 = Raster("test/data/elevation.tif")
+        r1 = Raster("test/data/elevation_small.tif")
         true_attrs = r1._attrs
         v = 2.1
         for op in _BINARY_ARITHMETIC_OPS.keys():
@@ -348,11 +348,11 @@ class TestRasterAttrs(unittest.TestCase):
             self.assertEqual(r._attrs, true_attrs)
 
     def test_ctor_attr_propagation(self):
-        r1 = Raster("test/data/elevation.tif")
+        r1 = Raster("test/data/elevation_small.tif")
         true_attrs = r1._attrs.copy()
-        r2 = Raster(Raster("test/data/elevation.tif"))
+        r2 = Raster(Raster("test/data/elevation_small.tif"))
         test_attrs = {"test": 0}
-        r3 = Raster("test/data/elevation.tif")
+        r3 = Raster("test/data/elevation_small.tif")
         r3._attrs = test_attrs
         self.assertEqual(r2._attrs, true_attrs)
         self.assertEqual(r3._attrs, test_attrs)
