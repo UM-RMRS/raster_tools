@@ -192,6 +192,12 @@ class Raster:
         else:
             self._rs = open_raster_from_path(raster)
 
+    def _new_like_self(self, rs):
+        new_rs = Raster(rs)
+        new_rs._attrs = self._attrs
+        new_rs.device = self.device
+        return new_rs
+
     @property
     def _attrs(self):
         # Dict containing raster metadata like projection, etc.
@@ -368,14 +374,14 @@ class Raster:
         operand = self._handle_binary_op_input(raster_or_scalar)
         # Attributes are not propagated through math ops
         if not swap:
-            rs = _new_raster_set_attrs(
-                _BINARY_ARITHMETIC_OPS[op](self._rs, operand), self._attrs
+            rs = self._new_like_self(
+                _BINARY_ARITHMETIC_OPS[op](self._rs, operand)
             )
             rs.device = self.device
             return rs
         else:
-            rs = _new_raster_set_attrs(
-                _BINARY_ARITHMETIC_OPS[op](operand, self._rs), self._attrs
+            rs = self._new_like_self(
+                _BINARY_ARITHMETIC_OPS[op](operand, self._rs)
             )
             rs.device = self.device
             return rs
@@ -384,9 +390,7 @@ class Raster:
         if op not in _BINARY_LOGICAL_OPS:
             raise ValueError(f"Unknown arithmetic operation: '{op}'")
         operand = self._handle_binary_op_input(raster_or_scalar)
-        rs = _new_raster_set_attrs(
-            _BINARY_LOGICAL_OPS[op](self._rs, operand), self._attrs
-        )
+        rs = self._new_like_self(_BINARY_LOGICAL_OPS[op](self._rs, operand))
         rs.device = self.device
         return rs.astype(F32)
 
@@ -478,13 +482,11 @@ class Raster:
 
     def log(self):
         """Take the natural logarithm of this Raster. Returns a new Raster."""
-        # Don't need to copy attrs here
-        return Raster(np.log(self._rs))
+        return self._new_like_self(np.log(self._rs))
 
     def log10(self):
         """Take the base-10 logarithm of this Raster. Returns a new Raster."""
-        # Don't need to copy attrs here
-        return Raster(np.log10(self._rs))
+        return self._new_like_self(np.log10(self._rs))
 
     def eq(self, other):
         """
@@ -559,7 +561,7 @@ class Raster:
         )
         # There seems to be a bug where the attributes aren't propagated
         # through construct().
-        return _new_raster_set_attrs(rs_out, self._attrs)
+        return self._new_like_self(rs_out, self._attrs)
 
     def __repr__(self):
         # TODO: implement
