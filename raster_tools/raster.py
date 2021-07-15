@@ -50,25 +50,43 @@ F32 = np.float32
 F64 = np.float64
 F128 = np.float128
 BOOL = np.bool_
-SUPPORTED_TYPES = frozenset(
-    (
-        U8,
-        U16,
-        U32,
-        U64,
-        I8,
-        I16,
-        I32,
-        I64,
-        F16,
-        F32,
-        F64,
-        F128,
-        BOOL,
-        float,
-        int,
-    )
-)
+_DTYPE_INPUT_TO_DTYPE = {
+    # Unsigned int
+    U8: U8,
+    "uint8": U8,
+    U16: U16,
+    "uint16": U16,
+    U32: U32,
+    "uint32": U32,
+    U64: U64,
+    "uint64": U64,
+    # Signed int
+    I8: I8,
+    "int8": I8,
+    I16: I16,
+    "int16": I16,
+    I32: I32,
+    "int32": I32,
+    I64: I64,
+    "int64": I64,
+    int: I64,
+    "int": I64,
+    # Float
+    F16: F16,
+    "float16": F16,
+    F32: F32,
+    "float32": F32,
+    F64: F64,
+    "float64": F64,
+    F128: F128,
+    "float128": F128,
+    float: F64,
+    "float": F64,
+    # Boolean
+    BOOL: BOOL,
+    bool: BOOL,
+    "bool": BOOL,
+}
 
 
 _BINARY_ARITHMETIC_OPS = {
@@ -264,11 +282,14 @@ class Raster:
         rs.device = CPU
         return rs
 
-    def astype(self, type_):
+    def astype(self, dtype):
         """Return a copy of the Raster, cast to the specified type."""
-        if type_ not in SUPPORTED_TYPES:
-            raise ValueError(f"Unsupported type: '{type_}'")
-        return Raster(self._rs.astype(type_))
+        if isinstance(dtype, str):
+            dtype = dtype.lower()
+        if dtype not in _DTYPE_INPUT_TO_DTYPE:
+            raise ValueError(f"Unsupported type: '{dtype}'")
+        dtype = _DTYPE_INPUT_TO_DTYPE[dtype]
+        return Raster(self._rs.astype(dtype))
 
     def replace_null(self, value):
         """

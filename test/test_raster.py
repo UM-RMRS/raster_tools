@@ -5,6 +5,7 @@ import unittest
 from raster_tools import Raster
 from raster_tools.raster import (
     _BINARY_ARITHMETIC_OPS,
+    _DTYPE_INPUT_TO_DTYPE,
     U8,
     U16,
     U32,
@@ -312,29 +313,25 @@ class TestLogicalOps(unittest.TestCase):
 class TestAstype(unittest.TestCase):
     def test_astype(self):
         rs = Raster("test/data/elevation_small.tif")
-        self.assertTrue(rs.astype(U8).dtype, U8)
-        self.assertTrue(rs.astype(U16).dtype, U16)
-        self.assertTrue(rs.astype(U32).dtype, U32)
-        self.assertTrue(rs.astype(U64).dtype, U64)
+        for type_code, dtype in _DTYPE_INPUT_TO_DTYPE.items():
+            self.assertEqual(rs.astype(type_code).dtype, dtype)
+            self.assertEqual(rs.astype(type_code).eval().dtype, dtype)
 
-        self.assertTrue(rs.astype(I8).dtype, I8)
-        self.assertTrue(rs.astype(I16).dtype, I16)
-        self.assertTrue(rs.astype(I32).dtype, I32)
-        self.assertTrue(rs.astype(I64).dtype, I64)
-        self.assertTrue(rs.astype(int).dtype, I64)
-
-        self.assertTrue(rs.astype(F16).dtype, F16)
-        self.assertTrue(rs.astype(F32).dtype, F32)
-        self.assertTrue(rs.astype(F64).dtype, F64)
-        self.assertTrue(rs.astype(F128).dtype, F128)
-        self.assertTrue(rs.astype(float).dtype, F64)
-
-        self.assertTrue(rs.astype(BOOL).dtype, BOOL)
-
-    def test_astype_attrs(self):
+    def test_wrong_type_codes(self):
         rs = Raster("test/data/elevation_small.tif")
-        attrs = rs._attrs
-        self.assertEqual(rs.astype(I32)._attrs, attrs)
+        self.assertRaises(ValueError, lambda: rs.astype("not float32"))
+        self.assertRaises(ValueError, lambda: rs.astype("other"))
+
+    def test_dtype_property(self):
+        rs = Raster("test/data/elevation_small.tif")
+        self.assertEqual(rs.dtype, rs._rs.dtype)
+
+    def test_astype_str_uppercase(self):
+        rs = Raster("test/data/elevation_small.tif")
+        for type_code, dtype in _DTYPE_INPUT_TO_DTYPE.items():
+            if isinstance(type_code, str):
+                type_code = type_code.upper()
+                self.assertEqual(rs.astype(type_code).eval().dtype, dtype)
 
 
 class TestRasterAttrs(unittest.TestCase):
@@ -359,6 +356,11 @@ class TestRasterAttrs(unittest.TestCase):
         r3._attrs = test_attrs
         self.assertEqual(r2._attrs, true_attrs)
         self.assertEqual(r3._attrs, test_attrs)
+
+    def test_astype_attrs(self):
+        rs = Raster("test/data/elevation_small.tif")
+        attrs = rs._attrs
+        self.assertEqual(rs.astype(I32)._attrs, attrs)
 
 
 class TestCopy(unittest.TestCase):
