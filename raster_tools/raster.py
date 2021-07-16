@@ -152,12 +152,6 @@ GPU = "gpu"
 CPU = "cpu"
 
 
-def _new_raster_set_attrs(rs, attrs):
-    new_rs = Raster(rs)
-    new_rs._attrs = attrs
-    return new_rs
-
-
 class Raster:
     """
     An abstraction of georeferenced raster data with lazy function evaluation.
@@ -247,7 +241,7 @@ class Raster:
         """
         rs = self._rs.compute()
         # A new raster is returned to mirror the xarray and dask APIs
-        return Raster(rs)
+        return self._new_like_self(rs)
 
     def to_lazy(self):
         """
@@ -262,7 +256,7 @@ class Raster:
         """
         if _is_using_dask(self._rs):
             return self.copy()
-        return Raster(chunk(self._rs))
+        return self._new_like_self(chunk(self._rs))
 
     def copy(self):
         """Returns a copy of this Raster."""
@@ -298,7 +292,7 @@ class Raster:
         if dtype not in _DTYPE_INPUT_TO_DTYPE:
             raise ValueError(f"Unsupported type: '{dtype}'")
         dtype = _DTYPE_INPUT_TO_DTYPE[dtype]
-        return Raster(self._rs.astype(dtype))
+        return self._new_like_self(self._rs.astype(dtype))
 
     def replace_null(self, value):
         """
@@ -475,7 +469,7 @@ class Raster:
     def negate(self):
         """Negate this Raster. Returns a new Raster."""
         # Don't need to copy attrs here
-        return Raster(-self._rs)
+        return self._new_like_self(-self._rs)
 
     def __neg__(self):
         return self.negate()
