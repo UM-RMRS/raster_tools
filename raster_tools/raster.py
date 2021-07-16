@@ -355,9 +355,12 @@ class Raster:
             self._check_device_mismatch(raster_or_scalar)
             operand = raster_or_scalar._rs
         else:
-            operand = open_raster_from_path(raster_or_scalar)
+            rs = Raster(
+                open_raster_from_path(raster_or_scalar)
+            )
             if self.device == GPU:
-                operand = operand.gpu()._rs
+                rs = rs.gpu()
+            operand = rs._rs
         return operand
 
     def _binary_arithmetic(self, raster_or_scalar, op, swap=False):
@@ -371,13 +374,11 @@ class Raster:
             rs = self._new_like_self(
                 _BINARY_ARITHMETIC_OPS[op](self._rs, operand)
             )
-            rs.device = self.device
             return rs
         else:
             rs = self._new_like_self(
                 _BINARY_ARITHMETIC_OPS[op](operand, self._rs)
             )
-            rs.device = self.device
             return rs
 
     def _binary_logical(self, raster_or_scalar, op):
