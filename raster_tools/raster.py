@@ -331,6 +331,8 @@ class Raster:
         shapes = [r.shape for r in rasters]
         if any(len(s) > 3 for s in shapes):
             raise ValueError("Unexpected dimension on input raster")
+        if any(len(s) < 2 for s in shapes):
+            raise ValueError("Too few dimensions")
         # NOTE: xarray.concat allows for arrays to be missing the first
         # dimension, e.g. concat([(2, 3, 3), (3, 3)]) works. This
         # differs from numpy.
