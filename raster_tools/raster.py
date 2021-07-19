@@ -1,11 +1,13 @@
 import collections
 import cupy as cp
 import dask
+import dask.array as da
 import numpy as np
 import operator
 import os
 import re
 import xarray as xr
+from dask_image import ndfilters
 from numbers import Number
 
 from .io import chunk, is_batch_file, open_raster_from_path, write_raster
@@ -543,20 +545,54 @@ class Raster:
     def __gt__(self, other):
         return self.gt(other)
 
-    def convolve2d(self, kernel, fill_value=0):
-        """Convolve this Raster with a kernel. Warning: experimental"""
-        # TODO: validate kernel
-        nr, nc = kernel.shape
-        kernel = xr.DataArray(kernel, dims=("kx", "ky"))
-        min_periods = (nr // 2 + 1) * (nc // 2 + 1)
-        rs_out = (
-            self._rs.rolling(x=nr, y=nc, min_periods=min_periods, center=True)
-            .construct(x="kx", y="ky", fill_value=fill_value)
-            .dot(kernel)
-        )
-        # There seems to be a bug where the attributes aren't propagated
-        # through construct().
-        return self._new_like_self(rs_out, self._attrs)
+    def convolve(self, kernel, mode="constant", cval=0.0):
+        """Convolve `kernel` with each band individually. Returns a new Raster.
+
+        The kernel is applied to each band in isolation so returned raster has
+        the same shape as the original.
+
+        Parameters
+        ----------
+        kernel : array_like
+            2D array of kernel weights
+        mode : {'reflect', 'constant', 'nearest', 'mirror', 'wrap'}, optional
+            Determines how the data is extended beyond its boundaries. The
+            default is 'constant'.
+            'reflect' (d c b a | a b c d | d c b a)
+                The data pixels are reflected at the boundaries.
+            'constant' (k k k k | a b c d | k k k k)
+                A constant value determined by `cval` is used to extend the
+                data pixels.
+            'nearest' (a a a a | a b c d | d d d d)
+                The data is extended using the boundary pixels.
+            'mirror' (d c b | a b c d | c b a)
+                Like 'reflect' but the reflection is centered on the boundary
+                pixel.
+            'wrap' (a b c d | a b c d | a b c d)
+                The data is extended by wrapping to the opposite side of the
+                grid.
+        cval : scalar, optional
+            Value used to fill when `mode` is 'constant'. Default is 0.0.
+
+        Returns
+        -------
+        Raster
+            The resulting new Raster.
+        """
+        kernel = np.asarray(kernel, dtype=F64)
+        if len(kernel.shape) != 2:
+            raise ValueError(f"Kernel must be 2D. Got {kernel.shape}")
+        kernel = da.from_array(kernel)
+        if self.device == GPU:
+            # TODO: astype F32 to match GPU words?
+            kernel = kernel.map_blocks(cp.asarray).compute()
+        rs = self.copy()
+        data = rs._rs.data
+        for bnd in range(data.shape[0]):
+            data[bnd] = ndfilters.convolve(
+                data[bnd], kernel, mode=mode, cval=cval
+            )
+        return rs
 
     def __repr__(self):
         # TODO: implement

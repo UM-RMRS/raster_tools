@@ -1,5 +1,6 @@
 import dask
 import numpy as np
+import scipy
 import unittest
 
 from raster_tools import Raster
@@ -365,6 +366,11 @@ class TestRasterAttrsPropagation(unittest.TestCase):
         self.assertEqual(rs.log()._attrs, attrs)
         self.assertEqual(rs.log10()._attrs, attrs)
 
+    def test_convolve_attrs(self):
+        rs = Raster("test/data/elevation_small.tif")
+        attrs = rs._attrs
+        self.assertEqual(rs.convolve(np.ones((3, 3)))._attrs, attrs)
+
 
 class TestCopy(unittest.TestCase):
     def test_copy(self):
@@ -430,6 +436,46 @@ class TestToLazy(unittest.TestCase):
         rs_lazy = rs_nonlazy.to_lazy()
         self.assertFalse(dask.is_dask_collection(rs_nonlazy._rs))
         self.assertTrue(dask.is_dask_collection(rs_lazy._rs))
+
+
+class TestConvolve(unittest.TestCase):
+    def test_convolve(self):
+        rs = Raster("test/data/elevation2_small.tif")
+        kern = np.ones((3, 3))
+        rsnp = rs._rs.values
+        modes = ["reflect", "constant", "nearest", "mirror", "wrap"]
+        for m in modes:
+            truth = rsnp.copy()
+            for b in range(truth.shape[0]):
+                truth[b] = scipy.ndimage.convolve(truth[b], kern, mode=m)
+            self.assertTrue(rs_eq_array(rs.convolve(kern, mode=m), truth))
+
+    def test_convolve_cval(self):
+        rs = Raster("test/data/elevation2_small.tif")
+        kern = np.ones((3, 3))
+        rsnp = rs._rs.values
+        cvals = [-22.9, -1.0, 0, 1, 123.0]
+        for cv in cvals:
+            truth = rsnp.copy()
+            for b in range(truth.shape[0]):
+                truth[b] = scipy.ndimage.convolve(
+                    truth[b], kern, mode="constant", cval=cv
+                )
+            self.assertTrue(
+                rs_eq_array(rs.convolve(kern, mode="constant", cval=cv), truth)
+            )
+
+    def test_convolve_kernel_shape_error(self):
+        rs = Raster("test/data/elevation2_small.tif")
+        kern = np.ones((1, 3, 3))
+        with self.assertRaises(ValueError):
+            rs.convolve(kern)
+        kern = np.ones((3))
+        with self.assertRaises(ValueError):
+            rs.convolve(kern)
+        kern = np.ones((2, 3, 3))
+        with self.assertRaises(ValueError):
+            rs.convolve(kern)
 
 
 if __name__ == "__main__":
