@@ -708,7 +708,7 @@ class BatchScript:
         elif func == "REMAP":
             raster = self._remap_args_to_raster(args, line_no)
         elif func == "COMPOSITE":
-            raise NotImplementedError()
+            raster = self._composite_args_to_raster(args, line_no)
         elif func == "OPENRASTER":
             raster = Raster(args)
         elif func == "SAVEFUNCTIONRASTER":
@@ -774,6 +774,17 @@ class BatchScript:
                 + on_line
             )
         return self._get_raster(raster).remap_range(left, right, new)
+
+    def _composite_args_to_raster(self, args_str, line_no):
+        on_line = f" on line {line_no}"
+        rasters = [
+            self._get_raster(path) for path in _split_strip(args_str, ";")
+        ]
+        if len(rasters) < 2:
+            raise BatchScriptParseError(
+                "COMPOSITE Error: at least 2 rasters are required" + on_line
+            )
+        return rasters[0].band_concat(rasters[1:])
 
     def _save_args_to_raster(self, args_str, line_no):
         on_line = f" on line {line_no}"
