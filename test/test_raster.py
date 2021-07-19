@@ -371,6 +371,12 @@ class TestRasterAttrsPropagation(unittest.TestCase):
         attrs = rs._attrs
         self.assertEqual(rs.convolve(np.ones((3, 3)))._attrs, attrs)
 
+    def test_band_concat_attrs(self):
+        rs = Raster("test/data/elevation_small.tif")
+        attrs = rs._attrs
+        rs2 = Raster("test/data/elevation2_small.tif")
+        self.assertEqual(rs.band_concat([rs2])._attrs, attrs)
+
 
 class TestCopy(unittest.TestCase):
     def test_copy(self):
@@ -476,6 +482,49 @@ class TestConvolve(unittest.TestCase):
         kern = np.ones((2, 3, 3))
         with self.assertRaises(ValueError):
             rs.convolve(kern)
+
+
+class TestBandConcat(unittest.TestCase):
+    def test_band_concat(self):
+        rs1 = Raster("test/data/elevation_small.tif")
+        rs2 = Raster("test/data/elevation2_small.tif")
+        rsnp1 = rs1._rs.values
+        rsnp2 = rs2._rs.values
+        truth = np.concatenate((rsnp1, rsnp2))
+        test = rs1.band_concat([rs2])
+        self.assertEqual(test.shape, truth.shape)
+        self.assertTrue(rs_eq_array(test, truth))
+        truth = np.concatenate((rsnp1, rsnp1, rsnp2, truth))
+        test = rs1.band_concat([rs1, rs2, test])
+        self.assertEqual(test.shape, truth.shape)
+        self.assertTrue(rs_eq_array(test, truth))
+
+    def test_band_concat_path_inputs(self):
+        rs1 = Raster("test/data/elevation_small.tif")
+        rs2 = Raster("test/data/elevation2_small.tif")
+        rsnp1 = rs1._rs.values
+        rsnp2 = rs2._rs.values
+        truth = np.concatenate((rsnp1, rsnp2, rsnp1, rsnp2))
+        test = rs1.band_concat(
+            [
+                rs2,
+                "test/data/elevation_small.tif",
+                "test/data/elevation2_small.tif",
+            ]
+        )
+        self.assertEqual(test.shape, truth.shape)
+        self.assertTrue(rs_eq_array(test, truth))
+
+    def test_band_concat_errors(self):
+        rs1 = Raster("test/data/elevation_small.tif")
+        rs2 = Raster("test/data/elevation2_small.tif")
+        rs3 = Raster("test/data/elevation.tif")
+        with self.assertRaises(ValueError):
+            rs1.band_concat([])
+        with self.assertRaises(ValueError):
+            rs1.band_concat([rs2, rs3])
+        with self.assertRaises(ValueError):
+            rs3.band_concat([rs2])
 
 
 if __name__ == "__main__":

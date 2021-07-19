@@ -296,6 +296,43 @@ class Raster:
         dtype = _DTYPE_INPUT_TO_DTYPE[dtype]
         return self._new_like_self(self._rs.astype(dtype))
 
+    def band_concat(self, rasters):
+        """Join this and a sequence of rasters along the band dimension.
+
+        Parameters
+        ----------
+        rasters : sequence of Rasters and/or paths
+            The rasters to concatenate to with this raster. These can be a mix
+            of Rasters and paths. All rasters must have the same shape in the
+            last two dimensions.
+
+        Returns
+        -------
+        Raster
+            The resulting concatenated Raster.
+        """
+        rasters = [self._input_to_raster(other) for other in rasters]
+        if not rasters:
+            raise ValueError("No rasters provided")
+        shapes = [r.shape for r in rasters]
+        if any(len(s) > 3 for s in shapes):
+            raise ValueError("Unexpected dimension on input raster")
+        # NOTE: xarray.concat allows for arrays to be missing the first
+        # dimension, e.g. concat([(2, 3, 3), (3, 3)]) works. This
+        # differs from numpy.
+        shapes = set([s[-2:] for s in shapes])
+        if len(shapes) != 1:
+            raise ValueError("Final dimensions must match for input rasters")
+        shapes.add(self.shape[-2:])
+        if len(shapes) != 1:
+            raise ValueError(
+                "Final dimensions of input rasters must match this raster"
+            )
+        # TODO: make sure band dim is "band"
+        rasters = [self._rs] + [r._rs for r in rasters]
+        rs = xr.concat(rasters, "band")
+        return self._new_like_self(rs)
+
     def replace_null(self, value):
         """
         Replaces null values with a new value. Returns a new Raster.
@@ -350,19 +387,21 @@ class Raster:
         )
         return rs
 
+    def _input_to_raster(self, raster_input):
+        if _is_raster_class(raster_input):
+            self._check_device_mismatch(raster_input)
+            raster = raster_input
+        else:
+            raster = Raster(open_raster_from_path(raster_input))
+            if self.device == GPU:
+                raster = raster.gpu()
+        return raster
+
     def _handle_binary_op_input(self, raster_or_scalar):
         if _is_scalar(raster_or_scalar):
             operand = raster_or_scalar
-        elif _is_raster_class(raster_or_scalar):
-            self._check_device_mismatch(raster_or_scalar)
-            operand = raster_or_scalar._rs
         else:
-            rs = Raster(
-                open_raster_from_path(raster_or_scalar)
-            )
-            if self.device == GPU:
-                rs = rs.gpu()
-            operand = rs._rs
+            operand = self._input_to_raster(raster_or_scalar)._rs
         return operand
 
     def _binary_arithmetic(self, raster_or_scalar, op, swap=False):
