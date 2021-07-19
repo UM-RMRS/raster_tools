@@ -214,6 +214,20 @@ class Raster:
     def shape(self):
         return self._rs.shape
 
+    def to_xarray(self):
+        """Returns the underlying data as an xarray.DataArray.
+
+        Changes made to the resulting DataArray may affect this Raster.
+        """
+        return self._rs
+
+    def to_dask(self):
+        """Returns the underlying data as a dask array."""
+        if _is_using_dask(self):
+            return self._rs.data
+        else:
+            return chunk(self._rs).data
+
     def close(self):
         """Close the underlying source"""
         self._rs.close()

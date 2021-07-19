@@ -2,6 +2,7 @@ import dask
 import numpy as np
 import scipy
 import unittest
+import xarray as xr
 
 from raster_tools import Raster
 from raster_tools.raster import (
@@ -432,6 +433,21 @@ class TestEval(unittest.TestCase):
         self.assertTrue(dask.is_dask_collection(rs._rs))
         self.assertTrue(rs_eq_array(result, rsnp))
         self.assertFalse(dask.is_dask_collection(result._rs))
+
+
+class TestToXarray(unittest.TestCase):
+    def test_to_xarray(self):
+        rs = Raster("test/data/elevation2_small.tif")
+        self.assertTrue(isinstance(rs.to_xarray(), xr.DataArray))
+        self.assertIs(rs.to_xarray(), rs._rs)
+
+
+class TestToDask(unittest.TestCase):
+    def test_to_dask(self):
+        rs = Raster("test/data/elevation2_small.tif")
+        self.assertTrue(isinstance(rs.to_dask(), dask.array.Array))
+        self.assertIs(rs.to_dask(), rs._rs.data)
+        self.assertTrue(isinstance(rs.eval().to_dask(), dask.array.Array))
 
 
 class TestToLazy(unittest.TestCase):
