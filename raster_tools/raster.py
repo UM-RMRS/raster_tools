@@ -1,5 +1,4 @@
 import collections
-import cupy as cp
 import dask
 import dask.array as da
 import numpy as np
@@ -9,6 +8,13 @@ import re
 import xarray as xr
 from dask_image import ndfilters
 from numbers import Number
+
+try:
+    import cupy as cp
+
+    GPU_ENABLED = True
+except (ImportError, ModuleNotFoundError):
+    GPU_ENABLED = False
 
 from .io import chunk, is_batch_file, open_raster_from_path, write_raster
 from ._utils import validate_file
@@ -36,6 +42,10 @@ def _is_using_dask(raster):
 
 
 class RasterDeviceMismatchError(BaseException):
+    pass
+
+
+class RasterDeviceError(BaseException):
     pass
 
 
@@ -124,7 +134,10 @@ def _chunk_replace_null(chunk, args):
     null_values = set(null_values)
     if np.nan in null_values:
         null_values.remove(np.nan)
-    xp = cp.get_array_module(chunk)
+    if GPU_ENABLED:
+        xp = cp.get_array_module(chunk)
+    else:
+        xp = np
     match = xp.isnan(chunk)
     chunk[match] = new_value
     for nv in null_values:
@@ -152,6 +165,13 @@ def _chunk_to_cpu(chunk, *args):
 
 GPU = "gpu"
 CPU = "cpu"
+
+
+def _dask_from_array_with_device(arr, device):
+    arr = da.from_array(arr)
+    if GPU_ENABLED and device == GPU:
+        arr = arr.map_blocks(cp.asarray)
+    return arr
 
 
 class Raster:
@@ -205,6 +225,18 @@ class Raster:
             self._rs.attrs = attrs.copy()
         else:
             raise TypeError("attrs cannot be None and must be mapping type")
+
+    @property
+    def device(self):
+        return self._device
+
+    @device.setter
+    def device(self, dev):
+        if dev not in (CPU, GPU):
+            raise RasterDeviceError(f"Unknown device: '{dev}'")
+        if not GPU_ENABLED and dev == GPU:
+            raise RasterDeviceError("GPU support is not enabled")
+        self._device = dev
 
     @property
     def dtype(self):
@@ -279,6 +311,8 @@ class Raster:
         return Raster(self)
 
     def gpu(self):
+        if not GPU_ENABLED:
+            raise RasterDeviceError("GPU support is not enabled")
         if self.device == GPU:
             return self
         rs = _map_chunk_function(self.copy(), cp.asarray, args=None)
@@ -639,10 +673,8 @@ class Raster:
         kernel = np.asarray(kernel, dtype=F64)
         if len(kernel.shape) != 2:
             raise ValueError(f"Kernel must be 2D. Got {kernel.shape}")
-        kernel = da.from_array(kernel)
-        if self.device == GPU:
-            # TODO: astype F32 to match GPU words?
-            kernel = kernel.map_blocks(cp.asarray).compute()
+        # TODO: astype F32 to match GPU words?
+        kernel = _dask_from_array_with_device(kernel, self.device)
         rs = self.copy()
         data = rs._rs.data
         for bnd in range(data.shape[0]):
