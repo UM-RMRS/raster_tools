@@ -308,7 +308,9 @@ class Raster:
         if dtype not in _DTYPE_INPUT_TO_DTYPE:
             raise ValueError(f"Unsupported type: '{dtype}'")
         dtype = _DTYPE_INPUT_TO_DTYPE[dtype]
-        return self._new_like_self(self._rs.astype(dtype))
+        if dtype != self.dtype:
+            return self._new_like_self(self._rs.astype(dtype))
+        return self.copy()
 
     def band_concat(self, rasters):
         """Join this and a sequence of rasters along the band dimension.
