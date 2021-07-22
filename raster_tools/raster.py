@@ -411,9 +411,9 @@ class Raster:
         )
         return rs
 
-    def remap_range(self, min, max, new_value):
+    def remap_range(self, min, max, new_value, *args):
         """
-        Remaps values in a the range [`min`, `max`) to `new_value`. Returns a
+        Remaps values in the range [`min`, `max`) to `new_value`. Returns a
         new Raster.
 
         Parameters
@@ -424,21 +424,37 @@ class Raster:
             The maximum value of the mapping range (exclusive).
         new_value : scalar
             The new value to map the range to.
+        *args : tuple
+            Additional remap groups allowing for multiple ranges to be
+            remapped. This allows calls like
+            `remap_range(0, 12, 0, 12, 20, 1, 20, 30, 2)`. An error is raised
+            if the additional remap args are not a multiple of 3. The remap
+            groups are applied sequentially.
 
         Returns
         -------
         Raster
             The resulting Raster.
         """
-        if not all([_is_scalar(v) for v in (min, max, new_value)]):
-            raise TypeError("min, max, and new_value must all be scalars")
-        if np.isnan((min, max)).any():
-            raise ValueError("min and max cannot be NaN")
-        if min >= max:
-            raise ValueError(f"min must be less than max: ({min}, {max})")
-        rs = _map_chunk_function(
-            self.copy(), _chunk_remap_range, (min, max, new_value)
-        )
+        remaps = [(min, max, new_value)]
+        if len(args):
+            if len(args) % 3 != 0:
+                raise RuntimeError(
+                    "Too few additional args to form a remap operation."
+                    " Additional args must be in groups of 3."
+                )
+            remaps += [args[i : i + 3] for i in range(0, len(args), 3)]
+        rs = self
+        for (min, max, new_value) in remaps:
+            if not all([_is_scalar(v) for v in (min, max, new_value)]):
+                raise TypeError("min, max, and new_value must all be scalars")
+            if np.isnan((min, max)).any():
+                raise ValueError("min and max cannot be NaN")
+            if min >= max:
+                raise ValueError(f"min must be less than max: ({min}, {max})")
+            rs = _map_chunk_function(
+                rs.copy(), _chunk_remap_range, (min, max, new_value)
+            )
         return rs
 
     def _input_to_raster(self, raster_input):
@@ -806,26 +822,37 @@ class BatchScript:
         raster, *args = _split_strip(args_str, ";")
         if len(args) > 1:
             raise BatchScriptParseError(
-                "REMAP Error: Too many arguments" + on_line
+                "REMAP Error: Too many arguments dividers" + on_line
             )
         args = args[0]
-        try:
-            values = [float(v) for v in _split_strip(args, ":")]
-        except ValueError:
+        remaps = []
+        for group in _split_strip(args, ","):
+            try:
+                values = [float(v) for v in _split_strip(group, ":")]
+            except ValueError:
+                raise BatchScriptParseError(
+                    "REMAP Error: values must be numbers" + on_line
+                )
+            if len(values) != 3:
+                raise BatchScriptParseError(
+                    "REMAP Error: requires 3 values separated by ':'" + on_line
+                )
+            left, right, new = values
+            if right <= left:
+                raise BatchScriptParseError(
+                    "REMAP Error: the min value must be less than the max"
+                    " value"
+                    + on_line
+                )
+            remaps.append((left, right, new))
+        if len(remaps) == 0:
             raise BatchScriptParseError(
-                "REMAP Error: values must be numbers" + on_line
+                "REMAP Error: No remap values found" + on_line
             )
-        if len(values) != 3:
-            raise BatchScriptParseError(
-                "REMAP Error: requires 3 values separated by ':'" + on_line
-            )
-        left, right, new = values
-        if right <= left:
-            raise BatchScriptParseError(
-                "REMAP Error: the min value must be less than the max value"
-                + on_line
-            )
-        return self._get_raster(raster).remap_range(left, right, new)
+        args = []
+        for group in remaps:
+            args.extend(group)
+        return self._get_raster(raster).remap_range(*args)
 
     def _composite_args_to_raster(self, args_str, line_no):
         on_line = f" on line {line_no}"
