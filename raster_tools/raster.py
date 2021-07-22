@@ -852,8 +852,7 @@ class BatchScript:
             if right <= left:
                 raise BatchScriptParseError(
                     "REMAP Error: the min value must be less than the max"
-                    " value"
-                    + on_line
+                    " value" + on_line
                 )
             remaps.append((left, right, new))
         if len(remaps) == 0:
