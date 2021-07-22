@@ -385,6 +385,13 @@ class Raster:
         # TODO: make sure band dim is "band"
         rasters = [self._rs] + [r._rs for r in rasters]
         rs = xr.concat(rasters, "band")
+        # Make sure that band is now an increaseing list starting at 1 and
+        # incrementing by 1. For xrs1 (1, N, M) and xrs2 (1, N, M),
+        # concat([xrs1, xrs2]) sets the band dim to [1, 1], which causes errors
+        # in other operations, so this fixes that. It also keeps the band dim
+        # values in line with what open_rasterio() returns for multiband
+        # rasters.
+        rs["band"] = list(range(1, rs.shape[0] + 1))
         return self._new_like_self(rs)
 
     def replace_null(self, value):

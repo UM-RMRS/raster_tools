@@ -590,6 +590,16 @@ class TestBandConcat(unittest.TestCase):
         self.assertEqual(test.shape, truth.shape)
         self.assertTrue(rs_eq_array(test, truth))
 
+    def test_band_concat_band_dim_values(self):
+        rs1 = Raster("test/data/elevation_small.tif")
+        rs2 = Raster("test/data/elevation2_small.tif")
+        test = rs1.band_concat([rs2])
+        # Make sure that band is now an increaseing list starting at 1 and
+        # incrementing by 1
+        self.assertTrue(all(test._rs.band == [1, 2]))
+        test = rs1.band_concat([test, rs2])
+        self.assertTrue(all(test._rs.band == [1, 2, 3, 4]))
+
     def test_band_concat_path_inputs(self):
         rs1 = Raster("test/data/elevation_small.tif")
         rs2 = Raster("test/data/elevation2_small.tif")
