@@ -8,4 +8,4 @@ RMRS Raster Utility Project
 * [netcdf4](https://unidata.github.io/netcdf4-python/)
 * [rasterio](https://rasterio.readthedocs.io/en/latest/)
 * [rioxarray](https://corteva.github.io/rioxarray/stable/)
-* [cupy](https://cupy.dev/)
+* [cupy](https://cupy.dev/): optional and experimental
