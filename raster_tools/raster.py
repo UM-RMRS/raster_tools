@@ -575,6 +575,10 @@ class Raster:
     def __rpow__(self, value):
         return self._binary_arithmetic(value, "**", swap=True)
 
+    def sqrt(self):
+        """Take the square root of the raster. Returns a new Raster."""
+        return self._new_like_self(np.sqrt(self._rs))
+
     def __pos__(self):
         return self
 

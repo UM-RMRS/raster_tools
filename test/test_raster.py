@@ -215,6 +215,12 @@ class TestRasterMath(unittest.TestCase):
                 rst = v ** rs1
                 self.assertTrue(rs_eq_array(rst, truth))
 
+    def test_sqrt(self):
+        rs = self.rs1 + np.abs(self.rs1_np.min())
+        rsnp = rs._rs.values
+        truth = np.sqrt(rsnp)
+        self.assertTrue(rs_eq_array(rs.sqrt(), truth))
+
 
 class TestLogicalOps(unittest.TestCase):
     def setUp(self):
@@ -360,6 +366,12 @@ class TestRasterAttrsPropagation(unittest.TestCase):
         rs = Raster("test/data/elevation_small.tif")
         attrs = rs._attrs
         self.assertEqual(rs.astype(int)._attrs, attrs)
+
+    def test_sqrt_attrs(self):
+        rs = Raster("test/data/elevation_small.tif")
+        rs += np.abs(rs._rs.values.min())
+        attrs = rs._attrs
+        self.assertEqual(rs.sqrt()._attrs, attrs)
 
     def test_log_attrs(self):
         rs = Raster("test/data/elevation_small.tif")
