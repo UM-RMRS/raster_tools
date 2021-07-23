@@ -546,6 +546,15 @@ class TestConvolve(unittest.TestCase):
             for b in range(truth.shape[0]):
                 truth[b] = scipy.ndimage.convolve(truth[b], kern, mode=m)
             self.assertTrue(rs_eq_array(rs.convolve(kern, mode=m), truth))
+        rs = Raster("test/data/multiband_small.tif")
+        kern = np.ones((5, 5))
+        rsnp = rs._rs.values
+        modes = ["reflect", "constant", "nearest", "mirror", "wrap"]
+        for m in modes:
+            truth = rsnp.copy()
+            for b in range(truth.shape[0]):
+                truth[b] = scipy.ndimage.convolve(truth[b], kern, mode=m)
+            self.assertTrue(rs_eq_array(rs.convolve(kern, mode=m), truth))
 
     def test_convolve_cval(self):
         rs = Raster("test/data/elevation2_small.tif")
