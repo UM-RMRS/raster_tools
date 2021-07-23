@@ -348,6 +348,24 @@ class Raster:
             return self._new_like_self(self._rs.astype(dtype))
         return self.copy()
 
+    def get_band(self, idx):
+        """
+        Retrieve the specified band as a new Raster. Indexing starts at 1.
+        """
+        bands, *_ = self.shape
+        if idx <= 0 or idx > bands:
+            raise IndexError(
+                f"Band index {idx} out of bounds for band dimension with size"
+                f" {self.shape}"
+            )
+        idx -= 1
+        if idx == 0 and bands == 0:
+            # Avoid returning rasters with no band dimension
+            return self
+        # Avoid returning rasters with no band dimension
+        band = self._rs[idx].expand_dims("band", axis=0)
+        return self._new_like_self(band)
+
     def band_concat(self, rasters):
         """Join this and a sequence of rasters along the band dimension.
 

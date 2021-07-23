@@ -575,6 +575,21 @@ class TestConvolve(unittest.TestCase):
             rs.convolve(kern)
 
 
+class TestGetBand(unittest.TestCase):
+    def test_get_band(self):
+        rs = Raster("test/data/multiband_small.tif")
+        rsnp = rs._rs.values
+        self.assertTrue(rs_eq_array(rs.get_band(1), rsnp[:1]))
+        self.assertTrue(rs_eq_array(rs.get_band(2), rsnp[1:2]))
+        self.assertTrue(rs_eq_array(rs.get_band(3), rsnp[2:3]))
+        self.assertTrue(rs_eq_array(rs.get_band(4), rsnp[3:4]))
+
+        self.assertTrue(len(rs.get_band(1).shape) == 3)
+
+        with self.assertRaises(IndexError):
+            rs.get_band(0)
+
+
 class TestBandConcat(unittest.TestCase):
     def test_band_concat(self):
         rs1 = Raster("test/data/elevation_small.tif")
