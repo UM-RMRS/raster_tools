@@ -49,20 +49,20 @@ class RasterDeviceError(BaseException):
     pass
 
 
-U8 = np.uint8
-U16 = np.uint16
-U32 = np.uint32
-U64 = np.uint64
-I8 = np.int8
-I16 = np.int16
-I32 = np.int32
-I64 = np.int64
-F16 = np.float16
-F32 = np.float32
-F64 = np.float64
+U8 = np.dtype(np.uint8)
+U16 = np.dtype(np.uint16)
+U32 = np.dtype(np.uint32)
+U64 = np.dtype(np.uint64)
+I8 = np.dtype(np.int8)
+I16 = np.dtype(np.int16)
+I32 = np.dtype(np.int32)
+I64 = np.dtype(np.int64)
+F16 = np.dtype(np.float16)
+F32 = np.dtype(np.float32)
+F64 = np.dtype(np.float64)
 # Some machines don't support np.float128 so use longdouble instead. This
 # aliases f128 on machines that support it and f64 on machines that don't
-F128 = np.longdouble
+F128 = np.dtype(np.longdouble)
 BOOL = np.dtype(bool)
 _DTYPE_INPUT_TO_DTYPE = {
     # Unsigned int
