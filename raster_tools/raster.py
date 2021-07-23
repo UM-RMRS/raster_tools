@@ -508,7 +508,6 @@ class Raster:
             raise ValueError(f"Unknown arithmetic operation: '{op}'")
         operand = self._handle_binary_op_input(raster_or_scalar)
         rs = self._new_like_self(_BINARY_LOGICAL_OPS[op](self._rs, operand))
-        rs.device = self.device
         return rs.astype(F32)
 
     def add(self, raster_or_scalar):
