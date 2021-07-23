@@ -132,6 +132,10 @@ _BINARY_LOGICAL_OPS = {
     "<": operator.lt,
     ">": operator.gt,
 }
+_BINARY_BITWISE_OPS = {
+    "&": operator.and_,
+    "|": operator.or_,
+}
 
 
 def _map_chunk_function(raster, func, args, **kwargs):
@@ -176,6 +180,60 @@ def _chunk_to_cpu(chunk, *args):
     except AttributeError:
         # assume chunk is already on the cpu
         return chunk
+
+
+def _coerce_to_bool_for_and_or(operands, to_bool_op):
+    if _is_str(to_bool_op):
+        if to_bool_op == "gt0":
+
+            def to_bool(x):
+                return x > 0
+
+            to_bool_op = to_bool
+        elif to_bool_op == "cast":
+
+            def to_bool(x):
+                if _is_scalar(x):
+                    return bool(x)
+                return x.astype(BOOL)
+
+            to_bool_op = to_bool
+        else:
+            raise ValueError("Unknown conversion to bool")
+    elif callable(to_bool_op):
+        pass
+    else:
+        raise TypeError("Invalid conversion to bool")
+
+    boperands = []
+    for opr in operands:
+        if not _is_scalar(opr) and (
+            isinstance(opr, (bool, np.bool_)) or opr.dtype == np.dtype(bool)
+        ):
+            boperands.append(opr)
+            continue
+        boperands.append(to_bool_op(opr))
+    return boperands
+
+
+def _get_output_type_for_and_or(dt1, dt2):
+    dt1 = np.dtype(dt1)
+    dt2 = np.dtype(dt2)
+    dts = [dt1, dt2]
+    kinds = [d.kind for d in dts]
+    if len(set(kinds)) == 1:
+        # Return the widest type
+        return dts[np.argmax([d.itemsize for d in dts])]
+    # Prioritize float over int over uint over bool
+    if "f" in kinds:
+        return dt1 if dt1.kind == "f" else dt2
+    if "i" in kinds:
+        return dt1 if dt1.kind == "i" else dt2
+    if "u" in kinds:
+        return dt1 if dt1.kind == "u" else dt2
+    if "b" in kinds:
+        return dt1 if dt1.kind == "b" else dt2
+    return dt1
 
 
 GPU = "gpu"
@@ -509,11 +567,13 @@ class Raster:
             )
         return raster
 
-    def _handle_binary_op_input(self, raster_or_scalar):
+    def _handle_binary_op_input(self, raster_or_scalar, xarray=True):
         if _is_scalar(raster_or_scalar):
             operand = raster_or_scalar
         else:
-            operand = self._input_to_raster(raster_or_scalar)._rs
+            operand = self._input_to_raster(raster_or_scalar)
+            if xarray:
+                operand = operand._rs
         return operand
 
     def _binary_arithmetic(self, raster_or_scalar, op, swap=False):
@@ -698,6 +758,95 @@ class Raster:
 
     def __gt__(self, other):
         return self.gt(other)
+
+    def _and_or(self, other, and_or, to_bool_op):
+        if isinstance(other, (bool, np.bool_)):
+            operand = other
+        else:
+            operand = self._handle_binary_op_input(other, False)
+        other_type = (
+            type(other) if not _is_raster_class(other) else other.dtype
+        )
+        out_type = _get_output_type_for_and_or(self.dtype, other_type)
+        if _is_raster_class(operand):
+            operand = operand._rs
+        left, right = _coerce_to_bool_for_and_or(
+            [self._rs, operand], to_bool_op
+        )
+        rs = self._new_like_self(_BINARY_BITWISE_OPS[and_or](left, right))
+        return rs.astype(out_type)
+
+    def and_(self, other, to_bool_op="gt0"):
+        """
+        Returns this Raster and'd with another. Both are coerced to bools
+        according to `to_bool_op`.
+
+        Parameters
+        ----------
+        other : Raster or path or bool or scalar
+            The raster to and this raster with
+        to_bool_op : {'gt0', 'cast'} or callable, optional
+            Controls how the two rasters are coerced to dtype bool. If a
+            callable, to_bool_op is called on this raster and `other`
+            separately to convert them to bool types. For a str:
+            'gt0'
+                The two operands are compared against 0 using greater-than.
+                Default.
+            'cast'
+                The two operands are cast to bool.
+
+        Returns
+        -------
+        Raster
+            The resulting Raster of zeros and ones or bools. The output dtype
+            is determined by the input types. If both are from the same family
+            (i.e. float, int, uint, bool), then the widest of the two is used
+            for the output dtype. Otherwise, a dtype is chosen from the two in
+            this order of priority: float > int > uint > bool.
+        """
+        return self._and_or(other, "&", to_bool_op)
+
+    def __and__(self, other):
+        return self._and_or(other, "&", "gt0")
+
+    def __rand__(self, other):
+        return self._and_or(other, "&", "gt0")
+
+    def or_(self, other, to_bool_op="gt0"):
+        """
+        Returns this Raster or'd with another. Both are coerced to bools
+        according to `to_bool_op`.
+
+        Parameters
+        ----------
+        other : Raster or path or bool or scalar
+            The raster to and this raster with
+        to_bool_op : {'gt0', 'cast'} or callable, optional
+            Controls how the two rasters are coerced to dtype bool. If a
+            callable, to_bool_op is called on this raster and `other`
+            separately to convert them to bool types. For a str:
+            'gt0'
+                The two operands are compared against 0 using greater-than.
+                Default.
+            'cast'
+                The two operands are cast to bool.
+
+        Returns
+        -------
+        Raster
+            The resulting Raster of zeros and ones or bools. The output dtype
+            is determined by the input types. If both are from the same family
+            (i.e. float, int, uint, bool), then the widest of the two is used
+            for the output dtype. Otherwise, a dtype is chosen from the two in
+            this order of priority: float > int > uint > bool.
+        """
+        return self._and_or(other, "|", to_bool_op)
+
+    def __or__(self, other):
+        return self._and_or(other, "|", "gt0")
+
+    def __ror__(self, other):
+        return self._and_or(other, "|", "gt0")
 
     def convolve(self, kernel, mode="constant", cval=0.0):
         """Convolve `kernel` with each band individually. Returns a new Raster.

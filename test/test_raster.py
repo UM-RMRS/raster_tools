@@ -9,6 +9,19 @@ from raster_tools.raster import (
     _BINARY_ARITHMETIC_OPS,
     _BINARY_LOGICAL_OPS,
     _DTYPE_INPUT_TO_DTYPE,
+    U8,
+    U16,
+    U32,
+    U64,
+    I8,
+    I16,
+    I32,
+    I64,
+    F16,
+    F32,
+    F64,
+    F128,
+    BOOL,
 )
 
 
@@ -533,6 +546,93 @@ class TestToLazy(unittest.TestCase):
         rs_lazy = rs_nonlazy.to_lazy()
         self.assertFalse(dask.is_dask_collection(rs_nonlazy._rs))
         self.assertTrue(dask.is_dask_collection(rs_lazy._rs))
+
+
+class TestAndOr(unittest.TestCase):
+    def test_and(self):
+        rs1 = Raster("test/data/elevation_small.tif")
+        rsnp1 = rs1._rs.values
+        rs2 = Raster("test/data/elevation2_small.tif")
+        rsnp2 = rs2._rs.values
+        rsnp2 -= rsnp2.max() / 2
+        truth = (rsnp1 > 0) & (rsnp2 > 0)
+        self.assertTrue(rs_eq_array(rs1 & rs2, truth))
+        self.assertTrue(rs_eq_array(rs1.and_(rs2), truth))
+        truth = rsnp1.astype(bool) & rsnp2.astype(bool)
+        self.assertTrue(rs_eq_array(rs1.and_(rs2, "cast"), truth))
+        for v in [-22.0, -20, 0, 1, 1.0, 23.1, 30]:
+            truth = (rsnp1 > 0) & (v > 0)
+            self.assertTrue(rs_eq_array(rs1 & v, truth))
+            self.assertTrue(rs_eq_array(rs1.and_(v), truth))
+            truth = rsnp1.astype(bool) & bool(v)
+            self.assertTrue(rs_eq_array(rs1.and_(v, "cast"), truth))
+        for v in [False, True]:
+            truth = (rsnp1 > 0) & v
+            self.assertTrue(rs_eq_array(rs1 & v, truth))
+            self.assertTrue(rs_eq_array(rs1.and_(v), truth))
+            truth = rsnp1.astype(bool) & v
+            self.assertTrue(rs_eq_array(rs1.and_(v, "cast"), truth))
+
+    def test_or(self):
+        rs1 = Raster("test/data/elevation_small.tif")
+        rsnp1 = rs1._rs.values
+        rs2 = Raster("test/data/elevation2_small.tif")
+        rsnp2 = rs2._rs.values
+        rsnp2 -= rsnp2.max() / 2
+        truth = (rsnp1 > 0) | (rsnp2 > 0)
+        self.assertTrue(rs_eq_array(rs1 | rs2, truth))
+        self.assertTrue(rs_eq_array(rs1.or_(rs2), truth))
+        truth = rsnp1.astype(bool) | rsnp2.astype(bool)
+        self.assertTrue(rs_eq_array(rs1.or_(rs2, "cast"), truth))
+        for v in [-22.0, -20, 0, 1, 1.0, 23.1, 30]:
+            truth = (rsnp1 > 0) | (v > 0)
+            self.assertTrue(rs_eq_array(rs1 | v, truth))
+            self.assertTrue(rs_eq_array(rs1.or_(v), truth))
+            truth = rsnp1.astype(bool) | bool(v)
+            self.assertTrue(rs_eq_array(rs1.or_(v, "cast"), truth))
+        for v in [False, True]:
+            truth = (rsnp1 > 0) | v
+            self.assertTrue(rs_eq_array(rs1 | v, truth))
+            self.assertTrue(rs_eq_array(rs1.or_(v), truth))
+            truth = rsnp1.astype(bool) | v
+            self.assertTrue(rs_eq_array(rs1.or_(v, "cast"), truth))
+
+    def test_and_or_output_type(self):
+        rs1 = Raster("test/data/elevation_small.tif")
+        rs2 = Raster("test/data/elevation2_small.tif")
+        bools = [BOOL]
+        uints = [U8, U16, U32, U64]
+        ints = [I8, I16, I32, I64]
+        floats = [F16, F32, F64, F128]
+        types = [*bools, *uints, *ints, *floats]
+        out_kind_priorities = {
+            "bb": "b",
+            "bu": "u",
+            "bi": "i",
+            "bf": "f",
+            "uu": "u",
+            "ui": "i",
+            "uf": "f",
+            "ii": "i",
+            "if": "f",
+            "ff": "f",
+        }
+        # Standardize key strings
+        out_kind_priorities = {
+            "".join(sorted(k)): v for k, v in out_kind_priorities.items()
+        }
+        for t1 in types:
+            for t2 in types:
+                res = rs1.astype(t1) & rs2.astype(t2)
+                kstr = "".join(sorted((t1.kind, t2.kind)))
+                target_kind = out_kind_priorities[kstr]
+                self.assertEqual(target_kind, res.dtype.kind)
+                if t1.kind == t2.kind:
+                    widths = [t1.itemsize, t2.itemsize]
+                    self.assertEqual(res.dtype.itemsize, max(widths))
+                else:
+                    target_type = t1 if t1.kind == target_kind else t2
+                    self.assertEqual(res.dtype, target_type)
 
 
 class TestConvolve(unittest.TestCase):
