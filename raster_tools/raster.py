@@ -472,6 +472,10 @@ class Raster:
             raster = Raster(open_raster_from_path(raster_input))
             if self.device == GPU:
                 raster = raster.gpu()
+        if raster._rs.size == 0:
+            raise ValueError(
+                f"Input raster is empty with shape {raster._rs.shape}"
+            )
         return raster
 
     def _handle_binary_op_input(self, raster_or_scalar):
