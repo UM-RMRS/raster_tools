@@ -63,7 +63,7 @@ F64 = np.float64
 # Some machines don't support np.float128 so use longdouble instead. This
 # aliases f128 on machines that support it and f64 on machines that don't
 F128 = np.longdouble
-BOOL = np.bool_
+BOOL = np.dtype(bool)
 _DTYPE_INPUT_TO_DTYPE = {
     # Unsigned int
     U8: U8,
