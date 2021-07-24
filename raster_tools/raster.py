@@ -105,7 +105,7 @@ _DTYPE_INPUT_TO_DTYPE = {
     np.dtype("float64"): F64,
     F128: F128,
     "float128": F128,
-    np.dtype("float128"): F128,
+    np.dtype("longdouble"): F128,
     float: F64,
     "float": F64,
     # Boolean
