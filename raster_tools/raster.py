@@ -7,7 +7,7 @@ import os
 import re
 import xarray as xr
 from dask_image import ndfilters
-from numbers import Number
+from numbers import Integral, Number
 
 try:
     import cupy as cp
@@ -26,6 +26,10 @@ def _is_str(value):
 
 def _is_scalar(value):
     return isinstance(value, Number)
+
+
+def _is_int(value):
+    return isinstance(value, Integral)
 
 
 def _is_raster_class(value):
@@ -234,6 +238,24 @@ def _get_output_type_for_and_or(dt1, dt2):
     if "b" in kinds:
         return dt1 if dt1.kind == "b" else dt2
     return dt1
+
+
+def _get_focal_window(width_or_radius, height=None):
+    width = width_or_radius
+    window = None
+    if height is None:
+        width = ((width - 1) * 2) + 1
+        height = width
+        r = (width - 1) // 2
+        window = np.zeros((width, height), dtype=I32)
+        for x in range(width):
+            for y in range(height):
+                rxy = np.sqrt((x - r) ** 2 + (y - r) ** 2)
+                if rxy <= r:
+                    window[x, y] = 1
+    else:
+        window = np.ones((width, height), dtype=I32)
+    return window
 
 
 GPU = "gpu"
@@ -893,6 +915,99 @@ class Raster:
             data[bnd] = ndfilters.convolve(
                 data[bnd], kernel, mode=mode, cval=cval
             )
+        return rs
+
+    def focal(
+        self,
+        focal_type,
+        width_or_radius,
+        height=None,
+        mode="constant",
+        cval=0.0,
+    ):
+        if focal_type not in (
+            # "asm",
+            # "entropy",
+            "max",
+            "mean",
+            "median",
+            "min",
+            # "mode",
+            "std",
+            "sum",
+            # "unique",
+            "variance",
+        ):
+            raise ValueError(f"Unknown focal operation: '{focal_type}'")
+        if not _is_int(width_or_radius):
+            raise TypeError(
+                f"width_or_radius must be an integer: {width_or_radius}"
+            )
+        elif width_or_radius <= 0:
+            raise ValueError(
+                "Window width or radius must be greater than 0."
+                f" Got {width_or_radius}"
+            )
+        if height is not None:
+            if not _is_int(height):
+                raise TypeError(f"height must be an integer or None: {height}")
+            elif height <= 0:
+                raise ValueError(
+                    f"Window height must be greater than 0. Got {height}"
+                )
+
+        window = _get_focal_window(width_or_radius, height)
+        window = _dask_from_array_with_device(window, self.device)
+        rs = self.copy()
+        data = rs._rs.data
+
+        if focal_type == "asm":
+            raise NotImplementedError()
+        elif focal_type == "entropy":
+            raise NotImplementedError()
+        elif focal_type == "max":
+            for bnd in range(data.shape[0]):
+                data[bnd] = ndfilters.maximum_filter(
+                    data[bnd], footprint=window, mode=mode, cval=cval
+                )
+        elif focal_type in ["mean", "sum"]:
+            for bnd in range(data.shape[0]):
+                n = window.sum()
+                data[bnd] = ndfilters.convolve(
+                    data[bnd], window, mode=mode, cval=cval
+                )
+                if focal_type == "mean":
+                    data[bnd] /= n
+        elif focal_type == "median":
+            for bnd in range(data.shape[0]):
+                data[bnd] = ndfilters.median_filter(
+                    data[bnd], footprint=window, mode=mode, cval=cval
+                )
+        elif focal_type == "min":
+            for bnd in range(data.shape[0]):
+                data[bnd] = ndfilters.minimum_filter(
+                    data[bnd], footprint=window, mode=mode, cval=cval
+                )
+        elif focal_type == "mode":
+            raise NotImplementedError()
+        elif focal_type in ["std", "variance"]:
+            data_sq = data ** 2
+            n = window.sum()
+            for bnd in range(data.shape[0]):
+                data[bnd] = ndfilters.convolve(
+                    data[bnd], window, mode=mode, cval=cval
+                )
+                data_sq[bnd] = ndfilters.convolve(
+                    data_sq[bnd], window, mode=mode, cval=cval
+                )
+                data = (data_sq - ((data ** 2) / n)) / n
+                if focal_type == "std":
+                    data = np.sqrt(data)
+        elif focal_type == "unique":
+            raise NotImplementedError()
+        else:
+            raise ValueError(f"Unknown focal operation: '{focal_type}'")
+        rs._rs.data = data
         return rs
 
     def __repr__(self):
