@@ -441,23 +441,35 @@ class Raster:
             return self._new_like_self(self._rs.astype(dtype))
         return self.copy()
 
-    def get_band(self, idx):
+    def get_bands(self, bands):
         """
-        Retrieve the specified band as a new Raster. Indexing starts at 1.
+        Retrieve the specified bands as a new Raster. Indexing starts at 1.
+
+        Parameters
+        ----------
+        bands : int or sequence of ints
+            The band or bands to be retrieved. A single band Raster is returned
+            if `bands` is an int and a multiband Raster is returned if it is a
+            sequence. The band numbers may be out of order and contain repeated
+            elements. if `bands` is a sequence, the multiband raster's bands
+            will be in the order provided.
         """
-        bands, *_ = self.shape
-        if idx <= 0 or idx > bands:
+        n_bands, *_ = self.shape
+        if _is_int(bands):
+            bands = [bands]
+        bands = list(bands)
+        if len(bands) == 0:
+            raise ValueError("No bands provided")
+        if any(b < 1 or b > n_bands for b in bands):
             raise IndexError(
-                f"Band index {idx} out of bounds for band dimension with size"
-                f" {self.shape}"
+                f"One or more band numbers were out of bounds: {bands}"
             )
-        idx -= 1
-        if idx == 0 and bands == 0:
-            # Avoid returning rasters with no band dimension
+        bands = [b - 1 for b in bands]
+        if len(bands) == 1 and n_bands == 1:
             return self
-        # Avoid returning rasters with no band dimension
-        band = self._rs[idx].expand_dims("band", axis=0)
-        return self._new_like_self(band)
+        rs = self._rs[bands]
+        # TODO: look into making attrs consistant with bands
+        return self._new_like_self(rs)
 
     def band_concat(self, rasters):
         """Join this and a sequence of rasters along the band dimension.
