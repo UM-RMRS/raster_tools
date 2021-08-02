@@ -3,6 +3,7 @@ import numpy as np
 import rasterio as rio
 import rioxarray  # noqa: F401; adds ability to save tiffs to xarray
 import xarray as xr
+from dask.array.core import normalize_chunks as dask_chunks
 from pathlib import Path
 
 from ._utils import validate_file
@@ -20,9 +21,18 @@ def _get_extension(path):
     return os.path.splitext(path)[-1].lower()
 
 
-def chunk(xrs):
-    # TODO: smarter chunking logic
-    return xrs.chunk({"band": 1, "x": 10_000, "y": 10_000})
+def chunk(xrs, src_file=None):
+    tile_shape = None
+    if src_file is not None and _get_extension(src_file) in TIFF_EXTS:
+        with rio.open(src_file) as src:
+            tile_shape = (1, *src.block_shapes[0])
+    chunks = dask_chunks(
+        (1, "auto", "auto"),
+        xrs.shape,
+        dtype=xrs.dtype,
+        previous_chunks=tile_shape,
+    )
+    return xrs.chunk(chunks)
 
 
 TIFF_EXTS = frozenset((".tif", ".tiff"))
@@ -49,7 +59,7 @@ def open_raster_from_path(path):
         # XXX: comments on a few xarray issues mention better performance when
         # using the chunks keyword in open_*(). Consider combining opening and
         # chunking.
-        rs = chunk(rs)
+        rs = chunk(rs, path)
         return rs
     elif ext in NC_EXTS:
         # TODO: chunking logic
