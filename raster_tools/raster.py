@@ -40,6 +40,10 @@ def _is_xarray(rs):
     return isinstance(rs, (xr.DataArray, xr.Dataset))
 
 
+def _is_numpy(rs):
+    return isinstance(rs, np.ndarray)
+
+
 def _is_using_dask(raster):
     rs = raster._rs if _is_raster_class(raster) else raster
     return dask.is_dask_collection(rs)
@@ -262,6 +266,15 @@ GPU = "gpu"
 CPU = "cpu"
 
 
+def _np_to_xarray(rs):
+    if len(rs.shape) > 3 or len(rs.shape) < 2:
+        raise ValueError(f"Invalid raster shape for numpy array: {rs.shape}")
+    if len(rs.shape) == 2:
+        rs = np.expand_dims(rs, axis=0)
+    rs = da.from_array(rs)
+    return xr.DataArray(rs, dims=["band", "y", "x"])
+
+
 def _dask_from_array_with_device(arr, device):
     arr = da.from_array(arr)
     if GPU_ENABLED and device == GPU:
@@ -298,6 +311,9 @@ class Raster:
             self.device = raster.device
         elif _is_xarray(raster):
             self._rs = raster
+        elif _is_numpy(raster):
+            raster = _np_to_xarray(raster)
+            self._rs = chunk(raster)
         elif is_batch_file(raster):
             self._rs = BatchScript(raster).parse().final_raster._rs
         else:
