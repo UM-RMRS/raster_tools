@@ -297,11 +297,11 @@ class Raster:
 
     Parameters
     ----------
-    raster : str, Raster, xarray.Dataset, xarray.DataArray
+    raster : str, Raster, xarray.Dataset, xarray.DataArray, numpy.ndarray
         The raster source to use for this Raster. If `raster` is a string,
         it is treated like a path. If `raster` is a Raster, a copy is made
         and its raster source is used. If `raster` is and xarray data
-        structure, it is used as the source.
+        structure or numpy array, it is used as the source.
     """
 
     def __init__(self, raster):
