@@ -55,8 +55,11 @@ def open_raster_from_path(path):
     ext = _get_extension(path)
     if not ext:
         raise RasterIOError("Could not determine file type")
+    # mask_and_scale=True causes the null values to masked out and replaced
+    # with NaN. This standardizes the rasters. When they are compute()'d or
+    # written to disk, the NaNs are replaced with the null value again.
     if ext in TIFF_EXTS:
-        rs = rxr.open_rasterio(path, dtype=F64)
+        rs = rxr.open_rasterio(path, mask_and_scale=True, dtype=F64)
         # XXX: comments on a few xarray issues mention better performance when
         # using the chunks keyword in open_*(). Consider combining opening and
         # chunking.
@@ -66,6 +69,7 @@ def open_raster_from_path(path):
         # TODO: chunking logic
         return xr.open_dataset(
             path,
+            mask_and_scale=True,
             dtype=F64,
         )
     else:
