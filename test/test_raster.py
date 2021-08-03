@@ -37,8 +37,8 @@ def array_eq_all(ar1, ar2):
     return (ar1 == ar2).all()
 
 
-class TestRasterFromNumpy(unittest.TestCase):
-    def test_raster_from_numpy(self):
+class TestRasterCtor(unittest.TestCase):
+    def test_raster_ctor(self):
         for nprs in [np.ones((6, 6)), np.ones((1, 6, 6)), np.ones((4, 5, 5))]:
             rs = Raster(nprs)
             shape = nprs.shape if len(nprs.shape) == 3 else (1, *nprs.shape)
