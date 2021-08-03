@@ -96,15 +96,15 @@ def _write_tif_with_rasterio(
         bands = 1
     compress = None if not compress else "lzw"
     if no_data_value is None:
-        nodatavals = set(rs.nodatavals)
-        if rs.dtype.kind in ("u", "i") and np.isnan(list(nodatavals)).any():
-            nodatavals.remove(np.nan)
-        if len(nodatavals):
-            # TODO: add warning if size > 1
-            nodataval = nodatavals.pop()
-        else:
-            nodataval = None
+        ndv = (
+            rs.rio.nodata
+            if rs.rio.encoded_nodata is None
+            else rs.rio.encodeded_nodata
+        )
+        rs.fillna(ndv)
+        nodataval = ndv
     else:
+        rs.fillna(no_data_value)
         nodataval = no_data_value
     with rio.open(
         path,
@@ -115,8 +115,8 @@ def _write_tif_with_rasterio(
         count=bands,
         dtype=rs.dtype,
         nodata=nodataval,
-        crs=rs.crs,
-        transform=rs.transform,
+        crs=rs.rio.crs,
+        transform=rs.rio.transform(),
         tiled=True,
         blockxsize=blockwidth,
         blockysize=blockheight,
