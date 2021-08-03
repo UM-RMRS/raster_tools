@@ -69,6 +69,7 @@ def open_raster_from_path(path):
         # TODO: chunking logic
         return xr.open_dataset(
             path,
+            decode_coords="all",
             mask_and_scale=True,
             dtype=F64,
         )
