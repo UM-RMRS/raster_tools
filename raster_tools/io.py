@@ -1,11 +1,12 @@
 import os
 import numpy as np
 import rasterio as rio
-import rioxarray  # noqa: F401; adds ability to save tiffs to xarray
+import rioxarray as rxr
 import xarray as xr
 from dask.array.core import normalize_chunks as dask_chunks
 from pathlib import Path
 
+from ._types import F64
 from ._utils import validate_file
 
 
@@ -55,7 +56,7 @@ def open_raster_from_path(path):
     if not ext:
         raise RasterIOError("Could not determine file type")
     if ext in TIFF_EXTS:
-        rs = xr.open_rasterio(path)
+        rs = rxr.open_rasterio(path, dtype=F64)
         # XXX: comments on a few xarray issues mention better performance when
         # using the chunks keyword in open_*(). Consider combining opening and
         # chunking.
@@ -63,7 +64,10 @@ def open_raster_from_path(path):
         return rs
     elif ext in NC_EXTS:
         # TODO: chunking logic
-        return xr.open_dataset(path)
+        return xr.open_dataset(
+            path,
+            dtype=F64,
+        )
     else:
         raise RasterIOError("Unknown file type")
 
