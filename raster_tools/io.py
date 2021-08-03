@@ -146,7 +146,6 @@ def write_raster(
             _write_tif_with_rasterio(
                 rs,
                 path,
-                no_data_value=no_data_value,
                 blockwidth=blockwidth,
                 blockheight=blockheight,
             )

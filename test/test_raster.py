@@ -2,6 +2,7 @@ import dask
 import numpy as np
 import scipy
 import unittest
+import rioxarray as rxr
 import xarray as xr
 
 from raster_tools import Raster
@@ -454,10 +455,10 @@ class TestReplaceNull(unittest.TestCase):
     def test_replace_null(self):
         fill_value = 0
         rs = Raster("test/data/null_values.tiff")
-        rsnp = rs._rs.values
+        rsnp = rxr.open_rasterio("test/data/null_values.tiff").values
         rsnp_replaced = rsnp.copy()
         rsnp_replaced[np.isnan(rsnp)] = fill_value
-        rsnp_replaced[rsnp == rs._attrs["nodatavals"][0]] = fill_value
+        rsnp_replaced[rsnp == rs._rs.rio.encoded_nodata] = fill_value
         rs = rs.replace_null(fill_value)
         self.assertTrue(rs_eq_array(rs, rsnp_replaced))
 
