@@ -1,11 +1,12 @@
 import os
 import numpy as np
 import rasterio as rio
-import rioxarray  # noqa: F401; adds ability to save tiffs to xarray
+import rioxarray as rxr
 import xarray as xr
 from dask.array.core import normalize_chunks as dask_chunks
 from pathlib import Path
 
+from ._types import F64
 from ._utils import validate_file
 
 
@@ -54,8 +55,11 @@ def open_raster_from_path(path):
     ext = _get_extension(path)
     if not ext:
         raise RasterIOError("Could not determine file type")
+    # mask_and_scale=True causes the null values to masked out and replaced
+    # with NaN. This standardizes the rasters. When they are compute()'d or
+    # written to disk, the NaNs are replaced with the null value again.
     if ext in TIFF_EXTS:
-        rs = xr.open_rasterio(path)
+        rs = rxr.open_rasterio(path, mask_and_scale=True, dtype=F64)
         # XXX: comments on a few xarray issues mention better performance when
         # using the chunks keyword in open_*(). Consider combining opening and
         # chunking.
@@ -63,7 +67,12 @@ def open_raster_from_path(path):
         return rs
     elif ext in NC_EXTS:
         # TODO: chunking logic
-        return xr.open_dataset(path)
+        return xr.open_dataset(
+            path,
+            decode_coords="all",
+            mask_and_scale=True,
+            dtype=F64,
+        )
     else:
         raise RasterIOError("Unknown file type")
 
@@ -87,15 +96,15 @@ def _write_tif_with_rasterio(
         bands = 1
     compress = None if not compress else "lzw"
     if no_data_value is None:
-        nodatavals = set(rs.nodatavals)
-        if rs.dtype.kind in ("u", "i") and np.isnan(list(nodatavals)).any():
-            nodatavals.remove(np.nan)
-        if len(nodatavals):
-            # TODO: add warning if size > 1
-            nodataval = nodatavals.pop()
-        else:
-            nodataval = None
+        ndv = (
+            rs.rio.nodata
+            if rs.rio.encoded_nodata is None
+            else rs.rio.encodeded_nodata
+        )
+        rs.fillna(ndv)
+        nodataval = ndv
     else:
+        rs.fillna(no_data_value)
         nodataval = no_data_value
     with rio.open(
         path,
@@ -106,8 +115,8 @@ def _write_tif_with_rasterio(
         count=bands,
         dtype=rs.dtype,
         nodata=nodataval,
-        crs=rs.crs,
-        transform=rs.transform,
+        crs=rs.rio.crs,
+        transform=rs.rio.transform(),
         tiled=True,
         blockxsize=blockwidth,
         blockysize=blockheight,
@@ -137,7 +146,6 @@ def write_raster(
             _write_tif_with_rasterio(
                 rs,
                 path,
-                no_data_value=no_data_value,
                 blockwidth=blockwidth,
                 blockheight=blockheight,
             )

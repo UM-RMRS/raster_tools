@@ -315,10 +315,12 @@ class Raster:
         """Compute the final raster and save it to the provided location."""
         # TODO: add tiling flag
         # TODO: warn of overwrite
+        rs = self._rs
+        if no_data_value is not None:
+            rs = self.set_null_value(no_data_value)._rs
         write_raster(
-            self._rs,
+            rs,
             path,
-            no_data_value=no_data_value,
             blockwidth=blockwidth,
             blockheight=blockheight,
         )
@@ -467,6 +469,13 @@ class Raster:
         rs["band"] = list(range(1, rs.shape[0] + 1))
         return self._new_like_self(rs)
 
+    def set_null_value(self, value):
+        if not _is_scalar(value):
+            raise TypeError(f"Value must be a scalar: {value}")
+        return self._new_like_self(
+            self._rs.rio.write_nodata(value, encoded=True)
+        )
+
     def replace_null(self, value):
         """
         Replaces null values with a new value. Returns a new Raster.
@@ -485,11 +494,7 @@ class Raster:
         """
         if not _is_scalar(value):
             raise TypeError("value must be a scalar")
-        null_values = self._attrs["nodatavals"]
-        rs = _map_chunk_function(
-            self.copy(), _chunk_replace_null, (null_values, value)
-        )
-        return rs
+        return self._new_like_self(self._rs.fillna(value))
 
     def remap_range(self, min, max, new_value, *args):
         """
