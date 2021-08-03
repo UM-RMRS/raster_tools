@@ -441,6 +441,15 @@ class TestCopy(unittest.TestCase):
         self.assertEqual(rs._attrs, copy._attrs)
 
 
+class TestSetNullValue(unittest.TestCase):
+    def test_set_null_value(self):
+        rs = Raster("test/data/null_values.tiff")
+        ndv = rs._rs.rio.encoded_nodata
+        rs2 = rs.set_null_value(0)
+        self.assertEqual(rs._rs.rio.encoded_nodata, ndv)
+        self.assertEqual(rs2._rs.rio.encoded_nodata, 0)
+
+
 class TestReplaceNull(unittest.TestCase):
     def test_replace_null(self):
         fill_value = 0

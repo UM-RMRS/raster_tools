@@ -467,6 +467,13 @@ class Raster:
         rs["band"] = list(range(1, rs.shape[0] + 1))
         return self._new_like_self(rs)
 
+    def set_null_value(self, value):
+        if not _is_scalar(value):
+            raise TypeError(f"Value must be a scalar: {value}")
+        return self._new_like_self(
+            self._rs.rio.write_nodata(value, encoded=True)
+        )
+
     def replace_null(self, value):
         """
         Replaces null values with a new value. Returns a new Raster.
