@@ -8,8 +8,10 @@ from raster_tools import Raster
 from raster_tools.raster import (
     _BINARY_ARITHMETIC_OPS,
     _BINARY_LOGICAL_OPS,
-    _DTYPE_INPUT_TO_DTYPE,
     _get_focal_window,
+)
+from raster_tools._types import (
+    DTYPE_INPUT_TO_DTYPE,
     U8,
     U16,
     U32,
@@ -341,7 +343,7 @@ class TestLogicalOps(unittest.TestCase):
 class TestAstype(unittest.TestCase):
     def test_astype(self):
         rs = Raster("test/data/elevation_small.tif")
-        for type_code, dtype in _DTYPE_INPUT_TO_DTYPE.items():
+        for type_code, dtype in DTYPE_INPUT_TO_DTYPE.items():
             self.assertEqual(rs.astype(type_code).dtype, dtype)
             self.assertEqual(rs.astype(type_code).eval().dtype, dtype)
 
@@ -356,7 +358,7 @@ class TestAstype(unittest.TestCase):
 
     def test_astype_str_uppercase(self):
         rs = Raster("test/data/elevation_small.tif")
-        for type_code, dtype in _DTYPE_INPUT_TO_DTYPE.items():
+        for type_code, dtype in DTYPE_INPUT_TO_DTYPE.items():
             if isinstance(type_code, str):
                 type_code = type_code.upper()
                 self.assertEqual(rs.astype(type_code).eval().dtype, dtype)

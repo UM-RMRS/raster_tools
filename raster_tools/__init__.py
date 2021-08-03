@@ -1,7 +1,5 @@
-from .raster import (
-    Raster,
-    CPU,
-    GPU,
+from .raster import Raster, CPU, GPU
+from ._types import (
     U8,
     U16,
     U32,
