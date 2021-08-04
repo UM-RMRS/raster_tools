@@ -73,6 +73,7 @@ def open_raster_from_path(path):
             mask_and_scale=True,
             dtype=F64,
         )
+        return chunk(rs)
     else:
         raise RasterIOError("Unknown file type")
 
