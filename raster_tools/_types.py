@@ -1,4 +1,7 @@
 import numpy as np
+from xarray.core.dtypes import maybe_promote as xr_maybe_promote
+
+from ._utils import is_float
 
 
 U8 = np.dtype(np.uint8)
@@ -66,3 +69,17 @@ DTYPE_INPUT_TO_DTYPE = {
     "bool": BOOL,
     np.dtype("bool"): BOOL,
 }
+
+DEFAULT_NULL = np.nan
+
+
+def maybe_promote(dtype):
+    """Returns a dtype that can support missing values based on the input"""
+    return xr_maybe_promote(dtype)[0]
+
+
+INT_KINDS = frozenset(("u", "i"))
+
+
+def should_promote_to_fit(dtype, value):
+    return is_float(value) and dtype.kind in INT_KINDS

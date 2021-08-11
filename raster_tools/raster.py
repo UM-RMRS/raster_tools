@@ -16,33 +16,38 @@ try:
 except (ImportError, ModuleNotFoundError):
     GPU_ENABLED = False
 
-from .io import chunk, is_batch_file, open_raster_from_path, write_raster
-from ._types import DTYPE_INPUT_TO_DTYPE, I32, F32, F64, BOOL
-from ._utils import validate_file
-
-
-def _is_str(value):
-    return isinstance(value, str)
-
-
-def _is_scalar(value):
-    return isinstance(value, Number)
-
-
-def _is_int(value):
-    return isinstance(value, Integral)
+from .io import (
+    Encoding,
+    chunk,
+    is_batch_file,
+    open_raster_from_path,
+    write_raster,
+)
+from ._types import (
+    DEFAULT_NULL,
+    DTYPE_INPUT_TO_DTYPE,
+    I32,
+    F16,
+    F64,
+    BOOL,
+    U8,
+    maybe_promote,
+    should_promote_to_fit,
+)
+from ._utils import (
+    is_bool,
+    is_float,
+    is_int,
+    is_numpy,
+    is_scalar,
+    is_str,
+    is_xarray,
+    validate_file,
+)
 
 
 def _is_raster_class(value):
     return isinstance(value, Raster)
-
-
-def _is_xarray(rs):
-    return isinstance(rs, (xr.DataArray, xr.Dataset))
-
-
-def _is_numpy(rs):
-    return isinstance(rs, np.ndarray)
 
 
 def _is_using_dask(raster):
@@ -124,58 +129,34 @@ def _chunk_to_cpu(chunk, *args):
         return chunk
 
 
+def _gt0(x):
+    return x > 0
+
+
+def _cast_to_bool(x):
+    if is_scalar(x):
+        return bool(x)
+    return x.astype(BOOL)
+
+
 def _coerce_to_bool_for_and_or(operands, to_bool_op):
-    if _is_str(to_bool_op):
+    if is_str(to_bool_op):
         if to_bool_op == "gt0":
-
-            def to_bool(x):
-                return x > 0
-
-            to_bool_op = to_bool
+            to_bool_op = _gt0
         elif to_bool_op == "cast":
-
-            def to_bool(x):
-                if _is_scalar(x):
-                    return bool(x)
-                return x.astype(BOOL)
-
-            to_bool_op = to_bool
+            to_bool_op = _cast_to_bool
         else:
             raise ValueError("Unknown conversion to bool")
-    elif callable(to_bool_op):
-        pass
-    else:
+    elif not callable(to_bool_op):
         raise TypeError("Invalid conversion to bool")
 
     boperands = []
     for opr in operands:
-        if not _is_scalar(opr) and (
-            isinstance(opr, (bool, np.bool_)) or opr.dtype == np.dtype(bool)
-        ):
+        if not is_scalar(opr) and (is_bool(opr) or is_bool(opr.dtype)):
             boperands.append(opr)
-            continue
-        boperands.append(to_bool_op(opr))
+        else:
+            boperands.append(to_bool_op(opr))
     return boperands
-
-
-def _get_output_type_for_and_or(dt1, dt2):
-    dt1 = np.dtype(dt1)
-    dt2 = np.dtype(dt2)
-    dts = [dt1, dt2]
-    kinds = [d.kind for d in dts]
-    if len(set(kinds)) == 1:
-        # Return the widest type
-        return dts[np.argmax([d.itemsize for d in dts])]
-    # Prioritize float over int over uint over bool
-    if "f" in kinds:
-        return dt1 if dt1.kind == "f" else dt2
-    if "i" in kinds:
-        return dt1 if dt1.kind == "i" else dt2
-    if "u" in kinds:
-        return dt1 if dt1.kind == "u" else dt2
-    if "b" in kinds:
-        return dt1 if dt1.kind == "b" else dt2
-    return dt1
 
 
 def _get_focal_window(width_or_radius, height=None):
@@ -200,13 +181,13 @@ GPU = "gpu"
 CPU = "cpu"
 
 
-def _np_to_xarray(rs):
-    if len(rs.shape) > 3 or len(rs.shape) < 2:
-        raise ValueError(f"Invalid raster shape for numpy array: {rs.shape}")
-    if len(rs.shape) == 2:
-        rs = np.expand_dims(rs, axis=0)
-    rs = da.from_array(rs)
-    return xr.DataArray(rs, dims=["band", "y", "x"])
+def _np_to_xarray(nprs):
+    if len(nprs.shape) > 3 or len(nprs.shape) < 2:
+        raise ValueError(f"Invalid raster shape for numpy array: {nprs.shape}")
+    if len(nprs.shape) == 2:
+        nprs = np.expand_dims(nprs, axis=0)
+    nprs = da.from_array(nprs)
+    return xr.DataArray(nprs, dims=["band", "y", "x"])
 
 
 def _dask_from_array_with_device(arr, device):
@@ -214,6 +195,66 @@ def _dask_from_array_with_device(arr, device):
     if GPU_ENABLED and device == GPU:
         arr = arr.map_blocks(cp.asarray)
     return arr
+
+
+def _try_to_get_null_value_xarray(xrs):
+    null = xrs.attrs.get("_FillValue", None)
+    if null is not None:
+        return null
+    nv1 = xrs.rio.nodata
+    nv2 = xrs.rio.encoded_nodata
+    if all(nv is None for nv in [nv1, nv2]):
+        return np.nan
+    if nv1 is None:
+        nv1 = np.nan
+    if nv2 is None:
+        nv2 = np.nan
+    if not np.isnan(nv1):
+        return nv1
+    if not np.isnan(nv2):
+        return nv2
+    return np.nan
+
+
+def _reconcile_encodings_after_op(left, right=None, should_promote=False):
+    encoding = Encoding()
+    if left is None and right is not None:
+        raise ValueError("Use left instead of only right")
+    if not _is_raster_class(left):
+        raise TypeError("left must be a Raster")
+
+    left = left.encoding
+    if is_scalar(right) or is_bool(right):
+        right = Encoding(False, np.min_scalar_type(right), np.nan)
+    elif _is_raster_class(right):
+        right = right.encoding
+    elif right is not None:
+        raise TypeError("Could not understand right")
+
+    if right is not None:
+        # result was created from two parents (one may have been a scalar)
+        masked = left.masked or right.masked
+        dtype = np.result_type(left.dtype, right.dtype)
+        null = np.nan
+        if masked:
+            dtype = maybe_promote(dtype)
+            nvs = [enc.null_value for enc in [left, right] if enc.masked]
+            if len(nvs) == 1:
+                null = nvs[0]
+            elif all(np.isnan(v) for v in nvs):
+                null = np.nan
+            elif nvs[0] == nvs[1]:
+                null = nvs[0]
+            else:
+                # Have to make a decision so give precedence to left
+                null = nvs[0]
+        encoding = Encoding(masked, dtype, null)
+    else:
+        # result was created from a single raster. Simply copy the encoding
+        encoding = left.copy()
+    if should_promote:
+        encoding.dtype = maybe_promote(encoding.dtype)
+    return encoding
 
 
 class Raster:
@@ -243,21 +284,37 @@ class Raster:
         if _is_raster_class(raster):
             self._rs = raster._rs.copy()
             self.device = raster.device
-        elif _is_xarray(raster):
+            self.encoding = raster.encoding.copy()
+        elif is_xarray(raster):
             self._rs = raster
-        elif _is_numpy(raster):
+            null = _try_to_get_null_value_xarray(raster)
+            masked = null is not None and not np.isnan(null)
+            self.encoding = Encoding(masked, raster.dtype, null)
+        elif is_numpy(raster):
             raster = _np_to_xarray(raster)
             self._rs = chunk(raster)
+            self.encoding = Encoding(False, self._rs.dtype, np.nan)
         elif is_batch_file(raster):
-            self._rs = BatchScript(raster).parse().final_raster._rs
+            rs = BatchScript(raster).parse().final_raster
+            self._rs = rs._rs
+            self.encoding = rs.encoding
         else:
-            self._rs = open_raster_from_path(raster)
+            self._rs, self.encoding = open_raster_from_path(raster)
 
-    def _new_like_self(self, rs):
+    def _new_like_self(self, rs, attrs=None, device=None, encoding=None):
         new_rs = Raster(rs)
-        new_rs._attrs = self._attrs
-        new_rs.device = self.device
+        new_rs._attrs = attrs or self._attrs
+        new_rs.device = device or self.device
+        new_rs.encoding = encoding or self.encoding.copy()
         return new_rs
+
+    def _to_presentable_xarray(self):
+        """Returns a DataArray with nans replaced with the null value"""
+        rs = self._rs
+        null_value = self.encoding.null_value
+        if (self._masked or is_float(self.dtype)) and not np.isnan(null_value):
+            rs = rs.fillna(null_value).astype(self.encoding.dtype)
+        return rs
 
     @property
     def _attrs(self):
@@ -285,11 +342,29 @@ class Raster:
 
     @property
     def dtype(self):
+        """Internal representation dtype"""
         return self._rs.dtype
+
+    @property
+    def _masked(self):
+        return self.encoding.masked
 
     @property
     def shape(self):
         return self._rs.shape
+
+    @property
+    def _values(self):
+        """The raw internal values. Note: this triggers computation."""
+        return self._rs.values
+
+    @property
+    def _values_encoded(self):
+        """
+        The data as it would be written to disk. Note: this triggers
+        computation.
+        """
+        return self._to_presentable_xarray().values
 
     def to_xarray(self):
         """Returns the underlying data as an xarray.DataArray.
@@ -300,10 +375,10 @@ class Raster:
 
     def to_dask(self):
         """Returns the underlying data as a dask array."""
-        if _is_using_dask(self):
-            return self._rs.data
-        else:
-            return chunk(self._rs).data
+        rs = self
+        if not _is_using_dask(self):
+            rs = self._new_like_self(chunk(self._rs))
+        return rs._rs.data
 
     def close(self):
         """Close the underlying source"""
@@ -315,11 +390,13 @@ class Raster:
         """Compute the final raster and save it to the provided location."""
         # TODO: add tiling flag
         # TODO: warn of overwrite
-        rs = self._rs
+        rs = self
         if no_data_value is not None:
-            rs = self.set_null_value(no_data_value)._rs
+            rs = self.set_null_value(no_data_value)
+        xrs = rs._rs
         write_raster(
-            rs,
+            xrs,
+            rs.encoding.copy(),
             path,
             blockwidth=blockwidth,
             blockheight=blockheight,
@@ -367,7 +444,7 @@ class Raster:
         return rs
 
     def _check_device_mismatch(self, other):
-        if _is_scalar(other):
+        if is_scalar(other):
             return
         if _is_raster_class(other) and (self.device == other.device):
             return
@@ -383,15 +460,31 @@ class Raster:
         return rs
 
     def astype(self, dtype):
-        """Return a copy of the Raster, cast to the specified type."""
+        """Return a copy of the Raster cast to the specified type."""
         if isinstance(dtype, str):
             dtype = dtype.lower()
         if dtype not in DTYPE_INPUT_TO_DTYPE:
             raise ValueError(f"Unsupported type: '{dtype}'")
         dtype = DTYPE_INPUT_TO_DTYPE[dtype]
-        if dtype != self.dtype:
-            return self._new_like_self(self._rs.astype(dtype))
-        return self.copy()
+
+        if dtype == self.dtype and dtype == self.encoding.dtype:
+            return self.copy()
+
+        xrs = self._rs
+        encoding = self.encoding.copy()
+        if self._masked:
+            encoding.dtype = dtype
+            dtype = maybe_promote(dtype)
+            if dtype != xrs.dtype:
+                xrs = xrs.astype(dtype)
+        else:
+            xrs = xrs.astype(dtype)
+            encoding.dtype = dtype
+        return self._new_like_self(xrs, encoding=encoding)
+
+    def round(self):
+        """Round the data to the nearest integer value. Return a new Raster."""
+        return self._new_like_self(self._rs.round())
 
     def get_bands(self, bands):
         """
@@ -407,7 +500,7 @@ class Raster:
             will be in the order provided.
         """
         n_bands, *_ = self.shape
-        if _is_int(bands):
+        if is_int(bands):
             bands = [bands]
         bands = list(bands)
         if len(bands) == 0:
@@ -470,17 +563,33 @@ class Raster:
         return self._new_like_self(rs)
 
     def set_null_value(self, value):
-        if not _is_scalar(value):
+        if not is_scalar(value):
             raise TypeError(f"Value must be a scalar: {value}")
-        return self._new_like_self(
-            self._rs.rio.write_nodata(value, encoded=True)
-        )
+
+        encoding = self.encoding.copy()
+        rs = self._rs
+        if encoding.masked:
+            encoding.null_value = value
+        else:
+            encoding.masked = True
+            encoding.null_value = value
+            enc_dtype = encoding.dtype
+            # Promote the encoding dtype if needed to make the new null value
+            # valid
+            if should_promote_to_fit(enc_dtype, value):
+                enc_dtype = maybe_promote(enc_dtype)
+            encoding.dtype = enc_dtype
+            # Promote actual dtype if needed to allow nans
+            dtype = maybe_promote(rs.dtype)
+            if rs.dtype != dtype:
+                rs = rs.astype(dtype)
+        if not np.isnan(value):
+            rs = rs.where(rs != value, np.nan)
+        return self._new_like_self(rs, encoding=encoding)
 
     def replace_null(self, value):
         """
-        Replaces null values with a new value. Returns a new Raster.
-
-        Null values are NaN and the values specified by the underlying source.
+        Replaces null and nan values with `value`. Returns a new Raster.
 
         Parameters
         ----------
@@ -490,11 +599,18 @@ class Raster:
         Returns
         -------
         Raster
-            The new resulting Raster.
+            The new resulting Raster. If `value` is a float and the raster
+            dtype is int, the raster type will be promoted to float.
         """
-        if not _is_scalar(value):
+        if not is_scalar(value):
             raise TypeError("value must be a scalar")
-        return self._new_like_self(self._rs.fillna(value))
+        if self._masked or is_float(self.dtype):
+            rs = self._rs.fillna(value)
+        else:
+            if is_float(value) and is_int(self.dtype):
+                dtype = maybe_promote(np.result_type(value))
+                rs = self._rs.astype(dtype)
+        return self._new_like_self(rs)
 
     def remap_range(self, min, max, new_value, *args):
         """
@@ -531,7 +647,7 @@ class Raster:
             remaps += [args[i : i + 3] for i in range(0, len(args), 3)]
         rs = self
         for (min, max, new_value) in remaps:
-            if not all([_is_scalar(v) for v in (min, max, new_value)]):
+            if not all([is_scalar(v) for v in (min, max, new_value)]):
                 raise TypeError("min, max, and new_value must all be scalars")
             if np.isnan((min, max)).any():
                 raise ValueError("min and max cannot be NaN")
@@ -547,7 +663,7 @@ class Raster:
             self._check_device_mismatch(raster_input)
             raster = raster_input
         else:
-            raster = Raster(open_raster_from_path(raster_input))
+            raster = Raster(raster_input)
             if self.device == GPU:
                 raster = raster.gpu()
         if raster._rs.size == 0:
@@ -557,7 +673,7 @@ class Raster:
         return raster
 
     def _handle_binary_op_input(self, raster_or_scalar, xarray=True):
-        if _is_scalar(raster_or_scalar):
+        if is_scalar(raster_or_scalar):
             operand = raster_or_scalar
         else:
             operand = self._input_to_raster(raster_or_scalar)
@@ -570,25 +686,46 @@ class Raster:
         # TODO: handle case where shapes match but geo references don't
         if op not in _BINARY_ARITHMETIC_OPS:
             raise ValueError(f"Unknown arithmetic operation: '{op}'")
-        operand = self._handle_binary_op_input(raster_or_scalar)
-        # Attributes are not propagated through math ops
-        if not swap:
-            rs = self._new_like_self(
-                _BINARY_ARITHMETIC_OPS[op](self._rs, operand)
-            )
-            return rs
-        else:
-            rs = self._new_like_self(
-                _BINARY_ARITHMETIC_OPS[op](operand, self._rs)
-            )
-            return rs
+        operand = self._handle_binary_op_input(raster_or_scalar, False)
+        parsed_operand = raster_or_scalar
+        if _is_raster_class(operand):
+            parsed_operand = operand
+            operand = operand._rs
+        left, right = self._rs, operand
+        if swap:
+            left, right = right, left
+        xrs = _BINARY_ARITHMETIC_OPS[op](left, right)
+
+        should_promote = op == "/" or (op == "**" and is_float(operand))
+        new_encoding = _reconcile_encodings_after_op(
+            self, parsed_operand, should_promote=should_promote
+        )
+        return self._new_like_self(xrs, encoding=new_encoding)
 
     def _binary_logical(self, raster_or_scalar, op):
         if op not in _BINARY_LOGICAL_OPS:
             raise ValueError(f"Unknown arithmetic operation: '{op}'")
-        operand = self._handle_binary_op_input(raster_or_scalar)
-        rs = self._new_like_self(_BINARY_LOGICAL_OPS[op](self._rs, operand))
-        return rs.astype(F32)
+        operand = self._handle_binary_op_input(raster_or_scalar, False)
+        parsed_operand = raster_or_scalar
+        if _is_raster_class(operand):
+            parsed_operand = operand
+            operand = operand._rs
+        xrs = _BINARY_LOGICAL_OPS[op](self._rs, operand)
+
+        new_encoding = _reconcile_encodings_after_op(self, parsed_operand)
+        xrs = xrs.astype(F16)
+        if new_encoding.masked:
+            # Mask out null values
+            mask = np.isnan(self._rs)
+            if not is_scalar(operand):
+                mask |= np.isnan(operand)
+            xrs = xrs.where(~mask, np.nan)
+            # Determine the smallest type that can hold the null value since
+            # the other values are just 1s and 0s
+            new_encoding.dtype = np.min_scalar_type(new_encoding.null_value)
+        else:
+            new_encoding.dtype = U8
+        return self._new_like_self(xrs, encoding=new_encoding)
 
     def add(self, raster_or_scalar):
         """
@@ -667,14 +804,15 @@ class Raster:
 
     def sqrt(self):
         """Take the square root of the raster. Returns a new Raster."""
-        return self._new_like_self(np.sqrt(self._rs))
+        xrs = np.sqrt(self._rs)
+        encoding = _reconcile_encodings_after_op(self, should_promote=True)
+        return self._new_like_self(xrs, encoding=encoding)
 
     def __pos__(self):
         return self
 
     def negate(self):
         """Negate this Raster. Returns a new Raster."""
-        # Don't need to copy attrs here
         return self._new_like_self(-self._rs)
 
     def __neg__(self):
@@ -682,11 +820,15 @@ class Raster:
 
     def log(self):
         """Take the natural logarithm of this Raster. Returns a new Raster."""
-        return self._new_like_self(np.log(self._rs))
+        xrs = np.log(self._rs)
+        encoding = _reconcile_encodings_after_op(self, should_promote=True)
+        return self._new_like_self(xrs, encoding=encoding)
 
     def log10(self):
         """Take the base-10 logarithm of this Raster. Returns a new Raster."""
-        return self._new_like_self(np.log10(self._rs))
+        xrs = np.log10(self._rs)
+        encoding = _reconcile_encodings_after_op(self, should_promote=True)
+        return self._new_like_self(xrs, encoding=encoding)
 
     def eq(self, other):
         """
@@ -753,17 +895,27 @@ class Raster:
             operand = other
         else:
             operand = self._handle_binary_op_input(other, False)
-        other_type = (
-            type(other) if not _is_raster_class(other) else other.dtype
-        )
-        out_type = _get_output_type_for_and_or(self.dtype, other_type)
+        parsed_operand = operand
         if _is_raster_class(operand):
             operand = operand._rs
         left, right = _coerce_to_bool_for_and_or(
             [self._rs, operand], to_bool_op
         )
-        rs = self._new_like_self(_BINARY_BITWISE_OPS[and_or](left, right))
-        return rs.astype(out_type)
+        xrs = _BINARY_BITWISE_OPS[and_or](left, right).astype(F16)
+
+        new_encoding = _reconcile_encodings_after_op(self, parsed_operand)
+        if new_encoding.masked:
+            # Mask out null values
+            mask = np.isnan(self._rs)
+            if is_xarray(operand):
+                mask |= np.isnan(operand)
+            xrs = xrs.where(~mask, np.nan)
+            # Determine the smallest type that can hold the null value since
+            # the other values are just 1s and 0s
+            new_encoding.dtype = np.min_scalar_type(new_encoding.null_value)
+        else:
+            new_encoding.dtype = U8
+        return self._new_like_self(xrs, encoding=new_encoding)
 
     def and_(self, other, to_bool_op="gt0"):
         """
@@ -787,11 +939,7 @@ class Raster:
         Returns
         -------
         Raster
-            The resulting Raster of zeros and ones or bools. The output dtype
-            is determined by the input types. If both are from the same family
-            (i.e. float, int, uint, bool), then the widest of the two is used
-            for the output dtype. Otherwise, a dtype is chosen from the two in
-            this order of priority: float > int > uint > bool.
+            The resulting Raster of zeros and ones.
         """
         return self._and_or(other, "&", to_bool_op)
 
@@ -823,11 +971,7 @@ class Raster:
         Returns
         -------
         Raster
-            The resulting Raster of zeros and ones or bools. The output dtype
-            is determined by the input types. If both are from the same family
-            (i.e. float, int, uint, bool), then the widest of the two is used
-            for the output dtype. Otherwise, a dtype is chosen from the two in
-            this order of priority: float > int > uint > bool.
+            The resulting Raster of zeros and ones.
         """
         return self._and_or(other, "|", to_bool_op)
 
@@ -906,7 +1050,7 @@ class Raster:
             "variance",
         ):
             raise ValueError(f"Unknown focal operation: '{focal_type}'")
-        if not _is_int(width_or_radius):
+        if not is_int(width_or_radius):
             raise TypeError(
                 f"width_or_radius must be an integer: {width_or_radius}"
             )
@@ -916,7 +1060,7 @@ class Raster:
                 f" Got {width_or_radius}"
             )
         if height is not None:
-            if not _is_int(height):
+            if not is_int(height):
                 raise TypeError(f"height must be an integer or None: {height}")
             elif height <= 0:
                 raise ValueError(

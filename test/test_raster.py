@@ -345,8 +345,8 @@ class TestAstype(unittest.TestCase):
     def test_astype(self):
         rs = Raster("test/data/elevation_small.tif")
         for type_code, dtype in DTYPE_INPUT_TO_DTYPE.items():
-            self.assertEqual(rs.astype(type_code).dtype, dtype)
-            self.assertEqual(rs.astype(type_code).eval().dtype, dtype)
+            self.assertEqual(rs.astype(type_code).encoding.dtype, dtype)
+            self.assertEqual(rs.astype(type_code).eval().encoding.dtype, dtype)
 
     def test_wrong_type_codes(self):
         rs = Raster("test/data/elevation_small.tif")
@@ -362,7 +362,9 @@ class TestAstype(unittest.TestCase):
         for type_code, dtype in DTYPE_INPUT_TO_DTYPE.items():
             if isinstance(type_code, str):
                 type_code = type_code.upper()
-                self.assertEqual(rs.astype(type_code).eval().dtype, dtype)
+                self.assertEqual(
+                    rs.astype(type_code).eval().encoding.dtype, dtype
+                )
 
 
 class TestRasterAttrsPropagation(unittest.TestCase):
@@ -445,10 +447,10 @@ class TestCopy(unittest.TestCase):
 class TestSetNullValue(unittest.TestCase):
     def test_set_null_value(self):
         rs = Raster("test/data/null_values.tiff")
-        ndv = rs._rs.rio.encoded_nodata
+        ndv = rs.encoding.null_value
         rs2 = rs.set_null_value(0)
-        self.assertEqual(rs._rs.rio.encoded_nodata, ndv)
-        self.assertEqual(rs2._rs.rio.encoded_nodata, 0)
+        self.assertEqual(rs.encoding.null_value, ndv)
+        self.assertEqual(rs2.encoding.null_value, 0)
 
 
 class TestReplaceNull(unittest.TestCase):
@@ -458,7 +460,7 @@ class TestReplaceNull(unittest.TestCase):
         rsnp = rxr.open_rasterio("test/data/null_values.tiff").values
         rsnp_replaced = rsnp.copy()
         rsnp_replaced[np.isnan(rsnp)] = fill_value
-        rsnp_replaced[rsnp == rs._rs.rio.encoded_nodata] = fill_value
+        rsnp_replaced[rsnp == rs.encoding.null_value] = fill_value
         rs = rs.replace_null(fill_value)
         self.assertTrue(rs_eq_array(rs, rsnp_replaced))
 
@@ -632,43 +634,6 @@ class TestAndOr(unittest.TestCase):
             self.assertTrue(rs_eq_array(rs1.or_(v), truth))
             truth = rsnp1.astype(bool) | v
             self.assertTrue(rs_eq_array(rs1.or_(v, "cast"), truth))
-
-    def test_and_or_output_type(self):
-        rs1 = Raster("test/data/elevation_small.tif")
-        rs2 = Raster("test/data/elevation2_small.tif")
-        bools = [BOOL]
-        uints = [U8, U16, U32, U64]
-        ints = [I8, I16, I32, I64]
-        floats = [F16, F32, F64, F128]
-        types = [*bools, *uints, *ints, *floats]
-        out_kind_priorities = {
-            "bb": "b",
-            "bu": "u",
-            "bi": "i",
-            "bf": "f",
-            "uu": "u",
-            "ui": "i",
-            "uf": "f",
-            "ii": "i",
-            "if": "f",
-            "ff": "f",
-        }
-        # Standardize key strings
-        out_kind_priorities = {
-            "".join(sorted(k)): v for k, v in out_kind_priorities.items()
-        }
-        for t1 in types:
-            for t2 in types:
-                res = rs1.astype(t1) & rs2.astype(t2)
-                kstr = "".join(sorted((t1.kind, t2.kind)))
-                target_kind = out_kind_priorities[kstr]
-                self.assertEqual(target_kind, res.dtype.kind)
-                if t1.kind == t2.kind:
-                    widths = [t1.itemsize, t2.itemsize]
-                    self.assertEqual(res.dtype.itemsize, max(widths))
-                else:
-                    target_type = t1 if t1.kind == target_kind else t2
-                    self.assertEqual(res.dtype, target_type)
 
 
 class TestConvolve(unittest.TestCase):
