@@ -4,12 +4,13 @@ import scipy
 import unittest
 import rioxarray as rxr
 import xarray as xr
+from scipy import ndimage
 
+import raster_tools.focal as focal
 from raster_tools import Raster
 from raster_tools.raster import (
     _BINARY_ARITHMETIC_OPS,
     _BINARY_LOGICAL_OPS,
-    _get_focal_window,
 )
 from raster_tools._types import (
     DTYPE_INPUT_TO_DTYPE,
@@ -683,6 +684,31 @@ class TestConvolve(unittest.TestCase):
         kern = np.ones((2, 3, 3))
         with self.assertRaises(ValueError):
             rs.convolve(kern)
+
+
+class TestFocal(unittest.TestCase):
+    def test_focal_integration(self):
+        rs = Raster("test/data/multiband_small.tif")
+        rsnp = rs._rs.values
+        truth = rsnp.astype(float)
+        for bnd in range(truth.shape[0]):
+            truth[bnd] = ndimage.generic_filter(
+                truth[bnd], np.nanmean, size=3, mode="constant", cval=np.nan
+            )
+        res = rs.focal("mean", 3, 3).eval()._rs.values
+        self.assertTrue(np.allclose(truth, res, equal_nan=True))
+        truth = rsnp.astype(float)
+        kern = focal.get_focal_window(3)
+        for bnd in range(truth.shape[0]):
+            truth[bnd] = ndimage.generic_filter(
+                truth[bnd],
+                np.nanmedian,
+                footprint=kern,
+                mode="constant",
+                cval=np.nan,
+            )
+        res = rs.focal("median", 3).eval()._rs.values
+        self.assertTrue(np.allclose(truth, res, equal_nan=True))
 
 
 class TestGetBands(unittest.TestCase):
