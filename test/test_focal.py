@@ -329,7 +329,6 @@ class TestFocalWindow(unittest.TestCase):
             focal.get_focal_window(3, 3),
             focal.get_focal_window((2, 3)),
         ]
-        np.set_printoptions(linewidth=300)
         for kern in kernels:
             for stat, func in filters:
                 with warnings.catch_warnings():
