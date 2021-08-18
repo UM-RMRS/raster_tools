@@ -7,7 +7,6 @@ import os
 import re
 import xarray as xr
 from dask_image import ndfilters
-from numbers import Integral, Number
 
 try:
     import cupy as cp
@@ -16,6 +15,7 @@ try:
 except (ImportError, ModuleNotFoundError):
     GPU_ENABLED = False
 
+from .focal import focal, get_focal_window, FOCAL_STATS, FOCAL_PROMOTING_OPS
 from .io import (
     Encoding,
     chunk,
@@ -24,7 +24,6 @@ from .io import (
     write_raster,
 )
 from ._types import (
-    DEFAULT_NULL,
     DTYPE_INPUT_TO_DTYPE,
     I32,
     F16,
@@ -32,6 +31,7 @@ from ._types import (
     BOOL,
     U8,
     maybe_promote,
+    promote_data_dtype,
     should_promote_to_fit,
 )
 from ._utils import (
@@ -157,24 +157,6 @@ def _coerce_to_bool_for_and_or(operands, to_bool_op):
         else:
             boperands.append(to_bool_op(opr))
     return boperands
-
-
-def _get_focal_window(width_or_radius, height=None):
-    width = width_or_radius
-    window = None
-    if height is None:
-        width = ((width - 1) * 2) + 1
-        height = width
-        r = (width - 1) // 2
-        window = np.zeros((width, height), dtype=I32)
-        for x in range(width):
-            for y in range(height):
-                rxy = np.sqrt((x - r) ** 2 + (y - r) ** 2)
-                if rxy <= r:
-                    window[x, y] = 1
-    else:
-        window = np.ones((width, height), dtype=I32)
-    return window
 
 
 GPU = "gpu"
@@ -1033,92 +1015,75 @@ class Raster:
         focal_type,
         width_or_radius,
         height=None,
-        mode="constant",
-        cval=0.0,
     ):
-        if focal_type not in (
-            # "asm",
-            # "entropy",
-            "max",
-            "mean",
-            "median",
-            "min",
-            # "mode",
-            "std",
-            "sum",
-            # "unique",
-            "variance",
-        ):
-            raise ValueError(f"Unknown focal operation: '{focal_type}'")
-        if not is_int(width_or_radius):
-            raise TypeError(
-                f"width_or_radius must be an integer: {width_or_radius}"
-            )
-        elif width_or_radius <= 0:
-            raise ValueError(
-                "Window width or radius must be greater than 0."
-                f" Got {width_or_radius}"
-            )
-        if height is not None:
-            if not is_int(height):
-                raise TypeError(f"height must be an integer or None: {height}")
-            elif height <= 0:
-                raise ValueError(
-                    f"Window height must be greater than 0. Got {height}"
-                )
+        """
+        Applies a focal filter to raster bands individually.
 
-        window = _get_focal_window(width_or_radius, height)
-        window = _dask_from_array_with_device(window, self.device)
+        The filter uses a window/footprint that is created using the
+        `width_or_radius` and `height` parameters. The window can be a
+        rectangle, circle or annulus.
+
+        Parameters
+        ----------
+        focal_type : str
+            Specifies the aggregation function to apply to the focal
+            neighborhood at each pixel. Can be one of the following string
+            values:
+            'min'
+                Finds the minimum value in the neighborhood.
+            'max'
+                Finds the maximum value in the neighborhood.
+            'mean'
+                Finds the mean of the neighborhood.
+            'median'
+                Finds the median of the neighborhood.
+            'mode'
+                Finds the mode of the neighborhood.
+            'sum'
+                Finds the sum of the neighborhood.
+            'std'
+                Finds the standard deviation of the neighborhood.
+            'var'
+                Finds the variance of the neighborhood.
+            'asm'
+                Angular second moment. Applies -sum(P(g)**2) where P(g) gives
+                the probability of g within the neighborhood.
+            'entropy'
+                Calculates the entropy. Applies -sum(P(g) * log(P(g))). See
+                'asm' above.
+            'unique'
+                Calculates the number of unique values in the neighborhood.
+        width_or_radius : int or 2-tuple of ints
+            If an int and `height` is `None`, specifies the radius of a circle
+            window. If an int and `height` is also an int, specifies the width
+            of a rectangle window. If a 2-tuple of ints, the values specify the
+            inner and outer radii of an annulus window.
+        height : int or None
+            If `None` (default), `width_or_radius` will be used to construct a
+            circle or annulus window. If an int, specifies the height of a
+            rectangle window.
+
+        Returns
+        -------
+        Raster
+            The resulting raster with focal filter applied to each band. The
+            bands will have the same shape as the original Raster.
+        """
+        if focal_type not in FOCAL_STATS:
+            raise ValueError(f"Unknown focal operation: '{focal_type}'")
+
+        window = get_focal_window(width_or_radius, height)
+        if GPU_ENABLED and self.device == GPU:
+            window = cp.asarray(window)
         rs = self.copy()
+        if focal_type in FOCAL_PROMOTING_OPS:
+            rs._rs = promote_data_dtype(rs._rs)
+            rs.encoding.dtype = rs._rs.dtype
+        nan_aware = self._masked or is_float(self.dtype)
         data = rs._rs.data
 
-        if focal_type == "asm":
-            raise NotImplementedError()
-        elif focal_type == "entropy":
-            raise NotImplementedError()
-        elif focal_type == "max":
-            for bnd in range(data.shape[0]):
-                data[bnd] = ndfilters.maximum_filter(
-                    data[bnd], footprint=window, mode=mode, cval=cval
-                )
-        elif focal_type in ["mean", "sum"]:
-            for bnd in range(data.shape[0]):
-                n = window.sum()
-                data[bnd] = ndfilters.convolve(
-                    data[bnd], window, mode=mode, cval=cval
-                )
-                if focal_type == "mean":
-                    data[bnd] /= n
-        elif focal_type == "median":
-            for bnd in range(data.shape[0]):
-                data[bnd] = ndfilters.median_filter(
-                    data[bnd], footprint=window, mode=mode, cval=cval
-                )
-        elif focal_type == "min":
-            for bnd in range(data.shape[0]):
-                data[bnd] = ndfilters.minimum_filter(
-                    data[bnd], footprint=window, mode=mode, cval=cval
-                )
-        elif focal_type == "mode":
-            raise NotImplementedError()
-        elif focal_type in ["std", "variance"]:
-            data_sq = data ** 2
-            n = window.sum()
-            for bnd in range(data.shape[0]):
-                data[bnd] = ndfilters.convolve(
-                    data[bnd], window, mode=mode, cval=cval
-                )
-                data_sq[bnd] = ndfilters.convolve(
-                    data_sq[bnd], window, mode=mode, cval=cval
-                )
-                data = (data_sq - ((data ** 2) / n)) / n
-                if focal_type == "std":
-                    data = np.sqrt(data)
-        elif focal_type == "unique":
-            raise NotImplementedError()
-        else:
-            raise ValueError(f"Unknown focal operation: '{focal_type}'")
-        rs._rs.data = data
+        for bnd in range(data.shape[0]):
+            data[bnd] = focal(data[bnd], window, focal_type, nan_aware)
         return rs
 
     def __repr__(self):
