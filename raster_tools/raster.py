@@ -1018,8 +1018,10 @@ class Raster:
     def convolve(self, kernel, mode="constant", cval=0.0):
         """Convolve `kernel` with each band individually. Returns a new Raster.
 
-        The kernel is applied to each band in isolation so returned raster has
-        the same shape as the original.
+        This is the same as correlation but the kernel is rotated 180 degrees,
+        e.g. ``kernel = kernel[::-1, ::-1]``.  The kernel is applied to each
+        band in isolation so the returned raster has the same shape as the
+        original.
 
         Parameters
         ----------
