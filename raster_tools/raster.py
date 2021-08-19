@@ -300,7 +300,7 @@ class Raster:
         """Returns a DataArray with nans replaced with the null value"""
         rs = self._rs
         null_value = self.encoding.null_value
-        if (self._masked or is_float(self.dtype)) and not np.isnan(null_value):
+        if self._masked and not np.isnan(null_value):
             rs = rs.fillna(null_value).astype(self.encoding.dtype)
         return rs
 
@@ -462,9 +462,7 @@ class Raster:
         encoding = self.encoding.copy()
         if self._masked:
             encoding.dtype = dtype
-            dtype = maybe_promote(dtype)
-            if dtype != xrs.dtype:
-                xrs = xrs.astype(dtype)
+            xrs = promote_data_dtype(xrs)
         else:
             xrs = xrs.astype(dtype)
             encoding.dtype = dtype
@@ -592,7 +590,7 @@ class Raster:
         """
         if not is_scalar(value):
             raise TypeError("value must be a scalar")
-        if self._masked or is_float(self.dtype):
+        if self._masked:
             rs = self._rs.fillna(value)
         else:
             if is_float(value) and is_int(self.dtype):
@@ -1120,7 +1118,7 @@ class Raster:
         if focal_type in FOCAL_PROMOTING_OPS:
             rs._rs = promote_data_dtype(rs._rs)
             rs.encoding.dtype = rs._rs.dtype
-        nan_aware = self._masked or is_float(self.dtype)
+        nan_aware = self._masked
         data = rs._rs.data
 
         for bnd in range(data.shape[0]):
