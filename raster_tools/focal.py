@@ -5,7 +5,7 @@ from dask_image import ndfilters
 from functools import partial
 
 from ._types import promote_data_dtype
-from ._utils import is_int
+from ._utils import is_bool, is_float, is_int
 
 
 ngjit = nb.jit(nopython=True, nogil=True)
@@ -130,7 +130,7 @@ def _agg_nan_asm(x):
 
 
 @ngjit
-def _apply_filter_func(chunk, func, kernel):
+def _focal_chunk(chunk, kernel, func):
     out = np.empty_like(chunk)
     rows, cols = chunk.shape
     krows, kcols = kernel.shape
@@ -161,12 +161,45 @@ def _apply_filter_func(chunk, func, kernel):
     return out
 
 
-def _get_offsets(kernel):
+@nb.jit(nopython=True, nogil=True, parallel=True)
+def _correlate2d_chunk(chunk, kernel):
+    out = np.empty_like(chunk)
+    rows, cols = chunk.shape
+    krows, kcols = kernel.shape
+    kr_top = (krows - 1) // 2
+    kr_bot = krows // 2
+    kc_left = (kcols - 1) // 2
+    kc_right = kcols // 2
+    r_ovlp = max(kr_top, kr_bot)
+    c_ovlp = max(kc_left, kc_right)
+    kernel = kernel.ravel()
+
+    # iterate over rows, skipping outer overlap rows
+    for r in nb.prange(r_ovlp, rows - r_ovlp):
+        # iterate over cols, skipping outer overlap cols
+        for c in nb.prange(c_ovlp, cols - c_ovlp):
+            # Kernel flat index
+            ki = 0
+            # iterate over kernel footprint, this extends into overlap regions
+            # at edges
+            v = 0.0
+            for kr in range(r - kr_top, r + kr_bot + 1):
+                for kc in range(c - kc_left, c + kc_right + 1):
+                    val = chunk[kr, kc]
+                    if not np.isnan(val):
+                        v += kernel[ki] * chunk[kr, kc]
+                    ki += 1
+            out[r, c] = v
+    return out
+
+
+@ngjit
+def _get_offsets(kernel_shape):
     """
     Returns the number of cells on either side of kernel center in both
     directions.
     """
-    krows, kcols = kernel.shape
+    krows, kcols = kernel_shape
     kr_top = (krows - 1) // 2
     kr_bot = krows // 2
     kc_left = (kcols - 1) // 2
@@ -174,9 +207,8 @@ def _get_offsets(kernel):
     return ((kr_top, kr_bot), (kc_left, kc_right))
 
 
-def _focal_dask(data, kernel, func):
-    chunk_func = partial(_apply_filter_func, func=func, kernel=kernel)
-    offsets = _get_offsets(kernel)
+def _focal_dask_map(data, chunk_func, kernel, boundary=np.nan):
+    offsets = _get_offsets(kernel.shape)
     # map_overlap does not support asymmetrical padding so take max. This adds
     # at most one extra pixel to each dim.
     rpad = max(offsets[0])
@@ -184,15 +216,94 @@ def _focal_dask(data, kernel, func):
     return data.map_overlap(
         chunk_func,
         depth={0: rpad, 1: cpad},
-        boundary=np.nan,
+        boundary=boundary,
         dtype=data.dtype,
         meta=np.array((), dtype=data.dtype),
     )
 
 
-def _focal(data, kernel, func):
+def _focal_dispatch(
+    operation, data, kernel, kernel_func=None, boundary=np.nan
+):
     # TODO: check for cupy eventually
-    return _focal_dask(data, kernel, func)
+    if operation == "correlate":
+        chunk_func = partial(_correlate2d_chunk, kernel=kernel)
+    else:
+        chunk_func = partial(_focal_chunk, kernel=kernel, func=kernel_func)
+    return _focal_dask_map(data, chunk_func, kernel, boundary=boundary)
+
+
+def check_kernel(kernel):
+    if not isinstance(kernel, np.ndarray):
+        raise TypeError("Kernel must be numpy.ndarray")
+    if len(kernel.shape) != 2:
+        raise ValueError("Kernel must be 2D")
+    if np.isnan(kernel).any():
+        raise ValueError("Kernel can't contain NaN values")
+
+
+def _check_data(data):
+    if not isinstance(data, (np.ndarray, da.Array)):
+        raise TypeError("Kernel must be numpy.ndarray or dask.array.Array")
+    if len(data.shape) != 2:
+        raise ValueError("Data must be 2D")
+
+
+_MODE_TO_DASK_BOUNDARY = {
+    "reflect": "reflect",
+    "nearest": "nearest",
+    "wrap": "periodic",
+    "constant": "constant",
+}
+_VALID_CORRELATE_MODES = frozenset(_MODE_TO_DASK_BOUNDARY.keys())
+
+
+def correlate(data, kernel, mode="constant", cval=0.0, nan_aware=False):
+    """
+    Cross-correlates a `kernel` with `data`. This function can be used for
+    convolution as well; just rotate the kernel 180 degress (e.g. ``kernel =
+    kernel[::-1, ::-1])`` before calling this function.
+
+    Parameters
+    ----------
+    data : 2D ndarray or dask array
+        Data to cross-correlate the kernel with.
+    kernel : 2D ndarray
+        Kernel to apply to the data through cross-correlation.
+    mode : {'reflect', 'nearest', 'wrap', 'constant'}, optional
+        The mode to use for the edges of the data. Default is 'constant'.
+    cval : scalar, optional
+        The value to use when `mode` is 'constant'. Default is ``0.0``.
+    nan_aware : bool, optional
+        If ``True``, NaN values are ignored during correlation. If ``False``,
+        a faster correlation algorithm can be used. Default is ``False``.
+
+    Returns
+    -------
+    correlated : 2D dask array
+        The cross-correlation result as a lazy dask array.
+    """
+    _check_data(data)
+    check_kernel(kernel)
+    if mode not in _VALID_CORRELATE_MODES:
+        raise ValueError(f"Invalid mode: '{mode}'")
+    if isinstance(data, np.ndarray):
+        data = da.from_array(data)
+    if nan_aware:
+        data = promote_data_dtype(data)
+    if is_bool(kernel.dtype):
+        kernel = kernel.astype(int)
+    if is_float(data.dtype) and is_int(kernel.dtype):
+        kernel = kernel.astype(data.dtype)
+    if is_int(data.dtype) and is_float(kernel.dtype):
+        data = promote_data_dtype(data)
+
+    if nan_aware:
+        boundary = _MODE_TO_DASK_BOUNDARY[mode]
+        if boundary == "constant":
+            boundary = cval
+        return _focal_dispatch("correlate", data, kernel, boundary=boundary)
+    return ndfilters.correlate(data, kernel, mode=mode, cval=cval)
 
 
 # Focal ops that promote dtype to float
@@ -234,8 +345,8 @@ def focal(data, kernel, stat, nan_aware=False):
     """
     if stat not in FOCAL_STATS:
         raise ValueError(f"Unknown focal stat: '{stat}'")
-    if len(kernel.shape) != 2:
-        raise ValueError("Kernel must be 2D")
+    _check_data(data)
+    check_kernel(kernel)
 
     if isinstance(data, np.ndarray):
         data = da.from_array(data)
@@ -244,40 +355,40 @@ def focal(data, kernel, stat, nan_aware=False):
 
     kernel = kernel.astype(bool)
     if stat == "asm":
-        return _focal(data, kernel, _agg_nan_asm)
+        return _focal_dispatch("focal", data, kernel, _agg_nan_asm)
     elif stat == "entropy":
-        return _focal(data, kernel, _agg_nan_entropy)
+        return _focal_dispatch("focal", data, kernel, _agg_nan_entropy)
     elif stat == "min":
         if not nan_aware:
             return ndfilters.minimum_filter(
                 data, footprint=kernel, mode="nearest"
             )
         else:
-            return _focal(data, kernel, _agg_nan_min)
+            return _focal_dispatch("focal", data, kernel, _agg_nan_min)
     elif stat == "max":
         if not nan_aware:
             return ndfilters.maximum_filter(
                 data, footprint=kernel, mode="nearest"
             )
         else:
-            return _focal(data, kernel, _agg_nan_max)
+            return _focal_dispatch("focal", data, kernel, _agg_nan_max)
     elif stat == "mode":
-        return _focal(data, kernel, _agg_nan_mode)
+        return _focal_dispatch("focal", data, kernel, _agg_nan_mode)
     elif stat == "mean":
-        return _focal(data, kernel, _agg_nan_mean)
+        return _focal_dispatch("focal", data, kernel, _agg_nan_mean)
     elif stat == "median":
-        return _focal(data, kernel, _agg_nan_median)
+        return _focal_dispatch("focal", data, kernel, _agg_nan_median)
     elif stat == "std":
-        return _focal(data, kernel, _agg_nan_std)
+        return _focal_dispatch("focal", data, kernel, _agg_nan_std)
     elif stat == "var":
-        return _focal(data, kernel, _agg_nan_var)
+        return _focal_dispatch("focal", data, kernel, _agg_nan_var)
     elif stat == "sum":
         if not nan_aware:
             return ndfilters.correlate(data, kernel, mode="constant")
         else:
-            return _focal(data, kernel, _agg_nan_sum)
+            return _focal_dispatch("focal", data, kernel, _agg_nan_sum)
     elif stat == "unique":
-        return _focal(data, kernel, _agg_nan_unique)
+        return _focal_dispatch("focal", data, kernel, _agg_nan_unique)
 
 
 def get_focal_window(width_or_radius, height=None):

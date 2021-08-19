@@ -6,7 +6,6 @@ import operator
 import os
 import re
 import xarray as xr
-from dask_image import ndfilters
 
 try:
     import cupy as cp
@@ -15,7 +14,14 @@ try:
 except (ImportError, ModuleNotFoundError):
     GPU_ENABLED = False
 
-from .focal import focal, get_focal_window, FOCAL_STATS, FOCAL_PROMOTING_OPS
+from .focal import (
+    FOCAL_PROMOTING_OPS,
+    FOCAL_STATS,
+    check_kernel,
+    correlate,
+    focal,
+    get_focal_window,
+)
 from .io import (
     Encoding,
     chunk,
@@ -963,8 +969,9 @@ class Raster:
     def __ror__(self, other):
         return self._and_or(other, "|", "gt0")
 
-    def convolve(self, kernel, mode="constant", cval=0.0):
-        """Convolve `kernel` with each band individually. Returns a new Raster.
+    def correlate(self, kernel, mode="constant", cval=0.0):
+        """Cross-correlate `kernel` with each band individually. Returns a new
+        Raster.
 
         The kernel is applied to each band in isolation so returned raster has
         the same shape as the original.
@@ -973,7 +980,7 @@ class Raster:
         ----------
         kernel : array_like
             2D array of kernel weights
-        mode : {'reflect', 'constant', 'nearest', 'mirror', 'wrap'}, optional
+        mode : {'reflect', 'constant', 'nearest', 'wrap'}, optional
             Determines how the data is extended beyond its boundaries. The
             default is 'constant'.
             'reflect' (d c b a | a b c d | d c b a)
@@ -983,9 +990,6 @@ class Raster:
                 data pixels.
             'nearest' (a a a a | a b c d | d d d d)
                 The data is extended using the boundary pixels.
-            'mirror' (d c b | a b c d | c b a)
-                Like 'reflect' but the reflection is centered on the boundary
-                pixel.
             'wrap' (a b c d | a b c d | a b c d)
                 The data is extended by wrapping to the opposite side of the
                 grid.
@@ -997,18 +1001,55 @@ class Raster:
         Raster
             The resulting new Raster.
         """
-        kernel = np.asarray(kernel, dtype=F64)
-        if len(kernel.shape) != 2:
-            raise ValueError(f"Kernel must be 2D. Got {kernel.shape}")
-        # TODO: astype F32 to match GPU words?
-        kernel = _dask_from_array_with_device(kernel, self.device)
+        kernel = np.asarray(kernel)
+        check_kernel(kernel)
         rs = self.copy()
+        if is_float(kernel.dtype) and is_int(rs.dtype):
+            rs._rs = promote_data_dtype(rs._rs)
+            rs.encoding.dtype = rs.dtype
         data = rs._rs.data
+
         for bnd in range(data.shape[0]):
-            data[bnd] = ndfilters.convolve(
-                data[bnd], kernel, mode=mode, cval=cval
+            data[bnd] = correlate(
+                data[bnd], kernel, mode=mode, cval=cval, nan_aware=rs._masked
             )
         return rs
+
+    def convolve(self, kernel, mode="constant", cval=0.0):
+        """Convolve `kernel` with each band individually. Returns a new Raster.
+
+        The kernel is applied to each band in isolation so returned raster has
+        the same shape as the original.
+
+        Parameters
+        ----------
+        kernel : array_like
+            2D array of kernel weights
+        mode : {'reflect', 'constant', 'nearest', 'wrap'}, optional
+            Determines how the data is extended beyond its boundaries. The
+            default is 'constant'.
+            'reflect' (d c b a | a b c d | d c b a)
+                The data pixels are reflected at the boundaries.
+            'constant' (k k k k | a b c d | k k k k)
+                A constant value determined by `cval` is used to extend the
+                data pixels.
+            'nearest' (a a a a | a b c d | d d d d)
+                The data is extended using the boundary pixels.
+            'wrap' (a b c d | a b c d | a b c d)
+                The data is extended by wrapping to the opposite side of the
+                grid.
+        cval : scalar, optional
+            Value used to fill when `mode` is 'constant'. Default is 0.0.
+
+        Returns
+        -------
+        Raster
+            The resulting new Raster.
+        """
+        kernel = np.asarray(kernel)
+        check_kernel(kernel)
+        kernel = kernel[::-1, ::-1].copy()
+        return self.correlate(kernel, mode=mode, cval=cval)
 
     def focal(
         self,
@@ -1073,8 +1114,6 @@ class Raster:
             raise ValueError(f"Unknown focal operation: '{focal_type}'")
 
         window = get_focal_window(width_or_radius, height)
-        if GPU_ENABLED and self.device == GPU:
-            window = cp.asarray(window)
         rs = self.copy()
         if focal_type in FOCAL_PROMOTING_OPS:
             rs._rs = promote_data_dtype(rs._rs)

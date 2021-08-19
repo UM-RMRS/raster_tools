@@ -34,10 +34,6 @@ def rs_eq_array(rs, ar):
     return (rs._rs.values == ar).all()
 
 
-def array_eq_all(ar1, ar2):
-    return (ar1 == ar2).all()
-
-
 class TestRasterCtor(unittest.TestCase):
     def test_raster_ctor(self):
         for nprs in [np.ones((6, 6)), np.ones((1, 6, 6)), np.ones((4, 5, 5))]:
@@ -637,55 +633,6 @@ class TestAndOr(unittest.TestCase):
             self.assertTrue(rs_eq_array(rs1.or_(v, "cast"), truth))
 
 
-class TestConvolve(unittest.TestCase):
-    def test_convolve(self):
-        rs = Raster("test/data/elevation2_small.tif")
-        kern = np.ones((3, 3))
-        rsnp = rs._rs.values
-        modes = ["reflect", "constant", "nearest", "mirror", "wrap"]
-        for m in modes:
-            truth = rsnp.copy()
-            for b in range(truth.shape[0]):
-                truth[b] = scipy.ndimage.convolve(truth[b], kern, mode=m)
-            self.assertTrue(rs_eq_array(rs.convolve(kern, mode=m), truth))
-        rs = Raster("test/data/multiband_small.tif")
-        kern = np.ones((5, 5))
-        rsnp = rs._rs.values
-        modes = ["reflect", "constant", "nearest", "mirror", "wrap"]
-        for m in modes:
-            truth = rsnp.copy()
-            for b in range(truth.shape[0]):
-                truth[b] = scipy.ndimage.convolve(truth[b], kern, mode=m)
-            self.assertTrue(rs_eq_array(rs.convolve(kern, mode=m), truth))
-
-    def test_convolve_cval(self):
-        rs = Raster("test/data/elevation2_small.tif")
-        kern = np.ones((3, 3))
-        rsnp = rs._rs.values
-        cvals = [-22.9, -1.0, 0, 1, 123.0]
-        for cv in cvals:
-            truth = rsnp.copy()
-            for b in range(truth.shape[0]):
-                truth[b] = scipy.ndimage.convolve(
-                    truth[b], kern, mode="constant", cval=cv
-                )
-            self.assertTrue(
-                rs_eq_array(rs.convolve(kern, mode="constant", cval=cv), truth)
-            )
-
-    def test_convolve_kernel_shape_error(self):
-        rs = Raster("test/data/elevation2_small.tif")
-        kern = np.ones((1, 3, 3))
-        with self.assertRaises(ValueError):
-            rs.convolve(kern)
-        kern = np.ones((3))
-        with self.assertRaises(ValueError):
-            rs.convolve(kern)
-        kern = np.ones((2, 3, 3))
-        with self.assertRaises(ValueError):
-            rs.convolve(kern)
-
-
 class TestFocal(unittest.TestCase):
     def test_focal_integration(self):
         rs = Raster("test/data/multiband_small.tif")
@@ -708,6 +655,64 @@ class TestFocal(unittest.TestCase):
                 cval=np.nan,
             )
         res = rs.focal("median", 3).eval()._rs.values
+        self.assertTrue(np.allclose(truth, res, equal_nan=True))
+
+
+class TestCorrelateConvolve(unittest.TestCase):
+    def test_correlate_integration(self):
+        rs = Raster("test/data/multiband_small.tif").astype(float)
+        rsnp = rs._rs.values
+        truth = rsnp.astype(float)
+        kernel = np.array([[1, 1, 1], [1, 1, 0], [1, 0, 0]]).astype(float)
+        for bnd in range(truth.shape[0]):
+            truth[bnd] = ndimage.generic_filter(
+                truth[bnd], np.sum, footprint=kernel, mode="constant"
+            )
+        res = rs.correlate(kernel).eval()._rs.values
+        self.assertTrue(np.allclose(truth, res, equal_nan=False))
+
+        truth = rsnp.astype(float)
+        truth[:, :3, :3] = np.nan
+        kern = focal.get_focal_window(3)
+        for bnd in range(truth.shape[0]):
+            truth[bnd] = ndimage.generic_filter(
+                truth[bnd],
+                np.nansum,
+                footprint=kern,
+                mode="constant",
+            )
+        rs.encoding.masked = True
+        rs._rs[:, :3, :3] = np.nan
+        res = rs.correlate(kern).eval()._rs.values
+        self.assertTrue(np.allclose(truth, res, equal_nan=True))
+
+    def test_convolve_integration(self):
+        rs = Raster("test/data/multiband_small.tif").astype(float)
+        rsnp = rs._rs.values
+        truth = rsnp.astype(float)
+        kernel = np.array([[1, 1, 1], [1, 1, 0], [1, 0, 0]]).astype(float)
+        for bnd in range(truth.shape[0]):
+            truth[bnd] = ndimage.generic_filter(
+                truth[bnd],
+                np.sum,
+                footprint=kernel[::-1, ::-1],
+                mode="constant",
+            )
+        res = rs.convolve(kernel).eval()._rs.values
+        self.assertTrue(np.allclose(truth, res, equal_nan=False))
+
+        truth = rsnp.astype(float)
+        truth[:, :3, :3] = np.nan
+        for bnd in range(truth.shape[0]):
+            truth[bnd] = ndimage.generic_filter(
+                truth[bnd],
+                np.nansum,
+                footprint=kernel[::-1, ::-1],
+                mode="constant",
+            )
+        rs.encoding.masked = True
+        rs._rs[:, :3, :3] = np.nan
+        res = rs.convolve(kernel).eval()._rs.values
         self.assertTrue(np.allclose(truth, res, equal_nan=True))
 
 
