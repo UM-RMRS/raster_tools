@@ -341,6 +341,32 @@ class TestFocalWindow(unittest.TestCase):
                 self.assertTrue(np.allclose(truth, res, equal_nan=True))
 
 
+class TestCorrelate(unittest.TestCase):
+    def test_correlate_return_dask(self):
+        x = np.arange(16.0).reshape(4, 4)
+        kern = focal.get_focal_window(2)
+        self.assertTrue(dask.is_dask_collection(focal.correlate(x, kern)))
+
+    def test_focal_correlate(self):
+        kern = np.ones((5, 5))
+
+        def func(x):
+            return correlate(x, kern)
+
+        for nan_aware in [False, True]:
+            data = np.arange(64.0).reshape(8, 8)
+            if nan_aware:
+                data[:3, :3] = np.nan
+            for mode in ["reflect", "nearest", "wrap", "constant"]:
+                truth = ndimage.generic_filter(
+                    data, func, size=kern.shape, mode=mode
+                )
+                test = focal.correlate(
+                    data, kern, mode=mode, nan_aware=nan_aware
+                ).compute()
+                self.assertTrue(np.allclose(truth, test, equal_nan=nan_aware))
+
+
 def asm(x):
     c = {}
     xn = x[~np.isnan(x)]
@@ -383,3 +409,7 @@ def unique(x):
     if len(u):
         return len(u)
     return np.nan
+
+
+def correlate(x, kern):
+    return np.nansum(x * kern.ravel())
