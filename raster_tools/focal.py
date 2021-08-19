@@ -103,7 +103,7 @@ def _agg_nan_entropy(x):
     frac = one / n
     for cnt in c.values():
         p = cnt * frac
-        entr += -p * np.log(p)
+        entr -= p * np.log(p)
     return entr
 
 
