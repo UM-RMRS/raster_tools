@@ -7,7 +7,7 @@ import xarray as xr
 from dask.array.core import normalize_chunks as dask_chunks
 from pathlib import Path
 
-from ._types import DEFAULT_NULL, F64, I64, maybe_promote
+from ._types import DEFAULT_NULL, F64, I64, is_float, maybe_promote
 from ._utils import is_scalar, validate_file
 
 
@@ -93,6 +93,17 @@ class Encoding:
         )
 
 
+def create_encoding_from_xarray(xrs):
+    dtype = xrs.dtype
+    masked = False
+    null = xrs.attrs.get("_FillValue", None)
+    if is_float(dtype) or (null is not None and not np.isnan(null)):
+        masked = True
+    if null is None:
+        null = DEFAULT_NULL
+    return Encoding(masked, dtype, null)
+
+
 def open_raster_from_path(path):
     if isinstance(path, Path) or _is_str(path):
         path = str(path)
@@ -116,25 +127,20 @@ def open_raster_from_path(path):
     else:
         raise RasterIOError("Unknown file type")
 
-    # Get null value and dtype
-    dtype = rs.dtype
-    masked = False
-    new_dtype = None
-    null = rs.attrs.get("_FillValue", None)
-    if null is not None and not np.isnan(null):
-        masked = True
-        new_dtype = maybe_promote(dtype)
+    encoding = create_encoding_from_xarray(rs)
+    if encoding.masked:
+        new_dtype = maybe_promote(rs.dtype)
     # Chunk to start using lazy operations
     rs = chunk(rs, path)
     # Promote to a float type and replace null values with nan
-    if masked:
-        if dtype != new_dtype:
+    if encoding.masked:
+        if rs.dtype != new_dtype:
             # Rechunk with new data size
             rs = rs.astype(new_dtype).chunk(rs)
-        rs = rs.where(rs != null, np.nan)
-    if null is None:
-        null = DEFAULT_NULL
-    return rs, Encoding(masked, new_dtype, null)
+        null = encoding.null_value
+        if not np.isnan(null):
+            rs = rs.where(rs != null, np.nan)
+    return rs, encoding
 
 
 def _write_tif_with_rasterio(
