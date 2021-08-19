@@ -2,6 +2,7 @@ import dask
 import numpy as np
 import unittest
 import warnings
+from functools import partial
 from scipy import ndimage, stats
 
 from raster_tools import focal
@@ -348,23 +349,23 @@ class TestCorrelate(unittest.TestCase):
         self.assertTrue(dask.is_dask_collection(focal.correlate(x, kern)))
 
     def test_focal_correlate(self):
-        kern = np.ones((5, 5))
-
-        def func(x):
-            return correlate(x, kern)
-
-        for nan_aware in [False, True]:
-            data = np.arange(64.0).reshape(8, 8)
-            if nan_aware:
-                data[:3, :3] = np.nan
-            for mode in ["reflect", "nearest", "wrap", "constant"]:
-                truth = ndimage.generic_filter(
-                    data, func, size=kern.shape, mode=mode
-                )
-                test = focal.correlate(
-                    data, kern, mode=mode, nan_aware=nan_aware
-                ).compute()
-                self.assertTrue(np.allclose(truth, test, equal_nan=nan_aware))
+        for kern in [np.ones((5, 5)), np.ones((4, 4))]:
+            func = partial(correlate, kern=kern)
+            for nan_aware in [False, True]:
+                data = np.arange(64.0).reshape(8, 8)
+                if nan_aware:
+                    data[:3, :3] = np.nan
+                for mode in ["reflect", "nearest", "wrap", "constant"]:
+                    origin = [-1 if d % 2 == 0 else 0 for d in kern.shape]
+                    truth = ndimage.generic_filter(
+                        data, func, size=kern.shape, mode=mode, origin=origin
+                    )
+                    test = focal.correlate(
+                        data, kern, mode=mode, nan_aware=nan_aware
+                    ).compute()
+                    self.assertTrue(
+                        np.allclose(truth, test, equal_nan=nan_aware)
+                    )
 
 
 def asm(x):

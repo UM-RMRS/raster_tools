@@ -303,7 +303,12 @@ def correlate(data, kernel, mode="constant", cval=0.0, nan_aware=False):
         if boundary == "constant":
             boundary = cval
         return _focal_dispatch("correlate", data, kernel, boundary=boundary)
-    return ndfilters.correlate(data, kernel, mode=mode, cval=cval)
+    # Shift pixel origins to match ESRI behavior for even shaped kernels
+    shift_origin = [d % 2 == 0 for d in kernel.shape]
+    origin = [-1 if shift else 0 for shift in shift_origin]
+    return ndfilters.correlate(
+        data, kernel, mode=mode, cval=cval, origin=origin
+    )
 
 
 # Focal ops that promote dtype to float
