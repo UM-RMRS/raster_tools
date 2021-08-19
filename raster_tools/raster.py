@@ -175,7 +175,8 @@ def _np_to_xarray(nprs):
     if len(nprs.shape) == 2:
         nprs = np.expand_dims(nprs, axis=0)
     nprs = da.from_array(nprs)
-    return xr.DataArray(nprs, dims=["band", "y", "x"])
+    coords = [list(range(d)) for d in nprs.shape]
+    return xr.DataArray(nprs, dims=["band", "y", "x"], coords=coords)
 
 
 def _dask_from_array_with_device(arr, device):
