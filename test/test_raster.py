@@ -4,12 +4,13 @@ import scipy
 import unittest
 import rioxarray as rxr
 import xarray as xr
+from scipy import ndimage
 
+import raster_tools.focal as focal
 from raster_tools import Raster
 from raster_tools.raster import (
     _BINARY_ARITHMETIC_OPS,
     _BINARY_LOGICAL_OPS,
-    _get_focal_window,
 )
 from raster_tools._types import (
     DTYPE_INPUT_TO_DTYPE,
@@ -31,10 +32,6 @@ from raster_tools._types import (
 
 def rs_eq_array(rs, ar):
     return (rs._rs.values == ar).all()
-
-
-def array_eq_all(ar1, ar2):
-    return (ar1 == ar2).all()
 
 
 class TestRasterCtor(unittest.TestCase):
@@ -636,221 +633,87 @@ class TestAndOr(unittest.TestCase):
             self.assertTrue(rs_eq_array(rs1.or_(v, "cast"), truth))
 
 
-class TestConvolve(unittest.TestCase):
-    def test_convolve(self):
-        rs = Raster("test/data/elevation2_small.tif")
-        kern = np.ones((3, 3))
-        rsnp = rs._rs.values
-        modes = ["reflect", "constant", "nearest", "mirror", "wrap"]
-        for m in modes:
-            truth = rsnp.copy()
-            for b in range(truth.shape[0]):
-                truth[b] = scipy.ndimage.convolve(truth[b], kern, mode=m)
-            self.assertTrue(rs_eq_array(rs.convolve(kern, mode=m), truth))
-        rs = Raster("test/data/multiband_small.tif")
-        kern = np.ones((5, 5))
-        rsnp = rs._rs.values
-        modes = ["reflect", "constant", "nearest", "mirror", "wrap"]
-        for m in modes:
-            truth = rsnp.copy()
-            for b in range(truth.shape[0]):
-                truth[b] = scipy.ndimage.convolve(truth[b], kern, mode=m)
-            self.assertTrue(rs_eq_array(rs.convolve(kern, mode=m), truth))
-
-    def test_convolve_cval(self):
-        rs = Raster("test/data/elevation2_small.tif")
-        kern = np.ones((3, 3))
-        rsnp = rs._rs.values
-        cvals = [-22.9, -1.0, 0, 1, 123.0]
-        for cv in cvals:
-            truth = rsnp.copy()
-            for b in range(truth.shape[0]):
-                truth[b] = scipy.ndimage.convolve(
-                    truth[b], kern, mode="constant", cval=cv
-                )
-            self.assertTrue(
-                rs_eq_array(rs.convolve(kern, mode="constant", cval=cv), truth)
-            )
-
-    def test_convolve_kernel_shape_error(self):
-        rs = Raster("test/data/elevation2_small.tif")
-        kern = np.ones((1, 3, 3))
-        with self.assertRaises(ValueError):
-            rs.convolve(kern)
-        kern = np.ones((3))
-        with self.assertRaises(ValueError):
-            rs.convolve(kern)
-        kern = np.ones((2, 3, 3))
-        with self.assertRaises(ValueError):
-            rs.convolve(kern)
-
-
 class TestFocal(unittest.TestCase):
-    def test_focal_window(self):
-        truths = [
-            np.array([[1.0]]),
-            np.array([[0.0, 1.0, 0.0], [1.0, 1.0, 1.0], [0.0, 1.0, 0.0]]),
-            np.array(
-                [
-                    [0.0, 0.0, 1.0, 0.0, 0.0],
-                    [0.0, 1.0, 1.0, 1.0, 0.0],
-                    [1.0, 1.0, 1.0, 1.0, 1.0],
-                    [0.0, 1.0, 1.0, 1.0, 0.0],
-                    [0.0, 0.0, 1.0, 0.0, 0.0],
-                ],
-            ),
-            np.array(
-                [
-                    [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
-                    [0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0],
-                    [0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0],
-                    [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
-                    [0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0],
-                    [0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0],
-                    [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
-                ],
-            ),
-            np.array(
-                [
-                    [0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0],
-                    [0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0],
-                    [0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0],
-                    [0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0],
-                    [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
-                    [0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0],
-                    [0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0],
-                    [0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0],
-                    [0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0],
-                ],
-            ),
-            np.array(
-                [
-                    [0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                    [0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0],
-                    [0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0],
-                    [0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0],
-                    [0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0],
-                    [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
-                    [0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0],
-                    [0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0],
-                    [0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0],
-                    [0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0],
-                    [0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                ],
-            ),
-        ]
-        for r, truth in zip(range(1, len(truths) + 1), truths):
-            window = _get_focal_window(r)
-            self.assertTrue(array_eq_all(window, truth))
-            self.assertEqual(window.dtype, I32)
-        for w in range(1, 6):
-            for h in range(1, 6):
-                window = _get_focal_window(w, h)
-                self.assertTrue(array_eq_all(window, np.ones((w, h))))
-                self.assertEqual(window.dtype, I32)
-
-    modes = ["reflect", "constant", "nearest", "mirror", "wrap"]
-
-    def test_focal_basic_filters(self):
-        rs = Raster("test/data/elevation2_small.tif")
+    def test_focal_integration(self):
+        rs = Raster("test/data/multiband_small.tif")
         rsnp = rs._rs.values
-        ops = [
-            (scipy.ndimage.maximum_filter, "max"),
-            (scipy.ndimage.minimum_filter, "min"),
-            (scipy.ndimage.median_filter, "median"),
-            (
-                lambda x, footprint, mode: scipy.ndimage.convolve(
-                    x, footprint, mode=mode
-                ),
-                "sum",
-            ),
-            (
-                lambda x, footprint, mode: scipy.ndimage.convolve(
-                    x, footprint, mode=mode
-                )
-                / footprint.sum(),
-                "mean",
-            ),
-        ]
-        for scipy_func, op_str in ops:
-            for mode in self.modes:
-                for r in range(1, 5):
-                    window = _get_focal_window(r)
-                    truth = rsnp.copy()
-                    for bnd in range(truth.shape[0]):
-                        truth[bnd] = scipy_func(
-                            truth[bnd], footprint=window, mode=mode
-                        )
-                    test = rs.focal(op_str, r, mode=mode)
-                    self.assertTrue(rs_eq_array(test, truth))
-                for w in range(1, 5):
-                    for h in range(1, 5):
-                        window = _get_focal_window(w, h)
-                        truth = rsnp.copy()
-                        for bnd in range(truth.shape[0]):
-                            truth[bnd] = scipy_func(
-                                truth[bnd], footprint=window, mode=mode
-                            )
-                        test = rs.focal(op_str, w, h, mode=mode)
-                        self.assertTrue(rs_eq_array(test, truth))
+        truth = rsnp.astype(float)
+        for bnd in range(truth.shape[0]):
+            truth[bnd] = ndimage.generic_filter(
+                truth[bnd], np.nanmean, size=3, mode="constant", cval=np.nan
+            )
+        res = rs.focal("mean", 3, 3).eval()._rs.values
+        self.assertTrue(np.allclose(truth, res, equal_nan=True))
+        truth = rsnp.astype(float)
+        kern = focal.get_focal_window(3)
+        for bnd in range(truth.shape[0]):
+            truth[bnd] = ndimage.generic_filter(
+                truth[bnd],
+                np.nanmedian,
+                footprint=kern,
+                mode="constant",
+                cval=np.nan,
+            )
+        res = rs.focal("median", 3).eval()._rs.values
+        self.assertTrue(np.allclose(truth, res, equal_nan=True))
 
-    def test_focal_var_std(self):
-        rs = Raster("test/data/elevation_small.tif").astype(F64)
+
+class TestCorrelateConvolve(unittest.TestCase):
+    def test_correlate_integration(self):
+        rs = Raster("test/data/multiband_small.tif").astype(float)
         rsnp = rs._rs.values
-        for r in range(1, 5):
-            window = _get_focal_window(r)
-            data = rsnp.copy()
-            sq = rsnp ** 2
-            n = window.sum()
-            for bnd in range(rsnp.shape[0]):
-                data[bnd] = scipy.ndimage.convolve(
-                    data[bnd], window, mode="constant"
-                )
-                sq[bnd] = scipy.ndimage.convolve(
-                    sq[bnd], window, mode="constant"
-                )
-            truth = (sq - ((data ** 2) / n)) / n
-            test = rs.focal("variance", r)
-            self.assertTrue(rs_eq_array(test, truth))
-            truth = np.sqrt(truth)
-            test = rs.focal("std", r)
-            self.assertTrue(rs_eq_array(test, truth))
-        for w in range(1, 5):
-            for h in range(1, 5):
-                window = _get_focal_window(w, h)
-                data = rsnp.copy()
-                sq = rsnp ** 2
-                n = window.sum()
-                for bnd in range(rsnp.shape[0]):
-                    data[bnd] = scipy.ndimage.convolve(
-                        data[bnd], window, mode="constant"
-                    )
-                    sq[bnd] = scipy.ndimage.convolve(
-                        sq[bnd], window, mode="constant"
-                    )
-                truth = (sq - ((data ** 2) / n)) / n
-                test = rs.focal("variance", w, h)
-                self.assertTrue(rs_eq_array(test, truth))
-                truth = np.sqrt(truth)
-                test = rs.focal("std", w, h)
-                self.assertTrue(rs_eq_array(test, truth))
+        truth = rsnp.astype(float)
+        kernel = np.array([[1, 1, 1], [1, 1, 0], [1, 0, 0]]).astype(float)
+        for bnd in range(truth.shape[0]):
+            truth[bnd] = ndimage.generic_filter(
+                truth[bnd], np.sum, footprint=kernel, mode="constant"
+            )
+        res = rs.correlate(kernel).eval()._rs.values
+        self.assertTrue(np.allclose(truth, res, equal_nan=False))
 
-    def test_focal_errors(self):
-        rs = Raster("test/data/elevation_small.tif")
-        with self.assertRaises(ValueError):
-            rs.focal("other", 1, 2)
-        with self.assertRaises(TypeError):
-            rs.focal("max", 1.2, 2)
-        with self.assertRaises(ValueError):
-            rs.focal("max", 0)
-        with self.assertRaises(ValueError):
-            rs.focal("max", -2)
-        with self.assertRaises(TypeError):
-            rs.focal("max", 3, 3.2)
-        with self.assertRaises(ValueError):
-            rs.focal("max", 3, 0)
-        with self.assertRaises(ValueError):
-            rs.focal("max", 3, -2)
+        truth = rsnp.astype(float)
+        truth[:, :3, :3] = np.nan
+        kern = focal.get_focal_window(3)
+        for bnd in range(truth.shape[0]):
+            truth[bnd] = ndimage.generic_filter(
+                truth[bnd],
+                np.nansum,
+                footprint=kern,
+                mode="constant",
+            )
+        rs.encoding.masked = True
+        rs._rs[:, :3, :3] = np.nan
+        res = rs.correlate(kern).eval()._rs.values
+        self.assertTrue(np.allclose(truth, res, equal_nan=True))
+
+    def test_convolve_integration(self):
+        rs = Raster("test/data/multiband_small.tif").astype(float)
+        rsnp = rs._rs.values
+        truth = rsnp.astype(float)
+        kernel = np.array([[1, 1, 1], [1, 1, 0], [1, 0, 0]]).astype(float)
+        for bnd in range(truth.shape[0]):
+            truth[bnd] = ndimage.generic_filter(
+                truth[bnd],
+                np.sum,
+                footprint=kernel[::-1, ::-1],
+                mode="constant",
+            )
+        res = rs.convolve(kernel).eval()._rs.values
+        self.assertTrue(np.allclose(truth, res, equal_nan=False))
+
+        truth = rsnp.astype(float)
+        truth[:, :3, :3] = np.nan
+        for bnd in range(truth.shape[0]):
+            truth[bnd] = ndimage.generic_filter(
+                truth[bnd],
+                np.nansum,
+                footprint=kernel[::-1, ::-1],
+                mode="constant",
+            )
+        rs.encoding.masked = True
+        rs._rs[:, :3, :3] = np.nan
+        res = rs.convolve(kernel).eval()._rs.values
+        self.assertTrue(np.allclose(truth, res, equal_nan=True))
 
 
 class TestGetBands(unittest.TestCase):

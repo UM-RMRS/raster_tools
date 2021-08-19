@@ -83,3 +83,10 @@ INT_KINDS = frozenset(("u", "i"))
 
 def should_promote_to_fit(dtype, value):
     return is_float(value) and dtype.kind in INT_KINDS
+
+
+def promote_data_dtype(xrs):
+    dtype = maybe_promote(xrs.dtype)
+    if dtype == xrs.dtype:
+        return xrs
+    return xrs.astype(dtype)

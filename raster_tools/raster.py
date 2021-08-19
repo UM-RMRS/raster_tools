@@ -6,8 +6,6 @@ import operator
 import os
 import re
 import xarray as xr
-from dask_image import ndfilters
-from numbers import Integral, Number
 
 try:
     import cupy as cp
@@ -16,6 +14,14 @@ try:
 except (ImportError, ModuleNotFoundError):
     GPU_ENABLED = False
 
+from .focal import (
+    FOCAL_PROMOTING_OPS,
+    FOCAL_STATS,
+    check_kernel,
+    correlate,
+    focal,
+    get_focal_window,
+)
 from .io import (
     Encoding,
     chunk,
@@ -24,7 +30,6 @@ from .io import (
     write_raster,
 )
 from ._types import (
-    DEFAULT_NULL,
     DTYPE_INPUT_TO_DTYPE,
     I32,
     F16,
@@ -32,6 +37,7 @@ from ._types import (
     BOOL,
     U8,
     maybe_promote,
+    promote_data_dtype,
     should_promote_to_fit,
 )
 from ._utils import (
@@ -157,24 +163,6 @@ def _coerce_to_bool_for_and_or(operands, to_bool_op):
         else:
             boperands.append(to_bool_op(opr))
     return boperands
-
-
-def _get_focal_window(width_or_radius, height=None):
-    width = width_or_radius
-    window = None
-    if height is None:
-        width = ((width - 1) * 2) + 1
-        height = width
-        r = (width - 1) // 2
-        window = np.zeros((width, height), dtype=I32)
-        for x in range(width):
-            for y in range(height):
-                rxy = np.sqrt((x - r) ** 2 + (y - r) ** 2)
-                if rxy <= r:
-                    window[x, y] = 1
-    else:
-        window = np.ones((width, height), dtype=I32)
-    return window
 
 
 GPU = "gpu"
@@ -981,8 +969,9 @@ class Raster:
     def __ror__(self, other):
         return self._and_or(other, "|", "gt0")
 
-    def convolve(self, kernel, mode="constant", cval=0.0):
-        """Convolve `kernel` with each band individually. Returns a new Raster.
+    def correlate(self, kernel, mode="constant", cval=0.0):
+        """Cross-correlate `kernel` with each band individually. Returns a new
+        Raster.
 
         The kernel is applied to each band in isolation so returned raster has
         the same shape as the original.
@@ -991,7 +980,7 @@ class Raster:
         ----------
         kernel : array_like
             2D array of kernel weights
-        mode : {'reflect', 'constant', 'nearest', 'mirror', 'wrap'}, optional
+        mode : {'reflect', 'constant', 'nearest', 'wrap'}, optional
             Determines how the data is extended beyond its boundaries. The
             default is 'constant'.
             'reflect' (d c b a | a b c d | d c b a)
@@ -1001,9 +990,6 @@ class Raster:
                 data pixels.
             'nearest' (a a a a | a b c d | d d d d)
                 The data is extended using the boundary pixels.
-            'mirror' (d c b | a b c d | c b a)
-                Like 'reflect' but the reflection is centered on the boundary
-                pixel.
             'wrap' (a b c d | a b c d | a b c d)
                 The data is extended by wrapping to the opposite side of the
                 grid.
@@ -1015,110 +1001,130 @@ class Raster:
         Raster
             The resulting new Raster.
         """
-        kernel = np.asarray(kernel, dtype=F64)
-        if len(kernel.shape) != 2:
-            raise ValueError(f"Kernel must be 2D. Got {kernel.shape}")
-        # TODO: astype F32 to match GPU words?
-        kernel = _dask_from_array_with_device(kernel, self.device)
+        kernel = np.asarray(kernel)
+        check_kernel(kernel)
         rs = self.copy()
+        if is_float(kernel.dtype) and is_int(rs.dtype):
+            rs._rs = promote_data_dtype(rs._rs)
+            rs.encoding.dtype = rs.dtype
         data = rs._rs.data
+
         for bnd in range(data.shape[0]):
-            data[bnd] = ndfilters.convolve(
-                data[bnd], kernel, mode=mode, cval=cval
+            data[bnd] = correlate(
+                data[bnd], kernel, mode=mode, cval=cval, nan_aware=rs._masked
             )
         return rs
+
+    def convolve(self, kernel, mode="constant", cval=0.0):
+        """Convolve `kernel` with each band individually. Returns a new Raster.
+
+        This is the same as correlation but the kernel is rotated 180 degrees,
+        e.g. ``kernel = kernel[::-1, ::-1]``.  The kernel is applied to each
+        band in isolation so the returned raster has the same shape as the
+        original.
+
+        Parameters
+        ----------
+        kernel : array_like
+            2D array of kernel weights
+        mode : {'reflect', 'constant', 'nearest', 'wrap'}, optional
+            Determines how the data is extended beyond its boundaries. The
+            default is 'constant'.
+            'reflect' (d c b a | a b c d | d c b a)
+                The data pixels are reflected at the boundaries.
+            'constant' (k k k k | a b c d | k k k k)
+                A constant value determined by `cval` is used to extend the
+                data pixels.
+            'nearest' (a a a a | a b c d | d d d d)
+                The data is extended using the boundary pixels.
+            'wrap' (a b c d | a b c d | a b c d)
+                The data is extended by wrapping to the opposite side of the
+                grid.
+        cval : scalar, optional
+            Value used to fill when `mode` is 'constant'. Default is 0.0.
+
+        Returns
+        -------
+        Raster
+            The resulting new Raster.
+        """
+        kernel = np.asarray(kernel)
+        check_kernel(kernel)
+        kernel = kernel[::-1, ::-1].copy()
+        return self.correlate(kernel, mode=mode, cval=cval)
 
     def focal(
         self,
         focal_type,
         width_or_radius,
         height=None,
-        mode="constant",
-        cval=0.0,
     ):
-        if focal_type not in (
-            # "asm",
-            # "entropy",
-            "max",
-            "mean",
-            "median",
-            "min",
-            # "mode",
-            "std",
-            "sum",
-            # "unique",
-            "variance",
-        ):
-            raise ValueError(f"Unknown focal operation: '{focal_type}'")
-        if not is_int(width_or_radius):
-            raise TypeError(
-                f"width_or_radius must be an integer: {width_or_radius}"
-            )
-        elif width_or_radius <= 0:
-            raise ValueError(
-                "Window width or radius must be greater than 0."
-                f" Got {width_or_radius}"
-            )
-        if height is not None:
-            if not is_int(height):
-                raise TypeError(f"height must be an integer or None: {height}")
-            elif height <= 0:
-                raise ValueError(
-                    f"Window height must be greater than 0. Got {height}"
-                )
+        """
+        Applies a focal filter to raster bands individually.
 
-        window = _get_focal_window(width_or_radius, height)
-        window = _dask_from_array_with_device(window, self.device)
+        The filter uses a window/footprint that is created using the
+        `width_or_radius` and `height` parameters. The window can be a
+        rectangle, circle or annulus.
+
+        Parameters
+        ----------
+        focal_type : str
+            Specifies the aggregation function to apply to the focal
+            neighborhood at each pixel. Can be one of the following string
+            values:
+            'min'
+                Finds the minimum value in the neighborhood.
+            'max'
+                Finds the maximum value in the neighborhood.
+            'mean'
+                Finds the mean of the neighborhood.
+            'median'
+                Finds the median of the neighborhood.
+            'mode'
+                Finds the mode of the neighborhood.
+            'sum'
+                Finds the sum of the neighborhood.
+            'std'
+                Finds the standard deviation of the neighborhood.
+            'var'
+                Finds the variance of the neighborhood.
+            'asm'
+                Angular second moment. Applies -sum(P(g)**2) where P(g) gives
+                the probability of g within the neighborhood.
+            'entropy'
+                Calculates the entropy. Applies -sum(P(g) * log(P(g))). See
+                'asm' above.
+            'unique'
+                Calculates the number of unique values in the neighborhood.
+        width_or_radius : int or 2-tuple of ints
+            If an int and `height` is `None`, specifies the radius of a circle
+            window. If an int and `height` is also an int, specifies the width
+            of a rectangle window. If a 2-tuple of ints, the values specify the
+            inner and outer radii of an annulus window.
+        height : int or None
+            If `None` (default), `width_or_radius` will be used to construct a
+            circle or annulus window. If an int, specifies the height of a
+            rectangle window.
+
+        Returns
+        -------
+        Raster
+            The resulting raster with focal filter applied to each band. The
+            bands will have the same shape as the original Raster.
+        """
+        if focal_type not in FOCAL_STATS:
+            raise ValueError(f"Unknown focal operation: '{focal_type}'")
+
+        window = get_focal_window(width_or_radius, height)
         rs = self.copy()
+        if focal_type in FOCAL_PROMOTING_OPS:
+            rs._rs = promote_data_dtype(rs._rs)
+            rs.encoding.dtype = rs._rs.dtype
+        nan_aware = self._masked or is_float(self.dtype)
         data = rs._rs.data
 
-        if focal_type == "asm":
-            raise NotImplementedError()
-        elif focal_type == "entropy":
-            raise NotImplementedError()
-        elif focal_type == "max":
-            for bnd in range(data.shape[0]):
-                data[bnd] = ndfilters.maximum_filter(
-                    data[bnd], footprint=window, mode=mode, cval=cval
-                )
-        elif focal_type in ["mean", "sum"]:
-            for bnd in range(data.shape[0]):
-                n = window.sum()
-                data[bnd] = ndfilters.convolve(
-                    data[bnd], window, mode=mode, cval=cval
-                )
-                if focal_type == "mean":
-                    data[bnd] /= n
-        elif focal_type == "median":
-            for bnd in range(data.shape[0]):
-                data[bnd] = ndfilters.median_filter(
-                    data[bnd], footprint=window, mode=mode, cval=cval
-                )
-        elif focal_type == "min":
-            for bnd in range(data.shape[0]):
-                data[bnd] = ndfilters.minimum_filter(
-                    data[bnd], footprint=window, mode=mode, cval=cval
-                )
-        elif focal_type == "mode":
-            raise NotImplementedError()
-        elif focal_type in ["std", "variance"]:
-            data_sq = data ** 2
-            n = window.sum()
-            for bnd in range(data.shape[0]):
-                data[bnd] = ndfilters.convolve(
-                    data[bnd], window, mode=mode, cval=cval
-                )
-                data_sq[bnd] = ndfilters.convolve(
-                    data_sq[bnd], window, mode=mode, cval=cval
-                )
-                data = (data_sq - ((data ** 2) / n)) / n
-                if focal_type == "std":
-                    data = np.sqrt(data)
-        elif focal_type == "unique":
-            raise NotImplementedError()
-        else:
-            raise ValueError(f"Unknown focal operation: '{focal_type}'")
-        rs._rs.data = data
+        for bnd in range(data.shape[0]):
+            data[bnd] = focal(data[bnd], window, focal_type, nan_aware)
         return rs
 
     def __repr__(self):
