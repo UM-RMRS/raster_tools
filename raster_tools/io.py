@@ -136,7 +136,7 @@ def open_raster_from_path(path):
     if encoding.masked:
         if rs.dtype != new_dtype:
             # Rechunk with new data size
-            rs = rs.astype(new_dtype).chunk(rs)
+            rs = chunk(rs.astype(new_dtype))
         null = encoding.null_value
         if not np.isnan(null):
             rs = rs.where(rs != null, np.nan)
