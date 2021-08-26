@@ -247,25 +247,25 @@ def _reconcile_encodings_after_op(left, right=None, should_promote=False):
 
 
 class Raster:
-    """
-    An abstraction of georeferenced raster data with lazy function evaluation.
+    """Abstraction of georeferenced raster data with lazy function evaluation.
 
     Raster is a wrapper around xarray Datasets and DataArrays. It takes
     advantage of xarray's dask integration to allow lazy loading and
     evaluation. It allows a pipeline of operations on underlying raster
     sources to be built in a lazy fashion and then evaluated effiently.
     Most mathematical operations have been overloaded so operations such as
-    `z = x - y` and `r = x**2` are possible.
+    ``z = x - y`` and ``r = x**2`` are possible.
 
     All operations on a Raster return a new Raster.
 
     Parameters
     ----------
-    raster : str, Raster, xarray.Dataset, xarray.DataArray, numpy.ndarray
+    raster : str, Raster, xarray.DataArray, numpy.ndarray
         The raster source to use for this Raster. If `raster` is a string,
         it is treated like a path. If `raster` is a Raster, a copy is made
-        and its raster source is used. If `raster` is and xarray data
-        structure or numpy array, it is used as the source.
+        and its raster source is used. If `raster` is an xarray DataArray or
+        numpy array, it is used as the source.
+
     """
 
     def __init__(self, raster):
@@ -319,6 +319,7 @@ class Raster:
 
     @property
     def device(self):
+        """The hardware device where the raster is processed, `CPU` or `GPU`"""
         return self._device
 
     @device.setter
@@ -331,7 +332,12 @@ class Raster:
 
     @property
     def dtype(self):
-        """Internal representation dtype"""
+        """The dtype of the data when loaded.
+
+        This is different from the encoded dtype. The dtype that will be used
+        when writing to disk can be found in `Raster.encoding`.
+
+        """
         return self._rs.dtype
 
     @property
@@ -340,6 +346,12 @@ class Raster:
 
     @property
     def shape(self):
+        """The shape of the underlying raster. Dim 0 is the band dimension.
+
+        The shape will always be of the form ``(B, Y, X)`` where ``B`` is the
+        band dimension, ``Y`` is the y dimension, and ``X`` is the x dimension.
+
+        """
         return self._rs.shape
 
     @property
@@ -358,7 +370,10 @@ class Raster:
     def to_xarray(self):
         """Returns the underlying data as an xarray.DataArray.
 
-        Changes made to the resulting DataArray may affect this Raster.
+        Changes made to the resulting DataArray may affect this Raster. This
+        is the internal representation of the data and may differ from the
+        result that will be written to disk. See `Raster.encoding`.
+
         """
         return self._rs
 
@@ -393,20 +408,19 @@ class Raster:
         return self
 
     def eval(self):
-        """
-        Compute any applied operations and return the result as a new Raster.
+        """Compute any applied operations and return the result as new Raster.
 
         Note that the unerlying sources will be loaded into memory for the
         computations and the result will be fixed in memory. The original
         Raster will be unaltered.
+
         """
         rs = self._rs.compute()
         # A new raster is returned to mirror the xarray and dask APIs
         return self._new_like_self(rs)
 
     def to_lazy(self):
-        """
-        Convert a non-lazy Raster to a lazy one.
+        """Convert a non-lazy Raster to a lazy one.
 
         If this Raster is already lazy, a copy is returned.
 
@@ -414,6 +428,7 @@ class Raster:
         -------
         Raster
             The new lazy Raster or a copy of the already lazy Raster
+
         """
         if _is_using_dask(self._rs):
             return self.copy()
@@ -474,8 +489,7 @@ class Raster:
         return self._new_like_self(self._rs.round())
 
     def get_bands(self, bands):
-        """
-        Retrieve the specified bands as a new Raster. Indexing starts at 1.
+        """Retrieve the specified bands as a new Raster. Indexing starts at 1.
 
         Parameters
         ----------
@@ -485,6 +499,13 @@ class Raster:
             sequence. The band numbers may be out of order and contain repeated
             elements. if `bands` is a sequence, the multiband raster's bands
             will be in the order provided.
+
+        Returns
+        -------
+        Raster
+            The resulting raster composed of the specified bands in the order
+            given.
+
         """
         n_bands, *_ = self.shape
         if is_int(bands):
@@ -517,6 +538,7 @@ class Raster:
         -------
         Raster
             The resulting concatenated Raster.
+
         """
         rasters = [self._input_to_raster(other) for other in rasters]
         if not rasters:
@@ -550,6 +572,24 @@ class Raster:
         return self._new_like_self(rs)
 
     def set_null_value(self, value):
+        """Sets or replaces the null value for the raster.
+
+        If there was previously no null value for the raster, one is set. If
+        there was already a null value, then it is replaced. If the raster has
+        an integer encoding dtype and `value` is a float, the encoding dtype
+        will be promoted to a float dtype.
+
+        Parameters
+        ----------
+        value : scalar
+            The new null value for the raster.
+
+        Returns
+        -------
+        Raster
+            The new resulting Raster.
+
+        """
         if not is_scalar(value):
             raise TypeError(f"Value must be a scalar: {value}")
 
@@ -575,8 +615,7 @@ class Raster:
         return self._new_like_self(rs, encoding=encoding)
 
     def replace_null(self, value):
-        """
-        Replaces null and nan values with `value`. Returns a new Raster.
+        """Replaces null and nan values with `value`.
 
         Parameters
         ----------
@@ -588,6 +627,7 @@ class Raster:
         Raster
             The new resulting Raster. If `value` is a float and the raster
             dtype is int, the raster type will be promoted to float.
+
         """
         if not is_scalar(value):
             raise TypeError("value must be a scalar")
@@ -600,9 +640,7 @@ class Raster:
         return self._new_like_self(rs)
 
     def remap_range(self, min, max, new_value, *args):
-        """
-        Remaps values in the range [`min`, `max`) to `new_value`. Returns a
-        new Raster.
+        """Remaps values in the range [`min`, `max`) to `new_value`.
 
         Parameters
         ----------
@@ -623,6 +661,7 @@ class Raster:
         -------
         Raster
             The resulting Raster.
+
         """
         remaps = [(min, max, new_value)]
         if len(args):
@@ -715,8 +754,18 @@ class Raster:
         return self._new_like_self(xrs, encoding=new_encoding)
 
     def add(self, raster_or_scalar):
-        """
-        Add this Raster with another Raster or scalar. Returns a new Raster.
+        """Add this Raster with another Raster or scalar.
+
+        Parameters
+        ----------
+        raster_or_scalar : scalar, str, or Raster
+            The scalar or Raster to add to this raster.
+
+        Returns
+        -------
+        Raster
+            Returns the resulting Raster.
+
         """
         return self._binary_arithmetic(raster_or_scalar, "+")
 
@@ -727,9 +776,18 @@ class Raster:
         return self.add(other)
 
     def subtract(self, raster_or_scalar):
-        """
-        Subtract another Raster or scalar from This Raster. Returns a new
-        Raster.
+        """Subtract another Raster or scalar from This Raster.
+
+        Parameters
+        ----------
+        raster_or_scalar : scalar, str, or Raster
+            The scalar or Raster to subtract from this raster.
+
+        Returns
+        -------
+        Raster
+            Returns the resulting Raster.
+
         """
         return self._binary_arithmetic(raster_or_scalar, "-")
 
@@ -740,9 +798,18 @@ class Raster:
         return self.negate().add(other)
 
     def multiply(self, raster_or_scalar):
-        """
-        Multiply this Raster with another Raster or scalar. Returns a new
-        Raster.
+        """Multiply this Raster with another Raster or scalar.
+
+        Parameters
+        ----------
+        raster_or_scalar : scalar, str, or Raster
+            The scalar or Raster to multiply with this raster.
+
+        Returns
+        -------
+        Raster
+            Returns the resulting Raster.
+
         """
         return self._binary_arithmetic(raster_or_scalar, "*")
 
@@ -753,8 +820,18 @@ class Raster:
         return self.multiply(other)
 
     def divide(self, raster_or_scalar):
-        """
-        Divide this Raster by another Raster or scalar. Returns a new Raster.
+        """Divide this Raster by another Raster or scalar.
+
+        Parameters
+        ----------
+        raster_or_scalar : scalar, str, or Raster
+            The scalar or Raster to divide this raster by.
+
+        Returns
+        -------
+        Raster
+            Returns the resulting Raster.
+
         """
         return self._binary_arithmetic(raster_or_scalar, "/")
 
@@ -765,9 +842,19 @@ class Raster:
         return self._binary_arithmetic(other, "/", swap=True)
 
     def mod(self, raster_or_scalar):
-        """
-        Perform the modulo operation on this Raster with another Raster or
-        scalar. Returns a new Raster.
+        """Perform the modulo operation on this Raster with another Raster or
+        scalar.
+
+        Parameters
+        ----------
+        raster_or_scalar : scalar, str, or Raster
+            The scalar or Raster to mod this raster with.
+
+        Returns
+        -------
+        Raster
+            Returns the resulting Raster.
+
         """
         return self._binary_arithmetic(raster_or_scalar, "%")
 
@@ -779,7 +866,18 @@ class Raster:
 
     def pow(self, value):
         """
-        Raise this raster by another Raster or scalar. Returns a new Raster.
+        Raise this raster by another Raster or scalar.
+
+        Parameters
+        ----------
+        raster_or_scalar : scalar, str, or Raster
+            The scalar or Raster to raise this raster to.
+
+        Returns
+        -------
+        Raster
+            Returns the resulting Raster.
+
         """
         return self._binary_arithmetic(value, "**")
 
@@ -790,7 +888,11 @@ class Raster:
         return self._binary_arithmetic(value, "**", swap=True)
 
     def sqrt(self):
-        """Take the square root of the raster. Returns a new Raster."""
+        """Take the square root of the raster.
+
+        Returns a new Raster.
+
+        """
         xrs = np.sqrt(self._rs)
         encoding = _reconcile_encodings_after_op(self, should_promote=True)
         return self._new_like_self(xrs, encoding=encoding)
@@ -799,28 +901,50 @@ class Raster:
         return self
 
     def negate(self):
-        """Negate this Raster. Returns a new Raster."""
+        """Negate this Raster.
+
+        Returns a new Raster.
+
+        """
         return self._new_like_self(-self._rs)
 
     def __neg__(self):
         return self.negate()
 
     def log(self):
-        """Take the natural logarithm of this Raster. Returns a new Raster."""
+        """Take the natural logarithm of this Raster.
+
+        Returns a new Raster.
+
+        """
         xrs = np.log(self._rs)
         encoding = _reconcile_encodings_after_op(self, should_promote=True)
         return self._new_like_self(xrs, encoding=encoding)
 
     def log10(self):
-        """Take the base-10 logarithm of this Raster. Returns a new Raster."""
+        """Take the base-10 logarithm of this Raster.
+
+        Returns a new Raster.
+
+        """
         xrs = np.log10(self._rs)
         encoding = _reconcile_encodings_after_op(self, should_promote=True)
         return self._new_like_self(xrs, encoding=encoding)
 
     def eq(self, other):
         """
-        Perform element-wise equality test against `other`. Returns a new
-        Raster.
+        Perform element-wise equality test against `other`.
+
+        Parameters
+        ----------
+        other : scalar, str, or Raster
+            The value or raster to compare with.
+
+        Returns
+        -------
+        Raster
+            The resulting boolean raster.
+
         """
         return self._binary_logical(other, "==")
 
@@ -828,9 +952,18 @@ class Raster:
         return self.eq(other)
 
     def ne(self, other):
-        """
-        Perform element-wise not-equal test against `other`. Returns a new
-        Raster.
+        """Perform element-wise not-equal test against `other`.
+
+        Parameters
+        ----------
+        other : scalar, str, or Raster
+            The value or raster to compare with.
+
+        Returns
+        -------
+        Raster
+            The resulting boolean raster.
+
         """
         return self._binary_logical(other, "!=")
 
@@ -838,9 +971,18 @@ class Raster:
         return self.ne(other)
 
     def le(self, other):
-        """
-        Perform element-wise less-than-or-equal test against `other`. Returns a
-        new Raster.
+        """Perform element-wise less-than-or-equal test against `other`.
+
+        Parameters
+        ----------
+        other : scalar, str, or Raster
+            The value or raster to compare with.
+
+        Returns
+        -------
+        Raster
+            The resulting boolean raster.
+
         """
         return self._binary_logical(other, "<=")
 
@@ -848,9 +990,18 @@ class Raster:
         return self.le(other)
 
     def ge(self, other):
-        """
-        Perform element-wise greater-than-or-equal test against `other`.
-        Returns a new Raster.
+        """Perform element-wise greater-than-or-equal test against `other`.
+
+        Parameters
+        ----------
+        other : scalar, str, or Raster
+            The value or raster to compare with.
+
+        Returns
+        -------
+        Raster
+            The resulting boolean raster.
+
         """
         return self._binary_logical(other, ">=")
 
@@ -858,9 +1009,18 @@ class Raster:
         return self.ge(other)
 
     def lt(self, other):
-        """
-        Perform element-wise less-than test against `other`.  Returns a new
-        Raster.
+        """Perform element-wise less-than test against `other`.
+
+        Parameters
+        ----------
+        other : scalar, str, or Raster
+            The value or raster to compare with.
+
+        Returns
+        -------
+        Raster
+            The resulting boolean raster.
+
         """
         return self._binary_logical(other, "<")
 
@@ -868,9 +1028,18 @@ class Raster:
         return self.lt(other)
 
     def gt(self, other):
-        """
-        Perform element-wise greater-than test against `other`.  Returns a new
-        Raster.
+        """Perform element-wise greater-than test against `other`.
+
+        Parameters
+        ----------
+        other : scalar, str, or Raster
+            The value or raster to compare with.
+
+        Returns
+        -------
+        Raster
+            The resulting boolean raster.
+
         """
         return self._binary_logical(other, ">")
 
@@ -905,8 +1074,7 @@ class Raster:
         return self._new_like_self(xrs, encoding=new_encoding)
 
     def and_(self, other, to_bool_op="gt0"):
-        """
-        Returns this Raster and'd with another. Both are coerced to bools
+        """Returns this Raster and'd with another. Both are coerced to bools
         according to `to_bool_op`.
 
         Parameters
@@ -917,6 +1085,7 @@ class Raster:
             Controls how the two rasters are coerced to dtype bool. If a
             callable, to_bool_op is called on this raster and `other`
             separately to convert them to bool types. For a str:
+
             'gt0'
                 The two operands are compared against 0 using greater-than.
                 Default.
@@ -927,6 +1096,7 @@ class Raster:
         -------
         Raster
             The resulting Raster of zeros and ones.
+
         """
         return self._and_or(other, "&", to_bool_op)
 
@@ -949,6 +1119,7 @@ class Raster:
             Controls how the two rasters are coerced to dtype bool. If a
             callable, to_bool_op is called on this raster and `other`
             separately to convert them to bool types. For a str:
+
             'gt0'
                 The two operands are compared against 0 using greater-than.
                 Default.
@@ -982,6 +1153,7 @@ class Raster:
         mode : {'reflect', 'constant', 'nearest', 'wrap'}, optional
             Determines how the data is extended beyond its boundaries. The
             default is 'constant'.
+
             'reflect' (d c b a | a b c d | d c b a)
                 The data pixels are reflected at the boundaries.
             'constant' (k k k k | a b c d | k k k k)
@@ -1029,6 +1201,7 @@ class Raster:
         mode : {'reflect', 'constant', 'nearest', 'wrap'}, optional
             Determines how the data is extended beyond its boundaries. The
             default is 'constant'.
+
             'reflect' (d c b a | a b c d | d c b a)
                 The data pixels are reflected at the boundaries.
             'constant' (k k k k | a b c d | k k k k)
@@ -1071,6 +1244,7 @@ class Raster:
             Specifies the aggregation function to apply to the focal
             neighborhood at each pixel. Can be one of the following string
             values:
+
             'min'
                 Finds the minimum value in the neighborhood.
             'max'
