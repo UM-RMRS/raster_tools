@@ -259,10 +259,11 @@ _VALID_CORRELATE_MODES = frozenset(_MODE_TO_DASK_BOUNDARY.keys())
 
 
 def correlate(data, kernel, mode="constant", cval=0.0, nan_aware=False):
-    """
-    Cross-correlates a `kernel` with `data`. This function can be used for
-    convolution as well; just rotate the kernel 180 degress (e.g. ``kernel =
-    kernel[::-1, ::-1])`` before calling this function.
+    """Cross-correlates a `kernel` with `data`.
+
+    This function can be used for convolution as well; just rotate the kernel
+    180 degress (e.g. ``kernel = kernel[::-1, ::-1])`` before calling this
+    function.
 
     Parameters
     ----------
@@ -282,6 +283,7 @@ def correlate(data, kernel, mode="constant", cval=0.0, nan_aware=False):
     -------
     correlated : 2D dask array
         The cross-correlation result as a lazy dask array.
+
     """
     _check_data(data)
     check_kernel(kernel)
@@ -342,11 +344,13 @@ FOCAL_STATS = frozenset(
 
 
 def focal(data, kernel, stat, nan_aware=False):
-    """
+    """Apply a focal stat function.
+
     Applies the `stat` function to the `data` using `kernel` to determine the
     neighborhood for each pixel. `nan_aware` indicates whether the filter
     should handle NaN values. If `nan_aware` is False, optimizations may be
     made.
+
     """
     if stat not in FOCAL_STATS:
         raise ValueError(f"Unknown focal stat: '{stat}'")
@@ -397,11 +401,10 @@ def focal(data, kernel, stat, nan_aware=False):
 
 
 def get_focal_window(width_or_radius, height=None):
-    """
-    Get a rectangle, circle, or annulus focal window.
+    """Get a rectangle, circle, or annulus focal window.
 
-    A rectangle window is simply a NxM grid of `True` values. A circle window
-    is a grid with a centered circle of `True` values surrounded by `False`
+    A rectangle window is simply a NxM grid of ``True`` values. A circle window
+    is a grid with a centered circle of ``True`` values surrounded by `False`
     values. The circle extends to the edge of the grid. An annulus window is
     the same as a circle window but  has a nested circle of `False` values
     inside the main circle.
@@ -422,6 +425,7 @@ def get_focal_window(width_or_radius, height=None):
     -------
     window : ndarray
         A focal window containing bools with the specified pattern.
+
     """
     if isinstance(width_or_radius, (list, tuple)):
         if len(width_or_radius) != 2:
