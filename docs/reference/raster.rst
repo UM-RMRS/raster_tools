@@ -20,6 +20,7 @@ Attributes
 
    Raster.device
    Raster.dtype
+   Raster.encoding
    Raster.shape
 
 Operations

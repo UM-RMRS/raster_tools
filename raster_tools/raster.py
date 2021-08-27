@@ -269,32 +269,35 @@ class Raster:
     """
 
     def __init__(self, raster):
-        self.device = CPU
+        self._device = CPU
+        self._encoding = Encoding()
+        self._rs = None
+
         if _is_raster_class(raster):
             self._rs = raster._rs.copy()
-            self.device = raster.device
-            self.encoding = raster.encoding.copy()
+            self._set_device(raster.device)
+            self._encoding = raster.encoding.copy()
         elif is_xarray(raster):
             self._rs = raster
             null = _try_to_get_null_value_xarray(raster)
             masked = null is not None and not np.isnan(null)
-            self.encoding = Encoding(masked, raster.dtype, null)
+            self._encoding = Encoding(masked, raster.dtype, null)
         elif is_numpy(raster):
             raster = _np_to_xarray(raster)
             self._rs = chunk(raster)
-            self.encoding = Encoding(False, self._rs.dtype, np.nan)
+            self._encoding = Encoding(False, self._rs.dtype, np.nan)
         elif is_batch_file(raster):
             rs = BatchScript(raster).parse().final_raster
             self._rs = rs._rs
-            self.encoding = rs.encoding
+            self._encoding = rs.encoding
         else:
-            self._rs, self.encoding = open_raster_from_path(raster)
+            self._rs, self._encoding = open_raster_from_path(raster)
 
     def _new_like_self(self, rs, attrs=None, device=None, encoding=None):
         new_rs = Raster(rs)
         new_rs._attrs = attrs or self._attrs
-        new_rs.device = device or self.device
-        new_rs.encoding = encoding or self.encoding.copy()
+        new_rs._set_device(device or self.device)
+        new_rs._encoding = encoding or self.encoding.copy()
         return new_rs
 
     def _to_presentable_xarray(self):
@@ -318,12 +321,28 @@ class Raster:
             raise TypeError("attrs cannot be None and must be mapping type")
 
     @property
+    def _masked(self):
+        return self.encoding.masked
+
+    @property
+    def _values(self):
+        """The raw internal values. Note: this triggers computation."""
+        return self._rs.values
+
+    @property
+    def _values_encoded(self):
+        """
+        The data as it would be written to disk. Note: this triggers
+        computation.
+        """
+        return self._to_presentable_xarray().values
+
+    @property
     def device(self):
         """The hardware device where the raster is processed, `CPU` or `GPU`"""
         return self._device
 
-    @device.setter
-    def device(self, dev):
+    def _set_device(self, dev):
         if dev not in (CPU, GPU):
             raise RasterDeviceError(f"Unknown device: '{dev}'")
         if not GPU_ENABLED and dev == GPU:
@@ -341,8 +360,15 @@ class Raster:
         return self._rs.dtype
 
     @property
-    def _masked(self):
-        return self.encoding.masked
+    def encoding(self):
+        """Stores encoding information used when saving the raster to disk.
+
+        The encoding information includes the masked status, the final dtype to
+        use when saving and the null or fill value for the raster. The masked
+        status indicates whether or not there are missing values in the raster.
+
+        """
+        return self._encoding
 
     @property
     def shape(self):
@@ -353,19 +379,6 @@ class Raster:
 
         """
         return self._rs.shape
-
-    @property
-    def _values(self):
-        """The raw internal values. Note: this triggers computation."""
-        return self._rs.values
-
-    @property
-    def _values_encoded(self):
-        """
-        The data as it would be written to disk. Note: this triggers
-        computation.
-        """
-        return self._to_presentable_xarray().values
 
     def to_xarray(self):
         """Returns the underlying data as an xarray.DataArray.
@@ -444,7 +457,7 @@ class Raster:
         if self.device == GPU:
             return self
         rs = _map_chunk_function(self.copy(), cp.asarray, args=None)
-        rs.device = GPU
+        rs._set_device(GPU)
         return rs
 
     def _check_device_mismatch(self, other):
@@ -460,7 +473,7 @@ class Raster:
         if self.device == CPU:
             return self
         rs = _map_chunk_function(self.copy(), _chunk_to_cpu, args=None)
-        rs.device = CPU
+        rs._set_device(CPU)
         return rs
 
     def astype(self, dtype):
