@@ -12,13 +12,17 @@
 #
 import os
 import sys
-sys.path.insert(0, os.path.abspath('..'))
+
+sys.path.insert(0, os.path.abspath(".."))
 
 
 # -- Project information -----------------------------------------------------
 
 project = "raster_tools"
-copyright = "2021, Fred Bunt"
+copyright = (
+    "Notice: This is a work of the U.S. Government and is not subject to "
+    " copyright protection in the United States"
+)
 author = "Fred Bunt"
 
 # The full version, including alpha/beta/rc tags
