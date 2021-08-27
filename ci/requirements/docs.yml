@@ -4,13 +4,13 @@ channels:
   - defaults
 dependencies:
   - python=3.8
-  - xarray
-  - pandas
-  - dask-image
-  - scipy
   - dask
-  - numpy
-  - rioxarray
+  - dask-image
   - numba
+  - numpy
+  - pandas
+  - rioxarray
+  - scipy
   - sphinx
   - sphinx-book-theme
+  - xarray
