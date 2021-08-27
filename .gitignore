@@ -1,5 +1,5 @@
 test/data/
-docs/generated/
+docs/**/generated/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
