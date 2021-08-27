@@ -1,0 +1,16 @@
+name: rstools-docs
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.8
+  - xarray
+  - pandas
+  - dask-image
+  - scipy
+  - dask
+  - numpy
+  - rioxarray
+  - numba
+  - sphinx
+  - sphinx-book-theme
