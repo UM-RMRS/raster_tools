@@ -16,7 +16,7 @@ Welcome to raster_tools' documentation!
    :hidden:
    :caption: Contents:
 
-   api
+   reference/index
    modules
 
 

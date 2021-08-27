@@ -1,11 +1,11 @@
 .. currentmodule:: raster_tools
 
-#############
-API Reference
-#############
+**************
+Raster Objects
+**************
 
-Raster
-======
+Constructing Rasters
+====================
 
 .. autosummary::
    :toctree: generated/
@@ -13,7 +13,7 @@ Raster
    Raster
 
 Attributes
-----------
+==========
 
 .. autosummary::
    :toctree: generated/
@@ -21,6 +21,9 @@ Attributes
    Raster.device
    Raster.dtype
    Raster.shape
+
+Operations
+==========
 
 Arithmetic
 -----------
