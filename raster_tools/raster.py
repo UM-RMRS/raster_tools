@@ -118,15 +118,6 @@ def _chunk_replace_null(chunk, args):
     return chunk
 
 
-def _chunk_remap_range(chunk, args):
-    """Remap a range of value to a new value within a chunk."""
-    min_, max_, new_value = args
-    match = chunk >= min_
-    match &= chunk < max_
-    chunk[match] = new_value
-    return chunk
-
-
 def _chunk_to_cpu(chunk, *args):
     try:
         return chunk.get()
@@ -652,6 +643,50 @@ class Raster:
                 rs = self._rs.astype(dtype)
         return self._new_like_self(rs)
 
+    def where(self, condition, other):
+        """Filter elements from this raster according to `condition`.
+
+        Parameters
+        ----------
+        condition : str or Raster
+            A boolean raster that indicates where elements in this raster
+            should be preserved and where `other` should be used. ``True``
+            indicates this raster and ``False`` indicates `other`. The dtype
+            must be *bool*. *str* is treated as a path to a raster.
+        other : scalar, str or Raster
+            A raster or value to use in locations where `condition` is
+            ``False``. *str* is treated as a path to a raster.
+
+        Returns
+        -------
+        Raster
+            The resulting filtered Raster.
+
+        """
+        if not _is_raster_class(condition) and not is_str(condition):
+            raise TypeError(
+                f"Invalid type for condition argument: {type(condition)}"
+            )
+        if (
+            not is_scalar(other)
+            and not is_str(other)
+            and not _is_raster_class(other)
+        ):
+            raise TypeError(f"Invalid type for `other`: {type(other)}")
+        if is_str(condition):
+            condition = Raster(condition)
+        if not is_bool(condition.dtype):
+            raise TypeError("Condition argument must be a boolean raster")
+        if is_str(other):
+            other = Raster(other)
+
+        xrs = self._rs
+        xrs = xrs.where(condition._rs, other)
+        encoding = _reconcile_encodings_after_op(
+            self, other if _is_raster_class(other) else None
+        )
+        return self._new_like_self(xrs, encoding=encoding)
+
     def remap_range(self, min, max, new_value, *args):
         """Remaps values in the range [`min`, `max`) to `new_value`.
 
@@ -692,9 +727,14 @@ class Raster:
                 raise ValueError("min and max cannot be NaN")
             if min >= max:
                 raise ValueError(f"min must be less than max: ({min}, {max})")
-            rs = _map_chunk_function(
-                rs.copy(), _chunk_remap_range, (min, max, new_value)
-            )
+            condition = rs.copy()
+            crs = rs._rs >= min
+            crs &= rs._rs < max
+            # Invert for where operation
+            condition._rs = ~crs
+            if is_int(rs.dtype) and is_float(new_value):
+                rs = rs.astype(maybe_promote(rs.dtype))
+            rs = rs.where(condition, new_value)
         return rs
 
     def _input_to_raster(self, raster_input):
