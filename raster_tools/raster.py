@@ -371,6 +371,11 @@ class Raster:
         """
         return self._rs.shape
 
+    @property
+    def resolution(self):
+        """The x and y cell sizes as a tuple."""
+        return self._attrs.get("res")
+
     def to_xarray(self):
         """Returns the underlying data as an xarray.DataArray.
 

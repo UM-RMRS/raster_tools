@@ -104,6 +104,12 @@ def create_encoding_from_xarray(xrs):
     return Encoding(masked, dtype, null)
 
 
+def load_resolution(path):
+    with rio.open(path) as ds:
+        res = ds.res
+    return res
+
+
 def open_raster_from_path(path):
     if isinstance(path, Path) or _is_str(path):
         path = str(path)
@@ -140,6 +146,7 @@ def open_raster_from_path(path):
         null = encoding.null_value
         if not np.isnan(null):
             rs = rs.where(rs != null, np.nan)
+    rs.attrs["res"] = load_resolution(path)
     return rs, encoding
 
 
