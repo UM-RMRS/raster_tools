@@ -705,7 +705,8 @@ class Raster:
             other = Raster(other)
 
         xrs = self._rs
-        xrs = xrs.where(condition._rs, other)
+        other_arg = other._rs if _is_raster_class(other) else other
+        xrs = xrs.where(condition._rs, other_arg)
         encoding = _reconcile_encodings_after_op(
             self, other if _is_raster_class(other) else None
         )
