@@ -393,6 +393,24 @@ class Raster:
             rs = self._new_like_self(chunk(self._rs))
         return rs._rs.data
 
+    def as_encoded(self):
+        """Returns a raster encoded according to the encoding information.
+
+        The underlying data of the result looks like what would be written to
+        disk with :func: `~Raster.save`. This can be convenient when using
+        :func: `~Raster.to_xarray` and :func: `~Raster.to_dask`.
+
+        """
+        rs = self.copy()
+        enc = rs.encoding
+        if not np.isnan(enc.null_value):
+            rs._rs = rs._rs.fillna(enc.null_value)
+        rs._rs = rs._rs.astype(enc.dtype)
+        # Turn masked flag off to prevent errors if used with masked aware
+        # funtions later
+        rs.encoding.masked = False
+        return rs
+
     def close(self):
         """Close the underlying source"""
         self._rs.close()

@@ -364,6 +364,28 @@ class TestAstype(unittest.TestCase):
                 )
 
 
+class TestAsEncoded(unittest.TestCase):
+    def test_as_encoded(self):
+        rsnp = np.ones((4, 4), dtype=I64)
+        rsnp[0, 0] = -1
+        rs = Raster(rsnp).set_null_value(-1)
+        rsnpf = rsnp.astype(F64)
+        rsnpf[0, 0] = np.nan
+
+        self.assertTrue(rs._rs.dtype == F64)
+        self.assertTrue(
+            np.allclose(rs._rs.values, rsnpf[None], equal_nan=True)
+        )
+        self.assertTrue(rs.encoding.masked)
+        self.assertTrue(rs.encoding.dtype == I64)
+        self.assertTrue(rs.encoding.null_value == -1)
+
+        self.assertTrue((rs.as_encoded()._rs.values == rsnp[None]).all())
+        self.assertFalse(rs.as_encoded().encoding.masked)
+        self.assertTrue(rs.as_encoded().encoding.dtype == rs.encoding.dtype)
+        self.assertTrue(rs.as_encoded().encoding.null_value == -1)
+
+
 class TestRasterAttrsPropagation(unittest.TestCase):
     def test_arithmetic_attrs(self):
         r1 = Raster("test/data/elevation_small.tif")
