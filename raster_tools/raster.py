@@ -167,7 +167,9 @@ def _np_to_xarray(nprs):
         nprs = np.expand_dims(nprs, axis=0)
     nprs = da.from_array(nprs)
     coords = [list(range(d)) for d in nprs.shape]
-    return xr.DataArray(nprs, dims=["band", "y", "x"], coords=coords)
+    xrs = xr.DataArray(nprs, dims=["band", "y", "x"], coords=coords)
+    xrs.attrs["res"] = (1.0, 1.0)
+    return xrs
 
 
 def _dask_from_array_with_device(arr, device):
@@ -641,6 +643,24 @@ class Raster:
             rs = rs.where(rs != value, np.nan)
         rs.attrs["_FillValue"] = value
         return self._new_like_self(rs, encoding=encoding, attrs=rs.attrs)
+
+    def to_null_mask(self):
+        """
+        Returns a boolean Raster with True at null values and False otherwise.
+
+        Returns
+        -------
+        Raster
+            The resulting mask Raster. It is True where this raster contains
+            null values and False everywhere else.
+
+        """
+        if self.encoding.masked:
+            xrs = np.isnan(self._rs)
+        else:
+            xrs = xr.full_like(self._rs, False, dtype=BOOL)
+        encoding = Encoding(dtype=BOOL)
+        return self._new_like_self(xrs, encoding=encoding)
 
     def replace_null(self, value):
         """Replaces null and nan values with `value`.

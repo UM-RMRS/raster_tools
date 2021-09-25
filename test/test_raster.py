@@ -486,6 +486,19 @@ class TestReplaceNull(unittest.TestCase):
         self.assertTrue(rs_eq_array(rs, rsnp_replaced))
 
 
+class TestToNullMask(unittest.TestCase):
+    def test_to_null_mask(self):
+        rs = Raster("test/data/null_values.tiff")
+        nv = rs.encoding.null_value
+        rsnp = rs._rs.values
+        truth = np.isnan(rsnp) | (rsnp == nv)
+        self.assertTrue(rs_eq_array(rs.to_null_mask(), truth))
+        # Test case where no null values
+        rs = Raster("test/data/elevation_small.tif")
+        truth = np.full(rs.shape, False, dtype=bool)
+        self.assertTrue(rs_eq_array(rs.to_null_mask(), truth))
+
+
 class TestRemapRange(unittest.TestCase):
     def test_remap_range(self):
         rs = Raster("test/data/elevation_small.tif")

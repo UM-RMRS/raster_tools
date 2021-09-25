@@ -1,5 +1,6 @@
 test/data/
 docs/**/generated/
+*.npy
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -7,6 +8,7 @@ __pycache__/
 *$py.class
 
 # C extensions
+*.c
 *.so
 
 # Distribution / packaging
