@@ -364,6 +364,28 @@ class TestAstype(unittest.TestCase):
                 )
 
 
+class TestAsEncoded(unittest.TestCase):
+    def test_as_encoded(self):
+        rsnp = np.ones((4, 4), dtype=I64)
+        rsnp[0, 0] = -1
+        rs = Raster(rsnp).set_null_value(-1)
+        rsnpf = rsnp.astype(F64)
+        rsnpf[0, 0] = np.nan
+
+        self.assertTrue(rs._rs.dtype == F64)
+        self.assertTrue(
+            np.allclose(rs._rs.values, rsnpf[None], equal_nan=True)
+        )
+        self.assertTrue(rs.encoding.masked)
+        self.assertTrue(rs.encoding.dtype == I64)
+        self.assertTrue(rs.encoding.null_value == -1)
+
+        self.assertTrue((rs.as_encoded()._rs.values == rsnp[None]).all())
+        self.assertFalse(rs.as_encoded().encoding.masked)
+        self.assertTrue(rs.as_encoded().encoding.dtype == rs.encoding.dtype)
+        self.assertTrue(rs.as_encoded().encoding.null_value == -1)
+
+
 class TestRasterAttrsPropagation(unittest.TestCase):
     def test_arithmetic_attrs(self):
         r1 = Raster("test/data/elevation_small.tif")
@@ -447,7 +469,9 @@ class TestSetNullValue(unittest.TestCase):
         ndv = rs.encoding.null_value
         rs2 = rs.set_null_value(0)
         self.assertEqual(rs.encoding.null_value, ndv)
+        self.assertEqual(rs._attrs["_FillValue"], ndv)
         self.assertEqual(rs2.encoding.null_value, 0)
+        self.assertEqual(rs2._attrs["_FillValue"], 0)
 
 
 class TestReplaceNull(unittest.TestCase):
@@ -460,6 +484,19 @@ class TestReplaceNull(unittest.TestCase):
         rsnp_replaced[rsnp == rs.encoding.null_value] = fill_value
         rs = rs.replace_null(fill_value)
         self.assertTrue(rs_eq_array(rs, rsnp_replaced))
+
+
+class TestToNullMask(unittest.TestCase):
+    def test_to_null_mask(self):
+        rs = Raster("test/data/null_values.tiff")
+        nv = rs.encoding.null_value
+        rsnp = rs._rs.values
+        truth = np.isnan(rsnp) | (rsnp == nv)
+        self.assertTrue(rs_eq_array(rs.to_null_mask(), truth))
+        # Test case where no null values
+        rs = Raster("test/data/elevation_small.tif")
+        truth = np.full(rs.shape, False, dtype=bool)
+        self.assertTrue(rs_eq_array(rs.to_null_mask(), truth))
 
 
 class TestRemapRange(unittest.TestCase):

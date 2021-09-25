@@ -17,7 +17,7 @@ The `ci/requirements/docs.txt` file can be used with pip to create
 an environment as well.
 
 ### Viewing the Docs
-Once the docs have build built, then can be viewed by opening the generated
+Once the docs have been built, they can be viewed by opening the generated
 html files.
 
 ```sh

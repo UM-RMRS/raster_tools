@@ -118,15 +118,6 @@ def _chunk_replace_null(chunk, args):
     return chunk
 
 
-def _chunk_remap_range(chunk, args):
-    """Remap a range of value to a new value within a chunk."""
-    min_, max_, new_value = args
-    match = chunk >= min_
-    match &= chunk < max_
-    chunk[match] = new_value
-    return chunk
-
-
 def _chunk_to_cpu(chunk, *args):
     try:
         return chunk.get()
@@ -176,7 +167,9 @@ def _np_to_xarray(nprs):
         nprs = np.expand_dims(nprs, axis=0)
     nprs = da.from_array(nprs)
     coords = [list(range(d)) for d in nprs.shape]
-    return xr.DataArray(nprs, dims=["band", "y", "x"], coords=coords)
+    xrs = xr.DataArray(nprs, dims=["band", "y", "x"], coords=coords)
+    xrs.attrs["res"] = (1.0, 1.0)
+    return xrs
 
 
 def _dask_from_array_with_device(arr, device):
@@ -269,32 +262,35 @@ class Raster:
     """
 
     def __init__(self, raster):
-        self.device = CPU
+        self._device = CPU
+        self._encoding = Encoding()
+        self._rs = None
+
         if _is_raster_class(raster):
             self._rs = raster._rs.copy()
-            self.device = raster.device
-            self.encoding = raster.encoding.copy()
+            self._set_device(raster.device)
+            self._encoding = raster.encoding.copy()
         elif is_xarray(raster):
             self._rs = raster
             null = _try_to_get_null_value_xarray(raster)
             masked = null is not None and not np.isnan(null)
-            self.encoding = Encoding(masked, raster.dtype, null)
+            self._encoding = Encoding(masked, raster.dtype, null)
         elif is_numpy(raster):
             raster = _np_to_xarray(raster)
             self._rs = chunk(raster)
-            self.encoding = Encoding(False, self._rs.dtype, np.nan)
+            self._encoding = Encoding(False, self._rs.dtype, np.nan)
         elif is_batch_file(raster):
             rs = BatchScript(raster).parse().final_raster
             self._rs = rs._rs
-            self.encoding = rs.encoding
+            self._encoding = rs.encoding
         else:
-            self._rs, self.encoding = open_raster_from_path(raster)
+            self._rs, self._encoding = open_raster_from_path(raster)
 
     def _new_like_self(self, rs, attrs=None, device=None, encoding=None):
         new_rs = Raster(rs)
         new_rs._attrs = attrs or self._attrs
-        new_rs.device = device or self.device
-        new_rs.encoding = encoding or self.encoding.copy()
+        new_rs._set_device(device or self.device)
+        new_rs._encoding = encoding or self.encoding.copy()
         return new_rs
 
     def _to_presentable_xarray(self):
@@ -318,12 +314,28 @@ class Raster:
             raise TypeError("attrs cannot be None and must be mapping type")
 
     @property
+    def _masked(self):
+        return self.encoding.masked
+
+    @property
+    def _values(self):
+        """The raw internal values. Note: this triggers computation."""
+        return self._rs.values
+
+    @property
+    def _values_encoded(self):
+        """
+        The data as it would be written to disk. Note: this triggers
+        computation.
+        """
+        return self._to_presentable_xarray().values
+
+    @property
     def device(self):
         """The hardware device where the raster is processed, `CPU` or `GPU`"""
         return self._device
 
-    @device.setter
-    def device(self, dev):
+    def _set_device(self, dev):
         if dev not in (CPU, GPU):
             raise RasterDeviceError(f"Unknown device: '{dev}'")
         if not GPU_ENABLED and dev == GPU:
@@ -341,8 +353,15 @@ class Raster:
         return self._rs.dtype
 
     @property
-    def _masked(self):
-        return self.encoding.masked
+    def encoding(self):
+        """Stores encoding information used when saving the raster to disk.
+
+        The encoding information includes the masked status, the final dtype to
+        use when saving and the null or fill value for the raster. The masked
+        status indicates whether or not there are missing values in the raster.
+
+        """
+        return self._encoding
 
     @property
     def shape(self):
@@ -355,17 +374,9 @@ class Raster:
         return self._rs.shape
 
     @property
-    def _values(self):
-        """The raw internal values. Note: this triggers computation."""
-        return self._rs.values
-
-    @property
-    def _values_encoded(self):
-        """
-        The data as it would be written to disk. Note: this triggers
-        computation.
-        """
-        return self._to_presentable_xarray().values
+    def resolution(self):
+        """The x and y cell sizes as a tuple."""
+        return self._attrs.get("res")
 
     def to_xarray(self):
         """Returns the underlying data as an xarray.DataArray.
@@ -383,6 +394,24 @@ class Raster:
         if not _is_using_dask(self):
             rs = self._new_like_self(chunk(self._rs))
         return rs._rs.data
+
+    def as_encoded(self):
+        """Returns a raster encoded according to the encoding information.
+
+        The underlying data of the result looks like what would be written to
+        disk with :func: `~Raster.save`. This can be convenient when using
+        :func: `~Raster.to_xarray` and :func: `~Raster.to_dask`.
+
+        """
+        rs = self.copy()
+        enc = rs.encoding
+        if not np.isnan(enc.null_value):
+            rs._rs = rs._rs.fillna(enc.null_value)
+        rs._rs = rs._rs.astype(enc.dtype)
+        # Turn masked flag off to prevent errors if used with masked aware
+        # funtions later
+        rs.encoding.masked = False
+        return rs
 
     def close(self):
         """Close the underlying source"""
@@ -444,7 +473,7 @@ class Raster:
         if self.device == GPU:
             return self
         rs = _map_chunk_function(self.copy(), cp.asarray, args=None)
-        rs.device = GPU
+        rs._set_device(GPU)
         return rs
 
     def _check_device_mismatch(self, other):
@@ -460,7 +489,7 @@ class Raster:
         if self.device == CPU:
             return self
         rs = _map_chunk_function(self.copy(), _chunk_to_cpu, args=None)
-        rs.device = CPU
+        rs._set_device(CPU)
         return rs
 
     def astype(self, dtype):
@@ -612,7 +641,26 @@ class Raster:
                 rs = rs.astype(dtype)
         if not np.isnan(value):
             rs = rs.where(rs != value, np.nan)
-        return self._new_like_self(rs, encoding=encoding)
+        rs.attrs["_FillValue"] = value
+        return self._new_like_self(rs, encoding=encoding, attrs=rs.attrs)
+
+    def to_null_mask(self):
+        """
+        Returns a boolean Raster with True at null values and False otherwise.
+
+        Returns
+        -------
+        Raster
+            The resulting mask Raster. It is True where this raster contains
+            null values and False everywhere else.
+
+        """
+        if self.encoding.masked:
+            xrs = np.isnan(self._rs)
+        else:
+            xrs = xr.full_like(self._rs, False, dtype=BOOL)
+        encoding = Encoding(dtype=BOOL)
+        return self._new_like_self(xrs, encoding=encoding)
 
     def replace_null(self, value):
         """Replaces null and nan values with `value`.
@@ -638,6 +686,51 @@ class Raster:
                 dtype = maybe_promote(np.result_type(value))
                 rs = self._rs.astype(dtype)
         return self._new_like_self(rs)
+
+    def where(self, condition, other):
+        """Filter elements from this raster according to `condition`.
+
+        Parameters
+        ----------
+        condition : str or Raster
+            A boolean raster that indicates where elements in this raster
+            should be preserved and where `other` should be used. ``True``
+            indicates this raster and ``False`` indicates `other`. The dtype
+            must be *bool*. *str* is treated as a path to a raster.
+        other : scalar, str or Raster
+            A raster or value to use in locations where `condition` is
+            ``False``. *str* is treated as a path to a raster.
+
+        Returns
+        -------
+        Raster
+            The resulting filtered Raster.
+
+        """
+        if not _is_raster_class(condition) and not is_str(condition):
+            raise TypeError(
+                f"Invalid type for condition argument: {type(condition)}"
+            )
+        if (
+            not is_scalar(other)
+            and not is_str(other)
+            and not _is_raster_class(other)
+        ):
+            raise TypeError(f"Invalid type for `other`: {type(other)}")
+        if is_str(condition):
+            condition = Raster(condition)
+        if not is_bool(condition.dtype):
+            raise TypeError("Condition argument must be a boolean raster")
+        if is_str(other):
+            other = Raster(other)
+
+        xrs = self._rs
+        other_arg = other._rs if _is_raster_class(other) else other
+        xrs = xrs.where(condition._rs, other_arg)
+        encoding = _reconcile_encodings_after_op(
+            self, other if _is_raster_class(other) else None
+        )
+        return self._new_like_self(xrs, encoding=encoding)
 
     def remap_range(self, min, max, new_value, *args):
         """Remaps values in the range [`min`, `max`) to `new_value`.
@@ -679,9 +772,14 @@ class Raster:
                 raise ValueError("min and max cannot be NaN")
             if min >= max:
                 raise ValueError(f"min must be less than max: ({min}, {max})")
-            rs = _map_chunk_function(
-                rs.copy(), _chunk_remap_range, (min, max, new_value)
-            )
+            condition = rs.copy()
+            crs = rs._rs >= min
+            crs &= rs._rs < max
+            # Invert for where operation
+            condition._rs = ~crs
+            if is_int(rs.dtype) and is_float(new_value):
+                rs = rs.astype(maybe_promote(rs.dtype))
+            rs = rs.where(condition, new_value)
         return rs
 
     def _input_to_raster(self, raster_input):

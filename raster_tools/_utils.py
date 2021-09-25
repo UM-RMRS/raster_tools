@@ -1,3 +1,4 @@
+import dask
 import os
 import numpy as np
 import xarray as xr
@@ -42,3 +43,7 @@ def is_xarray(rs):
 
 def is_numpy(rs):
     return isinstance(rs, np.ndarray)
+
+
+def is_dask(rs):
+    return isinstance(rs, dask.array.Array)

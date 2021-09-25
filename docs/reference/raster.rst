@@ -20,6 +20,7 @@ Attributes
 
    Raster.device
    Raster.dtype
+   Raster.encoding
    Raster.shape
 
 Operations
@@ -101,6 +102,7 @@ Null Data and Remapping
    Raster.replace_null
    Raster.remap_range
    Raster.set_null_value
+   Raster.where
 
 Contents / Conversion
 ---------------------
