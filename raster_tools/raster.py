@@ -639,7 +639,8 @@ class Raster:
                 rs = rs.astype(dtype)
         if not np.isnan(value):
             rs = rs.where(rs != value, np.nan)
-        return self._new_like_self(rs, encoding=encoding)
+        rs.attrs["_FillValue"] = value
+        return self._new_like_self(rs, encoding=encoding, attrs=rs.attrs)
 
     def replace_null(self, value):
         """Replaces null and nan values with `value`.

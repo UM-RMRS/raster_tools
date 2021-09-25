@@ -469,7 +469,9 @@ class TestSetNullValue(unittest.TestCase):
         ndv = rs.encoding.null_value
         rs2 = rs.set_null_value(0)
         self.assertEqual(rs.encoding.null_value, ndv)
+        self.assertEqual(rs._attrs["_FillValue"], ndv)
         self.assertEqual(rs2.encoding.null_value, 0)
+        self.assertEqual(rs2._attrs["_FillValue"], 0)
 
 
 class TestReplaceNull(unittest.TestCase):
