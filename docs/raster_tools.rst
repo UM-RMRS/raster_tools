@@ -1,6 +1,14 @@
 raster\_tools package
 =====================
 
+Subpackages
+-----------
+
+.. toctree::
+   :maxdepth: 4
+
+   raster_tools.costdist
+
 Submodules
 ----------
 
