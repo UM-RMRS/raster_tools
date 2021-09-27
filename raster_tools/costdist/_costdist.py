@@ -16,10 +16,10 @@ from ._core import (
 
 
 __all__ = [
-    "cost_distance_analysis",
-    "cost_distance",
-    "traceback",
     "allocation",
+    "cost_distance",
+    "cost_distance_analysis",
+    "traceback",
 ]
 
 
