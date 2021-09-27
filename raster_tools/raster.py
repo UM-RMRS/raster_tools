@@ -695,8 +695,9 @@ class Raster:
         condition : str or Raster
             A boolean raster that indicates where elements in this raster
             should be preserved and where `other` should be used. ``True``
-            indicates this raster and ``False`` indicates `other`. The dtype
-            must be *bool*. *str* is treated as a path to a raster.
+            indicates this raster and ``False`` indicates `other`. The dtype or
+            encoding dtype must be *bool*. *str* is treated as a path to a
+            raster.
         other : scalar, str or Raster
             A raster or value to use in locations where `condition` is
             ``False``. *str* is treated as a path to a raster.
@@ -719,14 +720,23 @@ class Raster:
             raise TypeError(f"Invalid type for `other`: {type(other)}")
         if is_str(condition):
             condition = Raster(condition)
-        if not is_bool(condition.dtype):
+        if not is_bool(condition.dtype) and not is_bool(
+            condition.encoding.dtype
+        ):
             raise TypeError("Condition argument must be a boolean raster")
         if is_str(other):
             other = Raster(other)
 
         xrs = self._rs
         other_arg = other._rs if _is_raster_class(other) else other
-        xrs = xrs.where(condition._rs, other_arg)
+        xcondition = condition._rs
+        if not is_bool(condition.dtype):
+            # if condition.dtype is not bool then encoding.dtype must be so
+            # assume that condition is raster of 0 and 1 values with potential
+            # nan values for nulls. condition > 0 will grab all 1/True values
+            # and exclude nulls.
+            xcondition = xcondition > 0
+        xrs = xrs.where(xcondition, other_arg)
         encoding = _reconcile_encodings_after_op(
             self, other if _is_raster_class(other) else None
         )
