@@ -102,6 +102,7 @@ Null Data and Remapping
    Raster.replace_null
    Raster.remap_range
    Raster.set_null_value
+   Raster.to_null_mask
    Raster.where
 
 Contents / Conversion
@@ -110,6 +111,7 @@ Contents / Conversion
 .. autosummary::
    :toctree: generated/
 
+   Raster.as_encoded
    Raster.astype
    Raster.copy
    Raster.to_xarray

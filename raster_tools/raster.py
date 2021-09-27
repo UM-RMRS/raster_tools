@@ -399,8 +399,9 @@ class Raster:
         """Returns a raster encoded according to the encoding information.
 
         The underlying data of the result looks like what would be written to
-        disk with :func: `~Raster.save`. This can be convenient when using
-        :func: `~Raster.to_xarray` and :func: `~Raster.to_dask`.
+        disk with :meth:`~Raster.save`. This can be
+        convenient when using :meth:`~Raster.to_xarray` and
+        :meth:`~Raster.to_dask`.
 
         """
         rs = self.copy()
