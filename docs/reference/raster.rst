@@ -66,16 +66,6 @@ Logical
    Raster.and_
    Raster.or_
 
-Computation
------------
-
-.. autosummary::
-   :toctree: generated/
-
-   Raster.convolve
-   Raster.correlate
-   Raster.focal
-
 Hardware Switching
 ------------------
 .. autosummary::

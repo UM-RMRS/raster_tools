@@ -438,12 +438,12 @@ class TestRasterAttrsPropagation(unittest.TestCase):
     def test_convolve_attrs(self):
         rs = Raster("test/data/elevation_small.tif")
         attrs = rs._attrs
-        self.assertEqual(rs.convolve(np.ones((3, 3)))._attrs, attrs)
+        self.assertEqual(focal.convolve(rs, np.ones((3, 3)))._attrs, attrs)
 
     def test_focal_attrs(self):
         rs = Raster("test/data/elevation_small.tif")
         attrs = rs._attrs
-        self.assertEqual(rs.focal("max", 3)._attrs, attrs)
+        self.assertEqual(focal.focal(rs, "max", 3)._attrs, attrs)
 
     def test_band_concat_attrs(self):
         rs = Raster("test/data/elevation_small.tif")
@@ -668,89 +668,6 @@ class TestAndOr(unittest.TestCase):
             self.assertTrue(rs_eq_array(rs1.or_(v), truth))
             truth = rsnp1.astype(bool) | v
             self.assertTrue(rs_eq_array(rs1.or_(v, "cast"), truth))
-
-
-class TestFocal(unittest.TestCase):
-    def test_focal_integration(self):
-        rs = Raster("test/data/multiband_small.tif")
-        rsnp = rs._rs.values
-        truth = rsnp.astype(float)
-        for bnd in range(truth.shape[0]):
-            truth[bnd] = ndimage.generic_filter(
-                truth[bnd], np.nanmean, size=3, mode="constant", cval=np.nan
-            )
-        res = rs.focal("mean", 3, 3).eval()._rs.values
-        self.assertTrue(np.allclose(truth, res, equal_nan=True))
-        truth = rsnp.astype(float)
-        kern = focal.get_focal_window(3)
-        for bnd in range(truth.shape[0]):
-            truth[bnd] = ndimage.generic_filter(
-                truth[bnd],
-                np.nanmedian,
-                footprint=kern,
-                mode="constant",
-                cval=np.nan,
-            )
-        res = rs.focal("median", 3).eval()._rs.values
-        self.assertTrue(np.allclose(truth, res, equal_nan=True))
-
-
-class TestCorrelateConvolve(unittest.TestCase):
-    def test_correlate_integration(self):
-        rs = Raster("test/data/multiband_small.tif").astype(float)
-        rsnp = rs._rs.values
-        truth = rsnp.astype(float)
-        kernel = np.array([[1, 1, 1], [1, 1, 0], [1, 0, 0]]).astype(float)
-        for bnd in range(truth.shape[0]):
-            truth[bnd] = ndimage.generic_filter(
-                truth[bnd], np.sum, footprint=kernel, mode="constant"
-            )
-        res = rs.correlate(kernel).eval()._rs.values
-        self.assertTrue(np.allclose(truth, res, equal_nan=False))
-
-        truth = rsnp.astype(float)
-        truth[:, :3, :3] = np.nan
-        kern = focal.get_focal_window(3)
-        for bnd in range(truth.shape[0]):
-            truth[bnd] = ndimage.generic_filter(
-                truth[bnd],
-                np.nansum,
-                footprint=kern,
-                mode="constant",
-            )
-        rs.encoding.masked = True
-        rs._rs[:, :3, :3] = np.nan
-        res = rs.correlate(kern).eval()._rs.values
-        self.assertTrue(np.allclose(truth, res, equal_nan=True))
-
-    def test_convolve_integration(self):
-        rs = Raster("test/data/multiband_small.tif").astype(float)
-        rsnp = rs._rs.values
-        truth = rsnp.astype(float)
-        kernel = np.array([[1, 1, 1], [1, 1, 0], [1, 0, 0]]).astype(float)
-        for bnd in range(truth.shape[0]):
-            truth[bnd] = ndimage.generic_filter(
-                truth[bnd],
-                np.sum,
-                footprint=kernel[::-1, ::-1],
-                mode="constant",
-            )
-        res = rs.convolve(kernel).eval()._rs.values
-        self.assertTrue(np.allclose(truth, res, equal_nan=False))
-
-        truth = rsnp.astype(float)
-        truth[:, :3, :3] = np.nan
-        for bnd in range(truth.shape[0]):
-            truth[bnd] = ndimage.generic_filter(
-                truth[bnd],
-                np.nansum,
-                footprint=kernel[::-1, ::-1],
-                mode="constant",
-            )
-        rs.encoding.masked = True
-        rs._rs[:, :3, :3] = np.nan
-        res = rs.convolve(kernel).eval()._rs.values
-        self.assertTrue(np.allclose(truth, res, equal_nan=True))
 
 
 class TestGetBands(unittest.TestCase):

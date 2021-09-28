@@ -5,7 +5,7 @@ import warnings
 from functools import partial
 from scipy import ndimage, stats
 
-from raster_tools import focal
+from raster_tools import focal, Raster
 
 
 def array_eq_all(ar1, ar2):
@@ -296,17 +296,17 @@ class TestFocalWindow(unittest.TestCase):
         x = np.arange(16.0).reshape(4, 4)
         kern = focal.get_focal_window(2)
         self.assertTrue(
-            dask.is_dask_collection(focal.focal(x, kern, "max", True))
+            dask.is_dask_collection(focal._focal(x, kern, "max", True))
         )
         self.assertTrue(
-            dask.is_dask_collection(focal.focal(x, kern, "max", False))
+            dask.is_dask_collection(focal._focal(x, kern, "max", False))
         )
         xd = dask.array.from_array(x)
         self.assertTrue(
-            dask.is_dask_collection(focal.focal(xd, kern, "max", True))
+            dask.is_dask_collection(focal._focal(xd, kern, "max", True))
         )
         self.assertTrue(
-            dask.is_dask_collection(focal.focal(xd, kern, "max", False))
+            dask.is_dask_collection(focal._focal(xd, kern, "max", False))
         )
 
     def test_focal(self):
@@ -338,7 +338,7 @@ class TestFocalWindow(unittest.TestCase):
                     truth = ndimage.generic_filter(
                         x, func, footprint=kern, mode="constant", cval=np.nan
                     )
-                res = focal.focal(x, kern, stat, True).compute()
+                res = focal._focal(x, kern, stat, True).compute()
                 self.assertTrue(np.allclose(truth, res, equal_nan=True))
 
 
@@ -346,7 +346,7 @@ class TestCorrelate(unittest.TestCase):
     def test_correlate_return_dask(self):
         x = np.arange(16.0).reshape(4, 4)
         kern = focal.get_focal_window(2)
-        self.assertTrue(dask.is_dask_collection(focal.correlate(x, kern)))
+        self.assertTrue(dask.is_dask_collection(focal._correlate(x, kern)))
 
     def test_focal_correlate(self):
         for kern in [np.ones((5, 5)), np.ones((4, 4))]:
@@ -360,12 +360,95 @@ class TestCorrelate(unittest.TestCase):
                     truth = ndimage.generic_filter(
                         data, func, size=kern.shape, mode=mode, origin=origin
                     )
-                    test = focal.correlate(
+                    test = focal._correlate(
                         data, kern, mode=mode, nan_aware=nan_aware
                     ).compute()
                     self.assertTrue(
                         np.allclose(truth, test, equal_nan=nan_aware)
                     )
+
+
+class TestFocalIntegration(unittest.TestCase):
+    def test_focal_integration(self):
+        rs = Raster("test/data/multiband_small.tif")
+        rsnp = rs._rs.values
+        truth = rsnp.astype(float)
+        for bnd in range(truth.shape[0]):
+            truth[bnd] = ndimage.generic_filter(
+                truth[bnd], np.nanmean, size=3, mode="constant", cval=np.nan
+            )
+        res = focal.focal(rs, "mean", 3, 3).eval()._rs.values
+        self.assertTrue(np.allclose(truth, res, equal_nan=True))
+        truth = rsnp.astype(float)
+        kern = focal.get_focal_window(3)
+        for bnd in range(truth.shape[0]):
+            truth[bnd] = ndimage.generic_filter(
+                truth[bnd],
+                np.nanmedian,
+                footprint=kern,
+                mode="constant",
+                cval=np.nan,
+            )
+        res = focal.focal(rs, "median", 3).eval()._rs.values
+        self.assertTrue(np.allclose(truth, res, equal_nan=True))
+
+
+class TestCorrelateConvolveIntegration(unittest.TestCase):
+    def test_correlate_integration(self):
+        rs = Raster("test/data/multiband_small.tif").astype(float)
+        rsnp = rs._rs.values
+        truth = rsnp.astype(float)
+        kernel = np.array([[1, 1, 1], [1, 1, 0], [1, 0, 0]]).astype(float)
+        for bnd in range(truth.shape[0]):
+            truth[bnd] = ndimage.generic_filter(
+                truth[bnd], np.sum, footprint=kernel, mode="constant"
+            )
+        res = focal.correlate(rs, kernel).eval()._rs.values
+        self.assertTrue(np.allclose(truth, res, equal_nan=False))
+
+        truth = rsnp.astype(float)
+        truth[:, :3, :3] = np.nan
+        kern = focal.get_focal_window(3)
+        for bnd in range(truth.shape[0]):
+            truth[bnd] = ndimage.generic_filter(
+                truth[bnd],
+                np.nansum,
+                footprint=kern,
+                mode="constant",
+            )
+        rs.encoding.masked = True
+        rs._rs[:, :3, :3] = np.nan
+        res = focal.correlate(rs, kern).eval()._rs.values
+        self.assertTrue(np.allclose(truth, res, equal_nan=True))
+
+    def test_convolve_integration(self):
+        rs = Raster("test/data/multiband_small.tif").astype(float)
+        rsnp = rs._rs.values
+        truth = rsnp.astype(float)
+        kernel = np.array([[1, 1, 1], [1, 1, 0], [1, 0, 0]]).astype(float)
+        for bnd in range(truth.shape[0]):
+            truth[bnd] = ndimage.generic_filter(
+                truth[bnd],
+                np.sum,
+                footprint=kernel[::-1, ::-1],
+                mode="constant",
+            )
+        res = focal.convolve(rs, kernel).eval()._rs.values
+        self.assertTrue(np.allclose(truth, res, equal_nan=False))
+
+        truth = rsnp.astype(float)
+        truth[:, :3, :3] = np.nan
+        for bnd in range(truth.shape[0]):
+            truth[bnd] = ndimage.generic_filter(
+                truth[bnd],
+                np.nansum,
+                footprint=kernel[::-1, ::-1],
+                mode="constant",
+            )
+        rs.encoding.masked = True
+        rs._rs[:, :3, :3] = np.nan
+        res = focal.convolve(rs, kernel).eval()._rs.values
+        self.assertTrue(np.allclose(truth, res, equal_nan=True))
 
 
 def asm(x):
