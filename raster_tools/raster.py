@@ -52,12 +52,12 @@ from ._utils import (
 )
 
 
-def _is_raster_class(value):
+def is_raster_class(value):
     return isinstance(value, Raster)
 
 
 def _is_using_dask(raster):
-    rs = raster._rs if _is_raster_class(raster) else raster
+    rs = raster._rs if is_raster_class(raster) else raster
     return dask.is_dask_collection(rs)
 
 
@@ -202,13 +202,13 @@ def _reconcile_encodings_after_op(left, right=None, should_promote=False):
     encoding = Encoding()
     if left is None and right is not None:
         raise ValueError("Use left instead of only right")
-    if not _is_raster_class(left):
+    if not is_raster_class(left):
         raise TypeError("left must be a Raster")
 
     left = left.encoding
     if is_scalar(right) or is_bool(right):
         right = Encoding(False, np.min_scalar_type(right), np.nan)
-    elif _is_raster_class(right):
+    elif is_raster_class(right):
         right = right.encoding
     elif right is not None:
         raise TypeError("Could not understand right")
@@ -274,7 +274,7 @@ class Raster:
         self._encoding = Encoding()
         self._rs = None
 
-        if _is_raster_class(raster):
+        if is_raster_class(raster):
             self._rs = raster._rs.copy()
             self._set_device(raster.device)
             self._encoding = raster.encoding.copy()
@@ -478,7 +478,7 @@ class Raster:
     def _check_device_mismatch(self, other):
         if is_scalar(other):
             return
-        if _is_raster_class(other) and (self.device == other.device):
+        if is_raster_class(other) and (self.device == other.device):
             return
         raise RasterDeviceMismatchError(
             f"Raster devices must match: {self.device} != {other.device}"
@@ -707,14 +707,14 @@ class Raster:
             The resulting filtered Raster.
 
         """
-        if not _is_raster_class(condition) and not is_str(condition):
+        if not is_raster_class(condition) and not is_str(condition):
             raise TypeError(
                 f"Invalid type for condition argument: {type(condition)}"
             )
         if (
             not is_scalar(other)
             and not is_str(other)
-            and not _is_raster_class(other)
+            and not is_raster_class(other)
         ):
             raise TypeError(f"Invalid type for `other`: {type(other)}")
         if is_str(condition):
@@ -727,7 +727,7 @@ class Raster:
             other = Raster(other)
 
         xrs = self._rs
-        other_arg = other._rs if _is_raster_class(other) else other
+        other_arg = other._rs if is_raster_class(other) else other
         xcondition = condition._rs
         if not is_bool(condition.dtype):
             # if condition.dtype is not bool then encoding.dtype must be so
@@ -737,7 +737,7 @@ class Raster:
             xcondition = xcondition > 0
         xrs = xrs.where(xcondition, other_arg)
         encoding = _reconcile_encodings_after_op(
-            self, other if _is_raster_class(other) else None
+            self, other if is_raster_class(other) else None
         )
         return _raster_like(self, xrs, encoding=encoding)
 
@@ -792,7 +792,7 @@ class Raster:
         return rs
 
     def _input_to_raster(self, raster_input):
-        if _is_raster_class(raster_input):
+        if is_raster_class(raster_input):
             self._check_device_mismatch(raster_input)
             raster = raster_input
         else:
@@ -821,7 +821,7 @@ class Raster:
             raise ValueError(f"Unknown arithmetic operation: '{op}'")
         operand = self._handle_binary_op_input(raster_or_scalar, False)
         parsed_operand = raster_or_scalar
-        if _is_raster_class(operand):
+        if is_raster_class(operand):
             parsed_operand = operand
             operand = operand._rs
         left, right = self._rs, operand
@@ -840,7 +840,7 @@ class Raster:
             raise ValueError(f"Unknown arithmetic operation: '{op}'")
         operand = self._handle_binary_op_input(raster_or_scalar, False)
         parsed_operand = raster_or_scalar
-        if _is_raster_class(operand):
+        if is_raster_class(operand):
             parsed_operand = operand
             operand = operand._rs
         xrs = _BINARY_LOGICAL_OPS[op](self._rs, operand)
@@ -1159,7 +1159,7 @@ class Raster:
         else:
             operand = self._handle_binary_op_input(other, False)
         parsed_operand = operand
-        if _is_raster_class(operand):
+        if is_raster_class(operand):
             operand = operand._rs
         left, right = _coerce_to_bool_for_and_or(
             [self._rs, operand], to_bool_op

@@ -392,6 +392,14 @@ class TestFocalIntegration(unittest.TestCase):
         res = focal.focal(rs, "median", 3).eval()._rs.values
         self.assertTrue(np.allclose(truth, res, equal_nan=True))
 
+    def test_focal_integration_raster_input(self):
+        rs = Raster("test/data/multiband_small.tif")
+        rsnp = rs._rs.values
+        with self.assertRaises(TypeError):
+            focal.focal(rsnp, "median", 3)
+        res = focal.focal(rs, "mean", 1).eval()._rs.values
+        self.assertTrue(np.allclose(rsnp, res, equal_nan=True))
+
 
 class TestCorrelateConvolveIntegration(unittest.TestCase):
     def test_correlate_integration(self):
@@ -449,6 +457,16 @@ class TestCorrelateConvolveIntegration(unittest.TestCase):
         rs._rs[:, :3, :3] = np.nan
         res = focal.convolve(rs, kernel).eval()._rs.values
         self.assertTrue(np.allclose(truth, res, equal_nan=True))
+
+    def test_correlate_integration_raster_input(self):
+        rs = Raster("test/data/multiband_small.tif")
+        rsnp = rs._rs.values
+        with self.assertRaises(TypeError):
+            focal.correlate(rsnp, 3)
+        res = (
+            focal.correlate(rs, np.ones((1, 1))).eval()._rs.values
+        )
+        self.assertTrue(np.allclose(rsnp, res, equal_nan=True))
 
 
 def asm(x):

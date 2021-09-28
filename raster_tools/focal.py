@@ -4,8 +4,10 @@ import numpy as np
 from dask_image import ndfilters
 from functools import partial
 
+from raster_tools import Raster
+from raster_tools.raster import is_raster_class
 from ._types import promote_data_dtype
-from ._utils import is_bool, is_float, is_int
+from ._utils import is_bool, is_float, is_int, is_str
 
 
 ngjit = nb.jit(nopython=True, nogil=True)
@@ -401,8 +403,7 @@ def _focal(data, kernel, stat, nan_aware=False):
 
 
 def focal(raster, focal_type, width_or_radius, height=None):
-    """
-    Applies a focal filter to raster bands individually.
+    """Applies a focal filter to raster bands individually.
 
     The filter uses a window/footprint that is created using the
     `width_or_radius` and `height` parameters. The window can be a
@@ -410,6 +411,8 @@ def focal(raster, focal_type, width_or_radius, height=None):
 
     Parameters
     ----------
+    raster : Raster or path str
+        The raster to perform the focal operation on.
     focal_type : str
         Specifies the aggregation function to apply to the focal
         neighborhood at each pixel. Can be one of the following string
@@ -455,6 +458,12 @@ def focal(raster, focal_type, width_or_radius, height=None):
         The resulting raster with focal filter applied to each band. The
         bands will have the same shape as the original Raster.
     """
+    if not is_raster_class(raster) and not is_str(raster):
+        raise TypeError(
+            "First argument must be a Raster or path string to a raster"
+        )
+    elif is_str(raster):
+        raster = Raster(raster)
     if focal_type not in FOCAL_STATS:
         raise ValueError(f"Unknown focal operation: '{focal_type}'")
 
@@ -568,7 +577,7 @@ def correlate(raster, kernel, mode="constant", cval=0.0):
 
     Parameters
     ----------
-    raster : Raster
+    raster : Raster or path str
         The raster to cross-correlate `kernel` with. Can be multibanded.
     kernel : array_like
         2D array of kernel weights
@@ -594,6 +603,12 @@ def correlate(raster, kernel, mode="constant", cval=0.0):
     Raster
         The resulting new Raster.
     """
+    if not is_raster_class(raster) and not is_str(raster):
+        raise TypeError(
+            "First argument must be a Raster or path string to a raster"
+        )
+    elif is_str(raster):
+        raster = Raster(raster)
     kernel = np.asarray(kernel)
     check_kernel(kernel)
     rs = raster.copy()

@@ -4,7 +4,7 @@ import xarray as xr
 
 from raster_tools import Raster
 from raster_tools.io import Encoding
-from raster_tools.raster import _is_raster_class
+from raster_tools.raster import is_raster_class
 from raster_tools._utils import is_numpy, is_str
 from raster_tools._types import F16, F64, I8, I64
 from ._core import (
@@ -86,13 +86,13 @@ def cost_distance_analysis(costs, sources):
         Raster.
 
     """
-    if not _is_raster_class(costs):
+    if not is_raster_class(costs):
         costs = Raster(costs)
         if costs.shape[0] != 1:
             raise ValueError("Costs raster cannot be multibanded")
 
     src_idxs = None
-    if _is_raster_class(sources) or is_str(sources):
+    if is_raster_class(sources) or is_str(sources):
         if is_str(sources):
             sources = Raster(sources)
         if sources.shape != costs.shape:
