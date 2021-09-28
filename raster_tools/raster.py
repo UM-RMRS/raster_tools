@@ -1238,6 +1238,21 @@ class Raster:
     def __ror__(self, other):
         return self._and_or(other, "|", "gt0")
 
+    def __invert__(self):
+        if is_bool(self.dtype) or is_int(self.dtype):
+            return _raster_like(self, ~self._rs)
+        if is_bool(self.encoding.dtype) or is_int(self.encoding.dtype):
+            return _raster_like(self, -self._rs - 1)
+
+        if is_float(self.encoding.dtype):
+            raise TypeError(
+                "Bitwise complement operation not supported for floating point"
+                "rasters"
+            )
+        raise TypeError(
+            "Bitwise complement operation not supported for this raster dtype"
+        )
+
     def __repr__(self):
         # TODO: implement
         return repr(self._rs)

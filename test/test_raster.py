@@ -670,6 +670,31 @@ class TestAndOr(unittest.TestCase):
             self.assertTrue(rs_eq_array(rs1.or_(v, "cast"), truth))
 
 
+class TestBitwiseComplement(unittest.TestCase):
+    def test_invert(self):
+        ar = np.array([[0, 1], [1, 0]])
+        bool_ar = ar.astype(bool)
+        inv_bool_ar = np.array([[1, 0], [0, 1]], dtype=bool)
+
+        rs = Raster(bool_ar)
+        rs_inv = Raster(inv_bool_ar)
+        self.assertTrue(rs_eq_array(~rs, inv_bool_ar))
+        self.assertTrue(rs_eq_array(~rs_inv, bool_ar))
+        self.assertTrue(rs_eq_array(~Raster(ar), ~ar))
+
+        fp_ar = ar.astype(float)
+        rs = Raster(ar).set_null_value(-1)
+        self.assertTrue(rs.dtype.kind == "f")
+        self.assertTrue(rs.encoding.dtype.kind == "i")
+        self.assertTrue(rs_eq_array(~rs, -fp_ar - 1))
+
+    def test_invert_errors(self):
+        ar = np.array([[0, 1], [1, 0]], dtype=float)
+        rs = Raster(ar)
+        with self.assertRaises(TypeError):
+            ~rs
+
+
 class TestGetBands(unittest.TestCase):
     def test_get_bands(self):
         rs = Raster("test/data/multiband_small.tif")
