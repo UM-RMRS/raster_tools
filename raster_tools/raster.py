@@ -316,7 +316,7 @@ class Raster:
 
     @property
     def _masked(self):
-        return self.encoding.masked
+        return self.encoding.masked or is_float(self._rs.dtype)
 
     @property
     def _values(self):
@@ -654,7 +654,7 @@ class Raster:
             null values and False everywhere else.
 
         """
-        if self.encoding.masked:
+        if self._masked:
             xrs = np.isnan(self._rs)
         else:
             xrs = xr.full_like(self._rs, False, dtype=BOOL)
