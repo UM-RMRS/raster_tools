@@ -404,15 +404,12 @@ class Raster:
         :meth:`~Raster.to_dask`.
 
         """
-        rs = self.copy()
-        enc = rs.encoding
-        if not np.isnan(enc.null_value):
-            rs._rs = rs._rs.fillna(enc.null_value)
-        rs._rs = rs._rs.astype(enc.dtype)
+        xrs = self._to_presentable_xarray()
+        encoding = self.encoding.copy()
         # Turn masked flag off to prevent errors if used with masked aware
         # funtions later
-        rs.encoding.masked = False
-        return rs
+        encoding.masked = False
+        return self._new_like_self(xrs, encoding=encoding)
 
     def close(self):
         """Close the underlying source"""
