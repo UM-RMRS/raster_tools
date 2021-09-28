@@ -8,3 +8,4 @@ API Reference
    :maxdepth: 3
 
    raster
+   focal

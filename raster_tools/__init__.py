@@ -1,5 +1,5 @@
 from .raster import Raster, CPU, GPU
-from . import costdist
+from . import costdist, focal
 from ._types import (
     U8,
     U16,

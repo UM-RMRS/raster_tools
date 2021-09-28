@@ -258,7 +258,7 @@ _MODE_TO_DASK_BOUNDARY = {
 _VALID_CORRELATE_MODES = frozenset(_MODE_TO_DASK_BOUNDARY.keys())
 
 
-def correlate(data, kernel, mode="constant", cval=0.0, nan_aware=False):
+def _correlate(data, kernel, mode="constant", cval=0.0, nan_aware=False):
     """Cross-correlates a `kernel` with `data`.
 
     This function can be used for convolution as well; just rotate the kernel
@@ -343,7 +343,7 @@ FOCAL_STATS = frozenset(
 )
 
 
-def focal(data, kernel, stat, nan_aware=False):
+def _focal(data, kernel, stat, nan_aware=False):
     """Apply a focal stat function.
 
     Applies the `stat` function to the `data` using `kernel` to determine the
@@ -398,6 +398,77 @@ def focal(data, kernel, stat, nan_aware=False):
             return _focal_dispatch("focal", data, kernel, _agg_nan_sum)
     elif stat == "unique":
         return _focal_dispatch("focal", data, kernel, _agg_nan_unique)
+
+
+def focal(raster, focal_type, width_or_radius, height=None):
+    """
+    Applies a focal filter to raster bands individually.
+
+    The filter uses a window/footprint that is created using the
+    `width_or_radius` and `height` parameters. The window can be a
+    rectangle, circle or annulus.
+
+    Parameters
+    ----------
+    focal_type : str
+        Specifies the aggregation function to apply to the focal
+        neighborhood at each pixel. Can be one of the following string
+        values:
+
+        'min'
+            Finds the minimum value in the neighborhood.
+        'max'
+            Finds the maximum value in the neighborhood.
+        'mean'
+            Finds the mean of the neighborhood.
+        'median'
+            Finds the median of the neighborhood.
+        'mode'
+            Finds the mode of the neighborhood.
+        'sum'
+            Finds the sum of the neighborhood.
+        'std'
+            Finds the standard deviation of the neighborhood.
+        'var'
+            Finds the variance of the neighborhood.
+        'asm'
+            Angular second moment. Applies -sum(P(g)**2) where P(g) gives
+            the probability of g within the neighborhood.
+        'entropy'
+            Calculates the entropy. Applies -sum(P(g) * log(P(g))). See
+            'asm' above.
+        'unique'
+            Calculates the number of unique values in the neighborhood.
+    width_or_radius : int or 2-tuple of ints
+        If an int and `height` is `None`, specifies the radius of a circle
+        window. If an int and `height` is also an int, specifies the width
+        of a rectangle window. If a 2-tuple of ints, the values specify the
+        inner and outer radii of an annulus window.
+    height : int or None
+        If `None` (default), `width_or_radius` will be used to construct a
+        circle or annulus window. If an int, specifies the height of a
+        rectangle window.
+
+    Returns
+    -------
+    Raster
+        The resulting raster with focal filter applied to each band. The
+        bands will have the same shape as the original Raster.
+    """
+    if focal_type not in FOCAL_STATS:
+        raise ValueError(f"Unknown focal operation: '{focal_type}'")
+
+    window = get_focal_window(width_or_radius, height)
+    rs = raster.copy()
+    if focal_type in FOCAL_PROMOTING_OPS:
+        rs._rs = promote_data_dtype(rs._rs)
+        rs.encoding.dtype = rs._rs.dtype
+    nan_aware = raster._masked
+    data = rs._rs.data
+
+    for bnd in range(data.shape[0]):
+        data[bnd] = _focal(data[bnd], window, focal_type, nan_aware)
+    return rs
 
 
 def get_focal_window(width_or_radius, height=None):
@@ -486,3 +557,95 @@ def get_focal_window(width_or_radius, height=None):
         width = width_or_radius[0]
         window_out = np.ones((width, height), dtype=bool)
     return window_out
+
+
+def correlate(raster, kernel, mode="constant", cval=0.0):
+    """Cross-correlate `kernel` with each band individually. Returns a new
+    Raster.
+
+    The kernel is applied to each band in isolation so returned raster has
+    the same shape as the original.
+
+    Parameters
+    ----------
+    raster : Raster
+        The raster to cross-correlate `kernel` with. Can be multibanded.
+    kernel : array_like
+        2D array of kernel weights
+    mode : {'reflect', 'constant', 'nearest', 'wrap'}, optional
+        Determines how the data is extended beyond its boundaries. The
+        default is 'constant'.
+
+        'reflect' (d c b a | a b c d | d c b a)
+            The data pixels are reflected at the boundaries.
+        'constant' (k k k k | a b c d | k k k k)
+            A constant value determined by `cval` is used to extend the
+            data pixels.
+        'nearest' (a a a a | a b c d | d d d d)
+            The data is extended using the boundary pixels.
+        'wrap' (a b c d | a b c d | a b c d)
+            The data is extended by wrapping to the opposite side of the
+            grid.
+    cval : scalar, optional
+        Value used to fill when `mode` is 'constant'. Default is 0.0.
+
+    Returns
+    -------
+    Raster
+        The resulting new Raster.
+    """
+    kernel = np.asarray(kernel)
+    check_kernel(kernel)
+    rs = raster.copy()
+    if is_float(kernel.dtype) and is_int(rs.dtype):
+        rs._rs = promote_data_dtype(rs._rs)
+        rs.encoding.dtype = rs.dtype
+    data = rs._rs.data
+
+    for bnd in range(data.shape[0]):
+        data[bnd] = _correlate(
+            data[bnd], kernel, mode=mode, cval=cval, nan_aware=rs._masked
+        )
+    return rs
+
+
+def convolve(raster, kernel, mode="constant", cval=0.0):
+    """Convolve `kernel` with each band individually. Returns a new Raster.
+
+    This is the same as correlation but the kernel is rotated 180 degrees,
+    e.g. ``kernel = kernel[::-1, ::-1]``.  The kernel is applied to each
+    band in isolation so the returned raster has the same shape as the
+    original.
+
+    Parameters
+    ----------
+    raster : Raster
+        The raster to convolve `kernel` with. Can be multibanded.
+    kernel : array_like
+        2D array of kernel weights
+    mode : {'reflect', 'constant', 'nearest', 'wrap'}, optional
+        Determines how the data is extended beyond its boundaries. The
+        default is 'constant'.
+
+        'reflect' (d c b a | a b c d | d c b a)
+            The data pixels are reflected at the boundaries.
+        'constant' (k k k k | a b c d | k k k k)
+            A constant value determined by `cval` is used to extend the
+            data pixels.
+        'nearest' (a a a a | a b c d | d d d d)
+            The data is extended using the boundary pixels.
+        'wrap' (a b c d | a b c d | a b c d)
+            The data is extended by wrapping to the opposite side of the
+            grid.
+    cval : scalar, optional
+        Value used to fill when `mode` is 'constant'. Default is 0.0.
+
+    Returns
+    -------
+    Raster
+        The resulting new Raster.
+    """
+    kernel = np.asarray(kernel)
+    check_kernel(kernel)
+    kernel = kernel[::-1, ::-1].copy()
+    return correlate(raster, kernel, mode=mode, cval=cval)
