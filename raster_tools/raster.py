@@ -14,14 +14,6 @@ try:
 except (ImportError, ModuleNotFoundError):
     GPU_ENABLED = False
 
-from .focal import (
-    FOCAL_PROMOTING_OPS,
-    FOCAL_STATS,
-    check_kernel,
-    correlate,
-    focal,
-    get_focal_window,
-)
 from .io import (
     Encoding,
     chunk,
