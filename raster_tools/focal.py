@@ -10,6 +10,15 @@ from ._types import promote_data_dtype
 from ._utils import is_bool, is_float, is_int, is_str
 
 
+__all__ = [
+    "check_kernel",
+    "convolve",
+    "correlate",
+    "focal",
+    "get_focal_window",
+]
+
+
 ngjit = nb.jit(nopython=True, nogil=True)
 
 
