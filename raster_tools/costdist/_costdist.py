@@ -29,8 +29,7 @@ _TRACEBACK_NOT_REACHED = -2
 
 
 def cost_distance_analysis(costs, sources):
-    """
-    Calculate accumulated cost distance, traceback, and allocation.
+    """Calculate accumulated cost distance, traceback, and allocation.
 
     This function uses Dijkstra's algorithm to compute the many-sources
     shortest-paths solution for a given cost surface. Valid moves are from a
@@ -45,14 +44,17 @@ def cost_distance_analysis(costs, sources):
     The second raster contains the traceback values for the solution. At each
     pixel, the stored value indicates the neighbor to move to in order to get
     closer to the cost-relative nearest source. The numbering is as follows:
-        5  6  7
-        4  X  0
-        3  2  1
+    ::
+
+        6  7  8
+        5  X  1
+        4  3  2
+
     Here, X indicates the current pixel and the numbers are the neighbor
-    pixel positions. 0 indicates the neighbor immediately to the right and
-    6 indicates the neighbor immediately above. In terms of rows and columns,
-    these are the neighbor one column over and one row above, respectively. a
-    value of -1 indicates that the current pixel is a source pixel and -1
+    pixel positions. 1 indicates the neighbor immediately to the right and
+    7 indicates the neighbor immediately above. In terms of rows and columns,
+    these are the neighbor +1 column over and +1 row above, respectively. a
+    value of 0 indicates that the current pixel is a source pixel and -1
     indicates that the pixel was not traversed due to a null value.
 
     The third raster contians the source allocation for each pixel. Each pixel
