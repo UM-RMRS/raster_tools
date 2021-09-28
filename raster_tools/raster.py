@@ -239,6 +239,14 @@ def _reconcile_encodings_after_op(left, right=None, should_promote=False):
     return encoding
 
 
+def _raster_like(orig_rs, new_rs, attrs=None, device=None, encoding=None):
+    new_rs = Raster(new_rs)
+    new_rs._attrs = attrs or orig_rs._attrs
+    new_rs._set_device(device or orig_rs.device)
+    new_rs._encoding = encoding or orig_rs.encoding.copy()
+    return new_rs
+
+
 class Raster:
     """Abstraction of georeferenced raster data with lazy function evaluation.
 
@@ -285,13 +293,6 @@ class Raster:
             self._encoding = rs.encoding
         else:
             self._rs, self._encoding = open_raster_from_path(raster)
-
-    def _new_like_self(self, rs, attrs=None, device=None, encoding=None):
-        new_rs = Raster(rs)
-        new_rs._attrs = attrs or self._attrs
-        new_rs._set_device(device or self.device)
-        new_rs._encoding = encoding or self.encoding.copy()
-        return new_rs
 
     def _to_presentable_xarray(self):
         """Returns a DataArray with nans replaced with the null value"""
@@ -392,7 +393,7 @@ class Raster:
         """Returns the underlying data as a dask array."""
         rs = self
         if not _is_using_dask(self):
-            rs = self._new_like_self(chunk(self._rs))
+            rs = _raster_like(self, chunk(self._rs))
         return rs._rs.data
 
     def as_encoded(self):
@@ -409,7 +410,7 @@ class Raster:
         # Turn masked flag off to prevent errors if used with masked aware
         # funtions later
         encoding.masked = False
-        return self._new_like_self(xrs, encoding=encoding)
+        return _raster_like(self, xrs, encoding=encoding)
 
     def close(self):
         """Close the underlying source"""
@@ -444,7 +445,7 @@ class Raster:
         """
         rs = self._rs.compute()
         # A new raster is returned to mirror the xarray and dask APIs
-        return self._new_like_self(rs)
+        return _raster_like(self, rs)
 
     def to_lazy(self):
         """Convert a non-lazy Raster to a lazy one.
@@ -459,7 +460,7 @@ class Raster:
         """
         if _is_using_dask(self._rs):
             return self.copy()
-        return self._new_like_self(chunk(self._rs))
+        return _raster_like(self, chunk(self._rs))
 
     def copy(self):
         """Returns a copy of this Raster."""
@@ -509,11 +510,11 @@ class Raster:
         else:
             xrs = xrs.astype(dtype)
             encoding.dtype = dtype
-        return self._new_like_self(xrs, encoding=encoding)
+        return _raster_like(self, xrs, encoding=encoding)
 
     def round(self):
         """Round the data to the nearest integer value. Return a new Raster."""
-        return self._new_like_self(self._rs.round())
+        return _raster_like(self, self._rs.round())
 
     def get_bands(self, bands):
         """Retrieve the specified bands as a new Raster. Indexing starts at 1.
@@ -549,7 +550,7 @@ class Raster:
             return self
         rs = self._rs[bands]
         # TODO: look into making attrs consistant with bands
-        return self._new_like_self(rs)
+        return _raster_like(self, rs)
 
     def band_concat(self, rasters):
         """Join this and a sequence of rasters along the band dimension.
@@ -596,7 +597,7 @@ class Raster:
         # values in line with what open_rasterio() returns for multiband
         # rasters.
         rs["band"] = list(range(1, rs.shape[0] + 1))
-        return self._new_like_self(rs)
+        return _raster_like(self, rs)
 
     def set_null_value(self, value):
         """Sets or replaces the null value for the raster.
@@ -640,7 +641,7 @@ class Raster:
         if not np.isnan(value):
             rs = rs.where(rs != value, np.nan)
         rs.attrs["_FillValue"] = value
-        return self._new_like_self(rs, encoding=encoding, attrs=rs.attrs)
+        return _raster_like(self, rs, encoding=encoding, attrs=rs.attrs)
 
     def to_null_mask(self):
         """
@@ -658,7 +659,7 @@ class Raster:
         else:
             xrs = xr.full_like(self._rs, False, dtype=BOOL)
         encoding = Encoding(dtype=BOOL)
-        return self._new_like_self(xrs, encoding=encoding)
+        return _raster_like(self, xrs, encoding=encoding)
 
     def replace_null(self, value):
         """Replaces null and nan values with `value`.
@@ -683,7 +684,7 @@ class Raster:
             if is_float(value) and is_int(self.dtype):
                 dtype = maybe_promote(np.result_type(value))
                 rs = self._rs.astype(dtype)
-        return self._new_like_self(rs)
+        return _raster_like(self, rs)
 
     def where(self, condition, other):
         """Filter elements from this raster according to `condition`.
@@ -738,7 +739,7 @@ class Raster:
         encoding = _reconcile_encodings_after_op(
             self, other if _is_raster_class(other) else None
         )
-        return self._new_like_self(xrs, encoding=encoding)
+        return _raster_like(self, xrs, encoding=encoding)
 
     def remap_range(self, min, max, new_value, *args):
         """Remaps values in the range [`min`, `max`) to `new_value`.
@@ -832,7 +833,7 @@ class Raster:
         new_encoding = _reconcile_encodings_after_op(
             self, parsed_operand, should_promote=should_promote
         )
-        return self._new_like_self(xrs, encoding=new_encoding)
+        return _raster_like(self, xrs, encoding=new_encoding)
 
     def _binary_logical(self, raster_or_scalar, op):
         if op not in _BINARY_LOGICAL_OPS:
@@ -857,7 +858,7 @@ class Raster:
             new_encoding.dtype = np.min_scalar_type(new_encoding.null_value)
         else:
             new_encoding.dtype = U8
-        return self._new_like_self(xrs, encoding=new_encoding)
+        return _raster_like(self, xrs, encoding=new_encoding)
 
     def add(self, raster_or_scalar):
         """Add this Raster with another Raster or scalar.
@@ -1001,7 +1002,7 @@ class Raster:
         """
         xrs = np.sqrt(self._rs)
         encoding = _reconcile_encodings_after_op(self, should_promote=True)
-        return self._new_like_self(xrs, encoding=encoding)
+        return _raster_like(self, xrs, encoding=encoding)
 
     def __pos__(self):
         return self
@@ -1012,7 +1013,7 @@ class Raster:
         Returns a new Raster.
 
         """
-        return self._new_like_self(-self._rs)
+        return _raster_like(self, -self._rs)
 
     def __neg__(self):
         return self.negate()
@@ -1025,7 +1026,7 @@ class Raster:
         """
         xrs = np.log(self._rs)
         encoding = _reconcile_encodings_after_op(self, should_promote=True)
-        return self._new_like_self(xrs, encoding=encoding)
+        return _raster_like(self, xrs, encoding=encoding)
 
     def log10(self):
         """Take the base-10 logarithm of this Raster.
@@ -1035,7 +1036,7 @@ class Raster:
         """
         xrs = np.log10(self._rs)
         encoding = _reconcile_encodings_after_op(self, should_promote=True)
-        return self._new_like_self(xrs, encoding=encoding)
+        return _raster_like(self, xrs, encoding=encoding)
 
     def eq(self, other):
         """
@@ -1177,7 +1178,7 @@ class Raster:
             new_encoding.dtype = np.min_scalar_type(new_encoding.null_value)
         else:
             new_encoding.dtype = U8
-        return self._new_like_self(xrs, encoding=new_encoding)
+        return _raster_like(self, xrs, encoding=new_encoding)
 
     def and_(self, other, to_bool_op="gt0"):
         """Returns this Raster and'd with another. Both are coerced to bools
