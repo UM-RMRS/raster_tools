@@ -16,6 +16,7 @@ except (ImportError, ModuleNotFoundError):
 
 from .io import (
     Encoding,
+    IO_UNDERSTOOD_TYPES,
     chunk,
     is_batch_file,
     open_raster_from_path,
@@ -34,9 +35,11 @@ from ._types import (
 )
 from ._utils import (
     is_bool,
+    is_dask,
     is_float,
     is_int,
     is_numpy,
+    is_numpy_masked,
     is_scalar,
     is_str,
     is_xarray,
@@ -152,15 +155,21 @@ GPU = "gpu"
 CPU = "cpu"
 
 
-def _np_to_xarray(nprs):
-    if len(nprs.shape) > 3 or len(nprs.shape) < 2:
-        raise ValueError(f"Invalid raster shape for numpy array: {nprs.shape}")
-    if len(nprs.shape) == 2:
-        nprs = np.expand_dims(nprs, axis=0)
-    nprs = da.from_array(nprs)
-    coords = [list(range(d)) for d in nprs.shape]
-    xrs = xr.DataArray(nprs, dims=["band", "y", "x"], coords=coords)
+def _array_to_xarray(ar):
+    if len(ar.shape) > 3 or len(ar.shape) < 2:
+        raise ValueError(f"Invalid raster shape for numpy array: {ar.shape}")
+    if len(ar.shape) == 2:
+        # Add band dim
+        ar = ar[None]
+    if not is_dask(ar):
+        ar = da.from_array(ar)
+    coords = [list(range(d)) for d in ar.shape]
+    xrs = xr.DataArray(ar, dims=["band", "y", "x"], coords=coords)
     xrs.attrs["res"] = (1.0, 1.0)
+    if is_numpy_masked(ar._meta):
+        xrs.attrs["_FillValue"] = ar._meta.fill_value
+    else:
+        xrs.attrs["_FillValue"] = np.nan
     return xrs
 
 
@@ -275,16 +284,23 @@ class Raster:
             null = _try_to_get_null_value_xarray(raster)
             masked = null is not None and not np.isnan(null)
             self._encoding = Encoding(masked, raster.dtype, null)
-        elif is_numpy(raster):
-            raster = _np_to_xarray(raster)
+        elif is_numpy(raster) or is_dask(raster):
+            raster = _array_to_xarray(raster)
             self._rs = chunk(raster)
-            self._encoding = Encoding(False, self._rs.dtype, np.nan)
-        elif is_batch_file(raster):
-            rs = BatchScript(raster).parse().final_raster
-            self._rs = rs._rs
-            self._encoding = rs.encoding
+            masked = is_numpy_masked(raster.data._meta)
+            nv = raster.attrs.get("_FillValue", np.nan)
+            self._encoding = Encoding(masked, self._rs.dtype, nv)
+        elif type(raster) in IO_UNDERSTOOD_TYPES:
+            if is_batch_file(raster):
+                rs = BatchScript(raster).parse().final_raster
+                self._rs = rs._rs
+                self._encoding = rs.encoding
+            else:
+                self._rs, self._encoding = open_raster_from_path(raster)
         else:
-            self._rs, self._encoding = open_raster_from_path(raster)
+            raise TypeError(
+                f"Could not resolve input to a raster: {raster!r}"
+            )
 
     def _to_presentable_xarray(self):
         """Returns a DataArray with nans replaced with the null value"""

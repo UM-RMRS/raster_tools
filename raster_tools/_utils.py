@@ -42,7 +42,11 @@ def is_xarray(rs):
 
 
 def is_numpy(rs):
-    return isinstance(rs, np.ndarray)
+    return isinstance(rs, np.ndarray) or is_numpy_masked(rs)
+
+
+def is_numpy_masked(rs):
+    return isinstance(rs, np.ma.MaskedArray)
 
 
 def is_dask(rs):

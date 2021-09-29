@@ -7,16 +7,12 @@ import xarray as xr
 from dask.array.core import normalize_chunks as dask_chunks
 from pathlib import Path
 
-from ._types import DEFAULT_NULL, F64, I64, is_float, maybe_promote
-from ._utils import is_scalar, validate_file
+from ._types import DEFAULT_NULL, F64, I64, maybe_promote
+from ._utils import is_float, is_scalar, validate_file
 
 
 class RasterIOError(BaseException):
     pass
-
-
-def _is_str(value):
-    return isinstance(value, str)
 
 
 def _get_extension(path):
@@ -42,6 +38,9 @@ def chunk(xrs, src_file=None):
 TIFF_EXTS = frozenset((".tif", ".tiff"))
 BATCH_EXTS = frozenset((".bch",))
 NC_EXTS = frozenset((".nc",))
+
+
+IO_UNDERSTOOD_TYPES = (str, Path)
 
 
 def is_batch_file(path):
@@ -111,11 +110,13 @@ def load_resolution(path):
 
 
 def open_raster_from_path(path):
-    if isinstance(path, Path) or _is_str(path):
+    if type(path) in IO_UNDERSTOOD_TYPES:
         path = str(path)
         path = os.path.abspath(path)
     else:
-        raise RasterIOError(f"Could not resolve input to a raster: '{path}'")
+        raise RasterIOError(
+            f"Could not resolve input to a raster path: '{path}'"
+        )
     validate_file(path)
     ext = _get_extension(path)
     if not ext:
