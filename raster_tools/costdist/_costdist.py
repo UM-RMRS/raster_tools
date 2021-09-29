@@ -4,7 +4,7 @@ import xarray as xr
 
 from raster_tools import Raster
 from raster_tools.io import Encoding
-from raster_tools.raster import is_raster_class
+from raster_tools.raster import is_raster_class, _raster_like
 from raster_tools._utils import is_numpy, is_str
 from raster_tools._types import F16, F64, I8, I64
 from ._core import (
@@ -135,32 +135,29 @@ def cost_distance_analysis(costs, sources):
         for r in (cd, tr, al)
     ]
     xcd = xcd.where(np.isfinite(xcd), np.nan)
-    if costs.encoding.masked:
+    if costs._masked:
         # Potentially have null values, fill with nan
         xtr = xtr.astype(F16).where(xtr != _TRACEBACK_NOT_REACHED, np.nan)
     # Add 1 to match ESRI 0-8 scale
     xtr += 1
 
     enc_orig = costs.encoding
-    cd = Raster(xcd)
     enc_cd = enc_orig.copy()
     enc_cd.dtype = cd.dtype
-    cd._encoding = enc_cd
+    cd = _raster_like(costs, xcd, encoding=enc_cd)
 
-    tr = Raster(xtr)
     enc_tr = enc_orig.copy()
     enc_tr.dtype = I8
     enc_tr.null_value = _TRACEBACK_NOT_REACHED + 1
-    tr._encoding = enc_tr
-    if costs.encoding.masked:
+    tr = _raster_like(costs, xtr, encoding=enc_tr)
+    if costs._masked:
         tr = tr.set_null_value(_TRACEBACK_NOT_REACHED + 1)
 
-    al = Raster(xal)
     enc_al = enc_orig.copy()
     enc_al.dtype = I64
     enc_al.null_value = sources_null_value
-    al._encoding = enc_al
-    if costs.encoding.masked:
+    al = _raster_like(costs, xal, encoding=enc_al)
+    if costs._masked:
         al = al.set_null_value(sources_null_value)
     return cd, tr, al
 

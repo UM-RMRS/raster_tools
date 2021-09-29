@@ -225,3 +225,18 @@ class TestCostDist(unittest.TestCase):
                 equal_nan=True,
             ),
         )
+
+
+class TestCostDistAttrsPropagation(unittest.TestCase):
+    def test_costdist_attrs(self):
+        rs = Raster("test/data/elevation_small.tif")
+        srcs = np.array([[1, 1], [20, 30]])
+        attrs = rs._attrs
+        cd, tr, al = costdist.cost_distance_analysis(rs, srcs)
+        self.assertEqual(cd._attrs, attrs)
+        # Null values may not match costs raster for traceback and allocation
+        attrs.pop("_FillValue")
+        tr._rs.attrs.pop("_FillValue")
+        self.assertEqual(tr._attrs, attrs)
+        al._rs.attrs.pop("_FillValue")
+        self.assertEqual(al._attrs, attrs)
