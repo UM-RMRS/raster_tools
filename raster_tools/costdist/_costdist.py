@@ -121,8 +121,9 @@ def cost_distance_analysis(costs, sources):
         except TypeError:
             raise ValueError("Could not understand sources argument")
 
+    scaling = np.abs(costs.resolution)
     results = cost_distance_analysis_numpy(
-        costs._rs.data[0], srcs, sources_null_value, costs.resolution
+        costs._rs.data[0], srcs, sources_null_value, scaling
     )
     # Make lazy and add band dim
     cd, tr, al = [da.from_array(r[None]) for r in results]
