@@ -178,6 +178,40 @@ class TestCostDist(unittest.TestCase):
         self.assertTrue(allocation.encoding.dtype == np.dtype(np.int64))
         self.assertTrue(allocation.encoding.null_value == -1)
 
+    def test_negative_resolution(self):
+        cs = Raster("test/data/elevation_small.tif")
+        srcs = np.array([[20, 20]])
+        _ = costdist.cost_distance_analysis(cs, srcs)
+
+        self.cs._attrs["res"] = (1.0, -1.0)
+        cost_dist, traceback, allocation = costdist.cost_distance_analysis(
+            self.cs, self.srcs
+        )
+        # Cost dist
+        self.assertTrue(
+            np.allclose(
+                cost_dist.to_dask().compute(),
+                CD_TRUTH_SCALE_1,
+                equal_nan=True,
+            ),
+        )
+        # traceback
+        self.assertTrue(
+            np.allclose(
+                traceback.to_dask().compute(),
+                TR_TRUTH_SCALE_1,
+                equal_nan=True,
+            ),
+        )
+        # Allocation
+        self.assertTrue(
+            np.allclose(
+                allocation.to_dask().compute(),
+                AL_TRUTH_SCALE_1,
+                equal_nan=True,
+            ),
+        )
+
     def test_cost_distance_analysis_errors(self):
         with self.assertRaises(ValueError):
             # Must be single band
