@@ -33,8 +33,8 @@ CD_TRUTH_SCALE_1 = np.array(
             [2.0, 0.0, 0.0, 4.0, 7.5, 10.0],
             [6.0, 2.5, 0.0, 4.0, 9.0, 13.86396103],
             [8.0, 7.07106781, 4.5, 4.94974747, 10.44974747, 12.74264069],
-            [5.0, 7.5, 10.5, np.nan, 10.62132034, 9.24264069],
-            [2.5, 5.65685425, 6.44974747, np.nan, 7.12132034, 11.12132034],
+            [5.0, 7.5, 10.5, -1.0, 10.62132034, 9.24264069],
+            [2.5, 5.65685425, 6.44974747, -1.0, 7.12132034, 11.12132034],
             [0.0, 1.5, 3.5, 5.0, 7.0, 10.5],
         ]
     ]
@@ -45,8 +45,8 @@ CD_TRUTH_SCALE_5 = np.array(
             [10.0, 0.0, 0.0, 20.0, 37.5, 50.0],
             [30.0, 12.5, 0.0, 20.0, 45.0, 69.31980515],
             [40.0, 35.35533906, 22.5, 24.74873734, 52.24873734, 63.71320344],
-            [25.0, 37.5, 52.5, np.nan, 53.10660172, 46.21320344],
-            [12.5, 28.28427125, 32.24873734, np.nan, 35.60660172, 55.60660172],
+            [25.0, 37.5, 52.5, -1.0, 53.10660172, 46.21320344],
+            [12.5, 28.28427125, 32.24873734, -1.0, 35.60660172, 55.60660172],
             [0.0, 7.5, 17.5, 25.0, 35.0, 52.5],
         ]
     ]
@@ -55,12 +55,12 @@ CD_TRUTH_SCALE_5 = np.array(
 TR_TRUTH_SCALE_1 = np.array(
     [
         [
-            [1.0, 0.0, 0.0, 5.0, 5.0, 5.0],
-            [7.0, 1.0, 0.0, 5.0, 5.0, 6.0],
-            [3.0, 8.0, 7.0, 6.0, 5.0, 3.0],
-            [3.0, 5.0, 7.0, np.nan, 3.0, 4.0],
-            [3.0, 4.0, 4.0, np.nan, 4.0, 5.0],
-            [0.0, 5.0, 5.0, 5.0, 5.0, 5.0],
+            [1, 0, 0, 5, 5, 5],
+            [7, 1, 0, 5, 5, 6],
+            [3, 8, 7, 6, 5, 3],
+            [3, 5, 7, -1, 3, 4],
+            [3, 4, 4, -1, 4, 5],
+            [0, 5, 5, 5, 5, 5],
         ]
     ],
 )
@@ -68,24 +68,24 @@ TR_TRUTH_SCALE_1 = np.array(
 AL_TRUTH_SCALE_1 = np.array(
     [
         [
-            [1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
-            [1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
-            [2.0, 1.0, 1.0, 1.0, 1.0, 2.0],
-            [2.0, 2.0, 1.0, np.nan, 2.0, 2.0],
-            [2.0, 2.0, 2.0, np.nan, 2.0, 2.0],
-            [2.0, 2.0, 2.0, 2.0, 2.0, 2.0],
+            [1, 1, 1, 1, 1, 1],
+            [1, 1, 1, 1, 1, 1],
+            [2, 1, 1, 1, 1, 2],
+            [2, 2, 1, 0, 2, 2],
+            [2, 2, 2, 0, 2, 2],
+            [2, 2, 2, 2, 2, 2],
         ]
     ]
 )
 AL_TRUTH_IDXS_SCALE_1 = np.array(
     [
         [
-            [0.0, 0.0, 1.0, 1.0, 1.0, 1.0],
-            [0.0, 2.0, 2.0, 2.0, 2.0, 1.0],
-            [3.0, 2.0, 2.0, 2.0, 2.0, 3.0],
-            [3.0, 3.0, 2.0, np.nan, 3.0, 3.0],
-            [3.0, 3.0, 3.0, np.nan, 3.0, 3.0],
-            [3.0, 3.0, 3.0, 3.0, 3.0, 3.0],
+            [0, 0, 1, 1, 1, 1],
+            [0, 2, 2, 2, 2, 1],
+            [3, 2, 2, 2, 2, 3],
+            [3, 3, 2, -1, 3, 3],
+            [3, 3, 3, -1, 3, 3],
+            [3, 3, 3, 3, 3, 3],
         ]
     ]
 )
@@ -111,33 +111,23 @@ class TestCostDist(unittest.TestCase):
                 equal_nan=True,
             ),
         )
-        self.assertTrue(cost_dist.encoding.masked)
-        self.assertTrue(cost_dist.encoding.dtype == np.dtype(np.float64))
-        self.assertTrue(cost_dist.encoding.null_value == -1)
+        self.assertTrue(cost_dist._masked)
+        self.assertTrue(cost_dist.dtype == np.dtype(np.float64))
+        self.assertTrue(cost_dist.null_value == -1)
         # traceback
         self.assertTrue(
-            np.allclose(
-                traceback.to_dask().compute(),
-                TR_TRUTH_SCALE_1,
-                equal_nan=True,
-            ),
+            np.allclose(traceback._values, TR_TRUTH_SCALE_1, equal_nan=True)
         )
-        self.assertTrue(traceback.encoding.masked)
-        self.assertTrue(traceback.encoding.dtype == np.dtype(np.int8))
-        self.assertTrue(traceback.encoding.null_value == -1)
+        self.assertTrue(traceback._masked)
+        self.assertTrue(traceback.dtype == np.dtype(np.int8))
+        self.assertTrue(traceback.null_value == -1)
         # Allocation
         self.assertTrue(
-            np.allclose(
-                allocation.to_dask().compute(),
-                AL_TRUTH_SCALE_1,
-                equal_nan=True,
-            ),
+            np.allclose(allocation._values, AL_TRUTH_SCALE_1, equal_nan=True)
         )
-        self.assertTrue(allocation.encoding.masked)
-        self.assertTrue(allocation.encoding.dtype == np.dtype(np.int64))
-        self.assertTrue(
-            allocation.encoding.null_value == self.srcs.encoding.null_value
-        )
+        self.assertTrue(allocation._masked)
+        self.assertTrue(allocation.dtype == np.dtype(np.int64))
+        self.assertTrue(allocation.null_value == self.srcs.null_value)
 
         ## Using srcs indices ##
         cost_dist, traceback, allocation = costdist.cost_distance_analysis(
@@ -146,37 +136,27 @@ class TestCostDist(unittest.TestCase):
 
         # Cost dist
         self.assertTrue(
-            np.allclose(
-                cost_dist.to_dask().compute(),
-                CD_TRUTH_SCALE_1,
-                equal_nan=True,
-            ),
+            np.allclose(cost_dist._values, CD_TRUTH_SCALE_1, equal_nan=True)
         )
-        self.assertTrue(cost_dist.encoding.masked)
-        self.assertTrue(cost_dist.encoding.dtype == np.dtype(np.float64))
-        self.assertTrue(cost_dist.encoding.null_value == -1)
+        self.assertTrue(cost_dist._masked)
+        self.assertTrue(cost_dist.dtype == np.dtype(np.float64))
+        self.assertTrue(cost_dist.null_value == -1)
         # traceback
         self.assertTrue(
-            np.allclose(
-                traceback.to_dask().compute(),
-                TR_TRUTH_SCALE_1,
-                equal_nan=True,
-            ),
+            np.allclose(traceback._values, TR_TRUTH_SCALE_1, equal_nan=True)
         )
-        self.assertTrue(traceback.encoding.masked)
-        self.assertTrue(traceback.encoding.dtype == np.dtype(np.int8))
-        self.assertTrue(traceback.encoding.null_value == -1)
+        self.assertTrue(traceback._masked)
+        self.assertTrue(traceback.dtype == np.dtype(np.int8))
+        self.assertTrue(traceback.null_value == -1)
         # Allocation
         self.assertTrue(
             np.allclose(
-                allocation.to_dask().compute(),
-                AL_TRUTH_IDXS_SCALE_1,
-                equal_nan=True,
-            ),
+                allocation._values, AL_TRUTH_IDXS_SCALE_1, equal_nan=True
+            )
         )
-        self.assertTrue(allocation.encoding.masked)
-        self.assertTrue(allocation.encoding.dtype == np.dtype(np.int64))
-        self.assertTrue(allocation.encoding.null_value == -1)
+        self.assertTrue(allocation._masked)
+        self.assertTrue(allocation.dtype == np.dtype(np.int64))
+        self.assertTrue(allocation.null_value == -1)
 
     def test_negative_resolution(self):
         cs = Raster("test/data/elevation_small.tif")
@@ -253,11 +233,7 @@ class TestCostDist(unittest.TestCase):
         )
 
         self.assertTrue(
-            np.allclose(
-                cost_dist.to_dask().compute(),
-                CD_TRUTH_SCALE_5,
-                equal_nan=True,
-            ),
+            np.allclose(cost_dist._values, CD_TRUTH_SCALE_5, equal_nan=True)
         )
 
 

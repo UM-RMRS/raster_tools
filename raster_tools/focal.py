@@ -6,7 +6,7 @@ from functools import partial
 
 from raster_tools import Raster
 from raster_tools.raster import is_raster_class
-from ._types import promote_data_dtype
+from ._types import F64, promote_dtype_to_float, promote_data_dtype
 from ._utils import is_bool, is_float, is_int, is_str
 
 
@@ -466,6 +466,7 @@ def focal(raster, focal_type, width_or_radius, height=None):
     Raster
         The resulting raster with focal filter applied to each band. The
         bands will have the same shape as the original Raster.
+
     """
     if not is_raster_class(raster) and not is_str(raster):
         raise TypeError(
@@ -478,14 +479,26 @@ def focal(raster, focal_type, width_or_radius, height=None):
 
     window = get_focal_window(width_or_radius, height)
     rs = raster.copy()
-    if focal_type in FOCAL_PROMOTING_OPS:
-        rs._rs = promote_data_dtype(rs._rs)
-        rs.encoding.dtype = rs._rs.dtype
-    nan_aware = raster._masked
     data = rs._rs.data
+    final_dtype = data.dtype
+
+    # Convert to float and fill nulls with nan, if needed
+    upcast = False
+    if raster._masked:
+        new_dtype = promote_dtype_to_float(raster.dtype)
+        upcast = new_dtype != data.dtype
+        if upcast:
+            data = data.astype(new_dtype)
+        data = da.where(~raster._mask, data, np.nan)
 
     for bnd in range(data.shape[0]):
-        data[bnd] = _focal(data[bnd], window, focal_type, nan_aware)
+        data[bnd] = _focal(data[bnd], window, focal_type, raster._masked)
+
+    # Cast back to int, if needed
+    if upcast and focal_type not in FOCAL_PROMOTING_OPS:
+        data = data.astype(final_dtype)
+
+    rs._rs.data = data
     return rs
 
 
@@ -622,14 +635,29 @@ def correlate(raster, kernel, mode="constant", cval=0.0):
     check_kernel(kernel)
     rs = raster.copy()
     if is_float(kernel.dtype) and is_int(rs.dtype):
-        rs._rs = promote_data_dtype(rs._rs)
-        rs.encoding.dtype = rs.dtype
+        rs._rs.data = rs._rs.data.astype(F64)
     data = rs._rs.data
+    final_dtype = data.dtype
+
+    # Convert to float and fill nulls with nan, if needed
+    upcast = False
+    if raster._masked:
+        new_dtype = promote_dtype_to_float(data.dtype)
+        upcast = new_dtype != data.dtype
+        if upcast:
+            data = data.astype(new_dtype)
+        data = da.where(raster._mask, np.nan, data)
 
     for bnd in range(data.shape[0]):
         data[bnd] = _correlate(
             data[bnd], kernel, mode=mode, cval=cval, nan_aware=rs._masked
         )
+
+    # Cast back to int, if needed
+    if upcast:
+        data = data.astype(final_dtype)
+
+    rs._rs.data = data
     return rs
 
 

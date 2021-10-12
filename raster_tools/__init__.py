@@ -1,4 +1,5 @@
-from .raster import Raster, CPU, GPU
+from raster_tools.raster import Raster, CPU, GPU
+from raster_tools.raster_funcs import band_concat
 from . import costdist, focal
 from ._types import (
     U8,

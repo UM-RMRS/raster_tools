@@ -5,6 +5,7 @@ import numpy as np
 import operator
 import os
 import re
+import warnings
 import xarray as xr
 
 try:
@@ -24,8 +25,16 @@ from .io import (
 )
 from ._types import (
     DTYPE_INPUT_TO_DTYPE,
+    U8,
+    U16,
+    U32,
+    U64,
+    I8,
+    I16,
     I32,
+    I64,
     F16,
+    F32,
     F64,
     BOOL,
     U8,
@@ -34,6 +43,7 @@ from ._types import (
     should_promote_to_fit,
 )
 from ._utils import (
+    create_null_mask,
     is_bool,
     is_dask,
     is_float,
@@ -93,24 +103,6 @@ def _map_chunk_function(raster, func, args, **kwargs):
     else:
         raster._rs.data = func(raster._rs.data, args)
     return raster
-
-
-def _chunk_replace_null(chunk, args):
-    """Replace null values in a chunk."""
-    null_values, new_value = args
-    null_values = set(null_values)
-    if np.nan in null_values:
-        null_values.remove(np.nan)
-    if GPU_ENABLED:
-        xp = cp.get_array_module(chunk)
-    else:
-        xp = np
-    match = xp.isnan(chunk)
-    chunk[match] = new_value
-    for nv in null_values:
-        xp.equal(chunk, nv, out=match)
-        chunk[match] = new_value
-    return chunk
 
 
 def _chunk_to_cpu(chunk, *args):
@@ -199,52 +191,37 @@ def _try_to_get_null_value_xarray(xrs):
     return np.nan
 
 
-def _reconcile_encodings_after_op(left, right=None, should_promote=False):
-    encoding = Encoding()
-    if left is None and right is not None:
-        raise ValueError("Use left instead of only right")
-    if not is_raster_class(left):
-        raise TypeError("left must be a Raster")
-
-    left = left.encoding
-    if is_scalar(right) or is_bool(right):
-        right = Encoding(False, np.min_scalar_type(right), np.nan)
-    elif is_raster_class(right):
-        right = right.encoding
-    elif right is not None:
-        raise TypeError("Could not understand right")
-
-    if right is not None:
-        # result was created from two parents (one may have been a scalar)
-        masked = left.masked or right.masked
-        dtype = np.result_type(left.dtype, right.dtype)
-        null = np.nan
-        if masked:
-            dtype = maybe_promote(dtype)
-            nvs = [enc.null_value for enc in [left, right] if enc.masked]
-            if len(nvs) == 1:
-                null = nvs[0]
-            elif all(np.isnan(v) for v in nvs):
-                null = np.nan
-            elif nvs[0] == nvs[1]:
-                null = nvs[0]
-            else:
-                # Have to make a decision so give precedence to left
-                null = nvs[0]
-        encoding = Encoding(masked, dtype, null)
-    else:
-        # result was created from a single raster. Simply copy the encoding
-        encoding = left.copy()
-    if should_promote:
-        encoding.dtype = maybe_promote(encoding.dtype)
-    return encoding
+DTYPE_TO_DEFAULT_NULL = {
+    BOOL: True,
+    U8: 99,
+    U16: 9999,
+    U32: 999999,
+    U64: 999999,
+    I8: -99,
+    I16: -9999,
+    I32: -999999,
+    I64: -999999,
+    F16: -999999.0,
+    F32: -999999.0,
+    F64: -999999.0,
+}
 
 
-def _raster_like(orig_rs, new_rs, attrs=None, device=None, encoding=None):
-    new_rs = Raster(new_rs)
+def get_default_null_value(dtype):
+    """Get the default null value for a given dtype."""
+    return DTYPE_TO_DEFAULT_NULL[dtype]
+
+
+def _raster_like(
+    orig_rs, new_xrs, attrs=None, device=None, mask=None, null_value=None
+):
+    new_rs = Raster(new_xrs)
     new_rs._attrs = attrs or orig_rs._attrs
     new_rs._set_device(device or orig_rs.device)
-    new_rs._encoding = encoding or orig_rs.encoding.copy()
+    new_rs._mask = mask if mask is not None else orig_rs._mask
+    new_rs._null_value = (
+        null_value if null_value is not None else orig_rs.null_value
+    )
     return new_rs
 
 
@@ -272,43 +249,46 @@ class Raster:
 
     def __init__(self, raster):
         self._device = CPU
-        self._encoding = Encoding()
+        self._mask = None
         self._rs = None
 
         if is_raster_class(raster):
             self._rs = raster._rs.copy()
             self._set_device(raster.device)
-            self._encoding = raster.encoding.copy()
+            self._mask = raster._mask.copy()
+            self._null_value = raster._null_value
         elif is_xarray(raster):
             self._rs = raster
             null = _try_to_get_null_value_xarray(raster)
-            masked = null is not None and not np.isnan(null)
-            self._encoding = Encoding(masked, raster.dtype, null)
+            self._mask = create_null_mask(self._rs, null)
+            self._null_value = null
         elif is_numpy(raster) or is_dask(raster):
             raster = _array_to_xarray(raster)
             self._rs = chunk(raster)
             masked = is_numpy_masked(raster.data._meta)
-            nv = raster.attrs.get("_FillValue", np.nan)
-            self._encoding = Encoding(masked, self._rs.dtype, nv)
+            nv = raster.attrs.get("_FillValue", None)
+            self._mask = create_null_mask(self._rs, nv)
+            self._null_value = nv
         elif type(raster) in IO_UNDERSTOOD_TYPES:
             if is_batch_file(raster):
                 rs = BatchScript(raster).parse().final_raster
                 self._rs = rs._rs
-                self._encoding = rs.encoding
+                self._mask = rs._mask
+                self._null_value = rs._null_value
             else:
-                self._rs, self._encoding = open_raster_from_path(raster)
+                rs, mask, nv = open_raster_from_path(raster)
+                self._rs = rs
+                self._mask = mask
+                self._null_value = nv
         else:
-            raise TypeError(
-                f"Could not resolve input to a raster: {raster!r}"
-            )
+            raise TypeError(f"Could not resolve input to a raster: {raster!r}")
 
     def _to_presentable_xarray(self):
-        """Returns a DataArray with nans replaced with the null value"""
-        rs = self._rs
-        null_value = self.encoding.null_value
-        if self._masked and not np.isnan(null_value):
-            rs = rs.fillna(null_value).astype(self.encoding.dtype)
-        return rs
+        """Returns a DataArray with null locations filled by the null value."""
+        xrs = self._rs
+        if self._masked:
+            xrs = xrs.where(~self._mask, self.null_value)
+        return xrs
 
     @property
     def _attrs(self):
@@ -324,7 +304,7 @@ class Raster:
 
     @property
     def _masked(self):
-        return self.encoding.masked or is_float(self._rs.dtype)
+        return self.null_value is not None
 
     @property
     def _values(self):
@@ -332,12 +312,19 @@ class Raster:
         return self._rs.values
 
     @property
-    def _values_encoded(self):
-        """
-        The data as it would be written to disk. Note: this triggers
-        computation.
-        """
-        return self._to_presentable_xarray().values
+    def _null_value(self):
+        return self._rs.attrs.get("_FillValue", None)
+
+    @_null_value.setter
+    def _null_value(self, value):
+        if value is not None and not is_scalar(value):
+            raise TypeError("Null value must be a scalar or None")
+        self._rs.attrs["_FillValue"] = value
+
+    @property
+    def null_value(self):
+        """The raster's null value used to fill missing or invalid entries."""
+        return self._null_value
 
     @property
     def device(self):
@@ -360,17 +347,6 @@ class Raster:
 
         """
         return self._rs.dtype
-
-    @property
-    def encoding(self):
-        """Stores encoding information used when saving the raster to disk.
-
-        The encoding information includes the masked status, the final dtype to
-        use when saving and the null or fill value for the raster. The masked
-        status indicates whether or not there are missing values in the raster.
-
-        """
-        return self._encoding
 
     @property
     def shape(self):
@@ -404,22 +380,6 @@ class Raster:
             rs = _raster_like(self, chunk(self._rs))
         return rs._rs.data
 
-    def as_encoded(self):
-        """Returns a raster encoded according to the encoding information.
-
-        The underlying data of the result looks like what would be written to
-        disk with :meth:`~Raster.save`. This can be
-        convenient when using :meth:`~Raster.to_xarray` and
-        :meth:`~Raster.to_dask`.
-
-        """
-        xrs = self._to_presentable_xarray()
-        encoding = self.encoding.copy()
-        # Turn masked flag off to prevent errors if used with masked aware
-        # funtions later
-        encoding.masked = False
-        return _raster_like(self, xrs, encoding=encoding)
-
     def close(self):
         """Close the underlying source"""
         self._rs.close()
@@ -436,8 +396,8 @@ class Raster:
         xrs = rs._rs
         write_raster(
             xrs,
-            rs.encoding.copy(),
             path,
+            no_data_value or rs.null_value,
             blockwidth=blockwidth,
             blockheight=blockheight,
         )
@@ -500,29 +460,72 @@ class Raster:
         return rs
 
     def astype(self, dtype):
-        """Return a copy of the Raster cast to the specified type."""
+        """Return a copy of the Raster cast to the specified type.
+
+        Parameters
+        ----------
+        dtype : str, type, numpy.dtype
+            The new type to cast the raster to. The null value will also be
+            cast to this type.
+
+        Returns
+        -------
+        Raster
+            The new `dtype` raster.
+
+        """
         if isinstance(dtype, str):
             dtype = dtype.lower()
         if dtype not in DTYPE_INPUT_TO_DTYPE:
             raise ValueError(f"Unsupported type: '{dtype}'")
         dtype = DTYPE_INPUT_TO_DTYPE[dtype]
 
-        if dtype == self.dtype and dtype == self.encoding.dtype:
+        if dtype == self.dtype:
             return self.copy()
 
         xrs = self._rs
-        encoding = self.encoding.copy()
+        prev_dtype = xrs.dtype
+        nv = self.null_value
+        mask = self._mask
         if self._masked:
-            encoding.dtype = dtype
-            xrs = promote_data_dtype(xrs)
-        else:
-            xrs = xrs.astype(dtype)
-            encoding.dtype = dtype
-        return _raster_like(self, xrs, encoding=encoding)
+            if is_float(prev_dtype) and is_int(dtype):
+                if np.isnan(nv):
+                    nv = get_default_null_value(dtype)
+                    warnings.warn(
+                        f"Null value is NaN but new dtype is {dtype},"
+                        f" using default null value for that dtype: {nv}",
+                        RuntimeWarning,
+                    )
+                    # Reset mask just to be safe
+                    mask = np.isnan(xrs)
+                    xrs = xrs.fillna(nv)
+        xrs = xrs.astype(dtype)
+        return _raster_like(self, xrs, mask=mask, null_value=nv)
 
-    def round(self):
-        """Round the data to the nearest integer value. Return a new Raster."""
-        return _raster_like(self, self._rs.round())
+    def round(self, round_null_value=True):
+        """Round the data to the nearest integer value. Return a new Raster.
+
+        Parameters
+        ----------
+        round_null_value : bool, optional
+            If ``True``, the resulting raster will have its null value rounded as
+            well. Default is ``True``,
+
+        Returns
+        -------
+        Raster
+            The resulting rounded raster.
+
+        """
+        xrs = self._rs
+        if self._masked:
+            xrs = xr.where(~self._mask, xrs.round(), self.null_value)
+        else:
+            xrs = xrs.round()
+        nv = self.null_value
+        if round_null_value and self._masked:
+            nv = np.round(nv)
+        return _raster_like(self, xrs, null_value=nv)
 
     def get_bands(self, bands):
         """Retrieve the specified bands as a new Raster. Indexing starts at 1.
@@ -557,63 +560,17 @@ class Raster:
         if len(bands) == 1 and n_bands == 1:
             return self
         rs = self._rs[bands]
+        mask = self._mask[bands]
         # TODO: look into making attrs consistant with bands
-        return _raster_like(self, rs)
-
-    def band_concat(self, rasters):
-        """Join this and a sequence of rasters along the band dimension.
-
-        Parameters
-        ----------
-        rasters : sequence of Rasters and/or paths
-            The rasters to concatenate to with this raster. These can be a mix
-            of Rasters and paths. All rasters must have the same shape in the
-            last two dimensions.
-
-        Returns
-        -------
-        Raster
-            The resulting concatenated Raster.
-
-        """
-        rasters = [self._input_to_raster(other) for other in rasters]
-        if not rasters:
-            raise ValueError("No rasters provided")
-        shapes = [r.shape for r in rasters]
-        if any(len(s) > 3 for s in shapes):
-            raise ValueError("Unexpected dimension on input raster")
-        if any(len(s) < 2 for s in shapes):
-            raise ValueError("Too few dimensions")
-        # NOTE: xarray.concat allows for arrays to be missing the first
-        # dimension, e.g. concat([(2, 3, 3), (3, 3)]) works. This
-        # differs from numpy.
-        shapes = set([s[-2:] for s in shapes])
-        if len(shapes) != 1:
-            raise ValueError("Final dimensions must match for input rasters")
-        shapes.add(self.shape[-2:])
-        if len(shapes) != 1:
-            raise ValueError(
-                "Final dimensions of input rasters must match this raster"
-            )
-        # TODO: make sure band dim is "band"
-        rasters = [self._rs] + [r._rs for r in rasters]
-        rs = xr.concat(rasters, "band")
-        # Make sure that band is now an increaseing list starting at 1 and
-        # incrementing by 1. For xrs1 (1, N, M) and xrs2 (1, N, M),
-        # concat([xrs1, xrs2]) sets the band dim to [1, 1], which causes errors
-        # in other operations, so this fixes that. It also keeps the band dim
-        # values in line with what open_rasterio() returns for multiband
-        # rasters.
-        rs["band"] = list(range(1, rs.shape[0] + 1))
-        return _raster_like(self, rs)
+        return _raster_like(self, rs, mask=mask)
 
     def set_null_value(self, value):
         """Sets or replaces the null value for the raster.
 
         If there was previously no null value for the raster, one is set. If
         there was already a null value, then it is replaced. If the raster has
-        an integer encoding dtype and `value` is a float, the encoding dtype
-        will be promoted to a float dtype.
+        an integer dtype and `value` is a float, the dtype will be promoted to
+        a float dtype.
 
         Parameters
         ----------
@@ -629,27 +586,21 @@ class Raster:
         if not is_scalar(value):
             raise TypeError(f"Value must be a scalar: {value}")
 
-        encoding = self.encoding.copy()
-        rs = self._rs
-        if encoding.masked:
-            encoding.null_value = value
+        xrs = self._rs.copy()
+        # Cast up to float if needed
+        if should_promote_to_fit(self.dtype, value):
+            xrs = xrs.astype(promote_dtype_to_float(self.dtype))
+
+        # Update mask
+        mask = self._mask
+        temp_mask = (
+            np.isnan(xrs.data) if np.isnan(value) else xrs.data == value
+        )
+        if self._masked:
+            mask = mask | temp_mask
         else:
-            encoding.masked = True
-            encoding.null_value = value
-            enc_dtype = encoding.dtype
-            # Promote the encoding dtype if needed to make the new null value
-            # valid
-            if should_promote_to_fit(enc_dtype, value):
-                enc_dtype = maybe_promote(enc_dtype)
-            encoding.dtype = enc_dtype
-            # Promote actual dtype if needed to allow nans
-            dtype = maybe_promote(rs.dtype)
-            if rs.dtype != dtype:
-                rs = rs.astype(dtype)
-        if not np.isnan(value):
-            rs = rs.where(rs != value, np.nan)
-        rs.attrs["_FillValue"] = value
-        return _raster_like(self, rs, encoding=encoding, attrs=rs.attrs)
+            mask = temp_mask
+        return _raster_like(self, xrs, mask=mask, null_value=value)
 
     def to_null_mask(self):
         """
@@ -662,15 +613,12 @@ class Raster:
             null values and False everywhere else.
 
         """
-        if self._masked:
-            xrs = np.isnan(self._rs)
-        else:
-            xrs = xr.full_like(self._rs, False, dtype=BOOL)
-        encoding = Encoding(dtype=BOOL)
-        return _raster_like(self, xrs, encoding=encoding)
+        xrs = self._rs.copy()
+        xrs.data = self._mask.copy()
+        return _raster_like(self, xrs, null_value=True)
 
     def replace_null(self, value):
-        """Replaces null and nan values with `value`.
+        """Replaces null values with `value`.
 
         Parameters
         ----------
@@ -686,13 +634,14 @@ class Raster:
         """
         if not is_scalar(value):
             raise TypeError("value must be a scalar")
+
+        xrs = self._rs
+        if should_promote_to_fit(xrs.dtype, value):
+            xrs = xrs.astype(promote_dtype_to_float(xrs.dtype))
         if self._masked:
-            rs = self._rs.fillna(value)
-        else:
-            if is_float(value) and is_int(self.dtype):
-                dtype = maybe_promote(np.result_type(value))
-                rs = self._rs.astype(dtype)
-        return _raster_like(self, rs)
+            xrs = xrs.where(~self._mask, value)
+        mask = da.zeros(xrs.shape, dtype=bool)
+        return _raster_like(self, xrs, mask=mask)
 
     def where(self, condition, other):
         """Filter elements from this raster according to `condition`.
@@ -700,10 +649,11 @@ class Raster:
         Parameters
         ----------
         condition : str or Raster
-            A boolean raster that indicates where elements in this raster
-            should be preserved and where `other` should be used. ``True``
-            indicates this raster and ``False`` indicates `other`. The dtype or
-            encoding dtype must be *bool*. *str* is treated as a path to a
+            A boolean or int raster that indicates where elements in this
+            raster should be preserved and where `other` should be used. If
+            the condition is an int raster, it is coerced to bool using
+            `condition > 0`.  ``True`` cells pull values from this raster and
+            ``False`` cells pull from `other`. *str* is treated as a path to a
             raster.
         other : scalar, str or Raster
             A raster or value to use in locations where `condition` is
@@ -727,27 +677,32 @@ class Raster:
             raise TypeError(f"Invalid type for `other`: {type(other)}")
         if is_str(condition):
             condition = Raster(condition)
-        if not is_bool(condition.dtype) and not is_bool(
-            condition.encoding.dtype
-        ):
-            raise TypeError("Condition argument must be a boolean raster")
+        if not is_bool(condition.dtype) and not is_int(condition.dtype):
+            raise TypeError(
+                "Condition argument must be a boolean or integer raster"
+            )
         if is_str(other):
-            other = Raster(other)
+            try:
+                other = Raster(other)
+            except ValueError:
+                raise ValueError("Could not resolve other to a raster")
 
         xrs = self._rs
         other_arg = other._rs if is_raster_class(other) else other
-        xcondition = condition._rs
-        if not is_bool(condition.dtype):
-            # if condition.dtype is not bool then encoding.dtype must be so
-            # assume that condition is raster of 0 and 1 values with potential
-            # nan values for nulls. condition > 0 will grab all 1/True values
-            # and exclude nulls.
+        xcondition = condition._rs.copy()
+        mask = condition._mask
+        if is_int(condition.dtype):
+            # if condition.dtype is not bool then must be an int raster so
+            # assume that condition is raster of 0 and 1 values.
+            # condition > 0 will grab all 1/True values.
             xcondition = xcondition > 0
-        xrs = xrs.where(xcondition, other_arg)
-        encoding = _reconcile_encodings_after_op(
-            self, other if is_raster_class(other) else None
-        )
-        return _raster_like(self, xrs, encoding=encoding)
+        # Drop null cells from both the condition raster and this
+        mask = mask | self._mask
+        prev_dtype = self.dtype
+        xrs = xr.where(xcondition, xrs, other_arg)
+        # Fill null areas
+        xrs = xr.where(mask, self.null_value, xrs)
+        return _raster_like(self, xrs, mask=mask)
 
     def remap_range(self, min, max, new_value, *args):
         """Remaps values in the range [`min`, `max`) to `new_value`.
@@ -764,8 +719,8 @@ class Raster:
             Additional remap groups allowing for multiple ranges to be
             remapped. This allows calls like
             `remap_range(0, 12, 0, 12, 20, 1, 20, 30, 2)`. An error is raised
-            if the additional remap args are not a multiple of 3. The remap
-            groups are applied sequentially.
+            if the number of additional remap args is not a multiple of 3. The
+            remap groups are applied sequentially.
 
         Returns
         -------
@@ -794,8 +749,6 @@ class Raster:
             crs &= rs._rs < max
             # Invert for where operation
             condition._rs = ~crs
-            if is_int(rs.dtype) and is_float(new_value):
-                rs = rs.astype(maybe_promote(rs.dtype))
             rs = rs.where(condition, new_value)
         return rs
 
@@ -835,13 +788,14 @@ class Raster:
         left, right = self._rs, operand
         if swap:
             left, right = right, left
+        prev_dtype = self.dtype
         xrs = _BINARY_ARITHMETIC_OPS[op](left, right)
 
-        should_promote = op == "/" or (op == "**" and is_float(operand))
-        new_encoding = _reconcile_encodings_after_op(
-            self, parsed_operand, should_promote=should_promote
-        )
-        return _raster_like(self, xrs, encoding=new_encoding)
+        mask = self._mask
+        if is_raster_class(parsed_operand):
+            mask = mask | parsed_operand._mask
+
+        return _raster_like(self, xrs, mask=mask)
 
     def _binary_logical(self, raster_or_scalar, op):
         if op not in _BINARY_LOGICAL_OPS:
@@ -853,20 +807,10 @@ class Raster:
             operand = operand._rs
         xrs = _BINARY_LOGICAL_OPS[op](self._rs, operand)
 
-        new_encoding = _reconcile_encodings_after_op(self, parsed_operand)
-        xrs = xrs.astype(F16)
-        if new_encoding.masked:
-            # Mask out null values
-            mask = np.isnan(self._rs)
-            if not is_scalar(operand):
-                mask |= np.isnan(operand)
-            xrs = xrs.where(~mask, np.nan)
-            # Determine the smallest type that can hold the null value since
-            # the other values are just 1s and 0s
-            new_encoding.dtype = np.min_scalar_type(new_encoding.null_value)
-        else:
-            new_encoding.dtype = U8
-        return _raster_like(self, xrs, encoding=new_encoding)
+        mask = self._mask
+        if is_raster_class(parsed_operand):
+            mask = mask | parsed_operand._mask
+        return _raster_like(self, xrs, mask=mask)
 
     def add(self, raster_or_scalar):
         """Add this Raster with another Raster or scalar.
@@ -1009,8 +953,7 @@ class Raster:
 
         """
         xrs = np.sqrt(self._rs)
-        encoding = _reconcile_encodings_after_op(self, should_promote=True)
-        return _raster_like(self, xrs, encoding=encoding)
+        return _raster_like(self, xrs)
 
     def __pos__(self):
         return self
@@ -1033,8 +976,7 @@ class Raster:
 
         """
         xrs = np.log(self._rs)
-        encoding = _reconcile_encodings_after_op(self, should_promote=True)
-        return _raster_like(self, xrs, encoding=encoding)
+        return _raster_like(self, xrs)
 
     def log10(self):
         """Take the base-10 logarithm of this Raster.
@@ -1043,8 +985,7 @@ class Raster:
 
         """
         xrs = np.log10(self._rs)
-        encoding = _reconcile_encodings_after_op(self, should_promote=True)
-        return _raster_like(self, xrs, encoding=encoding)
+        return _raster_like(self, xrs)
 
     def eq(self, other):
         """
@@ -1174,19 +1115,10 @@ class Raster:
         )
         xrs = _BINARY_BITWISE_OPS[and_or](left, right).astype(F16)
 
-        new_encoding = _reconcile_encodings_after_op(self, parsed_operand)
-        if new_encoding.masked:
-            # Mask out null values
-            mask = np.isnan(self._rs)
-            if is_xarray(operand):
-                mask |= np.isnan(operand)
-            xrs = xrs.where(~mask, np.nan)
-            # Determine the smallest type that can hold the null value since
-            # the other values are just 1s and 0s
-            new_encoding.dtype = np.min_scalar_type(new_encoding.null_value)
-        else:
-            new_encoding.dtype = U8
-        return _raster_like(self, xrs, encoding=new_encoding)
+        mask = self._mask
+        if is_raster_class(parsed_operand):
+            mask = mask | parsed_operand._mask
+        return _raster_like(self, xrs, mask=mask)
 
     def and_(self, other, to_bool_op="gt0"):
         """Returns this Raster and'd with another. Both are coerced to bools
@@ -1256,14 +1188,16 @@ class Raster:
 
     def __invert__(self):
         if is_bool(self.dtype) or is_int(self.dtype):
-            return _raster_like(self, ~self._rs)
-        if is_bool(self.encoding.dtype) or is_int(self.encoding.dtype):
-            return _raster_like(self, -self._rs - 1)
-
-        if is_float(self.encoding.dtype):
+            xrs = self._rs.copy()
+            if self._masked:
+                xrs.data = da.where(self._mask, self.null_value, ~xrs.data)
+            else:
+                xrs = ~xrs
+            return _raster_like(self, xrs)
+        if is_float(self.dtype):
             raise TypeError(
                 "Bitwise complement operation not supported for floating point"
-                "rasters"
+                " rasters"
             )
         raise TypeError(
             "Bitwise complement operation not supported for this raster dtype"

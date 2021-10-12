@@ -20,7 +20,7 @@ Attributes
 
    Raster.device
    Raster.dtype
-   Raster.encoding
+   Raster.null_value
    Raster.shape
 
 Operations
@@ -80,7 +80,6 @@ Reshaping and Reorganizing
 .. autosummary::
    :toctree: generated/
 
-   Raster.band_concat
    Raster.get_bands
 
 Null Data and Remapping
@@ -101,7 +100,6 @@ Contents / Conversion
 .. autosummary::
    :toctree: generated/
 
-   Raster.as_encoded
    Raster.astype
    Raster.copy
    Raster.to_xarray
