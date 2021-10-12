@@ -51,7 +51,11 @@ ctypedef index2d_t INDEX2D_t
 @cython.wraparound(True)
 cdef _get_strides(shape):
     # Get strides for given nd array shape. Assumes c style strides
-    return np.array(np.multiply.accumulate([1] + list(shape[::-1][:-1]))[::-1])
+    # NOTE: output must have a standardized type because windows has different
+    # default int types from linux.
+    return np.array(
+        np.multiply.accumulate([1] + list(shape[::-1][:-1]))[::-1]
+    ).astype(np.int64)
 
 
 @cython.boundscheck(True)
@@ -80,7 +84,7 @@ cdef _normalize_indices(indices, shape):
     return normd_indices
 
 
-# Add 1 to the index move index to get the ESRI value
+# Add 1 to the move index to get the ESRI value
 cdef INT8_t[:,::1] _MOVES = np.array(
     [
         # right: 0

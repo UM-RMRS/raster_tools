@@ -3,16 +3,10 @@ import numpy as np
 import xarray as xr
 
 from raster_tools import Raster
-from raster_tools.io import Encoding
 from raster_tools.raster import is_raster_class, _raster_like
-from raster_tools._utils import is_numpy, is_str
-from raster_tools._types import F16, F64, I8, I64
-from ._core import (
-    cost_distance_analysis_numpy,
-    cost_distance_numpy,
-    cost_traceback_numpy,
-    cost_allocation_numpy,
-)
+from raster_tools._utils import is_str
+from raster_tools._types import F16, I8, I64
+from ._core import cost_distance_analysis_numpy
 
 
 __all__ = [
