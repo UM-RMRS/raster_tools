@@ -36,6 +36,14 @@ raster\_tools.raster module
    :undoc-members:
    :show-inheritance:
 
+raster\_tools.raster\_funcs module
+----------------------------------
+
+.. automodule:: raster_tools.raster_funcs
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 Module contents
 ---------------
 

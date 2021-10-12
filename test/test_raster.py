@@ -7,7 +7,7 @@ import xarray as xr
 from scipy import ndimage
 
 import raster_tools.focal as focal
-from raster_tools import Raster
+from raster_tools import Raster, band_concat
 from raster_tools.raster import (
     _BINARY_ARITHMETIC_OPS,
     _BINARY_LOGICAL_OPS,
@@ -342,13 +342,17 @@ class TestAstype(unittest.TestCase):
     def test_astype(self):
         rs = Raster("test/data/elevation_small.tif")
         for type_code, dtype in DTYPE_INPUT_TO_DTYPE.items():
-            self.assertEqual(rs.astype(type_code).encoding.dtype, dtype)
-            self.assertEqual(rs.astype(type_code).eval().encoding.dtype, dtype)
+            self.assertEqual(rs.astype(type_code).dtype, dtype)
+            self.assertEqual(rs.astype(type_code).eval().dtype, dtype)
+            self.assertEqual(rs.astype(dtype).dtype, dtype)
+            self.assertEqual(rs.astype(dtype).eval().dtype, dtype)
 
     def test_wrong_type_codes(self):
         rs = Raster("test/data/elevation_small.tif")
-        self.assertRaises(ValueError, lambda: rs.astype("not float32"))
-        self.assertRaises(ValueError, lambda: rs.astype("other"))
+        with self.assertRaises(ValueError):
+            rs.astype("not float32")
+        with self.assertRaises(ValueError):
+            rs.astype("other")
 
     def test_dtype_property(self):
         rs = Raster("test/data/elevation_small.tif")
@@ -359,31 +363,7 @@ class TestAstype(unittest.TestCase):
         for type_code, dtype in DTYPE_INPUT_TO_DTYPE.items():
             if isinstance(type_code, str):
                 type_code = type_code.upper()
-                self.assertEqual(
-                    rs.astype(type_code).eval().encoding.dtype, dtype
-                )
-
-
-class TestAsEncoded(unittest.TestCase):
-    def test_as_encoded(self):
-        rsnp = np.ones((4, 4), dtype=I64)
-        rsnp[0, 0] = -1
-        rs = Raster(rsnp).set_null_value(-1)
-        rsnpf = rsnp.astype(F64)
-        rsnpf[0, 0] = np.nan
-
-        self.assertTrue(rs._rs.dtype == F64)
-        self.assertTrue(
-            np.allclose(rs._rs.values, rsnpf[None], equal_nan=True)
-        )
-        self.assertTrue(rs.encoding.masked)
-        self.assertTrue(rs.encoding.dtype == I64)
-        self.assertTrue(rs.encoding.null_value == -1)
-
-        self.assertTrue((rs.as_encoded()._rs.values == rsnp[None]).all())
-        self.assertFalse(rs.as_encoded().encoding.masked)
-        self.assertTrue(rs.as_encoded().encoding.dtype == rs.encoding.dtype)
-        self.assertTrue(rs.as_encoded().encoding.null_value == -1)
+                self.assertEqual(rs.astype(type_code).eval().dtype, dtype)
 
 
 class TestRasterAttrsPropagation(unittest.TestCase):
@@ -449,7 +429,7 @@ class TestRasterAttrsPropagation(unittest.TestCase):
         rs = Raster("test/data/elevation_small.tif")
         attrs = rs._attrs
         rs2 = Raster("test/data/elevation2_small.tif")
-        self.assertEqual(rs.band_concat([rs2])._attrs, attrs)
+        self.assertEqual(band_concat([rs, rs2])._attrs, attrs)
 
 
 class TestCopy(unittest.TestCase):
@@ -466,11 +446,10 @@ class TestCopy(unittest.TestCase):
 class TestSetNullValue(unittest.TestCase):
     def test_set_null_value(self):
         rs = Raster("test/data/null_values.tiff")
-        ndv = rs.encoding.null_value
+        ndv = rs.null_value
         rs2 = rs.set_null_value(0)
-        self.assertEqual(rs.encoding.null_value, ndv)
+        self.assertEqual(rs.null_value, ndv)
         self.assertEqual(rs._attrs["_FillValue"], ndv)
-        self.assertEqual(rs2.encoding.null_value, 0)
         self.assertEqual(rs2._attrs["_FillValue"], 0)
 
 
@@ -478,20 +457,21 @@ class TestReplaceNull(unittest.TestCase):
     def test_replace_null(self):
         fill_value = 0
         rs = Raster("test/data/null_values.tiff")
+        nv = rs.null_value
         rsnp = rxr.open_rasterio("test/data/null_values.tiff").values
         rsnp_replaced = rsnp.copy()
-        rsnp_replaced[np.isnan(rsnp)] = fill_value
-        rsnp_replaced[rsnp == rs.encoding.null_value] = fill_value
+        rsnp_replaced[rsnp == rs.null_value] = fill_value
         rs = rs.replace_null(fill_value)
-        self.assertTrue(rs_eq_array(rs, rsnp_replaced))
+        self.assertTrue(np.allclose(rs._values, rsnp_replaced, equal_nan=True))
+        self.assertEqual(rs.null_value, nv)
 
 
 class TestToNullMask(unittest.TestCase):
     def test_to_null_mask(self):
         rs = Raster("test/data/null_values.tiff")
-        nv = rs.encoding.null_value
-        rsnp = rs._rs.values
-        truth = np.isnan(rsnp) | (rsnp == nv)
+        nv = rs.null_value
+        rsnp = rs._values
+        truth = rsnp == nv
         self.assertTrue(rs_eq_array(rs.to_null_mask(), truth))
         # Test case where no null values
         rs = Raster("test/data/elevation_small.tif")
@@ -684,9 +664,6 @@ class TestBitwiseComplement(unittest.TestCase):
 
         fp_ar = ar.astype(float)
         rs = Raster(ar).set_null_value(-1)
-        self.assertTrue(rs.dtype.kind == "f")
-        self.assertTrue(rs.encoding.dtype.kind == "i")
-        self.assertTrue(rs_eq_array(~rs, -fp_ar - 1))
 
     def test_invert_errors(self):
         ar = np.array([[0, 1], [1, 0]], dtype=float)
@@ -714,59 +691,6 @@ class TestGetBands(unittest.TestCase):
                 rs.get_bands(bands)
         with self.assertRaises(ValueError):
             rs.get_bands([])
-
-
-class TestBandConcat(unittest.TestCase):
-    def test_band_concat(self):
-        rs1 = Raster("test/data/elevation_small.tif")
-        rs2 = Raster("test/data/elevation2_small.tif")
-        rsnp1 = rs1._rs.values
-        rsnp2 = rs2._rs.values
-        truth = np.concatenate((rsnp1, rsnp2))
-        test = rs1.band_concat([rs2])
-        self.assertEqual(test.shape, truth.shape)
-        self.assertTrue(rs_eq_array(test, truth))
-        truth = np.concatenate((rsnp1, rsnp1, rsnp2, truth))
-        test = rs1.band_concat([rs1, rs2, test])
-        self.assertEqual(test.shape, truth.shape)
-        self.assertTrue(rs_eq_array(test, truth))
-
-    def test_band_concat_band_dim_values(self):
-        rs1 = Raster("test/data/elevation_small.tif")
-        rs2 = Raster("test/data/elevation2_small.tif")
-        test = rs1.band_concat([rs2])
-        # Make sure that band is now an increaseing list starting at 1 and
-        # incrementing by 1
-        self.assertTrue(all(test._rs.band == [1, 2]))
-        test = rs1.band_concat([test, rs2])
-        self.assertTrue(all(test._rs.band == [1, 2, 3, 4]))
-
-    def test_band_concat_path_inputs(self):
-        rs1 = Raster("test/data/elevation_small.tif")
-        rs2 = Raster("test/data/elevation2_small.tif")
-        rsnp1 = rs1._rs.values
-        rsnp2 = rs2._rs.values
-        truth = np.concatenate((rsnp1, rsnp2, rsnp1, rsnp2))
-        test = rs1.band_concat(
-            [
-                rs2,
-                "test/data/elevation_small.tif",
-                "test/data/elevation2_small.tif",
-            ]
-        )
-        self.assertEqual(test.shape, truth.shape)
-        self.assertTrue(rs_eq_array(test, truth))
-
-    def test_band_concat_errors(self):
-        rs1 = Raster("test/data/elevation_small.tif")
-        rs2 = Raster("test/data/elevation2_small.tif")
-        rs3 = Raster("test/data/elevation.tif")
-        with self.assertRaises(ValueError):
-            rs1.band_concat([])
-        with self.assertRaises(ValueError):
-            rs1.band_concat([rs2, rs3])
-        with self.assertRaises(ValueError):
-            rs3.band_concat([rs2])
 
 
 if __name__ == "__main__":

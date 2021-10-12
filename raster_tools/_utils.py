@@ -51,3 +51,14 @@ def is_numpy_masked(rs):
 
 def is_dask(rs):
     return isinstance(rs, dask.array.Array)
+
+
+def create_null_mask(xrs, null_value):
+    if null_value is not None:
+        if not np.isnan(null_value):
+            mask = xrs.data == null_value
+        else:
+            mask = np.isnan(xrs.data)
+    else:
+        mask = da.zeros_like(xrs, dtype=bool)
+    return mask

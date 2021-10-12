@@ -8,7 +8,7 @@ from dask.array.core import normalize_chunks as dask_chunks
 from pathlib import Path
 
 from ._types import DEFAULT_NULL, F64, I64, maybe_promote
-from ._utils import is_float, is_scalar, validate_file
+from ._utils import create_null_mask, is_float, is_scalar, validate_file
 
 
 class RasterIOError(BaseException):
@@ -92,17 +92,6 @@ class Encoding:
         )
 
 
-def create_encoding_from_xarray(xrs):
-    dtype = xrs.dtype
-    masked = False
-    null = xrs.attrs.get("_FillValue", None)
-    if is_float(dtype) or (null is not None and not np.isnan(null)):
-        masked = True
-    if null is None:
-        null = DEFAULT_NULL
-    return Encoding(masked, dtype, null)
-
-
 def open_raster_from_path(path):
     if type(path) in IO_UNDERSTOOD_TYPES:
         path = str(path)
@@ -119,30 +108,21 @@ def open_raster_from_path(path):
     # XXX: comments on a few xarray issues mention better performance when
     # using the chunks keyword in open_*(). Consider combining opening and
     # chunking.
-    rs = None
+    xrs = None
     if ext in TIFF_EXTS:
-        rs = rxr.open_rasterio(path)
+        xrs = rxr.open_rasterio(path)
     elif ext in NC_EXTS:
         # TODO: this returns a dataset which is invalid. Fix nc handling
-        rs = xr.open_dataset(path, decode_coords="all")
+        xrs = xr.open_dataset(path, decode_coords="all")
     else:
         raise RasterIOError("Unknown file type")
 
-    encoding = create_encoding_from_xarray(rs)
-    if encoding.masked:
-        new_dtype = maybe_promote(rs.dtype)
-    # Chunk to start using lazy operations
-    rs = chunk(rs, path)
-    # Promote to a float type and replace null values with nan
-    if encoding.masked:
-        if rs.dtype != new_dtype:
-            # Rechunk with new data size
-            rs = chunk(rs.astype(new_dtype))
-        null = encoding.null_value
-        if not np.isnan(null):
-            rs = rs.where(rs != null, np.nan)
-    rs.attrs["res"] = rs.rio.resolution()
-    return rs, encoding
+    nv = xrs.attrs.get("_FillValue", None)
+    xrs = chunk(xrs, path)
+    mask = None
+    mask = create_null_mask(xrs, nv)
+    xrs.attrs["res"] = xrs.rio.resolution()
+    return xrs, mask, nv
 
 
 def _write_tif_with_rasterio(
@@ -198,18 +178,18 @@ def _write_tif_with_rasterio(
             dst.write(values, band + 1)
 
 
-def write_raster(
-    xrs, encoding, path, no_data_value=None, blockwidth=None, blockheight=None
-):
+def write_raster(xrs, path, no_data_value, blockwidth=None, blockheight=None):
     ext = _get_extension(path)
-    if encoding.masked and not np.isnan(encoding.null_value):
-        xrs = xrs.fillna(encoding.null_value)
-    if encoding.dtype == I64 and ext in TIFF_EXTS:
+    if (
+        is_float(xrs.dtype)
+        and no_data_value is not None
+        and not np.isnan(no_data_value)
+    ):
+        xrs = xrs.fillna(no_data_value)
+    if xrs.dtype == I64 and ext in TIFF_EXTS:
         # GDAL, and thus rioxarray and rasterio, doesn't support I64 so cast up
         # to float. This avoids to_raster throwing a TypeError.
-        encoding.dtype = F64
-    if xrs.dtype != encoding.dtype:
-        xrs = xrs.astype(encoding.dtype)
+        xrs = xrs.astype(F64)
 
     if ext in TIFF_EXTS:
         xrs.rio.to_raster(path, lock=True, compute=True)

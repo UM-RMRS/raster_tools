@@ -72,13 +72,22 @@ DTYPE_INPUT_TO_DTYPE = {
 
 DEFAULT_NULL = np.nan
 
+INT_KINDS = frozenset(("u", "i"))
+
+
+def promote_dtype_to_float(dtype):
+    if dtype.kind == "f":
+        return dtype
+    if np.can_cast(dtype, F16):
+        return F16
+    elif np.can_cast(dtype, F32):
+        return F32
+    return F64
+
 
 def maybe_promote(dtype):
     """Returns a dtype that can support missing values based on the input"""
     return xr_maybe_promote(dtype)[0]
-
-
-INT_KINDS = frozenset(("u", "i"))
 
 
 def should_promote_to_fit(dtype, value):

@@ -400,6 +400,20 @@ class TestFocalIntegration(unittest.TestCase):
         res = focal.focal(rs, "mean", 1).eval()._rs.values
         self.assertTrue(np.allclose(rsnp, res, equal_nan=True))
 
+    def test_focal_output_type(self):
+        rs = Raster("test/data/multiband_small.tif") * 100
+        rs = rs.set_null_value(-1)
+        rs = rs.astype(int)
+
+        kernel = np.array([[1, 1, 1], [1, 1, 0], [1, 0, 0]])
+        self.assertTrue(rs._masked)
+        self.assertTrue(rs.dtype.kind == "i")
+        res = focal.focal(rs, "mode", 3).eval()
+        self.assertTrue(res.dtype == rs.dtype)
+
+        res = focal.focal(rs, "mean", 3).eval()
+        self.assertTrue(res.dtype.kind == "f")
+
 
 class TestCorrelateConvolveIntegration(unittest.TestCase):
     def test_correlate_integration(self):
@@ -424,8 +438,8 @@ class TestCorrelateConvolveIntegration(unittest.TestCase):
                 footprint=kern,
                 mode="constant",
             )
-        rs.encoding.masked = True
-        rs._rs[:, :3, :3] = np.nan
+        rs._rs.data[:, :3, :3] = -1
+        rs = rs.set_null_value(-1)
         res = focal.correlate(rs, kern).eval()._rs.values
         self.assertTrue(np.allclose(truth, res, equal_nan=True))
 
@@ -453,8 +467,8 @@ class TestCorrelateConvolveIntegration(unittest.TestCase):
                 footprint=kernel[::-1, ::-1],
                 mode="constant",
             )
-        rs.encoding.masked = True
-        rs._rs[:, :3, :3] = np.nan
+        rs._rs.data[:, :3, :3] = -1
+        rs = rs.set_null_value(-1)
         res = focal.convolve(rs, kernel).eval()._rs.values
         self.assertTrue(np.allclose(truth, res, equal_nan=True))
 
@@ -463,10 +477,21 @@ class TestCorrelateConvolveIntegration(unittest.TestCase):
         rsnp = rs._rs.values
         with self.assertRaises(TypeError):
             focal.correlate(rsnp, 3)
-        res = (
-            focal.correlate(rs, np.ones((1, 1))).eval()._rs.values
-        )
+        res = focal.correlate(rs, np.ones((1, 1))).eval()._rs.values
         self.assertTrue(np.allclose(rsnp, res, equal_nan=True))
+
+    def test_correlate_output_type(self):
+        rs = Raster("test/data/multiband_small.tif") * 100
+        rs = rs.set_null_value(-1)
+        rs = rs.astype(int)
+
+        self.assertTrue(rs._masked)
+        self.assertTrue(rs.dtype.kind == "i")
+        res = focal.correlate(rs, np.ones((3, 3), dtype=int)).eval()
+        self.assertTrue(res.dtype == rs.dtype)
+
+        res = focal.correlate(rs, np.ones((3, 3), dtype=float)).eval()
+        self.assertTrue(res.dtype.kind == "f")
 
 
 def asm(x):

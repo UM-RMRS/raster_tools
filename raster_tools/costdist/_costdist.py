@@ -4,7 +4,7 @@ import xarray as xr
 
 from raster_tools import Raster
 from raster_tools.raster import is_raster_class, _raster_like
-from raster_tools._utils import is_str
+from raster_tools._utils import is_float, is_str
 from raster_tools._types import F16, I8, I64
 from ._core import cost_distance_analysis_numpy
 
@@ -59,7 +59,8 @@ def cost_distance_analysis(costs, sources):
     Parameters
     ----------
     costs : Raster or raster path
-        A raster representing a cost surface.
+        A raster representing a cost surface. Values less than 0 are treated as
+        null values.
     sources : Raster or raster path, or sequence
         A raster or sequence of indices. If a raster, pixels that are not null
         are used as source locations. The raster must have a null value set.
@@ -93,12 +94,12 @@ def cost_distance_analysis(costs, sources):
             sources = Raster(sources)
         if sources.shape != costs.shape:
             raise ValueError("Cost and sources raster shapes must match")
-        if sources.encoding.dtype.kind not in ("u", "i"):
+        if sources.dtype.kind not in ("u", "i"):
             raise TypeError("Sources raster must be an integer type")
-        if not sources.encoding.masked:
+        if not sources._masked:
             raise ValueError("Sources raster must have a null value set")
-        sources_null_value = sources.encoding.null_value
-        srcs = sources.as_encoded().to_dask()[0].astype(I64)
+        sources_null_value = sources._null_value
+        srcs = sources.to_dask()[0].astype(I64)
     else:
         try:
             sources = np.asarray(sources).astype(int)
@@ -115,9 +116,22 @@ def cost_distance_analysis(costs, sources):
         except TypeError:
             raise ValueError("Could not understand sources argument")
 
+    data = costs._rs.data
+    # Make sure that null values are skipped
+    nv = costs._null_value
+    if costs._masked:
+        if is_float(costs.dtype):
+            if not np.isnan(nv):
+                data = da.where(costs._mask, -1, data)
+        else:
+            if not nv < 0:
+                data = da.where(costs._mask, -1, data)
+    # Trim off band dim
+    data = data[0]
+
     scaling = np.abs(costs.resolution)
     results = cost_distance_analysis_numpy(
-        costs._rs.data[0], srcs, sources_null_value, scaling
+        data, srcs, sources_null_value, scaling
     )
     # Make lazy and add band dim
     cd, tr, al = [da.from_array(r[None]) for r in results]
@@ -129,31 +143,13 @@ def cost_distance_analysis(costs, sources):
         )
         for r in (cd, tr, al)
     ]
-    xcd = xcd.where(np.isfinite(xcd), np.nan)
-    if costs._masked:
-        # Potentially have null values, fill with nan
-        xtr = xtr.astype(F16).where(xtr != _TRACEBACK_NOT_REACHED, np.nan)
+    xcd = xcd.where(np.isfinite(xcd), costs.null_value)
     # Add 1 to match ESRI 0-8 scale
     xtr += 1
 
-    enc_orig = costs.encoding
-    enc_cd = enc_orig.copy()
-    enc_cd.dtype = cd.dtype
-    cd = _raster_like(costs, xcd, encoding=enc_cd)
-
-    enc_tr = enc_orig.copy()
-    enc_tr.dtype = I8
-    enc_tr.null_value = _TRACEBACK_NOT_REACHED + 1
-    tr = _raster_like(costs, xtr, encoding=enc_tr)
-    if costs._masked:
-        tr = tr.set_null_value(_TRACEBACK_NOT_REACHED + 1)
-
-    enc_al = enc_orig.copy()
-    enc_al.dtype = I64
-    enc_al.null_value = sources_null_value
-    al = _raster_like(costs, xal, encoding=enc_al)
-    if costs._masked:
-        al = al.set_null_value(sources_null_value)
+    cd = _raster_like(costs, xcd, null_value=costs.null_value)
+    tr = _raster_like(costs, xtr, null_value=_TRACEBACK_NOT_REACHED + 1)
+    al = _raster_like(costs, xal, null_value=sources_null_value)
     return cd, tr, al
 
 
@@ -165,7 +161,8 @@ def cost_distance(costs, sources):
     Parameters
     ----------
     costs : Raster or raster path
-        A raster representing a cost surface.
+        A raster representing a cost surface. Values less than 0 are treated as
+        null values.
     sources : Raster or raster path, or sequence
         A raster or sequence of indices. If a raster, pixels that are not null
         are used as source locations. The raster must have a null value set.
@@ -204,7 +201,8 @@ def traceback(costs, sources):
     Parameters
     ----------
     costs : Raster or raster path
-        A raster representing a cost surface.
+        A raster representing a cost surface. Values less than 0 are treated as
+        null values.
     sources : Raster or raster path, or sequence
         A raster or sequence of indices. If a raster, pixels that are not null
         are used as source locations. The raster must have a null value set.
@@ -243,7 +241,8 @@ def allocation(costs, sources):
     Parameters
     ----------
     costs : Raster or raster path
-        A raster representing a cost surface.
+        A raster representing a cost surface. Values less than 0 are treated as
+        null values.
     sources : Raster or raster path, or sequence
         A raster or sequence of indices. If a raster, pixels that are not null
         are used as source locations. The raster must have a null value set.

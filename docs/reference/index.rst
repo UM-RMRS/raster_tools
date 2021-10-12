@@ -7,6 +7,7 @@ API Reference
 .. toctree::
    :maxdepth: 3
 
+   top_level
    raster
    costdist
    focal
