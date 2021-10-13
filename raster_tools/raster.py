@@ -212,15 +212,24 @@ def get_default_null_value(dtype):
 
 
 def _raster_like(
-    orig_rs, new_xrs, attrs=None, device=None, mask=None, null_value=None
+    orig_rs,
+    new_xrs,
+    attrs=None,
+    device=None,
+    mask=None,
+    null_value=None,
+    null_value_none=False,
 ):
     new_rs = Raster(new_xrs)
     new_rs._attrs = attrs or orig_rs._attrs
     new_rs._set_device(device or orig_rs.device)
     new_rs._mask = mask if mask is not None else orig_rs._mask
-    new_rs._null_value = (
-        null_value if null_value is not None else orig_rs.null_value
-    )
+    if not null_value_none:
+        new_rs._null_value = (
+            null_value if null_value is not None else orig_rs.null_value
+        )
+    else:
+        new_rs._null_value = None
     return new_rs
 
 
@@ -563,12 +572,14 @@ class Raster:
         If there was previously no null value for the raster, one is set. If
         there was already a null value, then it is replaced. If the raster has
         an integer dtype and `value` is a float, the dtype will be promoted to
-        a float dtype.
+        a float dtype. If `value` is None, the null value is cleared. The
+        raster data is not changed in this case.
 
         Parameters
         ----------
-        value : scalar
-            The new null value for the raster.
+        value : scalar or None
+            The new null value for the raster. If None, the resulting raster
+            will have no null value, i.e. the null value is cleared.
 
         Returns
         -------
@@ -576,13 +587,17 @@ class Raster:
             The new resulting Raster.
 
         """
-        if not is_scalar(value):
-            raise TypeError(f"Value must be a scalar: {value}")
+        if value is not None and not is_scalar(value):
+            raise TypeError(f"Value must be a scalar or None: {value}")
 
         xrs = self._rs.copy()
         # Cast up to float if needed
         if should_promote_to_fit(self.dtype, value):
             xrs = xrs.astype(promote_dtype_to_float(self.dtype))
+
+        if value is None:
+            mask = create_null_mask(xrs, value)
+            return _raster_like(self, xrs, mask=mask, null_value_none=True)
 
         # Update mask
         mask = self._mask

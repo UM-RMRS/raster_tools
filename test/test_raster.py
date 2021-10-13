@@ -452,6 +452,14 @@ class TestSetNullValue(unittest.TestCase):
         self.assertEqual(rs._attrs["_FillValue"], ndv)
         self.assertEqual(rs2._attrs["_FillValue"], 0)
 
+        rs = Raster("test/data/elevation_small.tif")
+        nv = rs.null_value
+        rs2 = rs.set_null_value(None)
+        self.assertEqual(rs.null_value, nv)
+        self.assertEqual(rs._attrs["_FillValue"], nv)
+        self.assertIsNone(rs2.null_value)
+        self.assertIsNone(rs2._attrs["_FillValue"])
+
 
 class TestReplaceNull(unittest.TestCase):
     def test_replace_null(self):
