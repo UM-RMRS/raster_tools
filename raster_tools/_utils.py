@@ -60,5 +60,5 @@ def create_null_mask(xrs, null_value):
         else:
             mask = np.isnan(xrs.data)
     else:
-        mask = da.zeros_like(xrs, dtype=bool)
+        mask = dask.array.zeros_like(xrs, dtype=bool)
     return mask
