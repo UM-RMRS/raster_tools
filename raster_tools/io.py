@@ -7,8 +7,15 @@ import xarray as xr
 from dask.array.core import normalize_chunks as dask_chunks
 from pathlib import Path
 
-from ._types import DEFAULT_NULL, F64, I64, maybe_promote
-from ._utils import create_null_mask, is_float, is_scalar, validate_file
+from ._types import DEFAULT_NULL, F64, I64, U8, maybe_promote
+from ._utils import (
+    create_null_mask,
+    is_bool,
+    is_float,
+    is_scalar,
+    is_str,
+    validate_file,
+)
 
 
 class RasterIOError(BaseException):
@@ -37,7 +44,6 @@ def chunk(xrs, src_file=None):
 
 TIFF_EXTS = frozenset((".tif", ".tiff"))
 BATCH_EXTS = frozenset((".bch",))
-NC_EXTS = frozenset((".nc",))
 
 
 IO_UNDERSTOOD_TYPES = (str, Path)
@@ -66,9 +72,6 @@ def open_raster_from_path(path):
     xrs = None
     if ext in TIFF_EXTS:
         xrs = rxr.open_rasterio(path)
-    elif ext in NC_EXTS:
-        # TODO: this returns a dataset which is invalid. Fix nc handling
-        xrs = xr.open_dataset(path, decode_coords="all")
     else:
         raise RasterIOError("Unknown file type")
 
@@ -104,10 +107,8 @@ def _write_tif_with_rasterio(
             if rs.rio.encoded_nodata is None
             else rs.rio.encodeded_nodata
         )
-        rs.fillna(ndv)
         nodataval = ndv
     else:
-        rs.fillna(no_data_value)
         nodataval = no_data_value
     with rio.open(
         path,
@@ -133,23 +134,41 @@ def _write_tif_with_rasterio(
             dst.write(values, band + 1)
 
 
-def write_raster(xrs, path, no_data_value, blockwidth=None, blockheight=None):
+def write_raster(
+    xrs, path, no_data_value, blockxsize=None, blockysize=None, compress=None
+):
     ext = _get_extension(path)
-    if (
-        is_float(xrs.dtype)
-        and no_data_value is not None
-        and not np.isnan(no_data_value)
-    ):
-        xrs = xrs.fillna(no_data_value)
-    if xrs.dtype == I64 and ext in TIFF_EXTS:
-        # GDAL, and thus rioxarray and rasterio, doesn't support I64 so cast up
-        # to float. This avoids to_raster throwing a TypeError.
-        xrs = xrs.astype(F64)
+    rio_is_bool = False
+    if ext in TIFF_EXTS:
+        if xrs.dtype == I64:
+            # GDAL, and thus rioxarray and rasterio, doesn't support I64 so
+            # cast up to float. This avoids to_raster throwing a TypeError.
+            xrs = xrs.astype(F64)
+        elif is_bool(xrs.dtype):
+            # GDAL doesn't support boolean dtype either so convert to uint8
+            # 0-1 encoding.
+            rio_is_bool = True
+            xrs = xrs.astype(U8)
 
     if ext in TIFF_EXTS:
-        xrs.rio.to_raster(path, lock=True, compute=True)
-    elif ext in NC_EXTS:
-        xrs.to_netcdf(path, compute=True)
+        kwargs = {"lock": True, "compute": True}
+        if blockxsize is not None:
+            kwargs["blockxsize"] = blockxsize
+        if blockysize is not None:
+            kwargs["blockysize"] = blockysize
+        if compress:
+            if is_str(compress):
+                kwargs["compress"] = compress
+            elif is_bool(compress):
+                kwargs["compress"] = "lzw"
+            else:
+                raise TypeError(
+                    f"Could not understand compress argument: {compress}"
+                )
+        if rio_is_bool:
+            # Store each entry using a single bit
+            kwargs["nbits"] = 1
+        xrs.rio.to_raster(path, **kwargs)
     else:
         # TODO: populate
         raise NotImplementedError()

@@ -387,10 +387,38 @@ class Raster:
         self._rs.close()
 
     def save(
-        self, path, no_data_value=None, blockwidth=None, blockheight=None
+        self,
+        path,
+        no_data_value=None,
+        blockwidth=None,
+        blockheight=None,
+        compress=None,
     ):
-        """Compute the final raster and save it to the provided location."""
-        # TODO: add tiling flag
+        """Compute the final raster and save it to the provided location.
+
+        Parameters
+        ----------
+        path : str
+            The target location to save the raster to.
+        no_data_value : scalar, optional
+            A new null value to use when saving.
+        blockwidth : int, optional
+            The block width to use when writing to disk.
+        blockheight : int, optional
+            The block height to use when writing to disk.
+        compress : boolean, str, optional
+            If a boolean, controls whether compression is turned on with the
+            default compression settings. If a str, the it is passed to the
+            backend as the desired compression format. For tiffs, the default,
+            is LZW.
+
+        """
+        for b in (blockwidth, blockheight):
+            if b is not None and not is_int(b):
+                raise TypeError(
+                    "blockwidth and blockheight must be ints or None"
+                )
+
         # TODO: warn of overwrite
         rs = self
         if no_data_value is not None:
@@ -399,9 +427,10 @@ class Raster:
         write_raster(
             xrs,
             path,
-            no_data_value or rs.null_value,
-            blockwidth=blockwidth,
-            blockheight=blockheight,
+            rs.null_value if no_data_value is None else no_data_value,
+            blockxsize=blockwidth,
+            blockysize=blockheight,
+            compress=compress,
         )
         return self
 
