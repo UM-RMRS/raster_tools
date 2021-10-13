@@ -339,12 +339,7 @@ class Raster:
 
     @property
     def dtype(self):
-        """The dtype of the data when loaded.
-
-        This is different from the encoded dtype. The dtype that will be used
-        when writing to disk can be found in `Raster.encoding`.
-
-        """
+        """The dtype of the data."""
         return self._rs.dtype
 
     @property
@@ -359,15 +354,14 @@ class Raster:
 
     @property
     def resolution(self):
-        """The x and y cell sizes as a tuple."""
+        """The x and y cell sizes as a tuple. Values are always positive."""
         return self._attrs.get("res")
 
     def to_xarray(self):
         """Returns the underlying data as an xarray.DataArray.
 
-        Changes made to the resulting DataArray may affect this Raster. This
-        is the internal representation of the data and may differ from the
-        result that will be written to disk. See `Raster.encoding`.
+        This may be a reference to the underlying datastructure so changes made
+        to the resulting DataArray may also affect this Raster.
 
         """
         return self._rs
