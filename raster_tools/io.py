@@ -47,51 +47,6 @@ def is_batch_file(path):
     return _get_extension(path) in BATCH_EXTS
 
 
-class Encoding:
-    """Encoding metadata that is used when writing a raster to disk"""
-
-    __slots__ = ("_masked", "_dtype", "_null")
-
-    def __init__(self, masked=False, dtype=F64, null=DEFAULT_NULL):
-        self.masked = masked
-        self.dtype = dtype
-        self.null_value = null
-
-    @property
-    def masked(self):
-        return self._masked
-
-    @masked.setter
-    def masked(self, value):
-        self._masked = bool(value)
-
-    @property
-    def dtype(self):
-        return self._dtype
-
-    @dtype.setter
-    def dtype(self, value):
-        self._dtype = np.dtype(value)
-
-    @property
-    def null_value(self):
-        return self._null
-
-    @null_value.setter
-    def null_value(self, value):
-        if not is_scalar(value):
-            raise TypeError(f"Null value must be a scalar: {value}")
-        self._null = value
-
-    def copy(self):
-        return Encoding(self._masked, self._dtype, self._null)
-
-    def __repr__(self):
-        return "Encoding {{masked: {}, dtype: {}, null_value: {}}}".format(
-            self._masked, self._dtype, self._null
-        )
-
-
 def open_raster_from_path(path):
     if type(path) in IO_UNDERSTOOD_TYPES:
         path = str(path)

@@ -16,7 +16,6 @@ except (ImportError, ModuleNotFoundError):
     GPU_ENABLED = False
 
 from .io import (
-    Encoding,
     IO_UNDERSTOOD_TYPES,
     chunk,
     is_batch_file,
