@@ -21,6 +21,7 @@ Attributes
    Raster.device
    Raster.dtype
    Raster.null_value
+   Raster.resolution
    Raster.shape
 
 Operations
