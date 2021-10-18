@@ -84,24 +84,46 @@ cdef _normalize_indices(indices, shape):
     return normd_indices
 
 
-# Add 1 to the move index to get the ESRI value
+# These are the moves used to explore the cost surface. +1 means to move 1 cell
+# in the positive row/col direction. -1 means to move in the negative row/col
+# direction. The moves have been ordered so that the index can be mapped to the
+# ESRI backtrace value by adding 1.
+#
+# The move direction is the direction traversed in the array during the
+# algorithm's exploration. The bactrace direction is the direction to move when
+# traveling back to the nearest source.
+#
+# +-------+------------+-------------+---------------+
+# | Index | ESRI Value |  Move Dir   | Backtrace Dir |
+# +-------+------------+-------------+---------------+
+# |     0 |          1 | Left        | Right         |
+# |     1 |          2 | Upper-Left  | Lower-Right   |
+# |     2 |          3 | Up          | Down          |
+# |     3 |          4 | Upper-Right | Lower-Left    |
+# |     4 |          5 | Right       | Left          |
+# |     5 |          6 | Lower-Right | Upper-Left    |
+# |     6 |          7 | Down        | Up            |
+# |     7 |          8 | Lower-Left  | Upper-Right   |
+# +-------+------------+-------------+---------------+
+#
+# ref: https://pro.arcgis.com/en/pro-app/latest/tool-reference/spatial-analyst/understanding-cost-distance-analysis.htm
 cdef INT8_t[:,::1] _MOVES = np.array(
     [
-        # right: 0
+        # 0
         [0, -1],
-        # lower-right: 1
+        # 1
         [-1, -1],
-        # Down: 2
+        # 2
         [-1, 0],
-        # lower-left: 3
+        # 3
         [-1, 1],
-        # left: 4
+        # 4
         [0, 1],
-        # upper-left: 5
+        # 5
         [1, 1],
-        # up: 6
+        # 6
         [1, 0],
-        # upper-right: 7
+        # 7
         [1, -1],
     ],
     dtype=np.int8,
@@ -174,6 +196,9 @@ def _cost_distance_analysis_core(
     # If a neighbor has already been popped before, we ignore it. The
     # cumulative cost is used as the priority in the heap. At the start, only
     # the sources are on the heap.
+    #
+    # ref: https://pro.arcgis.com/en/pro-app/latest/tool-reference/spatial-analyst/how-the-cost-distance-tools-work.htm
+    # ref: https://en.wikipedia.org/wiki/Dijkstra%27s_algorithm
     for it in range(maxiter):
         if frontier.count == 0:
             break
@@ -187,7 +212,7 @@ def _cost_distance_analysis_core(
         # We have now found the minimum cost to this pixel so store it
         flat_cost_distance[index] = cumcost
 
-        # Convert to 2d index for bound checking
+        # Convert to 2d index for bounds checking
         index2d.i = (index // strides[0]) % shape[0]
         index2d.j = (index // strides[1]) % shape[1]
         # Compare against the bounds to see if we are at any edges
@@ -199,15 +224,14 @@ def _cost_distance_analysis_core(
 
         # Look at neighborhood
         for i in range(8):
-            bad_move = 0
             if is_at_edge:
                 move = _MOVES[i]
                 bad_move = (top and move[0] < 0) \
                         or (bottom and move[0] > 0) \
                         or (left and move[1] < 0) \
                         or (right and move[1] > 0)
-            if bad_move:
-                continue
+                if bad_move:
+                    continue
             new_index = index + flat_moves[i]
             move_length = move_lengths[i]
             # If a value is already stored in this pixel, we have found an
