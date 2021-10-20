@@ -10,6 +10,7 @@ Cost Distance Analysis Functions
    allocation
    cost_distance
    cost_distance_analysis
+   path_distance_analysis
    traceback
 
 """
@@ -17,5 +18,6 @@ from ._costdist import (
     allocation,
     cost_distance,
     cost_distance_analysis,
+    path_distance_analysis,
     traceback,
 )
