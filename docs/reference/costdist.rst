@@ -19,3 +19,4 @@ Operations
    allocation
    cost_distance
    traceback
+   path_distance_analysis

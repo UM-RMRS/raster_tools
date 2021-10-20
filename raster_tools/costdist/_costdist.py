@@ -68,7 +68,7 @@ def cost_distance_analysis(costs, sources):
     value of 0 indicates that the current pixel is a source pixel and -1
     indicates that the pixel was not traversed due to a null value.
 
-    The third raster contians the source allocation for each pixel. Each pixel
+    The third raster contains the source allocation for each pixel. Each pixel
     is labeled based on the source location that is closest in terms of cost
     distance. The label is the value stored in the sources raster at the
     corresponding source location.
@@ -98,6 +98,14 @@ def cost_distance_analysis(costs, sources):
     allocation : Raster
         The allocation result. This is the same shape as the `costs` input
         Raster.
+
+    See Also
+    --------
+    path_distance_analysis
+
+    References
+    ----------
+    `ESRI: How cost distance tools work <https://pro.arcgis.com/en/pro-app/latest/tool-reference/spatial-analyst/how-the-cost-distance-tools-work.htm>`_
 
     """
     if not is_raster_class(costs):
@@ -282,12 +290,14 @@ def allocation(costs, sources):
 def path_distance_analysis(costs, elevation, sources):
     """Calculate accumulated path distance, traceback, and allocation.
 
-    This funtion is very similar to :func:`cost_distance_analysis_numpy` in
+    .. currentmodule:: raster_tools.costdist
+
+    This function is very similar to :func:`cost_distance_analysis` in
     that it finds the many-sources shortest-paths solution for a given cost
     surface. The difference is that the cost function takes into account the
     3D surface distance using an elevation raster and horizontal and vertical
     factors. See :func:`cost_distance_analysis` documentation for
-    additional information.
+    additional information. Also see the reference link below.
 
     .. note:: This function is a work in progress and horizontal and vertical
               factors are not yet implemented.
@@ -321,9 +331,11 @@ def path_distance_analysis(costs, elevation, sources):
 
     See Also
     --------
-    cost_distance_analysis_numpy
+    cost_distance_analysis
 
-    .. [1] `ESRI: How path distance tools work <https://pro.arcgis.com/en/pro-app/latest/tool-reference/spatial-analyst/how-the-path-distance-tools-work.htm>`_
+    References
+    ----------
+    `ESRI: How path distance tools work <https://pro.arcgis.com/en/pro-app/latest/tool-reference/spatial-analyst/how-the-path-distance-tools-work.htm>`_
 
     """
     if not is_raster_class(costs):
