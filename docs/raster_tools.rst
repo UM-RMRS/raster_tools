@@ -7,7 +7,7 @@ Subpackages
 .. toctree::
    :maxdepth: 4
 
-   raster_tools.costdist
+   raster_tools.distance
 
 Submodules
 ----------

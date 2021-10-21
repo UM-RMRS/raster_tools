@@ -10,8 +10,8 @@ setup(
     ext_modules=cythonize(
         [
             Extension(
-                "raster_tools.costdist._heap",
-                ["raster_tools/costdist/_heap.pyx"],
+                "raster_tools.distance._heap",
+                ["raster_tools/distance/_heap.pyx"],
                 extra_compile_args=[
                     "-O3",
                     "-march=native",
@@ -19,8 +19,8 @@ setup(
                 ],
             ),
             Extension(
-                "raster_tools.costdist._core",
-                ["raster_tools/costdist/_core.pyx"],
+                "raster_tools.distance._core",
+                ["raster_tools/distance/_core.pyx"],
                 extra_compile_args=[
                     "-O3",
                     "-march=native",

@@ -9,5 +9,5 @@ API Reference
 
    top_level
    raster
-   costdist
+   distance
    focal
