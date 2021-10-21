@@ -1,5 +1,5 @@
 """
-.. currentmodule:: raster_tools.costdist
+.. currentmodule:: raster_tools.distance
 
 Cost Distance Analysis Functions
 ================================

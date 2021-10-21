@@ -1,7 +1,7 @@
 import numpy as np
 import unittest
 
-from raster_tools import costdist, Raster
+from raster_tools import distance, Raster
 
 
 # Example taken from ESRI docs
@@ -99,7 +99,7 @@ class TestCostDist(unittest.TestCase):
 
     def test_cost_distance_analysis(self):
         ## Using srcs raster ##
-        cost_dist, traceback, allocation = costdist.cost_distance_analysis(
+        cost_dist, traceback, allocation = distance.cost_distance_analysis(
             self.cs, self.srcs
         )
 
@@ -130,7 +130,7 @@ class TestCostDist(unittest.TestCase):
         self.assertTrue(allocation.null_value == self.srcs.null_value)
 
         ## Using srcs indices ##
-        cost_dist, traceback, allocation = costdist.cost_distance_analysis(
+        cost_dist, traceback, allocation = distance.cost_distance_analysis(
             self.cs, self.srcs_idx
         )
 
@@ -161,10 +161,10 @@ class TestCostDist(unittest.TestCase):
     def test_negative_resolution(self):
         cs = Raster("test/data/elevation_small.tif")
         srcs = np.array([[20, 20]])
-        _ = costdist.cost_distance_analysis(cs, srcs)
+        _ = distance.cost_distance_analysis(cs, srcs)
 
         self.cs._attrs["res"] = (1.0, -1.0)
-        cost_dist, traceback, allocation = costdist.cost_distance_analysis(
+        cost_dist, traceback, allocation = distance.cost_distance_analysis(
             self.cs, self.srcs
         )
         # Cost dist
@@ -195,40 +195,40 @@ class TestCostDist(unittest.TestCase):
     def test_cost_distance_analysis_errors(self):
         with self.assertRaises(ValueError):
             # Must be single band
-            costdist.cost_distance_analysis(
+            distance.cost_distance_analysis(
                 "test/data/multiband_small.tif", self.srcs
             )
         with self.assertRaises(ValueError):
             # Must have same shape
-            costdist.cost_distance_analysis(
+            distance.cost_distance_analysis(
                 self.cs, "test/data/elevation_small.tif"
             )
         with self.assertRaises(TypeError):
             # source raster must be int
-            costdist.cost_distance_analysis(
+            distance.cost_distance_analysis(
                 "test/data/elevation_small.tif",
                 "test/data/elevation_small.tif",
             )
         with self.assertRaises(ValueError):
             # source raster must have null value
-            costdist.cost_distance_analysis(
+            distance.cost_distance_analysis(
                 "test/data/elevation_small.tif",
                 Raster("test/data/elevation_small.tif").astype(np.int64),
             )
         with self.assertRaises(ValueError):
             # sources array must have shape (M, 2)
-            costdist.cost_distance_analysis(
+            distance.cost_distance_analysis(
                 self.cs, np.zeros((5, 3), dtype=int)
             )
         with self.assertRaises(ValueError):
             # sources array must not have duplicates
-            costdist.cost_distance_analysis(
+            distance.cost_distance_analysis(
                 self.cs, np.zeros((5, 2), dtype=int)
             )
 
     def test_cost_distance_analysis_scale(self):
         self.cs._rs.attrs["res"] = (5, 5)
-        cost_dist, traceback, allocation = costdist.cost_distance_analysis(
+        cost_dist, traceback, allocation = distance.cost_distance_analysis(
             self.cs, self.srcs
         )
 
@@ -238,11 +238,11 @@ class TestCostDist(unittest.TestCase):
 
 
 class TestCostDistAttrsPropagation(unittest.TestCase):
-    def test_costdist_attrs(self):
+    def test_distance_attrs(self):
         rs = Raster("test/data/elevation_small.tif")
         srcs = np.array([[1, 1], [20, 30]])
         attrs = rs._attrs
-        cd, tr, al = costdist.cost_distance_analysis(rs, srcs)
+        cd, tr, al = distance.cost_distance_analysis(rs, srcs)
         self.assertEqual(cd._attrs, attrs)
         # Null values may not match costs raster for traceback and allocation
         attrs.pop("_FillValue")
