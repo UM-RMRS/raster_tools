@@ -245,12 +245,27 @@ def _focal_dispatch(
 
 
 def check_kernel(kernel):
+    """Validate and return the focal kernel.
+
+    Parameters
+    ----------
+    kernel : 2D numpy.ndarray
+        The kernel to validate. Errors are raised if it is not a numpy array,
+        contains nan values, or is not 2D.
+
+    Returns
+    -------
+    numpy.ndarray
+        The input `kernel`, if nothing was wrong with it.
+
+    """
     if not isinstance(kernel, np.ndarray):
         raise TypeError("Kernel must be numpy.ndarray")
     if len(kernel.shape) != 2:
         raise ValueError("Kernel must be 2D")
     if np.isnan(kernel).any():
         raise ValueError("Kernel can't contain NaN values")
+    return kernel
 
 
 def _check_data(data):
