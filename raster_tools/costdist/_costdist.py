@@ -6,15 +6,14 @@ from raster_tools import Raster
 from raster_tools.raster import is_raster_class, _raster_like
 from raster_tools._utils import is_float, is_str
 from raster_tools._types import F16, I8, I64
-from ._core import cost_distance_analysis_numpy, path_distance_analysis_numpy
+from ._core import cost_distance_analysis_numpy
 
 
 __all__ = [
-    "allocation",
-    "cost_distance",
+    "cda_allocation",
+    "cda_cost_distance",
+    "cda_traceback",
     "cost_distance_analysis",
-    "path_distance_analysis",
-    "traceback",
 ]
 
 
@@ -34,12 +33,13 @@ def _normalize_raster_data(rs, missing=-1):
     data = data[0]
     return data
 
+
 # NOTE: this must match the TRACEBACK_NOT_REACHED value in _core.pyx. I can't
 # get that variable to import so I'm using this mirror for now.
 _TRACEBACK_NOT_REACHED = -2
 
 
-def cost_distance_analysis(costs, sources):
+def cost_distance_analysis(costs, sources, elevation=None):
     """Calculate accumulated cost distance, traceback, and allocation.
 
     This function uses Dijkstra's algorithm to compute the many-sources
@@ -50,7 +50,9 @@ def cost_distance_analysis(costs, sources):
     from one pixel to the next is ``length * mean(costs[i], costs[i+1])``,
     where ``length`` is 1 for horizontal and vertical moves and ``sqrt(2)`` for
     diagonal moves. The `costs` raster's resolution informs the actual scaling
-    to use. Source locations have a cost of 0.
+    to use. Source locations have a cost of 0. If `elevation` provided, the
+    length calculation incorporates the elevation data to make the algorithm 3D
+    aware.
 
     The second raster contains the traceback values for the solution. At each
     pixel, the stored value indicates the neighbor to move to in order to get
@@ -86,6 +88,10 @@ def cost_distance_analysis(costs, sources):
         the number of source pixels. Each item represents an index into `costs`
         to be used as a source. The element number, starting at 0, is used as
         the corresponding allocation value.
+    elevation : Raster or raster path, optional
+        A raster containing elevation values on the same grid as `costs`. If
+        provided, the elevation values are used when calculating the travel
+        distance between pixels. This makes the algorithm 3D aware.
 
     Returns
     -------
@@ -99,19 +105,25 @@ def cost_distance_analysis(costs, sources):
         The allocation result. This is the same shape as the `costs` input
         Raster.
 
-    See Also
-    --------
-    path_distance_analysis
-
     References
     ----------
-    `ESRI: How cost distance tools work <https://pro.arcgis.com/en/pro-app/latest/tool-reference/spatial-analyst/how-the-cost-distance-tools-work.htm>`_
+    * `ESRI: How cost distance tools work <https://pro.arcgis.com/en/pro-app/latest/tool-reference/spatial-analyst/how-the-cost-distance-tools-work.htm>`_
+    * `ESRI: How path distance tools work <https://pro.arcgis.com/en/pro-app/latest/tool-reference/spatial-analyst/how-the-path-distance-tools-work.htm>`_
 
     """
     if not is_raster_class(costs):
         costs = Raster(costs)
         if costs.shape[0] != 1:
             raise ValueError("Costs raster cannot be multibanded")
+    if elevation is not None:
+        if not is_raster_class(elevation):
+            elevation = Raster(elevation)
+            if elevation.shape[0] != 1:
+                raise ValueError("Elevation raster cannot be multibanded")
+        if costs.shape != elevation.shape:
+            raise ValueError(
+                "Costs and elevation rasters must have the same shape"
+            )
 
     src_idxs = None
     if is_raster_class(sources) or is_str(sources):
@@ -142,10 +154,21 @@ def cost_distance_analysis(costs, sources):
             raise ValueError("Could not understand sources argument")
 
     data = _normalize_raster_data(costs)
+    if elevation is not None:
+        elevation_null_value = -9999
+        edata = _normalize_raster_data(elevation, elevation_null_value)
+    else:
+        edata = None
+        elevation_null_value = 0
 
     scaling = np.abs(costs.resolution)
     results = cost_distance_analysis_numpy(
-        data, srcs, sources_null_value, scaling
+        data,
+        srcs,
+        sources_null_value,
+        elevation=edata,
+        elevation_null_value=elevation_null_value,
+        scaling=scaling,
     )
     # Make lazy and add band dim
     cd, tr, al = [da.from_array(r[None]) for r in results]
@@ -167,8 +190,8 @@ def cost_distance_analysis(costs, sources):
     return cd, tr, al
 
 
-def cost_distance(costs, sources):
-    """Calculate the cost distance.
+def cda_cost_distance(costs, sources, elevation=None):
+    """Calculate just the cost distance for a cost surface
 
     See cost_distance_analysis for a full description.
 
@@ -185,30 +208,28 @@ def cost_distance(costs, sources):
         the number of source pixels. Each item represents an index into `costs`
         to be used as a source. The element number, starting at 0, is used as
         the corresponding allocation value.
+    elevation : Raster or raster path, optional
+        A raster containing elevation values on the same grid as `costs`. If
+        provided, the elevation values are used when calculating the travel
+        distance between pixels. This makes the algorithm 3D aware.
 
     Returns
     -------
     cost_distance : Raster
         The accumulated cost distance solution. This is the same shape as the
         `costs` input Raster.
-    traceback : Raster
-        The traceback result. This is the same shape as the `costs` input
-        Raster.
-    allocation : Raster
-        The allocation result. This is the same shape as the `costs` input
-        Raster.
 
     See Also
     --------
     cost_distance_analysis : Full cost distance solution
 
     """
-    cost_dist, _, _ = cost_distance_analysis(costs, sources)
+    cost_dist, _, _ = cost_distance_analysis(costs, sources, elevation)
     return cost_dist
 
 
-def traceback(costs, sources):
-    """Calculate the cost distance traceback.
+def cda_traceback(costs, sources, elevation=None):
+    """Calculate just the cost distance traceback for a cost surface.
 
     See cost_distance_analysis for a full description.
 
@@ -225,17 +246,15 @@ def traceback(costs, sources):
         the number of source pixels. Each item represents an index into `costs`
         to be used as a source. The element number, starting at 0, is used as
         the corresponding allocation value.
+    elevation : Raster or raster path, optional
+        A raster containing elevation values on the same grid as `costs`. If
+        provided, the elevation values are used when calculating the travel
+        distance between pixels. This makes the algorithm 3D aware.
 
     Returns
     -------
-    cost_distance : Raster
-        The accumulated cost distance solution. This is the same shape as the
-        `costs` input Raster.
     traceback : Raster
         The traceback result. This is the same shape as the `costs` input
-        Raster.
-    allocation : Raster
-        The allocation result. This is the same shape as the `costs` input
         Raster.
 
     See Also
@@ -243,12 +262,12 @@ def traceback(costs, sources):
     cost_distance_analysis : Full cost distance solution
 
     """
-    _, trb, _ = cost_distance_analysis(costs, sources)
+    _, trb, _ = cost_distance_analysis(costs, sources, elevation)
     return trb
 
 
-def allocation(costs, sources):
-    """Calculate the cost distance allocation.
+def cda_allocation(costs, sources, elevation=None):
+    """Calculate just the cost distance allocation for a cost surface.
 
     See cost_distance_analysis for a full description.
 
@@ -265,15 +284,13 @@ def allocation(costs, sources):
         the number of source pixels. Each item represents an index into `costs`
         to be used as a source. The element number, starting at 0, is used as
         the corresponding allocation value.
+    elevation : Raster or raster path, optional
+        A raster containing elevation values on the same grid as `costs`. If
+        provided, the elevation values are used when calculating the travel
+        distance between pixels. This makes the algorithm 3D aware.
 
     Returns
     -------
-    cost_distance : Raster
-        The accumulated cost distance solution. This is the same shape as the
-        `costs` input Raster.
-    traceback : Raster
-        The traceback result. This is the same shape as the `costs` input
-        Raster.
     allocation : Raster
         The allocation result. This is the same shape as the `costs` input
         Raster.
@@ -283,125 +300,5 @@ def allocation(costs, sources):
     cost_distance_analysis : Full cost distance solution
 
     """
-    _, _, alloc = cost_distance_analysis(costs, sources)
+    _, _, alloc = cost_distance_analysis(costs, sources, elevation)
     return alloc
-
-
-def path_distance_analysis(costs, elevation, sources):
-    """Calculate accumulated path distance, traceback, and allocation.
-
-    .. currentmodule:: raster_tools.costdist
-
-    This function is very similar to :func:`cost_distance_analysis` in
-    that it finds the many-sources shortest-paths solution for a given cost
-    surface. The difference is that the cost function takes into account the
-    3D surface distance using an elevation raster and horizontal and vertical
-    factors. See :func:`cost_distance_analysis` documentation for
-    additional information. Also see the reference link below.
-
-    .. note:: This function is a work in progress and horizontal and vertical
-              factors are not yet implemented.
-
-    Parameters
-    ----------
-    costs : 2D ndarray
-        A 2D array representing a cost surface.
-    elevation : 2D ndarray
-        A 2D array representing the surface elevation. Same shape as `costs`.
-    sources : 2D int64 ndarray
-        An array of sources. The values at each valid location, as determined
-        using `sources_null_value`, are used for the allocation output.
-    sources_null_value: int
-        The value in `sources` that indicates a null value.
-    scaling_2d : scalar or 1D sequence, optional
-        The scaling to use in each direction. For a grid with 30m scale, this
-        would be 30. Default is 1.
-
-    Returns
-    -------
-    path_distance : 2D ndarray
-        The accumulated path distance solution. This is the same shape as the
-        `costs` input array.
-    traceback : 2D ndarray
-        The traceback result. This is the same shape as the `costs` input
-        array.
-    allocation : 2D ndarray
-        The allocation result. This is the same shape as the `costs` input
-        array.
-
-    See Also
-    --------
-    cost_distance_analysis
-
-    References
-    ----------
-    `ESRI: How path distance tools work <https://pro.arcgis.com/en/pro-app/latest/tool-reference/spatial-analyst/how-the-path-distance-tools-work.htm>`_
-
-    """
-    if not is_raster_class(costs):
-        costs = Raster(costs)
-        if costs.shape[0] != 1:
-            raise ValueError("Costs raster cannot be multibanded")
-    if not is_raster_class(elevation):
-        elevation = Raster(elevation)
-        if elevation.shape[0] != 1:
-            raise ValueError("Elevation raster cannot be multibanded")
-    if costs.shape != elevation.shape:
-        raise ValueError(
-            "Costs and elevation rasters must have the same shape"
-        )
-
-    src_idxs = None
-    if is_raster_class(sources) or is_str(sources):
-        if is_str(sources):
-            sources = Raster(sources)
-        if sources.shape != costs.shape:
-            raise ValueError("Cost and sources raster shapes must match")
-        if sources.dtype.kind not in ("u", "i"):
-            raise TypeError("Sources raster must be an integer type")
-        if not sources._masked:
-            raise ValueError("Sources raster must have a null value set")
-        sources_null_value = sources._null_value
-        srcs = sources.to_dask()[0].astype(I64)
-    else:
-        try:
-            sources = np.asarray(sources).astype(int)
-            if len(sources.shape) != 2 or sources.shape[1] != 2:
-                raise ValueError("Sources must be an (M, 2) shaped array")
-            if np.unique(sources, axis=0).shape != sources.shape:
-                raise ValueError("Sources must not contain duplicates")
-            sources_null_value = -1
-            src_idxs = sources
-            srcs = np.full(costs.shape[1:], sources_null_value, dtype=I64)
-            srcs[src_idxs[:, 0], src_idxs[:, 1]] = np.arange(
-                len(sources), dtype=I64
-            )
-        except TypeError:
-            raise ValueError("Could not understand sources argument")
-
-    cdata = _normalize_raster_data(costs)
-    elevation_null_value = -9999
-    edata = _normalize_raster_data(elevation, elevation_null_value)
-
-    scaling = np.abs(costs.resolution)
-    results = path_distance_analysis_numpy(
-        cdata, edata, srcs, elevation_null_value, sources_null_value, scaling
-    )
-    # Make lazy and add band dim
-    cd, tr, al = [da.from_array(r[None]) for r in results]
-    # Convert to DataArrays using same coordinate system as costs
-    xcosts = costs.to_xarray()
-    xcd, xtr, xal = [
-        xr.DataArray(
-            r, coords=xcosts.coords, dims=xcosts.dims, attrs=xcosts.attrs
-        )
-        for r in (cd, tr, al)
-    ]
-    xcd = xcd.where(np.isfinite(xcd), costs.null_value)
-    # Add 1 to match ESRI 0-8 scale
-    xtr += 1
-
-    cd = _raster_like(costs, xcd, null_value=costs.null_value)
-    tr = _raster_like(costs, xtr, null_value=_TRACEBACK_NOT_REACHED + 1)
-    al = _raster_like(costs, xal, null_value=sources_null_value)
-    return cd, tr, al

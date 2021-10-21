@@ -7,17 +7,15 @@ Cost Distance Analysis Functions
 .. autosummary::
    :toctree: generated/
 
-   allocation
-   cost_distance
+   cda_allocation
+   cda_cost_distance
+   cda_traceback
    cost_distance_analysis
-   path_distance_analysis
-   traceback
 
 """
 from ._costdist import (
-    allocation,
-    cost_distance,
+    cda_allocation,
+    cda_cost_distance,
+    cda_traceback,
     cost_distance_analysis,
-    path_distance_analysis,
-    traceback,
 )

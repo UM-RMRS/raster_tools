@@ -16,7 +16,6 @@ Operations
    :toctree: generated/
 
    cost_distance_analysis
-   allocation
-   cost_distance
-   traceback
-   path_distance_analysis
+   cda_allocation
+   cda_cost_distance
+   cda_traceback
