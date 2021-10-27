@@ -270,6 +270,7 @@ class Raster:
             null = _try_to_get_null_value_xarray(raster)
             self._mask = create_null_mask(self._rs, null)
             self._null_value = null
+            self._rs.attrs["res"] = raster.rio.resolution()
         elif is_numpy(raster) or is_dask(raster):
             raster = _array_to_xarray(raster)
             self._rs = chunk(raster)

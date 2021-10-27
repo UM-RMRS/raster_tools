@@ -79,7 +79,7 @@ def open_raster_from_path(path):
     xrs = chunk(xrs, path)
     mask = None
     mask = create_null_mask(xrs, nv)
-    xrs.attrs["res"] = tuple(xrs.rio.resolution())
+    xrs.attrs["res"] = xrs.rio.resolution()
     return xrs, mask, nv
 
 
