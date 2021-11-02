@@ -1,8 +1,10 @@
+import affine
 import dask
 import numpy as np
 import scipy
-import unittest
+import rasterio as rio
 import rioxarray as rxr
+import unittest
 import xarray as xr
 from scipy import ndimage
 
@@ -32,6 +34,70 @@ from raster_tools._types import (
 
 def rs_eq_array(rs, ar):
     return (rs._rs.values == ar).all()
+
+
+class TestProperties(unittest.TestCase):
+    def test__attrs(self):
+        rs = Raster("test/data/elevation_small.tif")
+        self.assertDictEqual(rs._attrs, rs._rs.attrs)
+        rs._attrs = {}
+        self.assertDictEqual(rs._attrs, {})
+
+    def test__masked(self):
+        rs = Raster("test/data/elevation_small.tif")
+        self.assertTrue(rs._masked)
+        rs = Raster("test/data/null_values.tiff")
+        self.assertTrue(rs._masked)
+        x = np.ones((1, 3, 3))
+        rs = Raster(x)
+        self.assertTrue(rs._masked)
+        rs = Raster(x.astype(int))
+        self.assertFalse(rs._masked)
+
+    def test__values(self):
+        rs = Raster("test/data/elevation_small.tif")
+        self.assertTrue((rs._values == rs._rs.values).all())
+
+    def test__null_value(self):
+        rs = Raster("test/data/elevation_small.tif")
+        self.assertEqual(rs._null_value, rs._rs.attrs["_FillValue"])
+        rs._null_value = 1
+        self.assertEqual(rs._null_value, 1)
+        self.assertEqual(rs._rs.attrs["_FillValue"], 1)
+
+    def test_null_value(self):
+        rs = Raster("test/data/elevation_small.tif")
+        self.assertEqual(rs.null_value, rs._rs.attrs["_FillValue"])
+
+    def test_dtype(self):
+        rs = Raster("test/data/elevation_small.tif")
+        self.assertTrue(rs.dtype == rs._rs.dtype)
+
+    def test_shape(self):
+        rs = Raster("test/data/elevation_small.tif")
+        self.assertTrue(rs.shape == rs._rs.shape)
+        self.assertIsInstance(rs.shape, tuple)
+
+    def test_crs(self):
+        rs = Raster("test/data/elevation_small.tif")
+        self.assertIsInstance(rs.crs, rio.crs.CRS)
+        self.assertTrue(rs.crs == rs._rs.rio.crs)
+
+        x = np.arange(25).reshape((5, 5))
+        rs = Raster(x)
+        self.assertTrue(rs.crs == rio.crs.CRS.from_epsg(3857))
+
+    def test_affine(self):
+        rs = Raster("test/data/elevation_small.tif")
+        self.assertIsInstance(rs.affine, affine.Affine)
+        self.assertTrue(rs.affine == rs._rs.rio.transform())
+
+    def test_resolution(self):
+        rs = Raster("test/data/elevation_small.tif")
+        self.assertTupleEqual(rs.resolution, rs._rs.attrs["res"])
+        self.assertTupleEqual(rs.resolution, rs._rs.rio.resolution())
+        # Make sure that resolution can have negative values
+        self.assertTrue(rs.resolution[1] < 0)
 
 
 class TestRasterCtor(unittest.TestCase):
@@ -472,6 +538,30 @@ class TestReplaceNull(unittest.TestCase):
         rs = rs.replace_null(fill_value)
         self.assertTrue(np.allclose(rs._values, rsnp_replaced, equal_nan=True))
         self.assertEqual(rs.null_value, nv)
+
+
+class TestClipBox(unittest.TestCase):
+    def test_clip_box(self):
+        rs = Raster("test/data/elevation.tif")
+        rs_clipped = Raster("test/data/elevation_small.tif")
+        bounds = [
+            rs_clipped._rs.x.min().item(),
+            rs_clipped._rs.y.min().item(),
+            rs_clipped._rs.x.max().item(),
+            rs_clipped._rs.y.max().item(),
+        ]
+        test = rs.clip_box(*bounds)
+        self.assertTrue(test.shape == rs_clipped.shape)
+        self.assertTrue(np.allclose(test._values, rs_clipped._values))
+
+        # Test that the mask is also clipped
+        x = np.arange(25).reshape((1, 5, 5))
+        x[x < 12] = 0
+        rs = Raster(x).set_null_value(0)
+        self.assertTrue(np.allclose(x == 0, rs._mask))
+        rs_clipped = rs.clip_box(1, 1, 3, 3)
+        mask_truth = np.array([[[1, 1, 1], [1, 0, 0], [0, 0, 0]]], dtype=bool)
+        self.assertTrue(np.allclose(rs_clipped._mask, mask_truth))
 
 
 class TestToNullMask(unittest.TestCase):

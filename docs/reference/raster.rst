@@ -18,6 +18,8 @@ Attributes
 .. autosummary::
    :toctree: generated/
 
+   Raster.affine
+   Raster.crs
    Raster.device
    Raster.dtype
    Raster.null_value
@@ -81,6 +83,7 @@ Reshaping and Reorganizing
 .. autosummary::
    :toctree: generated/
 
+   Raster.clip_box
    Raster.get_bands
 
 Null Data and Remapping
