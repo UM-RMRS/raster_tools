@@ -160,7 +160,14 @@ def _array_to_xarray(ar):
     if is_numpy_masked(ar._meta):
         xrs.attrs["_FillValue"] = ar._meta.fill_value
     else:
-        xrs.attrs["_FillValue"] = np.nan
+        if is_float(ar.dtype):
+            xrs.attrs["_FillValue"] = np.nan
+        else:
+            # No way to know null value
+            xrs.attrs["_FillValue"] = None
+    # Need a default CRS for rioxarray. This seems as good as any.
+    # 3857 is centered at (0, 0) lon, lat and has units of meters
+    xrs = xrs.rio.write_crs("epsg:3857")
     return xrs
 
 
@@ -272,9 +279,9 @@ class Raster:
             self._null_value = null
             self._rs.attrs["res"] = raster.rio.resolution()
         elif is_numpy(raster) or is_dask(raster):
-            raster = _array_to_xarray(raster)
+            # Copy to take ownership
+            raster = _array_to_xarray(raster.copy())
             self._rs = chunk(raster)
-            masked = is_numpy_masked(raster.data._meta)
             nv = raster.attrs.get("_FillValue", None)
             self._mask = create_null_mask(self._rs, nv)
             self._null_value = nv
@@ -291,6 +298,10 @@ class Raster:
                 self._null_value = nv
         else:
             raise TypeError(f"Could not resolve input to a raster: {raster!r}")
+
+    def __repr__(self):
+        # TODO: implement
+        return repr(self._rs)
 
     def _to_presentable_xarray(self):
         """Returns a DataArray with null locations filled by the null value."""
@@ -361,6 +372,22 @@ class Raster:
 
         """
         return self._rs.shape
+
+    @property
+    def crs(self):
+        """The raster's CRS.
+
+        This is a :obj:`rasterio.crs.CRS` object."""
+        return self._rs.rio.crs
+
+    @property
+    def affine(self):
+        """The affine transformation for the raster data.
+
+        This is an :obj:`affine.Affine` object.
+
+        """
+        return self._rs.rio.transform()
 
     @property
     def resolution(self):
@@ -444,8 +471,9 @@ class Raster:
 
         """
         rs = self._rs.compute()
+        mask = self._mask.compute()
         # A new raster is returned to mirror the xarray and dask APIs
-        return _raster_like(self, rs)
+        return _raster_like(self, rs, mask=mask)
 
     def to_lazy(self):
         """Convert a non-lazy Raster to a lazy one.
@@ -1241,9 +1269,35 @@ class Raster:
             "Bitwise complement operation not supported for this raster dtype"
         )
 
-    def __repr__(self):
-        # TODO: implement
-        return repr(self._rs)
+    def clip_box(self, minx, miny, maxx, maxy):
+        """Clip the raster to the specified box.
+
+        Parameters
+        ----------
+        minx : scalar
+            The minimum x coordinate bound.
+        miny : scalar
+            The minimum y coordinate bound.
+        maxx : scalar
+            The maximum x coordinate bound.
+        maxy : scalar
+            The maximum y coordinate bound.
+
+        Returns
+        -------
+        Raster
+            The clipped raster.
+
+        """
+        xrs = self._rs.rio.clip_box(minx, miny, maxx, maxy)
+        if self._masked:
+            xmask = xr.DataArray(
+                self._mask, dims=self._rs.dims, coords=self._rs.coords
+            )
+            mask = xmask.rio.clip_box(minx, miny, maxx, maxy).data
+        else:
+            mask = da.zeros_like(xrs.data, dtype=bool)
+        return _raster_like(self, xrs, mask=mask)
 
 
 class BatchScriptParseError(BaseException):
