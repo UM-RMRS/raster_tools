@@ -110,6 +110,14 @@ Contents / Conversion
    Raster.to_dask
    Raster.to_lazy
 
+Georeferencing
+--------------
+
+.. autosummary::
+   :toctree: generated/
+
+   Raster.set_crs
+
 Raster IO
 ---------
 
