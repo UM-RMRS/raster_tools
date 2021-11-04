@@ -165,9 +165,6 @@ def _array_to_xarray(ar):
         else:
             # No way to know null value
             xrs.attrs["_FillValue"] = None
-    # Need a default CRS for rioxarray. This seems as good as any.
-    # 3857 is centered at (0, 0) lon, lat and has units of meters
-    xrs = xrs.rio.write_crs("epsg:3857")
     return xrs
 
 
@@ -623,6 +620,25 @@ class Raster:
         mask = self._mask[bands]
         # TODO: look into making attrs consistant with bands
         return _raster_like(self, rs, mask=mask)
+
+    def set_crs(self, crs):
+        """Set the CRS for the underlying data.
+
+        Parameters
+        ----------
+        crs : object
+            The desired CRS. This can be anything accepted by
+            :obj:`rasterio.crs.CRS.from_user_input` (i.e. `4326`,
+            `"epsg:4326"`, etc).
+
+        Returns
+        -------
+        Raster
+            A new raster with the specified CRS.
+
+        """
+        xrs = self._rs.rio.write_crs(crs)
+        return _raster_like(self, xrs, attrs=xrs.attrs)
 
     def set_null_value(self, value):
         """Sets or replaces the null value for the raster.
@@ -1297,6 +1313,8 @@ class Raster:
             mask = xmask.rio.clip_box(minx, miny, maxx, maxy).data
         else:
             mask = da.zeros_like(xrs.data, dtype=bool)
+        # TODO: This will throw a rioxarray.exceptions.MissingCRS exception if
+        # no crs is set. Add code to fall back on
         return _raster_like(self, xrs, mask=mask)
 
 

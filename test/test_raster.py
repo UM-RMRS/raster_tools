@@ -85,7 +85,7 @@ class TestProperties(unittest.TestCase):
 
         x = np.arange(25).reshape((5, 5))
         rs = Raster(x)
-        self.assertTrue(rs.crs == rio.crs.CRS.from_epsg(3857))
+        self.assertIsNone(rs.crs)
 
     def test_affine(self):
         rs = Raster("test/data/elevation_small.tif")
@@ -509,6 +509,17 @@ class TestCopy(unittest.TestCase):
         self.assertEqual(rs._attrs, copy._attrs)
 
 
+class TestSetCrs(unittest.TestCase):
+    def test_set_crs(self):
+        rs = Raster("test/data/elevation_small.tif")
+        self.assertTrue(rs.crs != 4326)
+
+        rs4326 = rs.set_crs(4326)
+        self.assertTrue(rs4326.crs != rs.crs)
+        self.assertTrue(rs4326.crs == 4326)
+        self.assertTrue(np.allclose(rs._values, rs4326._values))
+
+
 class TestSetNullValue(unittest.TestCase):
     def test_set_null_value(self):
         rs = Raster("test/data/null_values.tiff")
@@ -557,7 +568,7 @@ class TestClipBox(unittest.TestCase):
         # Test that the mask is also clipped
         x = np.arange(25).reshape((1, 5, 5))
         x[x < 12] = 0
-        rs = Raster(x).set_null_value(0)
+        rs = Raster(x).set_null_value(0).set_crs("epsg:3857")
         self.assertTrue(np.allclose(x == 0, rs._mask))
         rs_clipped = rs.clip_box(1, 1, 3, 3)
         mask_truth = np.array([[[1, 1, 1], [1, 0, 0], [0, 0, 0]]], dtype=bool)
