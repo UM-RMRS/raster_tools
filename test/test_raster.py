@@ -3,7 +3,6 @@ import dask
 import numpy as np
 import scipy
 import rasterio as rio
-import rioxarray as rxr
 import unittest
 import xarray as xr
 from scipy import ndimage
@@ -34,6 +33,14 @@ from raster_tools._types import (
 
 def rs_eq_array(rs, ar):
     return (rs._rs.values == ar).all()
+
+
+class TestRasterCreation(unittest.TestCase):
+    def test_increasing_coords(self):
+        rs = Raster("test/data/elevation_small.tif")
+        x, y = rs._rs.x.values, rs._rs.y.values
+        self.assertTrue((np.diff(x) > 0).all())
+        self.assertTrue((np.diff(y) > 0).all())
 
 
 class TestProperties(unittest.TestCase):
@@ -94,10 +101,12 @@ class TestProperties(unittest.TestCase):
 
     def test_resolution(self):
         rs = Raster("test/data/elevation_small.tif")
-        self.assertTupleEqual(rs.resolution, rs._rs.attrs["res"])
-        self.assertTupleEqual(rs.resolution, rs._rs.rio.resolution())
-        # Make sure that resolution can have negative values
-        self.assertTrue(rs.resolution[1] < 0)
+        self.assertTupleEqual(rs.resolution, rs._rs.rio.resolution(True))
+
+        r = np.arange(25).reshape((5, 5))
+        rs = Raster(r)
+        self.assertTupleEqual(rs.resolution, rs._rs.rio.resolution(True))
+
 
 
 class TestRasterCtor(unittest.TestCase):
@@ -543,7 +552,7 @@ class TestReplaceNull(unittest.TestCase):
         fill_value = 0
         rs = Raster("test/data/null_values.tiff")
         nv = rs.null_value
-        rsnp = rxr.open_rasterio("test/data/null_values.tiff").values
+        rsnp = rs._values
         rsnp_replaced = rsnp.copy()
         rsnp_replaced[rsnp == rs.null_value] = fill_value
         rs = rs.replace_null(fill_value)

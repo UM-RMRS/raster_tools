@@ -53,6 +53,19 @@ def is_batch_file(path):
     return _get_extension(path) in BATCH_EXTS
 
 
+def normalize_xarray_data(xrs):
+    # Make sure that x and y are always monotonically increasing
+    xdiff = np.diff(xrs.x)
+    if len(xdiff) and (xdiff < 0).all():
+        xrs = xrs.reindex(x=xrs.x[::-1])
+    ydiff = np.diff(xrs.y)
+    if len(ydiff) and (ydiff < 0).all():
+        xrs = xrs.reindex(y=xrs.y[::-1])
+    tf = xrs.rio.transform(True)
+    xrs = xrs.rio.write_transform(tf)
+    return xrs
+
+
 def open_raster_from_path(path):
     if type(path) in IO_UNDERSTOOD_TYPES:
         path = str(path)
@@ -74,12 +87,13 @@ def open_raster_from_path(path):
         xrs = rxr.open_rasterio(path)
     else:
         raise RasterIOError("Unknown file type")
+    xrs = chunk(xrs, path)
+
+    xrs = normalize_xarray_data(xrs)
 
     nv = xrs.attrs.get("_FillValue", None)
-    xrs = chunk(xrs, path)
     mask = None
     mask = create_null_mask(xrs, nv)
-    xrs.attrs["res"] = xrs.rio.resolution()
     return xrs, mask, nv
 
 

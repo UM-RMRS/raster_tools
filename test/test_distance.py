@@ -1,5 +1,6 @@
 import numpy as np
 import unittest
+from affine import Affine
 
 from raster_tools import distance, Raster
 
@@ -163,9 +164,14 @@ class TestCostDist(unittest.TestCase):
         srcs = np.array([[20, 20]])
         _ = distance.cost_distance_analysis(cs, srcs)
 
-        self.cs._attrs["res"] = (1.0, -1.0)
+        af = self.cs.affine
+        coefs = [af.a, af.b, af.c, af.d, -af.e, af.f]
+        trans = Affine(*coefs)
+        cs = self.cs.copy()
+        xcs = self.cs._rs.rio.write_transform(trans)
+        cs._rs = xcs
         cost_dist, traceback, allocation = distance.cost_distance_analysis(
-            self.cs, self.srcs
+            cs, self.srcs
         )
         # Cost dist
         self.assertTrue(
@@ -227,9 +233,16 @@ class TestCostDist(unittest.TestCase):
             )
 
     def test_cost_distance_analysis_scale(self):
-        self.cs._rs.attrs["res"] = (5, 5)
+        af = self.cs.affine
+        coefs = [5, af.b, af.c, af.d, 5, af.f]
+        trans = Affine(*coefs)
+        cs = self.cs.copy()
+        xcs = self.cs._rs.rio.write_transform(trans)
+        xcs["x"] = xcs.x * 5
+        xcs["y"] = xcs.y * 5
+        cs._rs = xcs
         cost_dist, traceback, allocation = distance.cost_distance_analysis(
-            self.cs, self.srcs
+            cs, self.srcs
         )
 
         self.assertTrue(
