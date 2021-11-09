@@ -19,6 +19,7 @@ from .io import (
     IO_UNDERSTOOD_TYPES,
     chunk,
     is_batch_file,
+    normalize_xarray_data,
     open_raster_from_path,
     write_raster,
 )
@@ -156,7 +157,6 @@ def _array_to_xarray(ar):
         ar = da.from_array(ar)
     coords = [list(range(d)) for d in ar.shape]
     xrs = xr.DataArray(ar, dims=["band", "y", "x"], coords=coords)
-    xrs.attrs["res"] = (1.0, 1.0)
     if is_numpy_masked(ar._meta):
         xrs.attrs["_FillValue"] = ar._meta.fill_value
     else:
@@ -270,15 +270,14 @@ class Raster:
             self._mask = raster._mask.copy()
             self._null_value = raster._null_value
         elif is_xarray(raster):
-            self._rs = raster
+            self._rs = normalize_xarray_data(raster)
             null = _try_to_get_null_value_xarray(raster)
             self._mask = create_null_mask(self._rs, null)
             self._null_value = null
-            self._rs.attrs["res"] = raster.rio.resolution()
         elif is_numpy(raster) or is_dask(raster):
             # Copy to take ownership
-            raster = _array_to_xarray(raster.copy())
-            self._rs = chunk(raster)
+            raster = chunk(_array_to_xarray(raster.copy()))
+            self._rs = normalize_xarray_data(raster)
             nv = raster.attrs.get("_FillValue", None)
             self._mask = create_null_mask(self._rs, nv)
             self._null_value = nv
@@ -384,12 +383,13 @@ class Raster:
         This is an :obj:`affine.Affine` object.
 
         """
-        return self._rs.rio.transform()
+        return self._rs.rio.transform(True)
 
     @property
     def resolution(self):
         """The x and y cell sizes as a tuple. Values are always positive."""
-        return self._attrs.get("res")
+        return self._rs.rio.resolution(True)
+
 
     def to_xarray(self):
         """Returns the underlying data as an xarray.DataArray.
