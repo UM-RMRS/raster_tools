@@ -54,7 +54,10 @@ def is_batch_file(path):
 
 
 def normalize_xarray_data(xrs):
-    # Make sure that x and y are always monotonically increasing
+    # Make sure that x and y are always increasing. xarray will auto align
+    # rasters but when a raster is converted to a numpy or dask array, the
+    # data may not be aligned. This ensures that rasters converted to
+    # non-georeferenecd formats will be oriented the same.
     xdiff = np.diff(xrs.x)
     if len(xdiff) and (xdiff < 0).all():
         xrs = xrs.reindex(x=xrs.x[::-1])

@@ -31,16 +31,61 @@ from raster_tools._types import (
 )
 
 
+TEST_ARRAY = np.array(
+    [
+        [1, 3, 4, 4, 3, 2],
+        [7, 3, 2, 6, 4, 6],
+        [5, 8, 7, 5, 6, 6],
+        [1, 4, 5, -1, 5, 1],
+        [4, 7, 5, -1, 2, 6],
+        [1, 2, 2, 1, 3, 4],
+    ]
+)
+
+
 def rs_eq_array(rs, ar):
     return (rs._rs.values == ar).all()
 
 
 class TestRasterCreation(unittest.TestCase):
+    def test_ctor_errors(self):
+        with self.assertRaises(ValueError):
+            rs = Raster(np.ones(4))
+        with self.assertRaises(ValueError):
+            rs = Raster(np.ones((1, 3, 4, 4)))
+
     def test_increasing_coords(self):
+        # This raster has an inverted y axis
         rs = Raster("test/data/elevation_small.tif")
         x, y = rs._rs.x.values, rs._rs.y.values
         self.assertTrue((np.diff(x) > 0).all())
         self.assertTrue((np.diff(y) > 0).all())
+
+        rs = Raster(TEST_ARRAY)
+        x, y = rs._rs.x.values, rs._rs.y.values
+        self.assertTrue((np.diff(x) > 0).all())
+        self.assertTrue((np.diff(y) > 0).all())
+
+    def test_creation_from_numpy(self):
+        for nprs in [np.ones((6, 6)), np.ones((1, 6, 6)), np.ones((4, 5, 5))]:
+            rs = Raster(nprs)
+            shape = nprs.shape if len(nprs.shape) == 3 else (1, *nprs.shape)
+            self.assertEqual(rs.shape, shape)
+            self.assertTrue(rs_eq_array(rs, nprs))
+
+        rs = Raster(TEST_ARRAY)
+        # Band dim has been added
+        self.assertTrue(rs.shape == (1, 6, 6))
+        # Band dim starts at 1
+        self.assertTrue((rs._rs.band == [1]).all())
+        # x/y dims start at 0 and increase
+        self.assertTrue((rs._rs.x == np.arange(0, 6)).all())
+        self.assertTrue((rs._rs.y == np.arange(0, 6)).all())
+        # No null value determined for int type
+        self.assertIsNone(rs.null_value)
+
+        rs = Raster(TEST_ARRAY.astype(float))
+        self.assertTrue(np.isnan(rs.null_value))
 
 
 class TestProperties(unittest.TestCase):
@@ -106,21 +151,6 @@ class TestProperties(unittest.TestCase):
         r = np.arange(25).reshape((5, 5))
         rs = Raster(r)
         self.assertTupleEqual(rs.resolution, rs._rs.rio.resolution(True))
-
-
-
-class TestRasterCtor(unittest.TestCase):
-    def test_raster_ctor(self):
-        for nprs in [np.ones((6, 6)), np.ones((1, 6, 6)), np.ones((4, 5, 5))]:
-            rs = Raster(nprs)
-            shape = nprs.shape if len(nprs.shape) == 3 else (1, *nprs.shape)
-            self.assertEqual(rs.shape, shape)
-            self.assertTrue(rs_eq_array(rs, nprs))
-
-        with self.assertRaises(ValueError):
-            rs = Raster(np.ones(4))
-        with self.assertRaises(ValueError):
-            rs = Raster(np.ones((1, 3, 4, 4)))
 
 
 class TestRasterMath(unittest.TestCase):
