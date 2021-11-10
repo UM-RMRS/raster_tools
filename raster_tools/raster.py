@@ -155,7 +155,9 @@ def _array_to_xarray(ar):
         ar = ar[None]
     if not is_dask(ar):
         ar = da.from_array(ar)
-    coords = [list(range(d)) for d in ar.shape]
+    # The band dimension needs to start at 1 to match raster conventions
+    coords = [np.arange(1, ar.shape[0] + 1)]
+    coords.extend([np.arange(d) for d in ar.shape[1:]])
     xrs = xr.DataArray(ar, dims=["band", "y", "x"], coords=coords)
     if is_numpy_masked(ar._meta):
         xrs.attrs["_FillValue"] = ar._meta.fill_value
@@ -389,7 +391,6 @@ class Raster:
     def resolution(self):
         """The x and y cell sizes as a tuple. Values are always positive."""
         return self._rs.rio.resolution(True)
-
 
     def to_xarray(self):
         """Returns the underlying data as an xarray.DataArray.
