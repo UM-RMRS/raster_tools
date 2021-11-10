@@ -183,17 +183,17 @@ def _try_to_get_null_value_xarray(xrs):
         return null
     nv1 = xrs.rio.nodata
     nv2 = xrs.rio.encoded_nodata
+    # All are None, return nan for float and None otherwise
     if all(nv is None for nv in [nv1, nv2]):
-        return np.nan
-    if nv1 is None:
-        nv1 = np.nan
-    if nv2 is None:
-        nv2 = np.nan
-    if not np.isnan(nv1):
+        if is_float(xrs.dtype):
+            return np.nan
+        else:
+            return None
+    # All are not None, return nv1
+    if all(nv is not None for nv in [nv1, nv2]):
         return nv1
-    if not np.isnan(nv2):
-        return nv2
-    return np.nan
+    # One is None and the other is not, return the valid null value
+    return nv1 if nv1 is not None else nv2
 
 
 DTYPE_TO_DEFAULT_NULL = {
