@@ -301,6 +301,9 @@ class Raster:
         # TODO: implement
         return repr(self._rs)
 
+    def __array__(self, dtype=None):
+        return self._rs.__array__(dtype)
+
     def _to_presentable_xarray(self):
         """Returns a DataArray with null locations filled by the null value."""
         xrs = self._rs
