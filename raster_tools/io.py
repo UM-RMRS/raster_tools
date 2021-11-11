@@ -22,6 +22,10 @@ class RasterIOError(BaseException):
     pass
 
 
+class RasterDataError(BaseException):
+    pass
+
+
 def _get_extension(path):
     return os.path.splitext(path)[-1].lower()
 
@@ -117,6 +121,11 @@ def open_raster_from_path(path):
         )
     else:
         raise RasterIOError("Unknown file type")
+    if isinstance(xrs, xr.Dataset):
+        raise RasterDataError("Too many data variables in input data")
+    assert isinstance(
+        xrs, xr.DataArray
+    ), "Resulting data structure must be a DataArray"
     if not dask.is_dask_collection(xrs):
         xrs = chunk(xrs, path)
 
