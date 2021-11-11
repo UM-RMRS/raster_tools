@@ -26,20 +26,38 @@ def _get_extension(path):
     return os.path.splitext(path)[-1].lower()
 
 
+def _get_chunking_info_from_file(src_file):
+    with rio.open(src_file) as src:
+        tile_shape = (1, *src.block_shapes[0])
+        shape = (src.count, *src.shape)
+        dtype = np.dtype(src.dtypes[0])
+        return tile_shape, shape, dtype
+
+
+def _get_chunks(data=None, src_file=None):
+    chunks = (1, "auto", "auto")
+    if data is None:
+        if src_file is None:
+            return chunks
+        tile_shape, shape, dtype = _get_chunking_info_from_file(src_file)
+        return dask_chunks(
+            chunks, shape, dtype=dtype, previous_chunks=tile_shape
+        )
+    else:
+        shape = data.shape
+        dtype = data.dtype
+        tile_shape = None
+        if dask.is_dask_collection(data):
+            tile_shape = data.chunks
+        elif src_file is not None:
+            _, tile_shape, _ = _get_chunking_info_from_file(src_file)
+        return dask_chunks(
+            chunks, shape, dtype=dtype, previous_chunks=tile_shape
+        )
+
+
 def chunk(xrs, src_file=None):
-    tile_shape = None
-    if src_file is not None and _get_extension(src_file) in TIFF_EXTS:
-        with rio.open(src_file) as src:
-            tile_shape = (1, *src.block_shapes[0])
-    elif dask.is_dask_collection(xrs):
-        tile_shape = xrs.chunks
-    chunks = dask_chunks(
-        (1, "auto", "auto"),
-        xrs.shape,
-        dtype=xrs.dtype,
-        previous_chunks=tile_shape,
-    )
-    return xrs.chunk(chunks)
+    return xrs.chunk(_get_chunks(xrs, src_file))
 
 
 TIFF_EXTS = frozenset((".tif", ".tiff"))
@@ -87,10 +105,11 @@ def open_raster_from_path(path):
     # chunking.
     xrs = None
     if ext in TIFF_EXTS:
-        xrs = rxr.open_rasterio(path)
+        xrs = rxr.open_rasterio(path, chunks=_get_chunks(src_file=path))
     else:
         raise RasterIOError("Unknown file type")
-    xrs = chunk(xrs, path)
+    if not dask.is_dask_collection(xrs):
+        xrs = chunk(xrs, path)
 
     xrs = normalize_xarray_data(xrs)
 
