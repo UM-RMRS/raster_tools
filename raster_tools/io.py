@@ -63,10 +63,11 @@ def chunk(xrs, src_file=None):
 TIFF_EXTS = frozenset((".tif", ".tiff"))
 NC_EXTS = frozenset((".cdf", ".nc", ".nc4"))
 HDF_EXTS = frozenset((".hdf", ".h4", ".hdf4", ".he2", ".h5", ".hdf5", ".he5"))
+GRIB_EXTS = frozenset((".grib", ".grib2", ".grb", ".grb2", ".gb", ".gb2"))
 BATCH_EXTS = frozenset((".bch",))
 
 # File extenstions that can't be read in yet
-READ_NOT_IMPLEMENTED_EXTS = NC_EXTS | HDF_EXTS
+READ_NOT_IMPLEMENTED_EXTS = NC_EXTS | HDF_EXTS | GRIB_EXTS
 
 IO_UNDERSTOOD_TYPES = (str, Path)
 
@@ -111,7 +112,8 @@ def open_raster_from_path(path):
             raise RasterIOError(str(e))
     elif ext in READ_NOT_IMPLEMENTED_EXTS:
         raise RasterIOError(
-            "Reading of NetCDF and HDF files is not supported at this time."
+            "Reading of NetCDF, HDF, and GRIB files is not supported at this"
+            " time."
         )
     else:
         raise RasterIOError("Unknown file type")
