@@ -115,7 +115,7 @@ def open_raster_from_path(path):
         except rio.errors.RasterioIOError as e:
             raise RasterIOError(str(e))
     elif ext in READ_NOT_IMPLEMENTED_EXTS:
-        raise RasterIOError(
+        raise NotImplementedError(
             "Reading of NetCDF, HDF, and GRIB files is not supported at this"
             " time."
         )
