@@ -108,7 +108,7 @@ def open_raster_from_path(path):
     ext = _get_extension(path)
 
     xrs = None
-    # Try to let gdal open anything but NC or HDF files
+    # Try to let gdal open anything but NC, HDF, GRIB files
     if not ext or ext not in READ_NOT_IMPLEMENTED_EXTS:
         try:
             xrs = rxr.open_rasterio(path, chunks=_get_chunks())
