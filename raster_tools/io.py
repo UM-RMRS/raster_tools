@@ -72,6 +72,8 @@ BATCH_EXTS = frozenset((".bch",))
 
 # File extenstions that can't be read in yet
 READ_NOT_IMPLEMENTED_EXTS = NC_EXTS | HDF_EXTS | GRIB_EXTS
+# File extenstions that can't be written out yet
+WRITE_NOT_IMPLEMENTED_EXTS = NC_EXTS | HDF_EXTS | GRIB_EXTS
 
 IO_UNDERSTOOD_TYPES = (str, Path)
 
@@ -188,9 +190,7 @@ def _write_tif_with_rasterio(
             dst.write(values, band + 1)
 
 
-def write_raster(
-    xrs, path, no_data_value, blockxsize=None, blockysize=None, compress=None
-):
+def write_raster(xrs, path, no_data_value, **rio_gdal_kwargs):
     ext = _get_extension(path)
     rio_is_bool = False
     if ext in TIFF_EXTS:
@@ -204,21 +204,14 @@ def write_raster(
             rio_is_bool = True
             xrs = xrs.astype(U8)
 
-    if ext in TIFF_EXTS:
-        kwargs = {"lock": True, "compute": True}
-        if blockxsize is not None:
-            kwargs["blockxsize"] = blockxsize
-        if blockysize is not None:
-            kwargs["blockysize"] = blockysize
-        if compress:
-            if is_str(compress):
-                kwargs["compress"] = compress
-            elif is_bool(compress):
-                kwargs["compress"] = "lzw"
-            else:
-                raise TypeError(
-                    f"Could not understand compress argument: {compress}"
-                )
+    if not ext or ext not in WRITE_NOT_IMPLEMENTED_EXTS:
+        kwargs = {"lock": True, "compute": True, **rio_gdal_kwargs}
+        if "blockheight" in kwargs:
+            value = kwargs.pop("blockheight")
+            kwargs["blockysize"] = value
+        if "blockwidth" in kwargs:
+            value = kwargs.pop("blockwidth")
+            kwargs["blockxsize"] = value
         if rio_is_bool:
             # Store each entry using a single bit
             kwargs["nbits"] = 1
