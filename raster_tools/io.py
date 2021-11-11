@@ -139,57 +139,6 @@ def open_raster_from_path(path):
     return xrs, mask, nv
 
 
-def _write_tif_with_rasterio(
-    rs,
-    path,
-    no_data_value=None,
-    compress=False,
-    blockwidth=None,
-    blockheight=None,
-    **kwargs,
-):
-    # This method uses rasterio to write multi-band tiffs to disk. It does not
-    # respect dask and the result raster will be loaded into memory before
-    # writing to disk.
-    if len(rs.shape) == 3:
-        bands, rows, cols = rs.shape
-    else:
-        rows, cols = rs.shape
-        bands = 1
-    compress = None if not compress else "lzw"
-    if no_data_value is None:
-        ndv = (
-            rs.rio.nodata
-            if rs.rio.encoded_nodata is None
-            else rs.rio.encodeded_nodata
-        )
-        nodataval = ndv
-    else:
-        nodataval = no_data_value
-    with rio.open(
-        path,
-        "w",
-        driver="GTiff",
-        height=rows,
-        width=cols,
-        count=bands,
-        dtype=rs.dtype,
-        nodata=nodataval,
-        crs=rs.rio.crs,
-        transform=rs.rio.transform(),
-        tiled=True,
-        blockxsize=blockwidth,
-        blockysize=blockheight,
-        compress=compress,
-    ) as dst:
-        for band in range(bands):
-            if len(rs.shape) == 3:
-                values = rs[band].values
-            else:
-                values = rs.values
-            dst.write(values, band + 1)
-
-
 def write_raster(xrs, path, no_data_value, **rio_gdal_kwargs):
     ext = _get_extension(path)
     rio_is_bool = False
