@@ -61,8 +61,12 @@ def chunk(xrs, src_file=None):
 
 
 TIFF_EXTS = frozenset((".tif", ".tiff"))
+NC_EXTS = frozenset((".cdf", ".nc", ".nc4"))
+HDF_EXTS = frozenset((".hdf", ".h4", ".hdf4", ".he2", ".h5", ".hdf5", ".he5"))
 BATCH_EXTS = frozenset((".bch",))
 
+# File extenstions that can't be read in yet
+READ_NOT_IMPLEMENTED_EXTS = NC_EXTS | HDF_EXTS
 
 IO_UNDERSTOOD_TYPES = (str, Path)
 
@@ -97,15 +101,18 @@ def open_raster_from_path(path):
         )
     validate_file(path)
     ext = _get_extension(path)
-    if not ext:
-        raise RasterIOError("Could not determine file type")
 
-    # XXX: comments on a few xarray issues mention better performance when
-    # using the chunks keyword in open_*(). Consider combining opening and
-    # chunking.
     xrs = None
-    if ext in TIFF_EXTS:
-        xrs = rxr.open_rasterio(path, chunks=_get_chunks())
+    # Try to let gdal open anything but NC or HDF files
+    if not ext or ext not in READ_NOT_IMPLEMENTED_EXTS:
+        try:
+            xrs = rxr.open_rasterio(path, chunks=_get_chunks())
+        except rio.errors.RasterioIOError as e:
+            raise RasterIOError(str(e))
+    elif ext in READ_NOT_IMPLEMENTED_EXTS:
+        raise RasterIOError(
+            "Reading of NetCDF and HDF files is not supported at this time."
+        )
     else:
         raise RasterIOError("Unknown file type")
     if not dask.is_dask_collection(xrs):
