@@ -105,7 +105,7 @@ def open_raster_from_path(path):
     # chunking.
     xrs = None
     if ext in TIFF_EXTS:
-        xrs = rxr.open_rasterio(path, chunks=_get_chunks(src_file=path))
+        xrs = rxr.open_rasterio(path, chunks=_get_chunks())
     else:
         raise RasterIOError("Unknown file type")
     if not dask.is_dask_collection(xrs):
