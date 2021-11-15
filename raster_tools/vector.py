@@ -354,6 +354,29 @@ class Vector:
         return self.geometry.to_list()
 
     def to_raster(self, like, all_touched=True):
+        """Convert vector data to a raster.
+
+        Parameters
+        ----------
+        like : Raster
+            A to use for grid and CRS information. The resulting raster will be
+            on the same grid as `like`.
+        all_touched : bool, optional
+            If ``True``, grid cells that the vector touches will be burned in.
+            If False, only cells with a center point inside of the vector
+            perimeter will be burned in.
+
+        Returns
+        -------
+        Raster
+            The resulting raster. The result will have a single band. Each
+            vector shape is assigned a 1-based integer value equal to its order
+            in the original vector collection. This integer value is what is
+            burned in at the corresponding grid cells. The dtype of the result
+            will be the minimum, unsigned integer type that can fit the ID
+            values. The null value is 0.
+
+        """
         like = _parse_input_raster(like)
 
         xrs = _vector_to_raster_dask(
