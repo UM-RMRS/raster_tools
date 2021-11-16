@@ -18,6 +18,9 @@ from raster_tools.raster import is_raster_class
 from ._types import I8, I16, I64, F16, F32, F64, U64, promote_dtype_to_float
 from ._utils import is_float, is_int, is_scalar, is_str
 
+
+__all__ = ["open_vectors", "Vector"]
+
 try:
     import dask_geopandas as dgpd
 except ModuleNotFoundError:
@@ -88,6 +91,27 @@ _LAZY_THRESHOLD = 100_000
 
 
 def open_vectors(path, layers=None):
+    """Open a vector source.
+
+    This can be any GDAL/OGR compatible source.
+
+    Parameters
+    ----------
+    path : str, Path
+        The vector source path.
+    layers : list of int, int, list of str, str, or None, optional
+        The layer(s) to read from the source. This can be a single layer
+        int or string, a list of layer ints/strings, or ``None``. If ``None``,
+        all layers are read in. If int(s) are given, they are treated as
+        0-based layer indices.
+
+    Returns
+    -------
+    Vector, list of Vector
+        If only a single layer was specified or found, a single Vector object
+        is returned. Otherwise, a list of Vector objects is returned.
+
+    """
     if not os.path.exists(path):
         raise IOError(f"No such file or directory: {path!r}")
 
@@ -305,7 +329,7 @@ class Vector:
         """The number of lazy operations left to be computed."""
         if dask.is_dask_collection(self._geo):
             # TODO: take into account partitions?
-            return len(self._geo.tasks)
+            return len(self._geo.dask)
         return 0
 
     def copy(self):
@@ -437,7 +461,13 @@ class Vector:
             )
         # Convert negative indices to positive because the index only handles +
         if idx < 0:
-            idx = self.size - idx
+            old_idx = idx
+            idx = self.size + idx
+            if idx < 0:
+                raise IndexError(
+                    f"Negative index {old_idx} is too small for vector with "
+                    f"size {self.size}."
+                )
         # [[idx]] forces loc to return a data frame
         return Vector(self._geo.loc[[idx]])
 
