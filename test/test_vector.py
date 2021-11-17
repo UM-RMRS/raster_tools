@@ -183,6 +183,34 @@ class TestConversions(unittest.TestCase):
         self.assertTrue(self.v.to_crs(4326).crs == crs)
         self.assertTrue(self.v.to_crs("epsg:4326").crs == crs)
 
+    def test_to_raster_many(self):
+        like = Raster("test/data/elevation.tif")
+        truth = Raster("test/data/pods_like_elevation.tif")
+        result = self.v.to_raster(like)
+
+        self.assertTrue(result.null_value == 0)
+        self.assertTrue(result.dtype == np.dtype("uint8"))
+        self.assertTrue(result.shape[0] == 1)
+        self.assertTrue(np.allclose(result, truth))
+        self.assertTrue(np.allclose(result._rs.x, truth._rs.x))
+        self.assertTrue(np.allclose(result._rs.y, truth._rs.y))
+        self.assertTrue(np.allclose(result._rs.band, truth._rs.band))
+
+    def test_to_raster_single(self):
+        like = Raster("test/data/elevation.tif")
+        truth = Raster("test/data/pods0_like_elevation.tif")
+        result = self.v[0].to_raster(like)
+
+        self.assertTrue(result.null_value == 0)
+        self.assertTrue(result.dtype == np.dtype("uint8"))
+        self.assertTrue(result.shape[0] == 1)
+        self.assertTrue(np.allclose(result, truth))
+        self.assertTrue(np.allclose(result._rs.x, truth._rs.x))
+        self.assertTrue(np.allclose(result._rs.y, truth._rs.y))
+        self.assertTrue(np.allclose(result._rs.band, truth._rs.band))
+
+        self.assertTrue(all(np.unique(result) == [0, 1]))
+
 
 class TestCastField(unittest.TestCase):
     def test_cast_field(self):
