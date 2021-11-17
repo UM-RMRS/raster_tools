@@ -322,7 +322,7 @@ class Vector:
 
     def copy(self):
         """Copies the vector."""
-        return Vector(self._geo)
+        return Vector(self._geo.copy())
 
     def eval(self):
         """Computes the built-up chain of operations on the underlying data."""

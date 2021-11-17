@@ -1,4 +1,5 @@
 import dask
+import dask_geopandas as dgpd
 import geopandas as gpd
 import numpy as np
 import rasterio as rio
@@ -128,3 +129,58 @@ class TestSpecialMethods(unittest.TestCase):
             self.v[-200]
         with self.assertRaises(IndexError):
             self.v[999]
+
+
+class TestCopy(unittest.TestCase):
+    def test_copy(self):
+        v = open_vectors("test/data/vector/pods.shp")
+        vc = v.copy()
+        self.assertIsNot(v, vc)
+        self.assertIsNot(v.data, vc.data)
+        self.assertTrue(v.data.equals(vc.data))
+
+
+class TestEval(unittest.TestCase):
+    def test_eva(self):
+        v = open_vectors("test/data/vector/pods.shp")
+        vd = v.to_lazy()
+        ve = vd.eval()
+
+        self.assertIs(v, v.eval())
+        self.assertTrue(dask.is_dask_collection(vd.data))
+        self.assertIsNot(vd, ve)
+        self.assertFalse(dask.is_dask_collection(ve.data))
+
+
+class TestConversions(unittest.TestCase):
+    def setUp(self):
+        self.v = open_vectors("test/data/vector/pods.shp")
+
+    def test_to_lazy(self):
+        self.assertIsNot(self.v, self.v.to_lazy())
+        self.assertFalse(dask.is_dask_collection(self.v.data))
+        self.assertTrue(dask.is_dask_collection(self.v.to_lazy().data))
+
+    def test_to_dataframe(self):
+        self.assertIsInstance(self.v.to_dataframe(), gpd.GeoDataFrame)
+        self.assertIsInstance(
+            self.v.to_lazy().to_dataframe(), dgpd.GeoDataFrame
+        )
+        self.assertTrue(self.v.data.equals(self.v.to_dataframe()))
+
+    def test_to_crs(self):
+        crs = rio.crs.CRS.from_epsg(4326)
+        self.assertTrue(self.v.crs == rio.crs.CRS.from_epsg(5070))
+        self.assertTrue(self.v.to_crs(crs).crs == crs)
+        self.assertTrue(self.v.to_crs(4326).crs == crs)
+        self.assertTrue(self.v.to_crs("epsg:4326").crs == crs)
+
+
+class TestCastField(unittest.TestCase):
+    def test_cast_field(self):
+        v = open_vectors("test/data/vector/pods.shp")
+        dtypes = [int, "int16", np.int32, float, "float"]
+        for d in dtypes:
+            dt = np.dtype(d)
+            vc = v.cast_field("POD_Num", d)
+            self.assertTrue(vc.data.POD_Num.dtype == dt)
