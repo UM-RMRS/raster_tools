@@ -20,5 +20,3 @@ package is installed and run the following in the project root:
 python setup.py build_ext --inplace
 ```
 This will compile the necessary shared objects that python can use.
-
-my first edit jsh
