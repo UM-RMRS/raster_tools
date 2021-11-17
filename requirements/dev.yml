@@ -1,0 +1,22 @@
+name: rstest
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.8
+  - affine
+  - cython
+  - dask
+  - dask-geopandas
+  - dask-image
+  - fiona
+  - geopandas
+  - nose2
+  - numba
+  - numpy
+  - pandas
+  - pygeos
+  - pyproj
+  - rioxarray
+  - scipy
+  - xarray
