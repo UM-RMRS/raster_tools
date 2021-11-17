@@ -99,9 +99,7 @@ class TestVectorProperties(unittest.TestCase):
         self.assertFalse(dask.is_dask_collection(self.v.data))
         self.assertTrue(self.v.tasks == 0)
         v = self.v.to_lazy()
-        # Only continue test if dask_geopandas is installed
-        if dask.is_dask_collection(self.v.data):
-            self.assertTrue(v.tasks == 1)
+        self.assertTrue(v.tasks == 1)
 
 
 class TestSpecialMethods(unittest.TestCase):

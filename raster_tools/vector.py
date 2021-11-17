@@ -1,5 +1,6 @@
 import dask
 import dask.dataframe as dd
+import dask_geopandas as dgpd
 import fiona
 import geopandas as gpd
 import numpy as np
@@ -20,19 +21,6 @@ from ._utils import is_float, is_int, is_scalar, is_str
 
 
 __all__ = ["open_vectors", "Vector"]
-
-try:
-    import dask_geopandas as dgpd
-except ModuleNotFoundError:
-
-    class DummyDaskGeoPandas:
-        GeoSeries = gpd.GeoSeries
-        GeoDataFrame = gpd.GeoDataFrame
-
-        def from_geopandas(self, geo, **kwargs):
-            return geo
-
-    dgpd = DummyDaskGeoPandas()
 
 
 class VectorError(Exception):
