@@ -102,6 +102,14 @@ class TestVectorProperties(unittest.TestCase):
         v = self.v.to_lazy()
         self.assertTrue(v.tasks == 1)
 
+    def test_bounds(self):
+        self.assertTrue(hasattr(self.v, "bounds"))
+        df = gpd.read_file("test/data/vector/pods.shp")
+        v = open_vectors("test/data/vector/pods.shp")
+        self.assertTrue(all(v.bounds == df.total_bounds))
+        self.assertTrue(dask.is_dask_collection(v.to_lazy().bounds))
+        self.assertTrue(all(v.to_lazy().bounds == df.total_bounds))
+
 
 class TestSpecialMethods(unittest.TestCase):
     def setUp(self):

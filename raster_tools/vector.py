@@ -320,6 +320,14 @@ class Vector:
             return len(self._geo.dask)
         return 0
 
+    @property
+    def bounds(self):
+        """Return a bounds array or dask array: (minx, miny, maxx, maxy).
+
+        If the vector is lazy, the output is a dask array.
+        """
+        return self.geometry.total_bounds
+
     def copy(self):
         """Copies the vector."""
         return Vector(self._geo.copy())
