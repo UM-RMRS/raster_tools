@@ -445,7 +445,7 @@ class Raster:
             rs.null_value if no_data_value is None else no_data_value,
             **gdal_kwargs,
         )
-        return self
+        return Raster(path)
 
     def eval(self):
         """Compute any applied operations and return the result as new Raster.
