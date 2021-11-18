@@ -433,6 +433,11 @@ class Raster:
             Additional keyword arguments to to pass to rasterio and GDAL when
             writing the raster data.
 
+        Returns
+        -------
+        Raster
+            A raster pointing to the saved location.
+
         """
         # TODO: warn of overwrite
         rs = self
