@@ -211,6 +211,33 @@ class TestConversions(unittest.TestCase):
 
         self.assertTrue(all(np.unique(result) == [0, 1]))
 
+    def test_to_raster_lazy_one_partition(self):
+        like = Raster("test/data/elevation.tif")
+        truth = Raster("test/data/pods_like_elevation.tif")
+        result = self.v.to_lazy().to_raster(like)
+
+        self.assertTrue(result.null_value == 0)
+        self.assertTrue(result.dtype == np.dtype("uint8"))
+        self.assertTrue(result.shape[0] == 1)
+        self.assertTrue(np.allclose(result, truth))
+        self.assertTrue(np.allclose(result._rs.x, truth._rs.x))
+        self.assertTrue(np.allclose(result._rs.y, truth._rs.y))
+        self.assertTrue(np.allclose(result._rs.band, truth._rs.band))
+
+    def test_to_raster_lazy_many_partitions(self):
+        like = Raster("test/data/elevation.tif")
+        truth = Raster("test/data/pods_like_elevation.tif")
+        v = Vector(self.v.to_lazy().data.repartition(10))
+        result = v.to_raster(like)
+
+        self.assertTrue(result.null_value == 0)
+        self.assertTrue(result.dtype == np.dtype("uint8"))
+        self.assertTrue(result.shape[0] == 1)
+        self.assertTrue(np.allclose(result, truth))
+        self.assertTrue(np.allclose(result._rs.x, truth._rs.x))
+        self.assertTrue(np.allclose(result._rs.y, truth._rs.y))
+        self.assertTrue(np.allclose(result._rs.band, truth._rs.band))
+
 
 class TestCastField(unittest.TestCase):
     def test_cast_field(self):
