@@ -1,5 +1,6 @@
 import dask
 import dask.dataframe as dd
+import dask_geopandas as dgpd
 import fiona
 import geopandas as gpd
 import numpy as np
@@ -20,19 +21,6 @@ from ._utils import is_float, is_int, is_scalar, is_str
 
 
 __all__ = ["open_vectors", "Vector"]
-
-try:
-    import dask_geopandas as dgpd
-except ModuleNotFoundError:
-
-    class DummyDaskGeoPandas:
-        GeoSeries = gpd.GeoSeries
-        GeoDataFrame = gpd.GeoDataFrame
-
-        def from_geopandas(self, geo, **kwargs):
-            return geo
-
-    dgpd = DummyDaskGeoPandas()
 
 
 class VectorError(Exception):
@@ -150,8 +138,9 @@ def open_vectors(path, layers=None):
 
 def _get_geo_len(geo, error=False):
     if dask.is_dask_collection(geo):
-        if geo.known_divisions:
-            return geo.divisions[-1] + 1
+        n = len(geo)
+        if not np.isnan(n):
+            return n
         if error:
             raise ValueError(
                 "Could not determine size of lazy geo data. Divisions not set."
@@ -160,7 +149,7 @@ def _get_geo_len(geo, error=False):
     return len(geo)
 
 
-def _rasterize_block(block, geometry, values, dtype, all_touched, merge_alg):
+def _rasterize_block(block, geometry, values, dtype, all_touched):
     shape = block.shape[1:]
     rast_array = rio_rasterize(
         zip(geometry.values, values),
@@ -168,7 +157,7 @@ def _rasterize_block(block, geometry, values, dtype, all_touched, merge_alg):
         transform=block.rio.transform(),
         fill=0,
         all_touched=all_touched,
-        merge_alg=merge_alg,
+        merge_alg=MergeAlg.replace,
         dtype=dtype,
     )
     # Add band dimension to array
@@ -176,30 +165,14 @@ def _rasterize_block(block, geometry, values, dtype, all_touched, merge_alg):
     return block
 
 
-def _vector_to_raster_dask(df, xlike, all_touched=True):
-    if xlike.shape[0] > 1:
-        xlike = xlike[:1]
-    # Reproject to xlike CRS
-    df = df.to_crs(xlike.rio.crs.wkt)
-    geometry = df.geometry
-    # Find minimum bit width needed to represent data
-    n = _get_geo_len(df, error=True)
-    dtype = np.min_scalar_type(n)
-    if dtype == U64:
-        # rasterio doesn't like uint64
-        # This is very unlikely. n would have to be huge. If this triggers,
-        # other things will likely break.
-        dtype = F64
-    values = dask.array.arange(1, n + 1, dtype=dtype)
-    template = xr.zeros_like(xlike, dtype=dtype)
-
+def _rasterize_map_blocks(template, geometry, values, dtype, all_touched):
+    # Force computation here to avoid computing in each block-rasterization
+    # call.
+    geometry, values = dask.compute(geometry, values)
     # Filter invalid geometries
     valid = ~(geometry.is_empty | geometry.isna())
     geometry = geometry[valid]
-    if dask.is_dask_collection(valid):
-        values = values[valid.values.compute_chunk_sizes()]
-    else:
-        values = values[valid.values]
+    values = values[valid.values]
 
     result = template.map_blocks(
         _rasterize_block,
@@ -208,10 +181,73 @@ def _vector_to_raster_dask(df, xlike, all_touched=True):
             values,
             dtype,
             all_touched,
-            MergeAlg.replace,
         ],
         template=template,
     )
+    return result.data
+
+
+def _rasterize_partition(df, xlike, values, all_touched=True):
+    if xlike.shape[0] > 1:
+        xlike = xlike[:1]
+    geometry = df.geometry
+    if values.dtype == U64:
+        # rasterio doesn't like uint64
+        # This is very unlikely. n would have to be huge. If this triggers,
+        # other things will likely break.
+        values.astype(F64)
+    template = xr.zeros_like(xlike, dtype=values.dtype)
+
+    # geometry is likely lazy. It could also potentially wrap a very large
+    # feature collection. It must be computed at some point before mapping
+    # the rasterization function onto the template blocks. To avoid doing this
+    # here and now, we wrap the rasterization operation in a delayed object.
+    lazy_result_data = delayed(_rasterize_map_blocks)(
+        template, geometry, values, values.dtype, all_touched
+    )
+    result = template.copy()
+    result.data = dask.array.from_delayed(
+        lazy_result_data,
+        template.shape,
+        dtype=values.dtype,
+        meta=template.data,
+    )
+    return result
+
+
+def _vector_to_raster_dask(df, xlike, all_touched=True):
+    if not dask.is_dask_collection(xlike):
+        raise ValueError("xlike must be a dask collection")
+
+    N = _get_geo_len(df, error=True)
+    values_dtype = np.min_scalar_type(N)
+    if not dask.is_dask_collection(df) or df.npartitions == 1:
+        values = np.arange(1, N + 1, dtype=values_dtype)
+        return _rasterize_partition(df, xlike, values, all_touched=all_touched)
+
+    # There is no way to neatly align the dataframe partitions with the raster
+    # chunks. Because of this, we burn in each partition on its own raster and
+    # then merge the results.
+    results = []
+    offset = 0
+    for part in df.partitions:
+        n = _get_geo_len(part, error=True)
+        values = dask.array.arange(
+            offset + 1, offset + n + 1, dtype=values_dtype
+        )
+        res = _rasterize_partition(
+            part,
+            xlike,
+            values,
+            all_touched=all_touched,
+        )
+        offset += n
+        results.append(res)
+    # Merge along band dim using max
+    result = xr.concat(results, dim="band").max(axis=0, keep_attrs=True)
+    result = result.expand_dims("band")
+    result["band"] = [1]
+    result["spatial_ref"] = xlike.spatial_ref
     return result
 
 
@@ -274,8 +310,11 @@ class Vector:
         return _get_geo_len(self._geo)
 
     def __repr__(self):
-        return "<Vector(shapes: {}, fields: {}, CRS: {})>".format(
-            self.size, self.shape[1], self.crs
+        return "<Vector(shapes: {}, fields: {}, CRS: {}, lazy:{})>".format(
+            self.size,
+            self.shape[1],
+            self.crs,
+            dask.is_dask_collection(self._geo),
         )
 
     @property
@@ -332,9 +371,17 @@ class Vector:
             return len(self._geo.dask)
         return 0
 
+    @property
+    def bounds(self):
+        """Return a bounds array or dask array: (minx, miny, maxx, maxy).
+
+        If the vector is lazy, the output is a dask array.
+        """
+        return self.geometry.total_bounds
+
     def copy(self):
         """Copies the vector."""
-        return Vector(self._geo)
+        return Vector(self._geo.copy())
 
     def eval(self):
         """Computes the built-up chain of operations on the underlying data."""
@@ -401,10 +448,12 @@ class Vector:
             values. The null value is 0.
 
         """
-        like = _parse_input_raster(like)
+        like = _parse_input_raster(like).to_lazy()
 
         xrs = _vector_to_raster_dask(
-            self._geo, xlike=like.to_xarray(), all_touched=all_touched
+            self.to_crs(like.crs)._geo,
+            xlike=like.to_xarray(),
+            all_touched=all_touched,
         )
         return Raster(xrs).set_null_value(0)
 
