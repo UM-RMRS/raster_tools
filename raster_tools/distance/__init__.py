@@ -19,3 +19,10 @@ from ._costdist import (
     cda_traceback,
     cost_distance_analysis,
 )
+
+__all__ = [
+    "cda_allocation",
+    "cda_cost_distance",
+    "cda_traceback",
+    "cost_distance_analysis",
+]

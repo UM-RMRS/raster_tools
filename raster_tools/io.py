@@ -7,13 +7,10 @@ import xarray as xr
 from dask.array.core import normalize_chunks as dask_chunks
 from pathlib import Path
 
-from ._types import DEFAULT_NULL, F64, I64, U8, maybe_promote
+from ._types import F64, I64, U8
 from ._utils import (
     create_null_mask,
     is_bool,
-    is_float,
-    is_scalar,
-    is_str,
     validate_file,
 )
 

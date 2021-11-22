@@ -6,18 +6,16 @@ import geopandas as gpd
 import numpy as np
 import os
 import pandas as pd
-import pyproj
 import rasterio as rio
 import xarray as xr
-from abc import ABC
 from dask.delayed import delayed
 from rasterio.enums import MergeAlg
 from rasterio.features import rasterize as rio_rasterize
 
 from raster_tools import Raster
 from raster_tools.raster import is_raster_class
-from ._types import I8, I16, I64, F16, F32, F64, U64, promote_dtype_to_float
-from ._utils import is_float, is_int, is_scalar, is_str
+from ._types import F64, U64
+from ._utils import is_int, is_str
 
 
 __all__ = ["open_vectors", "Vector"]
@@ -111,7 +109,7 @@ def open_vectors(path, layers=None):
         if is_str(layers[0]) and any(
             layer not in src_layers_set for layer in layers
         ):
-            raise ValueError(f"Invalid layer name")
+            raise ValueError("Invalid layer name")
         elif is_int(layers[0]) and any(
             layer >= n or layer < 0 for layer in layers
         ):

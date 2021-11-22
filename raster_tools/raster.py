@@ -37,9 +37,7 @@ from ._types import (
     F32,
     F64,
     BOOL,
-    U8,
-    maybe_promote,
-    promote_data_dtype,
+    promote_dtype_to_float,
     should_promote_to_fit,
 )
 from ._utils import (
@@ -534,11 +532,10 @@ class Raster:
             return self.copy()
 
         xrs = self._rs
-        prev_dtype = xrs.dtype
         nv = self.null_value
         mask = self._mask
         if self._masked:
-            if is_float(prev_dtype) and is_int(dtype):
+            if is_float(xrs.dtype) and is_int(dtype):
                 if np.isnan(nv):
                     nv = get_default_null_value(dtype)
                     warnings.warn(
@@ -558,8 +555,8 @@ class Raster:
         Parameters
         ----------
         round_null_value : bool, optional
-            If ``True``, the resulting raster will have its null value rounded as
-            well. Default is ``True``,
+            If ``True``, the resulting raster will have its null value rounded
+            as well. Default is ``True``,
 
         Returns
         -------
@@ -773,7 +770,6 @@ class Raster:
             xcondition = xcondition > 0
         # Drop null cells from both the condition raster and this
         mask = mask | self._mask
-        prev_dtype = self.dtype
         xrs = xr.where(xcondition, xrs, other_arg)
         # Fill null areas
         xrs = xr.where(mask, self.null_value, xrs)
@@ -863,7 +859,6 @@ class Raster:
         left, right = self._rs, operand
         if swap:
             left, right = right, left
-        prev_dtype = self.dtype
         xrs = _BINARY_ARITHMETIC_OPS[op](left, right)
 
         mask = self._mask

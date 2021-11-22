@@ -5,7 +5,7 @@ import xarray as xr
 from raster_tools import Raster
 from raster_tools.raster import is_raster_class, _raster_like
 from raster_tools._utils import is_float, is_str
-from raster_tools._types import F16, I8, I64
+from raster_tools._types import I64
 from ._core import cost_distance_analysis_numpy
 
 
@@ -107,8 +107,8 @@ def cost_distance_analysis(costs, sources, elevation=None):
 
     References
     ----------
-    * `ESRI: How cost distance tools work <https://pro.arcgis.com/en/pro-app/latest/tool-reference/spatial-analyst/how-the-cost-distance-tools-work.htm>`_
-    * `ESRI: How path distance tools work <https://pro.arcgis.com/en/pro-app/latest/tool-reference/spatial-analyst/how-the-path-distance-tools-work.htm>`_
+    * `ESRI: How cost distance tools work <https://pro.arcgis.com/en/pro-app/latest/tool-reference/spatial-analyst/how-the-cost-distance-tools-work.htm>`_  # noqa: E501
+    * `ESRI: How path distance tools work <https://pro.arcgis.com/en/pro-app/latest/tool-reference/spatial-analyst/how-the-path-distance-tools-work.htm>`_  # noqa: E501
 
     """
     if not is_raster_class(costs):
