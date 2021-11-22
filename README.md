@@ -5,11 +5,13 @@ RMRS Raster Utility Project
 * [cython](https://cython.readthedocs.io/en/latest/)
 * [dask](https://dask.org/)
 * [dask_image](https://image.dask.org/en/latest/)
-* [netcdf4](https://unidata.github.io/netcdf4-python/)
+* [dask-geopandas](https://github.com/geopandas/dask-geopandas)
+* [geopandas](https://geopandas.org/en/stable/)
+* [numba](https://numba.pydata.org/)
 * [rasterio](https://rasterio.readthedocs.io/en/latest/)
 * [rioxarray](https://corteva.github.io/rioxarray/stable/)
 * [xarray](https://xarray.pydata.org/en/stable/)
-* [cupy](https://cupy.dev/): optional and experimental
+* [cupy](https://cupy.dev/): optional and very experimental
 
 ## Before Using
 Some of this package's modules use
