@@ -12,10 +12,11 @@ RMRS Raster Utility Project
 * [cupy](https://cupy.dev/): optional and experimental
 
 ## Before Using
-Some of this packages modules use
+Some of this package's modules use
 [cython](https://cython.readthedocs.io/en/latest/) code.  You must compile the
 Cython code in order to use this package. To do this, make sure that the cython
-package is installed and run the following in the project root:
+package is installed in your environment and run the following in the project
+root:
 ```sh
 python setup.py build_ext --inplace
 ```
