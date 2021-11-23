@@ -5,7 +5,7 @@ Distance Analysis
 *****************
 
 The distance module contains functions for carrying out distance analysis.
-Currently this is limited to 2D and 3D `cost distance analysis`. 
+Currently this is limited to 2D and 3D `cost distance analysis`.
 
 .. _cost distance analysis: https://pro.arcgis.com/en/pro-app/latest/tool-reference/spatial-analyst/understanding-cost-distance-analysis.htm
 

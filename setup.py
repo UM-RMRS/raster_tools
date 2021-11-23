@@ -1,8 +1,9 @@
-import numpy as np
 from multiprocessing import cpu_count
-from setuptools import setup, Extension
+
+import numpy as np
 from Cython.Build import cythonize
 from Cython.Compiler import Options
+from setuptools import Extension, setup
 
 Options.fast_fail = True
 

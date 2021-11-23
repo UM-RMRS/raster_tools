@@ -1,9 +1,9 @@
-import numpy as np
 import unittest
+
+import numpy as np
 from affine import Affine
 
-from raster_tools import distance, Raster
-
+from raster_tools import Raster, distance
 
 # Example taken from ESRI docs
 SOURCES = np.array(
@@ -99,7 +99,7 @@ class TestCostDist(unittest.TestCase):
         self.srcs_idx = SOURCES_IDXS
 
     def test_cost_distance_analysis(self):
-        ## Using srcs raster ##
+        # ** Using srcs raster **
         cost_dist, traceback, allocation = distance.cost_distance_analysis(
             self.cs, self.srcs
         )
@@ -130,7 +130,7 @@ class TestCostDist(unittest.TestCase):
         self.assertTrue(allocation.dtype == np.dtype(np.int64))
         self.assertTrue(allocation.null_value == self.srcs.null_value)
 
-        ## Using srcs indices ##
+        # ** Using srcs indices **
         cost_dist, traceback, allocation = distance.cost_distance_analysis(
             self.cs, self.srcs_idx
         )

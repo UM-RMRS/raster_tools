@@ -1,10 +1,11 @@
+import os
+
 import dask
 import dask.dataframe as dd
 import dask_geopandas as dgpd
 import fiona
 import geopandas as gpd
 import numpy as np
-import os
 import pandas as pd
 import rasterio as rio
 import xarray as xr
@@ -14,9 +15,9 @@ from rasterio.features import rasterize as rio_rasterize
 
 from raster_tools import Raster
 from raster_tools.raster import is_raster_class
+
 from ._types import F64, U64
 from ._utils import is_int, is_str
-
 
 __all__ = ["open_vectors", "Vector"]
 

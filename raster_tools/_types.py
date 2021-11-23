@@ -3,7 +3,6 @@ from xarray.core.dtypes import maybe_promote as xr_maybe_promote
 
 from ._utils import is_float
 
-
 U8 = np.dtype(np.uint8)
 U16 = np.dtype(np.uint16)
 U32 = np.dtype(np.uint32)

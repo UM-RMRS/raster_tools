@@ -2,7 +2,6 @@
 
 cimport numpy as cnp
 
-
 ctypedef cnp.float64_t KEY_t
 ctypedef cnp.int64_t INDEX_t
 # We don't need a very big number for the level count since it is used as

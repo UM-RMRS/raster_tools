@@ -1,11 +1,12 @@
-import dask
-import numpy as np
 import unittest
 import warnings
 from functools import partial
+
+import dask
+import numpy as np
 from scipy import ndimage, stats
 
-from raster_tools import focal, Raster
+from raster_tools import Raster, focal
 
 
 def array_eq_all(ar1, ar2):
@@ -405,7 +406,6 @@ class TestFocalIntegration(unittest.TestCase):
         rs = rs.set_null_value(-1)
         rs = rs.astype(int)
 
-        kernel = np.array([[1, 1, 1], [1, 1, 0], [1, 0, 0]])
         self.assertTrue(rs._masked)
         self.assertTrue(rs.dtype.kind == "i")
         res = focal.focal(rs, "mode", 3).eval()
