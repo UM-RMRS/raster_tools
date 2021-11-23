@@ -3,8 +3,10 @@
 
 import cython
 import numpy as np
+
 from libc.stdlib cimport free, malloc
 from libc.string cimport memcpy
+
 
 cdef KEY_t inf = np.inf
 

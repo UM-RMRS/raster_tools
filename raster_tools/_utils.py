@@ -1,8 +1,9 @@
-import dask
 import os
+from numbers import Integral, Number
+
+import dask
 import numpy as np
 import xarray as xr
-from numbers import Integral, Number
 
 
 def validate_file(path):

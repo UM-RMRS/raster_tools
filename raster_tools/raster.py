@@ -1,11 +1,12 @@
 import collections
-import dask
-import dask.array as da
-import numpy as np
 import operator
 import os
 import re
 import warnings
+
+import dask
+import dask.array as da
+import numpy as np
 import xarray as xr
 
 try:
@@ -15,28 +16,20 @@ try:
 except (ImportError, ModuleNotFoundError):
     GPU_ENABLED = False
 
-from .io import (
-    IO_UNDERSTOOD_TYPES,
-    chunk,
-    is_batch_file,
-    normalize_xarray_data,
-    open_raster_from_path,
-    write_raster,
-)
 from ._types import (
+    BOOL,
     DTYPE_INPUT_TO_DTYPE,
-    U8,
-    U16,
-    U32,
-    U64,
+    F16,
+    F32,
+    F64,
     I8,
     I16,
     I32,
     I64,
-    F16,
-    F32,
-    F64,
-    BOOL,
+    U8,
+    U16,
+    U32,
+    U64,
     promote_dtype_to_float,
     should_promote_to_fit,
 )
@@ -52,6 +45,14 @@ from ._utils import (
     is_str,
     is_xarray,
     validate_file,
+)
+from .io import (
+    IO_UNDERSTOOD_TYPES,
+    chunk,
+    is_batch_file,
+    normalize_xarray_data,
+    open_raster_from_path,
+    write_raster,
 )
 
 

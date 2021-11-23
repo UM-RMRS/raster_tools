@@ -1,13 +1,13 @@
+import unittest
+
 import dask
 import dask_geopandas as dgpd
 import geopandas as gpd
 import numpy as np
 import rasterio as rio
-import unittest
-import xarray as xr
 
 from raster_tools import Raster
-from raster_tools.vector import open_vectors, Vector
+from raster_tools.vector import Vector, open_vectors
 
 
 class TestOpenVectors(unittest.TestCase):

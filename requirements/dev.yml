@@ -10,12 +10,12 @@ dependencies:
   - dask-geopandas
   - dask-image
   - fiona
-  - flake8
   - geopandas
   - nose2
   - numba
   - numpy
   - pandas
+  - pre-commit
   - pygeos
   - pyproj
   - rioxarray

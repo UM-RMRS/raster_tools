@@ -1,18 +1,15 @@
-import dask
 import os
+from pathlib import Path
+
+import dask
 import numpy as np
 import rasterio as rio
 import rioxarray as rxr
 import xarray as xr
 from dask.array.core import normalize_chunks as dask_chunks
-from pathlib import Path
 
 from ._types import F64, I64, U8
-from ._utils import (
-    create_null_mask,
-    is_bool,
-    validate_file,
-)
+from ._utils import create_null_mask, is_bool, validate_file
 
 
 class RasterIOError(BaseException):

@@ -4,16 +4,13 @@
 import cython
 import numpy as np
 
-from raster_tools._utils import is_scalar
 from raster_tools._types import F16, F32, F64
+from raster_tools._utils import is_scalar
 
-from libc.math cimport isnan, sqrt
 cimport numpy as cnp
+from libc.math cimport isnan, sqrt
 
-from ._heap cimport (
-    HEAP_t, init_heap_data, free_heap_data, push, pop, push_if_lower
-)
-
+from ._heap cimport HEAP_t, free_heap_data, init_heap_data, pop, push, push_if_lower
 
 __all__ = [
     "cost_allocation_numpy",

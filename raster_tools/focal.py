@@ -1,14 +1,15 @@
+from functools import partial
+
 import dask.array as da
 import numba as nb
 import numpy as np
 from dask_image import ndfilters
-from functools import partial
 
 from raster_tools import Raster
 from raster_tools.raster import is_raster_class
-from ._types import F64, promote_dtype_to_float, promote_data_dtype
-from ._utils import is_bool, is_float, is_int, is_str
 
+from ._types import F64, promote_data_dtype, promote_dtype_to_float
+from ._utils import is_bool, is_float, is_int, is_str
 
 __all__ = [
     "check_kernel",
