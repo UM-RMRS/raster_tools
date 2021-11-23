@@ -16,7 +16,7 @@ RMRS Raster Utility Project
 ## Contributing
 1. Fork the _raster_tools_ repo.
 2. Clone your fork.
-3. Move to the _raster_tools_ directory:
+3. Move to the _raster_tools_ project root:
 
     ```sh
     $ cd raster_tools
@@ -58,7 +58,7 @@ RMRS Raster Utility Project
     ```
 
 8. Make your changes.
-9. Run the tests and fix any anything that broke:
+9. Run the tests and fix anything that broke:
 
     ```sh
     $ nose2
