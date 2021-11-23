@@ -13,13 +13,73 @@ RMRS Raster Utility Project
 * [xarray](https://xarray.pydata.org/en/stable/)
 * [cupy](https://cupy.dev/): optional and very experimental
 
-## Before Using
-Some of this package's modules use
-[cython](https://cython.readthedocs.io/en/latest/) code.  You must compile the
-Cython code in order to use this package. To do this, make sure that the cython
-package is installed in your environment and run the following in the project
-root:
-```sh
-python setup.py build_ext --inplace
-```
-This will compile the necessary shared objects that python can use.
+## Contributing
+1. Fork the _raster_tools_ repo.
+2. Clone your fork.
+3. Move to the _raster_tools_ directory:
+
+    ```sh
+    $ cd raster_tools
+    ```
+
+4. Create a python virtual environment
+
+    With conda:
+
+    ```sh
+    $ conda env create -f ./requirements/dev.yml
+    $ conda activate rstools
+    ```
+
+    With python:
+
+    ```sh
+    $ python -m env -f ./requirements/dev.yml
+    $ . venv/bin/activate
+    $ pip install -r ./requirements/dev.txt
+    ```
+
+5. Install the project into the virtual environment:
+
+    ```sh
+    $ pip install -e .
+    ```
+
+    This will also build the cython modules in this repo.
+6. Setup pre-commit hooks
+
+    ```sh
+    $ pre-commit install
+    ```
+7. Create a your development branch:
+
+    ```sh
+    $ git checkout -b my-dev-branch
+    ```
+
+8. Make your changes.
+9. Run the tests and fix any anything that broke:
+
+    ```sh
+    $ nose2
+    ```
+
+10. (Optional) Run `pre-commit` to find/fix any formatting and flake8 issues:
+
+    ```sh
+    $ pre-commit run --all-files
+    ```
+
+    This will run `isort`, `black`, and `flake8` on the repo's files. It is
+    recommended to do this and fix any errors that are flagged so that the
+    changes can be cleanly commited.
+
+11. Commit your changes to your branch and push to your remote repo:
+
+    ```sh
+    $ git add .
+    $ git commit -m "A detailed description of the changes."
+    $ git push origin my-dev-branch
+    ```
+
+12. Submit a pull request through GitHub.
