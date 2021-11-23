@@ -23,7 +23,7 @@ copyright = (
     "Notice: This is a work of the U.S. Government and is not subject to "
     " copyright protection in the United States"
 )
-author = "Fred Bunt"
+author = "raster_tools Contributors"
 
 # The full version, including alpha/beta/rc tags
 release = "0.1"
