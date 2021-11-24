@@ -34,7 +34,7 @@ RMRS Raster Utility Project
     With python:
 
     ```sh
-    $ python -m env -f ./requirements/dev.yml
+    $ python -m venv venv
     $ . venv/bin/activate
     $ pip install -r ./requirements/dev.txt
     ```
