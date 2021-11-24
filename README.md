@@ -51,7 +51,7 @@ RMRS Raster Utility Project
     ```sh
     $ pre-commit install
     ```
-7. Create a your development branch:
+7. Create your development branch:
 
     ```sh
     $ git checkout -b my-dev-branch
