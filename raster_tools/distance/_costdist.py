@@ -107,10 +107,10 @@ def cost_distance_analysis(costs, sources, elevation=None):
 
     References
     ----------
-    * `ESRI: How cost distance tools work <https://pro.arcgis.com/en/pro-app/latest/tool-reference/spatial-analyst/how-the-cost-distance-tools-work.htm>`_  # noqa: E501
-    * `ESRI: How path distance tools work <https://pro.arcgis.com/en/pro-app/latest/tool-reference/spatial-analyst/how-the-path-distance-tools-work.htm>`_  # noqa: E501
+    * `ESRI: How cost distance tools work <https://pro.arcgis.com/en/pro-app/latest/tool-reference/spatial-analyst/how-the-cost-distance-tools-work.htm>`_
+    * `ESRI: How path distance tools work <https://pro.arcgis.com/en/pro-app/latest/tool-reference/spatial-analyst/how-the-path-distance-tools-work.htm>`_
 
-    """
+    """  # noqa: E501
     if not is_raster_class(costs):
         costs = Raster(costs)
         if costs.shape[0] != 1:
