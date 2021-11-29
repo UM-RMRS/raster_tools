@@ -9,5 +9,6 @@ API Reference
 
    top_level
    raster
+   vector
    distance
    focal

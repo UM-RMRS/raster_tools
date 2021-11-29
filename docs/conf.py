@@ -13,6 +13,8 @@
 import os
 import sys
 
+from sphinx.domains.python import PythonDomain
+
 sys.path.insert(0, os.path.abspath(".."))
 
 
@@ -50,6 +52,23 @@ templates_path = ["_templates"]
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = ["_build"]
+
+
+# The following class and function are needed in order to silence sphinx's
+# warnings about multiple cross-references.
+class PatchedPythonDomain(PythonDomain):
+    def resolve_xref(
+        self, env, fromdocname, builder, typ, target, node, contnode
+    ):
+        if "refspecific" in node:
+            del node["refspecific"]
+        return super(PatchedPythonDomain, self).resolve_xref(
+            env, fromdocname, builder, typ, target, node, contnode
+        )
+
+
+def setup(sphinx):
+    sphinx.add_domain(PatchedPythonDomain, override=True)
 
 
 # -- Options for HTML output -------------------------------------------------
