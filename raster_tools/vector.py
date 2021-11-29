@@ -457,7 +457,7 @@ class Vector:
         return Raster(xrs).set_null_value(0)
 
     def to_crs(self, crs):
-        """Transform the vector coordinates to the specified crs.
+        """Transform the vector coordinates to the specified `crs`.
 
         Parameters
         ----------

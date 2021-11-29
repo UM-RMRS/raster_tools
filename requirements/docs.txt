@@ -1,5 +1,8 @@
 dask
+dask-geopandas
 dask-image
+fiona
+geopandas
 numba
 numpy
 pandas
