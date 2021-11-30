@@ -5,7 +5,7 @@
    Description: surface module used to perform common surface analyses
    on Raster objects
 
-   Requirments: functools, dask.array, numpy, numba
+   Requirements: functools, dask.array, numpy, numba
 """
 ###############################################################################
 from functools import partial
