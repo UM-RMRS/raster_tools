@@ -1345,6 +1345,25 @@ _ESRI_OP_TO_OP = {
 _FUNC_PATTERN = re.compile(r"^(?P<func>[A-Za-z]+)\((?P<args>[^\(\)]+)\)$")
 
 
+class _BatchScripParserState:
+    def __init__(self, path):
+        validate_file(path)
+        self.path = os.path.abspath(path)
+        self.location = os.path.dirname(self.path)
+        self.rasters = {}
+        self.final_raster = None
+
+    def get_raster(self, name_or_path):
+        if name_or_path in self.rasters:
+            return self.rasters[name_or_path]
+        else:
+            # Handle relative paths. Assume they are relative to the batch file
+            if not os.path.isabs(name_or_path):
+                name_or_path = os.path.join(self.location, name_or_path)
+            validate_file(name_or_path)
+            return Raster(name_or_path)
+
+
 def _batch_parse_arithmetic(state, args_str, line_no):
     left_arg, right_arg, op = _split_strip(args_str, ";")
     op = _ESRI_OP_TO_OP[op]
@@ -1452,25 +1471,6 @@ _FUNC_TO_PARSER = {
     "REMAP": _batch_parse_remap,
     "SAVEFUNCTIONRASTER": _batch_parse_save,
 }
-
-
-class _BatchScripParserState:
-    def __init__(self, path):
-        validate_file(path)
-        self.path = os.path.abspath(path)
-        self.location = os.path.dirname(self.path)
-        self.rasters = {}
-        self.final_raster = None
-
-    def get_raster(self, name_or_path):
-        if name_or_path in self.rasters:
-            return self.rasters[name_or_path]
-        else:
-            # Handle relative paths. Assume they are relative to the batch file
-            if not os.path.isabs(name_or_path):
-                name_or_path = os.path.join(self.location, name_or_path)
-            validate_file(name_or_path)
-            return Raster(name_or_path)
 
 
 def _parse_batch_script(path):
