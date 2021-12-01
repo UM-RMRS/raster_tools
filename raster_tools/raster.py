@@ -1323,6 +1323,16 @@ def _batch_error(msg, line_no):
     raise BatchScriptParseError(f"Script Line {line_no}: {msg}")
 
 
+def _parse_user_number(str_val):
+    from ast import literal_eval
+
+    # This may raise a ValueError if the string is not a valid literal
+    val = literal_eval(str_val)
+    if not is_scalar(val):
+        raise TypeError("Must be a scalar")
+    return val
+
+
 FTYPE_TO_EXT = {
     "TIFF": "tif",
 }
@@ -1381,6 +1391,22 @@ def _batch_parse_arithmetic(state, args_str, line_no):
     return left._binary_arithmetic(right, op)
 
 
+def _batch_parse_extract_band(state, args_str, line_no):
+    rs = state.get_raster(args_str.pop(0))
+    bands = []
+    for sb in args_str:
+        try:
+            b = _parse_user_number(sb)
+            if not is_int(b):
+                raise ValueError()
+        except ValueError:
+            _batch_error("Error parsing band value", line_no)
+        except TypeError:
+            _batch_error("Band values must be integers", line_no)
+        bands.append(b)
+    return rs.get_bands(bands)
+
+
 def _batch_parse_null_to_value(state, args_str, line_no):
     left, *right = _split_strip(args_str, ";")
     if len(right) > 1:
@@ -1432,6 +1458,13 @@ def _batch_parse_composite(state, args_str, line_no):
     return band_concat(rasters)
 
 
+def _batch_parse_open(state, args_str, line_no):
+    try:
+        return state.get_raster(args_str)
+    except Exception as e:
+        _batch_error(f"Error while opening raster: {repr(e)}", line_no)
+
+
 def _batch_parse_save(state, args_str, line_no):
     # From c# files:
     #  (inRaster;outName;outWorkspace;rasterType;nodata;blockwidth;blockheight)
@@ -1463,13 +1496,33 @@ def _batch_parse_save(state, args_str, line_no):
     return raster.save(out_name, nodata, bwidth, bheight)
 
 
+def _batch_parse_set_null(state, args_str, line_no):
+    rs = state.get_raster(args_str.pop(0))
+    if not rs._masked:
+        rs.set_null_value(get_default_null_value(rs.dtype))
+    sranges = [_split_strip(r, "-") for r in args_str]
+    ranges = []
+    for sr in sranges:
+        try:
+            lh = _parse_user_number(sr[0])
+            rh = _parse_user_number(sr[1])
+            ranges.extend((lh, rh, rs.null_value))
+        except ValueError:
+            _batch_error("Error parsing range value", line_no)
+        except TypeError:
+            _batch_error("Range bounds must be numbers", line_no)
+    return rs.remap_range(*ranges).set_null_value(rs.null_value)
+
+
 _FUNC_TO_PARSER = {
     "ARITHMETIC": _batch_parse_arithmetic,
     "COMPOSITE": _batch_parse_composite,
+    "EXTRACTBAND": _batch_parse_extract_band,
     "NULLTOVALUE": _batch_parse_null_to_value,
-    "OPENRASTER": ...,
+    "OPENRASTER": _batch_parse_open,
     "REMAP": _batch_parse_remap,
     "SAVEFUNCTIONRASTER": _batch_parse_save,
+    "SETNULL": _batch_parse_set_null,
 }
 
 
