@@ -769,11 +769,15 @@ class Raster:
             # assume that condition is raster of 0 and 1 values.
             # condition > 0 will grab all 1/True values.
             xcondition = xcondition > 0
-        # Drop null cells from both the condition raster and this
-        mask = mask | self._mask
         xrs = xr.where(xcondition, xrs, other_arg)
-        # Fill null areas
-        xrs = xr.where(mask, self.null_value, xrs)
+        # Drop null cells from both the condition raster and this
+        if condition._masked or self._masked:
+            mask = mask | self._mask
+            nv = self.null_value if self._masked else condition.null_value
+            # Fill null areas
+            xrs = xr.where(mask, nv, xrs)
+        else:
+            mask = create_null_mask(xrs, None)
         return _raster_like(self, xrs, mask=mask)
 
     def remap_range(self, min, max, new_value, *args):
