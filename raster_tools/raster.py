@@ -20,16 +20,7 @@ from ._types import (
     BOOL,
     DTYPE_INPUT_TO_DTYPE,
     F16,
-    F32,
-    F64,
-    I8,
-    I16,
-    I32,
-    I64,
-    U8,
-    U16,
-    U32,
-    U64,
+    get_default_null_value,
     promote_dtype_to_float,
     should_promote_to_fit,
 )
@@ -193,27 +184,6 @@ def _try_to_get_null_value_xarray(xrs):
         return nv1
     # One is None and the other is not, return the valid null value
     return nv1 if nv1 is not None else nv2
-
-
-DTYPE_TO_DEFAULT_NULL = {
-    BOOL: True,
-    U8: 99,
-    U16: 9999,
-    U32: 999999,
-    U64: 999999,
-    I8: -99,
-    I16: -9999,
-    I32: -999999,
-    I64: -999999,
-    F16: -999999.0,
-    F32: -999999.0,
-    F64: -999999.0,
-}
-
-
-def get_default_null_value(dtype):
-    """Get the default null value for a given dtype."""
-    return DTYPE_TO_DEFAULT_NULL[dtype]
 
 
 def _raster_like(

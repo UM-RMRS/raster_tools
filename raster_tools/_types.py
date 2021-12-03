@@ -69,8 +69,6 @@ DTYPE_INPUT_TO_DTYPE = {
     np.dtype("bool"): BOOL,
 }
 
-DEFAULT_NULL = np.nan
-
 INT_KINDS = frozenset(("u", "i"))
 
 
@@ -98,3 +96,24 @@ def promote_data_dtype(xrs):
     if dtype == xrs.dtype:
         return xrs
     return xrs.astype(dtype)
+
+
+DTYPE_TO_DEFAULT_NULL = {
+    BOOL: True,
+    U8: 99,
+    U16: 9999,
+    U32: 999999,
+    U64: 999999,
+    I8: -99,
+    I16: -9999,
+    I32: -999999,
+    I64: -999999,
+    F16: -999999.0,
+    F32: -999999.0,
+    F64: -999999.0,
+}
+
+
+def get_default_null_value(dtype):
+    """Get the default null value for a given dtype."""
+    return DTYPE_TO_DEFAULT_NULL[dtype]
