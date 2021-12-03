@@ -1,175 +1,30 @@
-###############################################################################
-"""Author : John Hogland 11/2021
-   contact info : john.s.hogland@usda.gov
-
-   Description: surface module used to perform common surface analyses
-   on Raster objects
-
-   Requirements: functools, dask.array, numpy, numba
 """
-###############################################################################
+Surface module used to perform common surface analyses on Raster objects.
+
+ref: https://pro.arcgis.com/en/pro-app/latest/tool-reference/spatial-analyst/an-overview-of-the-surface-tools.htm
+ref: https://github.com/makepath/xarray-spatial
+"""  # noqa: E501
 from functools import partial
 
 import dask.array as da
 import numba as nb
 import numpy as np
+import xarray as xr
 
 from raster_tools import Raster
 from raster_tools.raster import is_raster_class
 
-from ._types import F32, U8, promote_dtype_to_float
+from ._types import (
+    F32,
+    F64,
+    U8,
+    get_default_null_value,
+    promote_dtype_to_float,
+)
 from ._utils import is_str
 
-
-@nb.jit(nopython=True, nogil=True)
-def _surface_area_3d(xarr, res):  # 2d array of values
-    dd = (res ** 2) * 2
-    sd = res ** 2
-    outx = np.empty_like(xarr)
-    rws, cols = xarr.shape
-    for rw in range(1, rws - 1):
-        for cl in range(1, cols - 1):
-            ta = 0
-            e = xarr[rw, cl]
-            a = xarr[rw + 1, cl - 1]
-            b = xarr[rw - 1, cl + 1]
-            c = xarr[rw - 1, cl + 1]
-            d = xarr[rw, cl - 1]
-            f = xarr[rw - 1, cl + 1]
-            g = xarr[rw - 1, cl - 1]
-            h = xarr[rw - 1, cl + 1]
-            i = xarr[rw - 1, cl + 1]
-            ea = ((dd + (e - a) ** 2) ** 0.5) * 0.5
-            eb = ((sd + (e - b) ** 2) ** 0.5) * 0.5
-            ab = ((sd + (a - b) ** 2) ** 0.5) * 0.5
-            si = (ea + eb + ab) * 0.5
-            ta += (si * (si - ea) * (si - eb) * (si - ab)) ** 0.5
-            ec = ((dd + (e - c) ** 2) ** 0.5) * 0.5
-            bc = ((sd + (b - c) ** 2) ** 0.5) * 0.5
-            si = (ec + eb + bc) * 0.5
-            ta += (si * (si - ec) * (si - eb) * (si - bc)) ** 0.5
-            ef = ((sd + (e - f) ** 2) ** 0.5) * 0.5
-            cf = ((sd + (c - f) ** 2) ** 0.5) * 0.5
-            si = (ec + ef + cf) * 0.5
-            ta += (si * (si - ec) * (si - ef) * (si - cf)) ** 0.5
-            ei = ((dd + (e - i) ** 2) ** 0.5) * 0.5
-            fi = ((sd + (f - i) ** 2) ** 0.5) * 0.5
-            si = (ei + ef + fi) * 0.5
-            ta += (si * (si - ei) * (si - ef) * (si - fi)) ** 0.5
-            eh = ((sd + (e - h) ** 2) ** 0.5) * 0.5
-            hi = ((sd + (h - i) ** 2) ** 0.5) * 0.5
-            si = (ei + eh + hi) * 0.5
-            ta += (si * (si - ei) * (si - eh) * (si - hi)) ** 0.5
-            eg = ((dd + (e - g) ** 2) ** 0.5) * 0.5
-            gh = ((sd + (g - h) ** 2) ** 0.5) * 0.5
-            si = (eg + eh + gh) * 0.5
-            ta += (si * (si - eg) * (si - eh) * (si - gh)) ** 0.5
-            ed = ((sd + (e - d) ** 2) ** 0.5) * 0.5
-            dg = ((sd + (d - g) ** 2) ** 0.5) * 0.5
-            si = (eg + dg + ed) * 0.5
-            ta += (si * (si - eg) * (si - ed) * (si - dg)) ** 0.5
-            ad = ((sd + (a - d) ** 2) ** 0.5) * 0.5
-            si = (ea + ed + ad) * 0.5
-            ta += (si * (si - ea) * (si - ed) * (si - ad)) ** 0.5
-            outx[rw, cl] = ta
-    return outx
-
-
-@nb.jit(nopython=True, nogil=True)
-def _slope(xarr, c_x, c_y):
-    outx = np.empty_like(xarr, dtype=F32)
-    rws, cols = xarr.shape
-    dcx = c_x * 8
-    dcy = c_y * 8
-    for y in range(1, rws - 1):
-        for x in range(1, cols - 1):
-            a = xarr[y + 1, x - 1]
-            b = xarr[y + 1, x]
-            c = xarr[y + 1, x + 1]
-            d = xarr[y, x - 1]
-            f = xarr[y, x + 1]
-            g = xarr[y - 1, x - 1]
-            h = xarr[y - 1, x]
-            i = xarr[y - 1, x + 1]
-            dz_dx = ((c + 2 * f + i) - (a + 2 * d + g)) / dcx
-            dz_dy = ((g + 2 * h + i) - (a + 2 * b + c)) / dcy
-            p = (dz_dx * dz_dx + dz_dy * dz_dy) ** 0.5
-            outx[y, x] = np.arctan(p) * 57.29578
-    return outx
-
-
-@nb.jit(nopython=True, nogil=True)
-def _slope_p(xarr, c_x, c_y):
-    outx = np.empty_like(xarr, dtype=F32)
-    rws, cols = xarr.shape
-    dcx = c_x * 8
-    dcy = c_y * 8
-    for y in range(1, rws - 1):
-        for x in range(1, cols - 1):
-            a = xarr[y + 1, x - 1]
-            b = xarr[y + 1, x]
-            c = xarr[y + 1, x + 1]
-            d = xarr[y, x - 1]
-            f = xarr[y, x + 1]
-            g = xarr[y - 1, x - 1]
-            h = xarr[y - 1, x]
-            i = xarr[y - 1, x + 1]
-            dz_dx = ((c + 2 * f + i) - (a + 2 * d + g)) / dcx
-            dz_dy = ((g + 2 * h + i) - (a + 2 * b + c)) / dcy
-            p = (dz_dx * dz_dx + dz_dy * dz_dy) ** 0.5
-            outx[y, x] = p
-    return outx
-
-
-@nb.jit(nopython=True, nogil=True)
-def _aspect(xarr):
-    outx = np.empty_like(xarr, dtype=F32)
-    rws, cols = xarr.shape
-    rd = 180 / np.pi
-    for y in range(1, rws - 1):
-        for x in range(1, cols - 1):
-            g = xarr[y - 1, x - 1]
-            h = xarr[y - 1, x]
-            i = xarr[y - 1, x + 1]
-            d = xarr[y, x - 1]
-            f = xarr[y, x + 1]
-            a = xarr[y + 1, x - 1]
-            b = xarr[y + 1, x]
-            c = xarr[y + 1, x + 1]
-            dz_dx = ((c + 2 * f + i) - (a + 2 * d + g)) / 8
-            dz_dy = ((g + 2 * h + i) - (a + 2 * b + c)) / 8
-
-            if dz_dx == 0 and dz_dy == 0:
-                outx[y, x] = -1.0
-            else:
-                aspect = np.arctan2(dz_dy, -dz_dx) * rd
-                if aspect <= 90:
-                    outx[y, x] = 90.0 - aspect
-                else:
-                    outx[y, x] = 450 - aspect
-
-    return outx
-
-
-@nb.jit(nopython=True, nogil=True)
-def _curv(xarr, c_x, c_y):
-    outx = np.empty_like(xarr, F32)
-    rws, cols = xarr.shape
-    ca = c_x * c_y
-    for y in range(1, rws - 1):
-        for x in range(1, cols - 1):
-            d = (xarr[y + 1, x] + xarr[y - 1, x]) / 2 - xarr[y, x]
-            e = (xarr[y, x + 1] + xarr[y, x - 1]) / 2 - xarr[y, x]
-            outx[y, x] = -2 * (d + e) * 100 / ca
-    return outx
-
-
-def _northing(xarr):
-    return np.cos(np.radians(xarr))
-
-
-def _easting(xarr):
-    return np.sin(np.radians(xarr))
+RADIANS_TO_DEGREES = 180 / np.pi
+DEGREES_TO_RADIANS = np.pi / 180
 
 
 def _get_rs(raster):
@@ -182,80 +37,110 @@ def _get_rs(raster):
 
     rs = raster.copy()
 
-    # Convert to float and fill nulls with nan, if needed
-    upcast = False
+    # Convert to float. Most of the ops in this module expect a float raster
+    data = rs._rs.data
+    new_dtype = promote_dtype_to_float(raster.dtype)
+    if new_dtype != data.dtype:
+        data = data.astype(new_dtype)
     if raster._masked:
-        data = rs._rs.data
-        new_dtype = promote_dtype_to_float(raster.dtype)
-        upcast = new_dtype != data.dtype
-        if upcast:
-            data = data.astype(new_dtype)
-        data = da.where(~raster._mask, data, np.nan)
-        rs._rs.data = data
+        # Fill nulls with nan, if needed
+        # Keep null_value intact for later use
+        data = da.where(raster._mask, np.nan, data)
+    rs._rs.data = data
+    return rs
+
+
+def _finalize_rs(rs, data):
+    # Invalidate edges
+    mask = rs._mask
+    mask[:, 0, :] = True
+    mask[:, -1, :] = True
+    mask[:, :, 0] = True
+    mask[:, :, -1] = True
+    nv = rs.null_value
+    if not rs._masked:
+        nv = get_default_null_value(data.dtype)
+    data = da.where(mask, nv, data)
+    rs._rs.data = data
+    rs._mask = mask
     return rs
 
 
 @nb.jit(nopython=True, nogil=True)
-def _hillshade(xarr, c_x, c_y, azimuth=315, altitude=45):
-    rad_c = np.pi / 180.0
-    a_rad = (360.0 - azimuth + 90.0) * rad_c
-    z_rad = (90 - altitude) * rad_c
-    outx = np.empty_like(xarr, dtype=F32)
-    rws, cols = xarr.shape
-    dcx = c_x * 8
-    dcy = c_y * 8
-    for y in range(1, rws - 1):
-        for x in range(1, cols - 1):
-            a = xarr[y + 1, x - 1]
-            b = xarr[y + 1, x]
-            c = xarr[y + 1, x + 1]
-            d = xarr[y, x - 1]
-            f = xarr[y, x + 1]
-            g = xarr[y - 1, x - 1]
-            h = xarr[y - 1, x]
-            i = xarr[y - 1, x + 1]
-            dz_dx = ((c + 2 * f + i) - (a + 2 * d + g)) / dcx
-            dz_dy = ((g + 2 * h + i) - (a + 2 * b + c)) / dcy
-            slpr = np.arctan((dz_dx * dz_dx + dz_dy * dz_dy) ** 0.5)
-            asr = asr = np.arctan2(dz_dy, -dz_dx)
-            if not dz_dx == 0:
-                if asr < 0:
-                    asr = 2 * np.pi + asr
-            else:
-                if dz_dy > 0:
-                    asr = np.pi / 2
-                elif dz_dy < 0:
-                    asr = 2 * np.pi - np.pi / 2
-                else:
-                    pass
-            hs = 255.0 * (
-                (np.cos(z_rad) * np.cos(slpr))
-                + (np.sin(z_rad) * np.sin(slpr) * np.cos(a_rad - asr))
-            )
-            if hs < 0:
-                hs = 0
-            outx[y, x] = hs
+def _surface_area_3d(xarr, res):
+    # TODO: handle non-symmetrical resolutions
+    dd = (res ** 2) * 2
+    sd = res ** 2
+    outx = np.empty_like(xarr, dtype=F64)
+    rows, cols = xarr.shape
+    for rw in range(1, rows - 1):
+        for cl in range(1, cols - 1):
+            ta = 0
+            e = xarr[rw, cl]
+            a = xarr[rw + 1, cl - 1]
+            b = xarr[rw - 1, cl + 1]
+            c = xarr[rw - 1, cl + 1]
+            d = xarr[rw, cl - 1]
+            f = xarr[rw - 1, cl + 1]
+            g = xarr[rw - 1, cl - 1]
+            h = xarr[rw - 1, cl + 1]
+            i = xarr[rw - 1, cl + 1]
+            ea = np.sqrt(dd + (e - a) ** 2) * 0.5
+            eb = np.sqrt(sd + (e - b) ** 2) * 0.5
+            ab = np.sqrt(sd + (a - b) ** 2) * 0.5
+            si = (ea + eb + ab) * 0.5
+            ta += np.sqrt(si * (si - ea) * (si - eb) * (si - ab))
+            ec = np.sqrt(dd + (e - c) ** 2) * 0.5
+            bc = np.sqrt(sd + (b - c) ** 2) * 0.5
+            si = (ec + eb + bc) * 0.5
+            ta += np.sqrt(si * (si - ec) * (si - eb) * (si - bc))
+            ef = np.sqrt(sd + (e - f) ** 2) * 0.5
+            cf = np.sqrt(sd + (c - f) ** 2) * 0.5
+            si = (ec + ef + cf) * 0.5
+            ta += np.sqrt(si * (si - ec) * (si - ef) * (si - cf))
+            ei = np.sqrt(dd + (e - i) ** 2) * 0.5
+            fi = np.sqrt(sd + (f - i) ** 2) * 0.5
+            si = (ei + ef + fi) * 0.5
+            ta += np.sqrt(si * (si - ei) * (si - ef) * (si - fi))
+            eh = np.sqrt(sd + (e - h) ** 2) * 0.5
+            hi = np.sqrt(sd + (h - i) ** 2) * 0.5
+            si = (ei + eh + hi) * 0.5
+            ta += np.sqrt(si * (si - ei) * (si - eh) * (si - hi))
+            eg = np.sqrt(dd + (e - g) ** 2) * 0.5
+            gh = np.sqrt(sd + (g - h) ** 2) * 0.5
+            si = (eg + eh + gh) * 0.5
+            ta += np.sqrt(si * (si - eg) * (si - eh) * (si - gh))
+            ed = np.sqrt(sd + (e - d) ** 2) * 0.5
+            dg = np.sqrt(sd + (d - g) ** 2) * 0.5
+            si = (eg + dg + ed) * 0.5
+            ta += np.sqrt(si * (si - eg) * (si - ed) * (si - dg))
+            ad = np.sqrt(sd + (a - d) ** 2) * 0.5
+            si = (ea + ed + ad) * 0.5
+            ta += np.sqrt(si * (si - ea) * (si - ed) * (si - ad))
+            outx[rw, cl] = ta
     return outx
 
 
 def surface_area_3d(raster):
-    """Calculates the 3d surface area of each raster cell
-    for each raster band.
+    """Calculates the 3D surface area of each raster cell for each raster band.
 
-    The approach is based on Jense 2004 description:
-    Jenness 2004 (https://www.fs.usda.gov/treesearch/pubs/20437).
+    The approach is based on Jense, 2004.
 
     Parameters
     ----------
     raster : Raster or path str
-        The raster to perform the calculation on
-        (typically an elevation surface).
+        The raster to perform the calculation on (typically an elevation
+        surface).
 
     Returns
     -------
     Raster
-        The resulting raster of 3d surface area. The
-        bands will have the same shape as the original Raster.
+        The resulting raster of 3D surface area. The bands will have the same
+        shape as the original Raster.
+
+    References
+    ----------
+    * `Jense, 2004 <https://www.fs.usda.gov/treesearch/pubs/20437>`_
 
     """
     rs = _get_rs(raster)
@@ -266,34 +151,54 @@ def surface_area_3d(raster):
             ffun,
             depth={0: 1, 1: 1},
             boundary=np.nan,
-            dtype=data.dtype,
-            meta=np.array((), dtype=data.dtype),
+            dtype=F64,
+            meta=np.array((), dtype=F64),
         )
-    rs._rs.data = data
-    return rs
+
+    return _finalize_rs(rs, data)
+
+
+@nb.jit(nopython=True, nogil=True)
+def _slope(xarr, res, degrees):
+    # ref: https://pro.arcgis.com/en/pro-app/latest/tool-reference/3d-analyst/how-slope-works.htm  # noqa: E501
+    outx = np.empty_like(xarr, dtype=F64)
+    rows, cols = xarr.shape
+    dx = res[0] * 8
+    dy = res[1] * 8
+    for ri in range(1, rows - 1):
+        for ci in range(1, cols - 1):
+            a = xarr[ri + 1, ci - 1]
+            b = xarr[ri + 1, ci]
+            c = xarr[ri + 1, ci + 1]
+            d = xarr[ri, ci - 1]
+            f = xarr[ri, ci + 1]
+            g = xarr[ri - 1, ci - 1]
+            h = xarr[ri - 1, ci]
+            i = xarr[ri - 1, ci + 1]
+            dzdx = ((c + 2 * f + i) - (a + 2 * d + g)) / dx
+            dzdy = ((g + 2 * h + i) - (a + 2 * b + c)) / dy
+            rise_run = np.sqrt((dzdx * dzdx) + (dzdy * dzdy))
+            if degrees:
+                outx[ri, ci] = np.arctan(rise_run) * RADIANS_TO_DEGREES
+            else:
+                # Percent slope. See the reference above
+                outx[ri, ci] = rise_run
+    return outx
 
 
 def slope(raster, degrees=True):
-    """Calculates the slope (degrees) of each raster cell
-    for each raster band.
+    """Calculates the slope (degrees) of each raster cell for each raster band.
 
-    The approach is based ESRI's degree slope calculation:
-    https://pro.arcgis.com/en/pro-app/latest/tool-reference/3d-analyst
-    /how-slope-works.htm
-
-    and
-
-    xarray-spatial's:
-    https://github.com/makepath/xarray-spatial/blob/master/xrspatial/slope.py
+    The approach is based on ESRI's degree slope calculation.
 
     Parameters
     ----------
     raster : Raster or path str
         The raster to perform the calculation on
         (typically an elevation surface).
-
-    degrees : boolean to select degrees or percent slope values.
-    Default is True (degrees)
+    degrees : boolean
+        Indicates whether to output as degrees or percent slope values.
+        Default is True (degrees).
 
     Returns
     -------
@@ -301,53 +206,86 @@ def slope(raster, degrees=True):
         The resulting raster of slope values (degrees or percent). The
         bands will have the same shape as the original Raster.
 
-    """
+    References
+    ----------
+    * `ESRI slope <https://pro.arcgis.com/en/pro-app/latest/tool-reference/3d-analyst/how-slope-works.htm>`_
+
+    """  # noqa: E501
     rs = _get_rs(raster)
     data = rs._rs.data
 
-    c_x, c_y = rs.resolution
-    if degrees:
-        ffun = partial(_slope, c_x=c_x, c_y=c_y)
-    else:
-        ffun = partial(_slope_p, c_x=c_x, c_y=c_y)
+    ffun = partial(_slope, res=rs.resolution, degrees=bool(degrees))
     for bnd in range(data.shape[0]):
         data[bnd] = data[bnd].map_overlap(
             ffun,
             depth={0: 1, 1: 1},
             boundary=np.nan,
-            dtype=data.dtype,
-            meta=np.array((), dtype=data.dtype),
+            dtype=F64,
+            meta=np.array((), dtype=F64),
         )
 
-    rs._rs.data = data
-    return rs
+    return _finalize_rs(rs, data)
+
+
+@nb.jit(nopython=True, nogil=True)
+def _aspect(xarr):
+    # ref: https://desktop.arcgis.com/en/arcmap/10.3/tools/spatial-analyst-toolbox/how-aspect-works.htm  # noqa: E501
+    # At each grid cell, the neighbors are labeled:
+    #   g  h  i
+    #   d |e| f
+    #   a  b  c
+    # Where e is the current cell.  This is reversed along the vertical dim
+    # compared to ESRI's notes because this package orients the data arrays
+    # such that the north/south coordinate increases with the row dim.
+    outx = np.empty_like(xarr, dtype=F64)
+    rows, cols = xarr.shape
+    for ri in range(1, rows - 1):
+        for ci in range(1, cols - 1):
+            # See above for notes on ordering
+            a = xarr[ri + 1, ci - 1]
+            b = xarr[ri + 1, ci]
+            c = xarr[ri + 1, ci + 1]
+            d = xarr[ri, ci - 1]
+            f = xarr[ri, ci + 1]
+            g = xarr[ri - 1, ci - 1]
+            h = xarr[ri - 1, ci]
+            i = xarr[ri - 1, ci + 1]
+            dzdx = ((c + 2 * f + i) - (a + 2 * d + g)) / 8
+            dzdy = ((g + 2 * h + i) - (a + 2 * b + c)) / 8
+
+            if dzdx == 0 and dzdy == 0:
+                outx[ri, ci] = -1.0
+            else:
+                aspect = np.arctan2(dzdy, -dzdx) * RADIANS_TO_DEGREES
+                if aspect <= 90:
+                    outx[ri, ci] = 90.0 - aspect
+                else:
+                    outx[ri, ci] = 450 - aspect
+    return outx
 
 
 def aspect(raster):
     """Calculates the aspect of each raster cell for each raster band.
 
-    The approach is based ESRI's Aspect calculation:
-    https://pro.arcgis.com/en/pro-app/latest/tool-reference/3d-analyst
-    /how-aspect-works.htm
-
-    and
-
-    xarray-spatial's: https://github.com/makepath/xarray-spatial/blob/master
-    /xrspatial/aspect.py
+    The approach is based on ESRI's aspect calculation.
 
     Parameters
     ----------
     raster : Raster or path str
-        The raster to perform the calculation on
-        (typically an elevation surface).
+        The raster to perform the calculation on (typically an elevation
+        surface).
 
     Returns
     -------
     Raster
-        The resulting raster of slope (degrees). The
-        bands will have the same shape as the original Raster.
+        The resulting raster of aspect (degrees). The bands will have the same
+        shape as the original Raster.
 
-    """
+    References
+    ----------
+    * `ESRI aspect <https://pro.arcgis.com/en/pro-app/latest/tool-reference/3d-analyst/how-aspect-works.htm>`_
+
+    """  # noqa: E501
     rs = _get_rs(raster)
     data = rs._rs.data
 
@@ -356,39 +294,58 @@ def aspect(raster):
             _aspect,
             depth={0: 1, 1: 1},
             boundary=np.nan,
-            dtype=data.dtype,
-            meta=np.array((), dtype=data.dtype),
+            dtype=F64,
+            meta=np.array((), dtype=F64),
         )
 
-    rs._rs.data = data
-    return rs
+    return _finalize_rs(rs, data)
+
+
+@nb.jit(nopython=True, nogil=True)
+def _curv(xarr, res):
+    # ref: https://desktop.arcgis.com/en/arcmap/10.3/tools/spatial-analyst-toolbox/how-curvature-works.htm  # noqa: E501
+    # Neighbors are labeled like so:
+    #   z1  z2  z3
+    #   z4 |z5| z6
+    #   z7  z8  z9
+    outx = np.empty_like(xarr, dtype=F64)
+    rows, cols = xarr.shape
+    ca = res[0] * res[1]
+    for ri in range(1, rows - 1):
+        for ci in range(1, cols - 1):
+            z2 = xarr[ri - 1, ci]
+            z4 = xarr[ri, ci - 1]
+            z5 = xarr[ri, ci]
+            z6 = xarr[ri, ci + 1]
+            z8 = xarr[ri + 1, ci]
+            dl2 = ((z4 + z6) / 2) - z5
+            el2 = ((z2 + z8) / 2) - z5
+            outx[ri, ci] = -2 * (dl2 + el2) * 100 / ca
+    return outx
 
 
 def curvature(raster):
     """Calculates the curvature of each raster cell for each raster band.
 
-    The approach is based ESRI's curvature calculation:
-    https://pro.arcgis.com/en/pro-app/latest/tool-reference
-    /3d-analyst/how-curvature-works.htm.
-
-    and
-
-    xarray-spatial's: https://github.com/makepath/xarray-spatial/blob
-    /master/xrspatial/curvature.py
+    The approach is based on ESRI's curvature calculation.
 
     Parameters
     ----------
     raster : Raster or path str
-        The raster to perform the calculation on
-        (typically an elevation surface).
+        The raster to perform the calculation on (typically an elevation
+        surface).
 
     Returns
     -------
     Raster
-        The resulting raster of curvature. The
-        bands will have the same shape as the original Raster.
+        The resulting raster of curvature. The bands will have the same shape
+        as the original Raster.
 
-    """
+    References
+    ----------
+    * `ESRI curvature <https://pro.arcgis.com/en/pro-app/latest/tool-reference/3d-analyst/how-curvature-works.htm>`_
+
+    """  # noqa: E501
     rs = _get_rs(raster)
     data = rs._rs.data
 
@@ -399,125 +356,164 @@ def curvature(raster):
             ffun,
             depth={0: 1, 1: 1},
             boundary=np.nan,
-            dtype=data.dtype,
-            meta=np.array((), dtype=data.dtype),
+            dtype=F64,
+            meta=np.array((), dtype=F64),
         )
 
-    rs._rs.data = data
-    return rs
+    return _finalize_rs(rs, data)
 
 
-def northing(raster, isAspect=False):
-    """Calculates the nothing component of each raster cell
-    for each raster band.
-
-    Parameters
-    ----------
-    raster : Raster or path str
-        The raster to perform the calculation on
-        (typically an aspect or elevation surface).
-
-    isAspect : Boolean to determine if a aspect raster is specified.
-    Default is false and assumes that a elevation raster is used
-
-    Returns
-    -------
-    Raster
-        The resulting raster of northing (-1 to 1). The
-        bands will have the same shape as the original Raster.
-
-    """
-    if not isAspect:
-        raster = aspect(raster)
-
-    rs = _get_rs(raster)
-    data = rs._rs.data
-
-    for bnd in range(data.shape[0]):
-        data[bnd] = data[bnd].map_blocks(_northing)
-
-    rs._rs.data = data
-    return rs
-
-
-def easting(raster, isAspect=False):
-    """Calculates the easting component of each raster cell
-    for each raster band.
+def northing(raster, is_aspect=False):
+    """Calculates the nothing component of each raster cell for each raster
+    band.
 
     Parameters
     ----------
     raster : Raster or path str
-        The raster to perform the calculation on
-        (typically an aspect or elevation surface).
-
-    isAspect : Boolean to determine if a aspect raster is specified.
-    Default is false and assumes that a elevation raster is used
+        The raster to perform the calculation on (typically an aspect or
+        elevation surface).
+    is_aspect : boolean to determine if a aspect raster is specified.
+        Indicates if `raster` is an aspect raster or an elevation raster.
+        The default is false and assumes that an elevation raster is used.
 
     Returns
     -------
     Raster
-        The resulting raster of easting (-1 to 1). The
-        bands will have the same shape as the original Raster.
+        The resulting raster of northing (-1 to 1). The bands will have the
+        same shape as the original Raster.
 
     """
-    if not isAspect:
+    if not is_aspect:
         raster = aspect(raster)
 
     rs = _get_rs(raster)
-    data = rs._rs.data
-
-    for bnd in range(data.shape[0]):
-        data[bnd] = data[bnd].map_blocks(_easting)
-
-    rs._rs.data = data
+    xrs = rs._rs
+    xrs = np.cos(np.radians(xrs))
+    if rs._masked:
+        xrs = xr.where(rs._mask, rs.null_value, xrs)
+    rs._rs = xrs
     return rs
+
+
+def easting(raster, is_aspect=False):
+    """Calculates the easting component of each raster cell for each raster
+    band.
+
+    Parameters
+    ----------
+    raster : Raster or path str
+        The raster to perform the calculation on (typically an aspect or
+        elevation surface).
+    is_aspect : boolean to determine if a aspect raster is specified.
+        Indicates if `raster` is an aspect raster or an elevation raster.
+        The default is false and assumes that an elevation raster is used.
+
+    Returns
+    -------
+    Raster
+        The resulting raster of easting (-1 to 1). The bands will have the same
+        shape as the original raster.
+
+    """
+    if not is_aspect:
+        raster = aspect(raster)
+
+    rs = _get_rs(raster)
+    xrs = rs._rs
+    xrs = np.sin(np.radians(xrs))
+    if rs._masked:
+        xrs = xr.where(rs._mask, rs.null_value, xrs)
+    rs._rs = xrs
+    return rs
+
+
+@nb.jit(nopython=True, nogil=True)
+def _hillshade(xarr, res, azimuth, altitude):
+    # ref: https://pro.arcgis.com/en/pro-app/latest/tool-reference/spatial-analyst/how-hillshade-works.htm  # noqa: E501
+    a_rad = (360.0 - azimuth + 90.0) * DEGREES_TO_RADIANS
+    z_rad = (90 - altitude) * DEGREES_TO_RADIANS
+    # Use F32 since the result will be cast to U8 anyway
+    outx = np.empty_like(xarr, dtype=F32)
+    rows, cols = xarr.shape
+    dx = res[0] * 8
+    dy = res[1] * 8
+    for ri in range(1, rows - 1):
+        for ci in range(1, cols - 1):
+            a = xarr[ri + 1, ci - 1]
+            b = xarr[ri + 1, ci]
+            c = xarr[ri + 1, ci + 1]
+            d = xarr[ri, ci - 1]
+            f = xarr[ri, ci + 1]
+            g = xarr[ri - 1, ci - 1]
+            h = xarr[ri - 1, ci]
+            i = xarr[ri - 1, ci + 1]
+            dzdx = ((c + 2 * f + i) - (a + 2 * d + g)) / dx
+            dzdy = ((g + 2 * h + i) - (a + 2 * b + c)) / dy
+            slpr = np.arctan((dzdx * dzdx + dzdy * dzdy) ** 0.5)
+            asr = asr = np.arctan2(dzdy, -dzdx)
+            if not dzdx == 0:
+                if asr < 0:
+                    asr = 2 * np.pi + asr
+            else:
+                if dzdy > 0:
+                    asr = np.pi / 2
+                elif dzdy < 0:
+                    asr = 2 * np.pi - np.pi / 2
+                else:
+                    pass
+            hs = 255.0 * (
+                (np.cos(z_rad) * np.cos(slpr))
+                + (np.sin(z_rad) * np.sin(slpr) * np.cos(a_rad - asr))
+            )
+            if hs < 0:
+                hs = 0
+            outx[ri, ci] = hs
+    return outx
 
 
 def hillshade(raster, azimuth=315, altitude=45):
-    """Calculates the hillshade component of each raster cell
-    for each raster band.
-    based on ESRI's:
-    https://pro.arcgis.com/en/pro-app/latest/tool-reference/spatial-analyst
-    /how-hillshade-works.htm
+    """Calculates the hillshade component of each raster cell for each raster
+    band.
 
-    and
-
-    xarray-spatial's: https://github.com/makepath/xarray-spatial/blob
-    /master/xrspatial/hillshade.py
-
-    hillshade algorithm
+    This approach is based on ESRI's hillshade calculation.
 
     Parameters
     ----------
     raster : Raster or path str
-        The raster to perform the calculation on
-        (typically a elevation surface).
-    azimuth :  the azimuth of the sun (degrees)
-    altitude : the altitude of the sun (degrees)
+        The raster to perform the calculation on (typically a elevation
+        surface).
+    azimuth :  scalar
+        The azimuth of the sun (degrees).
+    altitude : scalar
+        The altitude of the sun (degrees).
 
     Returns
     -------
     Raster
-        The resulting raster of hillshade values (0-255, U8). The
-        bands will have the same shape as the original Raster.
+        The resulting raster of hillshade values (0-255, uint8). The bands will
+        have the same shape as the original Raster. The null value is set to
+        255.
 
-    """
+    References
+    ----------
+    * `ESRI hillshade <https://pro.arcgis.com/en/pro-app/latest/tool-reference/spatial-analyst/how-hillshade-works.htm>`_
+
+    """  # noqa: E501
     rs = _get_rs(raster)
     data = rs._rs.data
-    c_x, c_y = rs.resolution
     ffun = partial(
-        _hillshade, c_x=c_x, c_y=c_y, azimuth=azimuth, altitude=altitude
+        _hillshade, res=rs.resolution, azimuth=azimuth, altitude=altitude
     )
     for bnd in range(data.shape[0]):
         data[bnd] = data[bnd].map_overlap(
             ffun,
             depth={0: 1, 1: 1},
             boundary=np.nan,
-            dtype=data.dtype,
-            meta=np.array((), dtype=data.dtype),
+            dtype=F32,
+            meta=np.array((), dtype=F32),
         )
 
-    rs._rs.data = data
+    rs = _finalize_rs(rs, data)
     rs = rs.replace_null(255)
     rs = rs.set_null_value(255)
     rs = rs.astype(U8)

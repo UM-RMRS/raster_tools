@@ -12,3 +12,4 @@ API Reference
    vector
    distance
    focal
+   surface

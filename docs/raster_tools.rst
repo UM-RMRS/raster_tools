@@ -44,6 +44,14 @@ raster\_tools.raster\_funcs module
    :undoc-members:
    :show-inheritance:
 
+raster\_tools.surface module
+----------------------------
+
+.. automodule:: raster_tools.surface
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 raster\_tools.vector module
 ---------------------------
 
