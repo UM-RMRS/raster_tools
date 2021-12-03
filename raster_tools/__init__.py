@@ -2,7 +2,7 @@ from raster_tools.raster import CPU, GPU, Raster
 from raster_tools.raster_funcs import band_concat
 from raster_tools.vector import Vector, open_vectors
 
-from . import distance, focal
+from . import distance, focal, surface
 
 __all__ = [
     "CPU",
@@ -13,4 +13,5 @@ __all__ = [
     "distance",
     "focal",
     "open_vectors",
+    "surface",
 ]
