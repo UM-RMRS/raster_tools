@@ -10,7 +10,14 @@ from raster_tools._utils import is_scalar
 cimport numpy as cnp
 from libc.math cimport isnan, sqrt
 
-from ._heap cimport HEAP_t, free_heap_data, init_heap_data, pop, push, push_if_lower
+from ._heap cimport (
+    HEAP_t,
+    free_heap_data,
+    init_heap_data,
+    pop,
+    push,
+    push_if_lower,
+)
 
 __all__ = [
     "cost_allocation_numpy",
