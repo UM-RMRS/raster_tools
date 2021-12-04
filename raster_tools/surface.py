@@ -9,7 +9,6 @@ from functools import partial
 import dask.array as da
 import numba as nb
 import numpy as np
-import xarray as xr
 
 from raster_tools import Raster
 from raster_tools.raster import is_raster_class
@@ -22,6 +21,16 @@ from ._types import (
     promote_dtype_to_float,
 )
 from ._utils import is_str
+
+__all__ = [
+    "aspect",
+    "curvature",
+    "easting",
+    "hillshade",
+    "northing",
+    "slope",
+    "surface_area_3d",
+]
 
 RADIANS_TO_DEGREES = 180 / np.pi
 DEGREES_TO_RADIANS = np.pi / 180
@@ -350,7 +359,7 @@ def curvature(raster):
     data = rs._rs.data
 
     c_x, c_y = rs.resolution
-    ffun = partial(_curv, c_x=c_x, c_y=c_y)
+    ffun = partial(_curv, res=rs.resolution)
     for bnd in range(data.shape[0]):
         data[bnd] = data[bnd].map_overlap(
             ffun,
@@ -361,6 +370,18 @@ def curvature(raster):
         )
 
     return _finalize_rs(rs, data)
+
+
+def _northing_easting(rs, do_northing):
+    trig = np.cos if do_northing else np.sin
+    data = rs._rs.data
+    # Operate on rs._rs.data rather than rs._rs to avoid xarray's annoying
+    # habit of dropping meta data.
+    data = trig(np.radians(data))
+    if rs._masked:
+        data = da.where(rs._mask, rs.null_value, data)
+    rs._rs.data = data
+    return rs
 
 
 def northing(raster, is_aspect=False):
@@ -387,12 +408,7 @@ def northing(raster, is_aspect=False):
         raster = aspect(raster)
 
     rs = _get_rs(raster)
-    xrs = rs._rs
-    xrs = np.cos(np.radians(xrs))
-    if rs._masked:
-        xrs = xr.where(rs._mask, rs.null_value, xrs)
-    rs._rs = xrs
-    return rs
+    return _northing_easting(rs, True)
 
 
 def easting(raster, is_aspect=False):
@@ -419,12 +435,7 @@ def easting(raster, is_aspect=False):
         raster = aspect(raster)
 
     rs = _get_rs(raster)
-    xrs = rs._rs
-    xrs = np.sin(np.radians(xrs))
-    if rs._masked:
-        xrs = xr.where(rs._mask, rs.null_value, xrs)
-    rs._rs = xrs
-    return rs
+    return _northing_easting(rs, False)
 
 
 @nb.jit(nopython=True, nogil=True)
