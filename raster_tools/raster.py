@@ -238,6 +238,10 @@ class Raster:
             self._mask = raster._mask.copy()
             self._null_value = raster._null_value
         elif is_xarray(raster):
+            if isinstance(raster, xr.Dataset):
+                raise TypeError("Unable to handle xarray.Dataset objects")
+            if _is_using_dask(raster):
+                raster = chunk(raster)
             self._rs = normalize_xarray_data(raster)
             null = _try_to_get_null_value_xarray(raster)
             self._mask = create_null_mask(self._rs, null)
@@ -429,25 +433,10 @@ class Raster:
         Raster will be unaltered.
 
         """
-        rs = self._rs.compute()
-        mask = self._mask.compute()
+        rs = chunk(self._rs.compute())
+        mask = da.from_array(self._mask.compute())
         # A new raster is returned to mirror the xarray and dask APIs
         return _raster_like(self, rs, mask=mask)
-
-    def to_lazy(self):
-        """Convert a non-lazy Raster to a lazy one.
-
-        If this Raster is already lazy, a copy is returned.
-
-        Returns
-        -------
-        Raster
-            The new lazy Raster or a copy of the already lazy Raster
-
-        """
-        if _is_using_dask(self._rs):
-            return self.copy()
-        return _raster_like(self, chunk(self._rs))
 
     def copy(self):
         """Returns a copy of this Raster."""

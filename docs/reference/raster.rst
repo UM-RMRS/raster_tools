@@ -108,7 +108,6 @@ Contents / Conversion
    Raster.copy
    Raster.to_xarray
    Raster.to_dask
-   Raster.to_lazy
 
 Georeferencing
 --------------

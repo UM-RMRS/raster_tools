@@ -700,7 +700,12 @@ class TestEval(unittest.TestCase):
         # Make sure that original raster is still lazy
         self.assertTrue(dask.is_dask_collection(rs._rs))
         self.assertTrue(rs_eq_array(result, rsnp))
-        self.assertFalse(dask.is_dask_collection(result._rs))
+        self.assertTrue(dask.is_dask_collection(result._rs))
+        # 2 operations: 1 copy and 1 chunk operation
+        self.assertEqual(len(result._rs.data.dask), 2)
+        self.assertTrue(dask.is_dask_collection(result._mask))
+        # 1 operation: dask.array.from_array()
+        self.assertTrue(len(result._mask.dask), 1)
 
 
 class TestToXarray(unittest.TestCase):
@@ -716,16 +721,6 @@ class TestToDask(unittest.TestCase):
         self.assertTrue(isinstance(rs.to_dask(), dask.array.Array))
         self.assertIs(rs.to_dask(), rs._rs.data)
         self.assertTrue(isinstance(rs.eval().to_dask(), dask.array.Array))
-
-
-class TestToLazy(unittest.TestCase):
-    def test_to_lazy(self):
-        rs = Raster("test/data/elevation2_small.tif")
-        rs += rs
-        rs_nonlazy = rs.eval()
-        rs_lazy = rs_nonlazy.to_lazy()
-        self.assertFalse(dask.is_dask_collection(rs_nonlazy._rs))
-        self.assertTrue(dask.is_dask_collection(rs_lazy._rs))
 
 
 class TestAndOr(unittest.TestCase):

@@ -77,6 +77,20 @@ def is_batch_file(path):
 
 
 def normalize_xarray_data(xrs):
+    if len(xrs.shape) > 3 or len(xrs.shape) < 2:
+        raise ValueError(
+            "Invalid shape. xarray.DataArray objects must 2D or 3D shapes."
+        )
+    if len(xrs.shape) == 2:
+        # Add band dim
+        xrs = xrs.expand_dims("band")
+    dims = xrs.dims
+    if not dims == ("band", "y", "x"):
+        # No easy way to figure out how best to transpose based on dim names so
+        # just assume the order is valid and rename.
+        xrs = xrs.rename(
+            {d: new_d for d, new_d in zip(dims, ("band", "y", "x"))}
+        )
     # Make sure that x and y are always increasing. xarray will auto align
     # rasters but when a raster is converted to a numpy or dask array, the
     # data may not be aligned. This ensures that rasters converted to
