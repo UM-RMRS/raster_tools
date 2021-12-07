@@ -447,7 +447,7 @@ class Vector:
             values. The null value is 0.
 
         """
-        like = _parse_input_raster(like).to_lazy()
+        like = _parse_input_raster(like)
 
         xrs = _vector_to_raster_dask(
             self.to_crs(like.crs)._geo,
