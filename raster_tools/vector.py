@@ -218,10 +218,10 @@ def _vector_to_raster_dask(df, xlike, all_touched=True):
     if not dask.is_dask_collection(xlike):
         raise ValueError("xlike must be a dask collection")
 
-    N = _get_geo_len(df, error=True)
-    values_dtype = np.min_scalar_type(N)
+    n = _get_geo_len(df, error=True)
+    values_dtype = np.min_scalar_type(n)
     if not dask.is_dask_collection(df) or df.npartitions == 1:
-        values = np.arange(1, N + 1, dtype=values_dtype)
+        values = np.arange(1, n + 1, dtype=values_dtype)
         return _rasterize_partition(df, xlike, values, all_touched=all_touched)
 
     # There is no way to neatly align the dataframe partitions with the raster
@@ -516,8 +516,12 @@ class Vector:
                     f"Negative index {old_idx} is too small for vector with "
                     f"size {self.size}."
                 )
-        # [[idx]] forces loc to return a data frame
-        return Vector(self._geo.loc[[idx]])
+        # [[idx]] forces loc to return a data frame. The new frames index is
+        # [idx], however. This breaks future iteration we reset it to [0] to
+        # allow iteration over the resulting Vector.
+        subgeo = self._geo.loc[[idx]]
+        subgeo.index = dask.array.from_array([0]).to_dask_dataframe()
+        return Vector(subgeo)
 
     def buffer(self, *args, **kwargs):
         """Apply the buffer operation to the vector geometries.
