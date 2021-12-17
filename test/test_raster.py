@@ -9,7 +9,11 @@ import xarray as xr
 import raster_tools.focal as focal
 from raster_tools import Raster, band_concat
 from raster_tools._types import DTYPE_INPUT_TO_DTYPE
-from raster_tools.raster import _BINARY_ARITHMETIC_OPS, _BINARY_LOGICAL_OPS
+from raster_tools.raster import (
+    _BINARY_ARITHMETIC_OPS,
+    _BINARY_LOGICAL_OPS,
+    RasterNoDataError,
+)
 
 TEST_ARRAY = np.array(
     [
@@ -592,6 +596,11 @@ class TestClipBox(unittest.TestCase):
         rs_clipped = rs.clip_box(1, 1, 3, 3)
         mask_truth = np.array([[[1, 1, 1], [1, 0, 0], [0, 0, 0]]], dtype=bool)
         self.assertTrue(np.allclose(rs_clipped._mask, mask_truth))
+
+    def test_clip_out_of_bounds(self):
+        rs = Raster("test/data/elevation.tif")
+        with self.assertRaises(RasterNoDataError):
+            rs.clip_box(9e6, 9e6, 10e6, 10e6)
 
 
 class TestToNullMask(unittest.TestCase):

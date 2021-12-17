@@ -5,6 +5,7 @@ import warnings
 import dask
 import dask.array as da
 import numpy as np
+import rioxarray as rxr
 import xarray as xr
 
 try:
@@ -58,6 +59,10 @@ class RasterDeviceMismatchError(BaseException):
 
 
 class RasterDeviceError(BaseException):
+    pass
+
+
+class RasterNoDataError(BaseException):
     pass
 
 
@@ -1257,7 +1262,10 @@ class Raster:
             The clipped raster.
 
         """
-        xrs = self._rs.rio.clip_box(minx, miny, maxx, maxy)
+        try:
+            xrs = self._rs.rio.clip_box(minx, miny, maxx, maxy)
+        except rxr.exceptions.NoDataInBounds:
+            raise RasterNoDataError("No data found within provided bounds")
         if self._masked:
             xmask = xr.DataArray(
                 self._mask, dims=self._rs.dims, coords=self._rs.coords
