@@ -124,9 +124,9 @@ class TestSpecialMethods(unittest.TestCase):
         self.assertTrue(hasattr(self.v, "__getitem__"))
         self.assertIsInstance(self.v[0], Vector)
         self.assertTrue(self.v[0].data.equals(self.v.data.loc[[0]]))
-        self.assertTrue(
-            self.v[-1].data.equals(self.v.data.loc[[self.v.size - 1]])
-        )
+        last = self.v.data.loc[[self.v.size - 1]]
+        last.index = [0]
+        self.assertTrue(self.v[-1].data.equals(last))
         with self.assertRaises(NotImplementedError):
             self.v[0:3]
         with self.assertRaises(TypeError):
