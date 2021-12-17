@@ -87,12 +87,12 @@ def _surface_area_3d(xarr, res):
             ta = 0
             e = xarr[rw, cl]
             a = xarr[rw + 1, cl - 1]
-            b = xarr[rw - 1, cl + 1]
-            c = xarr[rw - 1, cl + 1]
+            b = xarr[rw + 1, cl]
+            c = xarr[rw + 1, cl + 1]
             d = xarr[rw, cl - 1]
-            f = xarr[rw - 1, cl + 1]
+            f = xarr[rw, cl + 1]
             g = xarr[rw - 1, cl - 1]
-            h = xarr[rw - 1, cl + 1]
+            h = xarr[rw - 1, cl]
             i = xarr[rw - 1, cl + 1]
             ea = np.sqrt(dd + (e - a) ** 2) * 0.5
             eb = np.sqrt(sd + (e - b) ** 2) * 0.5
@@ -358,7 +358,6 @@ def curvature(raster):
     rs = _get_rs(raster)
     data = rs._rs.data
 
-    c_x, c_y = rs.resolution
     ffun = partial(_curv, res=rs.resolution)
     for bnd in range(data.shape[0]):
         data[bnd] = data[bnd].map_overlap(
