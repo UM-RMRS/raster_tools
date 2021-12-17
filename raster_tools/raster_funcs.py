@@ -6,7 +6,7 @@ import xarray as xr
 
 from raster_tools.raster import Raster, _raster_like, get_default_null_value
 
-from ._utils import is_float, is_int, is_scalar
+from ._utils import is_bool, is_float, is_int, is_scalar
 
 
 def band_concat(rasters, null_value=None):
@@ -73,24 +73,26 @@ def band_concat(rasters, null_value=None):
     rs = xr.concat(xrs, "band")
     mask = da.concatenate(masks)
 
-    # Make sure that null value type is consistent with resulting dtype
-    if new_nv is not None:
-        if is_float(rs.dtype):
-            new_nv = float(new_nv)
-        elif is_int(rs.dtype):
-            if np.isnan(new_nv):
-                new_nv = get_default_null_value(rs.dtype)
-                warnings.warn(
-                    f"Null value is NaN but new dtype is {rs.dtype},"
-                    f" using default null value for that dtype: {new_nv}",
-                    RuntimeWarning,
-                )
-            else:
-                new_nv = int(new_nv)
-
-    if new_nv is not None:
-        # TODO: remove this if unnecessary
-        rs.data = da.where(~mask, rs.data, new_nv)
+    # Only mess with null values if result is not boolean or one was explicitly
+    # specified.
+    if not is_bool(rs.dtype) or null_value is not None:
+        # Make sure that null value type is consistent with resulting dtype
+        if new_nv is not None:
+            if is_float(rs.dtype):
+                new_nv = float(new_nv)
+            elif is_int(rs.dtype):
+                if np.isnan(new_nv):
+                    new_nv = get_default_null_value(rs.dtype)
+                    warnings.warn(
+                        f"Null value is NaN but new dtype is {rs.dtype},"
+                        f" using default null value for that dtype: {new_nv}",
+                        RuntimeWarning,
+                    )
+                else:
+                    new_nv = int(new_nv)
+        if new_nv is not None:
+            # TODO: remove this if unnecessary
+            rs.data = da.where(~mask, rs.data, new_nv)
     # Make sure that band is now an increasing list starting at 1 and
     # incrementing by 1. For xrs1 (1, N, M) and xrs2 (1, N, M),
     # concat([xrs1, xrs2]) sets the band dim to [1, 1], which causes errors
