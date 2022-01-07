@@ -18,13 +18,13 @@ from dask_image import ndmeasure as ndm
 from raster_tools import Raster
 from raster_tools._types import U64
 from raster_tools._utils import is_str
-from raster_tools.focal import (
-    _agg_nan_asm,
-    _agg_nan_entropy,
-    _agg_nan_mode,
-    _agg_nan_unique,
-)
 from raster_tools.raster import is_raster_class
+from raster_tools.stat_common import (
+    nan_unique_count_jit,
+    nanasm_jit,
+    nanentropy_jit,
+    nanmode_jit,
+)
 from raster_tools.surface import _get_rs
 
 __all__ = [
@@ -61,7 +61,7 @@ def _mode(xarr):
     for r in range(rws):
         for c in range(clms):
             farr = xarr[:, r, c]
-            vl = _agg_nan_mode(farr)
+            vl = nanmode_jit(farr)
             outx[0, r, c] = vl
 
     return outx
@@ -76,7 +76,7 @@ def _asm(xarr):
     for r in range(rws):
         for c in range(clms):
             farr = xarr[:, r, c]
-            vl = _agg_nan_asm(farr)
+            vl = nanasm_jit(farr)
             outx[0, r, c] = vl
 
     return outx
@@ -91,7 +91,7 @@ def _entropy(xarr):
     for r in range(rws):
         for c in range(clms):
             farr = xarr[:, r, c]
-            vl = _agg_nan_entropy(farr)
+            vl = nanentropy_jit(farr)
             outx[0, r, c] = vl
 
     return outx
@@ -106,7 +106,7 @@ def _unique(xarr):
     for r in range(rws):
         for c in range(clms):
             farr = xarr[:, r, c]
-            vl = _agg_nan_unique(farr)
+            vl = nan_unique_count_jit(farr)
             outx[0, r, c] = vl
 
     return outx
@@ -127,7 +127,7 @@ def _mode_coarsenf(xarr, ycells, xcells):
                 nc = c // xcells
                 sc = c + xcells
                 farr = xarr[b, r:sr, c:sc]
-                vl = _agg_nan_mode(farr)
+                vl = nanmode_jit(farr)
                 outx[b, nr, nc] = vl
 
     return outx
@@ -148,7 +148,7 @@ def _unique_coarsenf(xarr, ycells, xcells):
                 nc = c // xcells
                 sc = c + xcells
                 farr = xarr[b, r:sr, c:sc]
-                vl = _agg_nan_unique(farr)
+                vl = nan_unique_count_jit(farr)
                 outx[b, nr, nc] = vl
 
     return outx
@@ -169,7 +169,7 @@ def _entropy_coarsenf(xarr, ycells, xcells):
                 nc = c // xcells
                 sc = c + xcells
                 farr = xarr[b, r:sr, c:sc]
-                vl = _agg_nan_entropy(farr)
+                vl = nanentropy_jit(farr)
                 outx[b, nr, nc] = vl
 
     return outx
@@ -190,7 +190,7 @@ def _asm_coarsenf(xarr, ycells, xcells):
                 nc = c // xcells
                 sc = c + xcells
                 farr = xarr[b, r:sr, c:sc]
-                vl = _agg_nan_asm(farr)
+                vl = nanasm_jit(farr)
                 outx[b, nr, nc] = vl
 
     return outx

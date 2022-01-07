@@ -7,8 +7,29 @@ from dask_image import ndfilters
 
 from raster_tools import Raster
 from raster_tools.raster import is_raster_class
+from raster_tools.stat_common import (
+    nan_unique_count_jit,
+    nanasm_jit,
+    nanentropy_jit,
+    nanmax_jit,
+    nanmean_jit,
+    nanmedian_jit,
+    nanmin_jit,
+    nanmode_jit,
+    nanstd_jit,
+    nansum_jit,
+    nanvar_jit,
+)
 
-from ._types import F64, promote_data_dtype, promote_dtype_to_float
+from ._types import (
+    F64,
+    U8,
+    U16,
+    U32,
+    U64,
+    promote_data_dtype,
+    promote_dtype_to_float,
+)
 from ._utils import is_bool, is_float, is_int, is_str
 
 __all__ = [
@@ -21,124 +42,6 @@ __all__ = [
 
 
 ngjit = nb.jit(nopython=True, nogil=True)
-
-
-@ngjit
-def _agg_nan_min(x):
-    return np.nanmin(x)
-
-
-@ngjit
-def _agg_nan_max(x):
-    return np.nanmax(x)
-
-
-@ngjit
-def _agg_nan_mean(x):
-    return np.nanmean(x)
-
-
-@ngjit
-def _agg_nan_median(x):
-    return np.nanmedian(x)
-
-
-@ngjit
-def _agg_nan_sum(x):
-    return np.nansum(x)
-
-
-@ngjit
-def _agg_nan_var(x):
-    return np.nanvar(x)
-
-
-@ngjit
-def _agg_nan_std(x):
-    return np.nanstd(x)
-
-
-@ngjit
-def _agg_nan_unique(x):
-    # Create set of floats. {1.0} is a hack to tell numba.jit what type the set
-    # contains
-    s = {1.0}
-    s.clear()
-    for v in x.ravel():
-        if not np.isnan(v):
-            s.add(v)
-    if len(s):
-        return len(s)
-    return np.nan
-
-
-@ngjit
-def _agg_nan_mode(x):
-    one: nb.types.uint16 = 1
-    c = {}
-    x = x.ravel()
-    j: nb.types.uint16 = 0
-    for i in range(x.size):
-        v = x[i]
-        if not np.isnan(v):
-            if v in c:
-                c[v] += one
-            else:
-                c[v] = one
-            x[j] = v
-            j += one
-    vals = x[:j]
-    if len(vals) == 0:
-        return np.nan
-    vals.sort()
-    cnts = np.empty(len(vals), dtype=nb.types.uint16)
-    for i in range(len(vals)):
-        cnts[i] = c[vals[i]]
-    return vals[np.argmax(cnts)]
-
-
-@ngjit
-def _agg_nan_entropy(x):
-    c = {}
-    one: nb.types.uint16 = 1
-    n: nb.types.uint16 = 0
-    for v in x.ravel():
-        if not np.isnan(v):
-            if v in c:
-                c[v] += one
-            else:
-                c[v] = one
-            n += one
-    if len(c) == 0:
-        return np.nan
-    entr = 0.0
-    frac = one / n
-    for cnt in c.values():
-        p = cnt * frac
-        entr -= p * np.log(p)
-    return entr
-
-
-@ngjit
-def _agg_nan_asm(x):
-    c = {}
-    one: nb.types.uint16 = 1
-    n: nb.types.uint16 = 0
-    for v in x.ravel():
-        if not np.isnan(v):
-            if v in c:
-                c[v] += one
-            else:
-                c[v] = one
-            n += one
-    if len(c) == 0:
-        return np.nan
-    asm = 0.0
-    frac = one / n
-    for cnt in c.values():
-        p = cnt * frac
-        asm += p * p
-    return asm
 
 
 @ngjit
@@ -340,19 +243,6 @@ def _correlate(data, kernel, mode="constant", cval=0.0, nan_aware=False):
     )
 
 
-# Focal ops that promote dtype to float
-FOCAL_PROMOTING_OPS = frozenset(
-    (
-        "asm",
-        "entropy",
-        "mean",
-        "median",
-        "std",
-        "var",
-    )
-)
-
-
 FOCAL_STATS = frozenset(
     (
         "asm",
@@ -368,6 +258,19 @@ FOCAL_STATS = frozenset(
         "unique",
     )
 )
+_STAT_TO_FUNC = {
+    "asm": nanasm_jit,
+    "entropy": nanentropy_jit,
+    "max": nanmax_jit,
+    "mean": nanmean_jit,
+    "median": nanmedian_jit,
+    "mode": nanmode_jit,
+    "min": nanmin_jit,
+    "std": nanstd_jit,
+    "sum": nansum_jit,
+    "var": nanvar_jit,
+    "unique": nan_unique_count_jit,
+}
 
 
 def _focal(data, kernel, stat, nan_aware=False):
@@ -386,45 +289,29 @@ def _focal(data, kernel, stat, nan_aware=False):
 
     if isinstance(data, np.ndarray):
         data = da.from_array(data)
-    if nan_aware or stat in FOCAL_PROMOTING_OPS:
-        data = promote_data_dtype(data)
 
     kernel = kernel.astype(bool)
-    if stat == "asm":
-        return _focal_dispatch("focal", data, kernel, _agg_nan_asm)
-    elif stat == "entropy":
-        return _focal_dispatch("focal", data, kernel, _agg_nan_entropy)
-    elif stat == "min":
-        if not nan_aware:
-            return ndfilters.minimum_filter(
-                data, footprint=kernel, mode="nearest"
+    if not nan_aware and stat in ("min", "max", "sum"):
+        # Use ndfilters which is faster but dosn't handle nan values
+        if stat == "min":
+            func = partial(
+                ndfilters.minimum_filter, footprint=kernel, mode="nearest"
             )
-        else:
-            return _focal_dispatch("focal", data, kernel, _agg_nan_min)
-    elif stat == "max":
-        if not nan_aware:
-            return ndfilters.maximum_filter(
-                data, footprint=kernel, mode="nearest"
+        elif stat == "max":
+            func = partial(
+                ndfilters.maximum_filter, footprint=kernel, mode="nearest"
             )
-        else:
-            return _focal_dispatch("focal", data, kernel, _agg_nan_max)
-    elif stat == "mode":
-        return _focal_dispatch("focal", data, kernel, _agg_nan_mode)
-    elif stat == "mean":
-        return _focal_dispatch("focal", data, kernel, _agg_nan_mean)
-    elif stat == "median":
-        return _focal_dispatch("focal", data, kernel, _agg_nan_median)
-    elif stat == "std":
-        return _focal_dispatch("focal", data, kernel, _agg_nan_std)
-    elif stat == "var":
-        return _focal_dispatch("focal", data, kernel, _agg_nan_var)
-    elif stat == "sum":
-        if not nan_aware:
-            return ndfilters.correlate(data, kernel, mode="constant")
-        else:
-            return _focal_dispatch("focal", data, kernel, _agg_nan_sum)
-    elif stat == "unique":
-        return _focal_dispatch("focal", data, kernel, _agg_nan_unique)
+        elif stat == "sum":
+            func = partial(
+                ndfilters.correlate, weights=kernel, mode="constant"
+            )
+        return func(data)
+    # Use _focal_dispatch which is slower but handles nan values.
+    # Promote to allow for nan boundary fill values.
+    new_dtype = promote_dtype_to_float(data.dtype)
+    if new_dtype != data.dtype:
+        data = data.astype(new_dtype)
+    return _focal_dispatch("focal", data, kernel, _STAT_TO_FUNC[stat])
 
 
 def focal(raster, focal_type, width_or_radius, height=None):
@@ -496,24 +383,43 @@ def focal(raster, focal_type, width_or_radius, height=None):
     window = get_focal_window(width_or_radius, height)
     rs = raster.copy()
     data = rs._rs.data
-    final_dtype = data.dtype
 
     # Convert to float and fill nulls with nan, if needed
-    upcast = False
     if raster._masked:
         new_dtype = promote_dtype_to_float(raster.dtype)
-        upcast = new_dtype != data.dtype
-        if upcast:
+        if new_dtype != data.dtype:
             data = data.astype(new_dtype)
-        data = da.where(~raster._mask, data, np.nan)
+        data = da.where(raster._mask, np.nan, data)
 
-    for bnd in range(data.shape[0]):
-        data[bnd] = _focal(data[bnd], window, focal_type, raster._masked)
+    result = [
+        _focal(data[bnd], window, focal_type, raster._masked)
+        for bnd in range(data.shape[0])
+    ]
+    data = da.stack(result)
 
-    # Cast back to int, if needed
-    if upcast and focal_type not in FOCAL_PROMOTING_OPS:
-        data = data.astype(final_dtype)
+    if raster._masked:
+        if focal_type == "unique":
+            # Values of 0 mean that all values in window were nan (AKA null) so
+            # replace them with nan
+            data = da.where(data == 0, np.nan, data)
+    else:
+        if focal_type == "mode" and is_int(raster.dtype):
+            data = data.astype(raster.dtype)
+        elif focal_type == "unique":
+            n = window.size
+            unq_dtype = None
+            for dt in (U8, U16, U32, U64):
+                if np.can_cast(n, dt):
+                    unq_dtype = dt
+                    break
+            data = data.astype(unq_dtype)
 
+    # Nan values will only appear in the result data if there were null values
+    # present in the input. Thus we only need to worry about updating the mask
+    # if the input was masked.
+    if raster._masked:
+        rs._mask = raster._mask | np.isnan(data)
+        data = da.where(rs._mask, rs.null_value, data)
     rs._rs.data = data
     return rs
 
