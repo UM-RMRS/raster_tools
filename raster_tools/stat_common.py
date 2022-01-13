@@ -3,6 +3,8 @@ from numba import generated_jit, jit, types
 
 __all__ = [
     "nan_unique_count_jit",
+    "nanargmax_jit",
+    "nanargmin_jit",
     "nanasm_jit",
     "nanentropy_jit",
     "nanmax_jit",
@@ -150,3 +152,51 @@ def nanasm_jit(x):
             p = cnt * frac
             asm += p * p
     return asm
+
+
+@ngjit
+def nanargmin_jit(x):
+    # Get argmin. If empty give -1, if all nan, give -2. This differs from
+    # numpy which throws an error.
+    x = _atleast_1d(x)
+    if x.size == 0:
+        return -1
+    nan_mask = np.isnan(x)
+    if nan_mask.all():
+        return -2
+    x = x.ravel()
+    nan_mask = nan_mask.ravel()
+    j = 0
+    min_val = np.inf
+    for i in range(x.size):
+        v = x[i]
+        if nan_mask[i]:
+            continue
+        if v < min_val:
+            j = i
+            min_val = v
+    return j
+
+
+@ngjit
+def nanargmax_jit(x):
+    # Get argmax. If empty give -1, if all nan, give -2. This differs from
+    # numpy which throws an error.
+    x = _atleast_1d(x)
+    if x.size == 0:
+        return -1
+    nan_mask = np.isnan(x)
+    if nan_mask.all():
+        return -2
+    x = x.ravel()
+    nan_mask = nan_mask.ravel()
+    j = 0
+    max_val = -np.inf
+    for i in range(x.size):
+        v = x[i]
+        if nan_mask[i]:
+            continue
+        if v > max_val:
+            j = i
+            max_val = v
+    return j

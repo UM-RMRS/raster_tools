@@ -118,3 +118,25 @@ class TestJitStats(TestCase):
             return ent
 
         self._test_func(stc.nanasm_jit, asm)
+
+    def test_nanargmin_jit(self):
+        def argmin(x):
+            x = np.atleast_1d(x)
+            if x.size == 0:
+                return -1
+            if np.isnan(x).all():
+                return -2
+            return np.nanargmin(x)
+
+        self._test_func(stc.nanargmin_jit, argmin)
+
+    def test_nanargmax_jit(self):
+        def argmax(x):
+            x = np.atleast_1d(x)
+            if x.size == 0:
+                return -1
+            if np.isnan(x).all():
+                return -2
+            return np.nanargmax(x)
+
+        self._test_func(stc.nanargmax_jit, argmax)
