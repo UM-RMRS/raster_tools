@@ -14,6 +14,48 @@ from raster_tools.rsv_utils import get_raster, get_vector
 __all__ = ["ZONAL_STAT_FUNCS", "zonal_stats"]
 
 
+def _handle_empty(func):
+    def wrapped(x, axis=None, keepdims=False):
+        if x.size > 0 or np.isnan(x.size):
+            try:
+                return func(x, axis=axis, keepdims=keepdims)
+            except ValueError:
+                pass
+        return np.array([], dtype=x.dtype)
+
+    return wrapped
+
+
+# np.nan{min, max} both throw errors for empty chumks. dask.array.nan{min, max}
+# handles empty chunks but requires that the chunk sizes be known at runtime.
+# This safely handles empty chunks. There may still be corner cases that have
+# not been found but for now it works.
+_nanmin_empty_safe = _handle_empty(np.nanmin)
+_nanmax_empty_safe = _handle_empty(np.nanmax)
+
+
+def _nan_min(x):
+    return da.reduction(
+        x,
+        _nanmin_empty_safe,
+        _nanmin_empty_safe,
+        axis=None,
+        keepdims=False,
+        dtype=x.dtype,
+    )
+
+
+def _nan_max(x):
+    return da.reduction(
+        x,
+        _nanmax_empty_safe,
+        _nanmax_empty_safe,
+        axis=None,
+        keepdims=False,
+        dtype=x.dtype,
+    )
+
+
 def _nan_count(x):
     return da.count_nonzero(~np.isnan(x))
 
@@ -250,10 +292,10 @@ _ZONAL_STAT_FUNCS = {
     "asm": _nan_asm,
     "count": _nan_count,
     "entropy": _nan_entropy,
-    "max": da.nanmax,
+    "max": _nan_max,
     "mean": da.nanmean,
     "median": _nan_median,
-    "min": da.nanmin,
+    "min": _nan_min,
     "mode": _nan_mode,
     "std": da.nanstd,
     "sum": da.nansum,
