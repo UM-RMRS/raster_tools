@@ -39,13 +39,19 @@ RMRS Raster Utility Project
     $ pip install -r ./requirements/dev.txt
     ```
 
-5. Install the project into the virtual environment:
+5. Install the project into the virtual environment and build the cython modules:
 
     ```sh
-    $ pip install -e .
+    $ SITE_PACKAGES=$(python -c "from distutils.sysconfig import get_python_lib; print(get_python_lib())")
+    $ echo -e "$(pwd)\n." > "${SITE_PACKAGES}/raster-tools.egg-link"
+    $ python setup.py build_ext --inplace
     ```
 
-    This will also build the cython modules in this repo.
+    ***NOTE: The above departs from the normal build process because of a bug
+    in pip. See [this link](https://github.com/pypa/pip/issues/9542) and
+    [this link](https://github.com/scikit-learn-contrib/hdbscan/issues/457#issuecomment-773671043)
+    for more details.***
+
 6. Setup pre-commit hooks
 
     ```sh

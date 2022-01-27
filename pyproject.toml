@@ -1,6 +1,6 @@
 [build-system]
 # Minimum requirements for the build system to execute.
-requires = ["cython", "numpy", "setuptools", "wheel"]
+requires = ["wheel", "setuptools", "cython", "numpy"]
 
 [tool.black]
 line-length = 79

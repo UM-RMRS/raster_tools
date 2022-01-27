@@ -310,6 +310,8 @@ class TestFocalWindow(unittest.TestCase):
             dask.is_dask_collection(focal._focal(xd, kern, "max", False))
         )
 
+
+class TestFocal(unittest.TestCase):
     def test_focal(self):
         filters = [
             ("asm", asm),
@@ -326,21 +328,34 @@ class TestFocalWindow(unittest.TestCase):
         ]
         x = np.arange(64.0).reshape(8, 8)
         x[:3, :3] = np.nan
+        mask = np.isnan(x)
         kernels = [
-            focal.get_focal_window(2),
-            focal.get_focal_window(3, 3),
-            focal.get_focal_window((2, 3)),
+            (focal.get_focal_window(2), (2,)),
+            (focal.get_focal_window(3, 3), (3, 3)),
+            (focal.get_focal_window((2, 3)), ((2, 3),)),
         ]
-        for kern in kernels:
+        rx = Raster(x).set_null_value(np.nan)
+        for kern, kern_params in kernels:
             for stat, func in filters:
                 with warnings.catch_warnings():
                     # Ignore nan related warnings
                     warnings.simplefilter("ignore", category=RuntimeWarning)
                     truth = ndimage.generic_filter(
-                        x, func, footprint=kern, mode="constant", cval=np.nan
+                        rx._rs.data[0].compute(),
+                        func,
+                        footprint=kern,
+                        mode="constant",
+                        cval=np.nan,
                     )
                 res = focal._focal(x, kern, stat, True).compute()
                 self.assertTrue(np.allclose(truth, res, equal_nan=True))
+
+                # Fill with null value
+                truth[mask] = np.nan
+                res_full = (
+                    focal.focal(rx, stat, *kern_params)._rs.data[0].compute()
+                )
+                self.assertTrue(np.allclose(truth, res_full, equal_nan=True))
 
 
 class TestCorrelate(unittest.TestCase):
@@ -403,15 +418,27 @@ class TestFocalIntegration(unittest.TestCase):
 
     def test_focal_output_type(self):
         rs = Raster("test/data/multiband_small.tif") * 100
-        rs = rs.set_null_value(-1)
-        rs = rs.astype(int)
+        rs_masked = rs.set_null_value(-1).astype(int)
+        rsi = rs.set_null_value(None).astype(int)
 
-        self.assertTrue(rs._masked)
-        self.assertTrue(rs.dtype.kind == "i")
-        res = focal.focal(rs, "mode", 3).eval()
-        self.assertTrue(res.dtype == rs.dtype)
+        # Masked
+        self.assertTrue(rs_masked._masked)
+        self.assertTrue(rs_masked.dtype.kind == "i")
+        res = focal.focal(rs_masked, "mode", 3).eval()
+        self.assertTrue(res.dtype.kind == "f")
+        res = focal.focal(rs_masked, "unique", 3).eval()
+        self.assertTrue(res.dtype.kind == "f")
+        res = focal.focal(rs_masked, "mean", 3).eval()
+        self.assertTrue(res.dtype.kind == "f")
 
-        res = focal.focal(rs, "mean", 3).eval()
+        # Unmasked
+        self.assertFalse(rsi._masked)
+        self.assertTrue(rsi.dtype.kind == "i")
+        res = focal.focal(rsi, "mode", 3).eval()
+        self.assertTrue(res.dtype.kind == "i")
+        res = focal.focal(rsi, "unique", 3).eval()
+        self.assertTrue(res.dtype.kind == "u")
+        res = focal.focal(rsi, "mean", 3).eval()
         self.assertTrue(res.dtype.kind == "f")
 
 
@@ -496,17 +523,18 @@ class TestCorrelateConvolveIntegration(unittest.TestCase):
 
 def asm(x):
     c = {}
-    xn = x[~np.isnan(x)]
-    for v in xn:
-        if v in c:
-            c[v] += 1
-        else:
-            c[v] = 1
-    n = sum(c.values())
-    if not n:
-        return np.nan
+    n = 0
+    for v in x.ravel():
+        if not np.isnan(v):
+            if v in c:
+                c[v] += 1
+            else:
+                c[v] = 1
+            n += 1
+    if n == 0:
+        return 0.0
     p = np.array([cnt / n for cnt in c.values()])
-    return np.nansum(p * p)
+    return np.sum(p * p)
 
 
 def entropy(x):
@@ -519,7 +547,7 @@ def entropy(x):
             c[v] = 1
     n = sum(c.values())
     if not n:
-        return np.nan
+        return 0.0
     p = np.array([cnt / n for cnt in c.values()])
     return np.nansum(-p * np.log(p))
 
@@ -535,7 +563,7 @@ def unique(x):
     u = np.unique(x[~np.isnan(x)])
     if len(u):
         return len(u)
-    return np.nan
+    return 0
 
 
 def correlate(x, kern):

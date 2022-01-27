@@ -8,6 +8,7 @@ from setuptools import Extension, setup
 Options.fast_fail = True
 
 setup(
+    name="raster-tools",
     ext_modules=cythonize(
         [
             Extension(

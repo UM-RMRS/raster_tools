@@ -51,6 +51,20 @@ class TestBandConcat(unittest.TestCase):
         self.assertEqual(test.shape, truth.shape)
         self.assertTrue(rs_eq_array(test, truth))
 
+    def test_band_concat_bool_rasters(self):
+        rs1 = Raster("test/data/elevation_small.tif") > -100
+        rs2 = rs1.copy()
+        result = band_concat((rs1, rs2))
+        self.assertTrue(rs1.null_value == result.null_value)
+        self.assertTrue(result.dtype == np.dtype(bool))
+        self.assertTrue(np.all(result))
+
+        # Force bool to be converted to int to accommodate the null value
+        result = band_concat((rs1, rs2), -1)
+        self.assertTrue(-1 == result.null_value)
+        self.assertTrue(result.dtype.kind == "i")
+        self.assertTrue(np.all(np.array(result) == 1))
+
     def test_band_concat_errors(self):
         rs1 = Raster("test/data/elevation_small.tif")
         rs2 = Raster("test/data/elevation2_small.tif")
