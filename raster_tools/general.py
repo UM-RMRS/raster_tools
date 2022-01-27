@@ -88,7 +88,7 @@ def regions(raster, neighbors=4, unique_values=None):
 
     """  # noqa: E501
     raster = get_raster(raster)
-    rs = zeros_like(raster, dtype=U64)
+    rs_out = zeros_like(raster, dtype=U64)
 
     if not is_int(neighbors):
         raise TypeError(
@@ -109,23 +109,26 @@ def regions(raster, neighbors=4, unique_values=None):
         else:
             raise TypeError("Invalid type for unique_values parameter")
 
-    data = rs._rs.data
+    data = raster._rs.data
+    dout = rs_out._rs.data
     if raster._masked:
         # Set null values to 0 to skip them in the labeling phase
         data = da.where(raster._mask, 0, data)
 
     for bnd in range(data.shape[0]):
-        data[bnd] = _create_labels(data[bnd], wd, unique_values)
+        dout[bnd] = _create_labels(data[bnd], wd, unique_values)
 
     if raster._masked:
         nv = raster.null_value
-        if raster.dtype == rs.dtype or np.can_cast(raster.dtype, rs.dtype):
-            data = da.where(raster._mask, raster.null_value, data)
+        if raster.dtype == rs_out.dtype or np.can_cast(
+            raster.dtype, rs_out.dtype
+        ):
+            dout = da.where(raster._mask, raster.null_value, dout)
         else:
-            nv = get_default_null_value(rs.dtype)
-            data = da.where(raster._mask, nv, data)
-    rs._rs.data = data
-    return rs
+            nv = get_default_null_value(rs_out.dtype)
+            dout = da.where(raster._mask, nv, dout)
+    rs_out._rs.data = dout
+    return rs_out
 
 
 @nb.jit(nopython=True, nogil=True)
