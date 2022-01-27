@@ -570,7 +570,7 @@ class Raster:
             )
         bands = [b - 1 for b in bands]
         if len(bands) == 1 and n_bands == 1:
-            return self
+            return self.copy()
         rs = self._rs[bands]
         mask = self._mask[bands]
         # TODO: look into making attrs consistant with bands
