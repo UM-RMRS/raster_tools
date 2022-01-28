@@ -74,7 +74,7 @@ def _normalize_layers_arg(layers):
         raise TypeError(f"Could not understand layers argument: {layers!r}")
 
 
-_LAZY_THRESHOLD = 100_000
+_LAZY_THRESHOLD = 10_000
 
 
 def open_vectors(path, layers=None):
