@@ -141,6 +141,7 @@ def _get_len_from_divisions(divs):
         left = divs[i]
         right = divs[i + 1]
         n += right - left
+    n += 1
     return n
 
 
