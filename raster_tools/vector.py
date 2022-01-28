@@ -135,11 +135,19 @@ def open_vectors(path, layers=None):
     return Vector(dfs[0])
 
 
+def _get_len_from_divisions(divs):
+    n = 0
+    for i in range(len(divs) - 1):
+        left = divs[i]
+        right = divs[i + 1]
+        n += right - left
+    return n
+
+
 def _get_geo_len(geo, error=False):
     if dask.is_dask_collection(geo):
-        n = len(geo)
-        if not np.isnan(n):
-            return n
+        if geo.known_divisions:
+            return _get_len_from_divisions(geo.divisions)
         if error:
             raise ValueError(
                 "Could not determine size of lazy geo data. Divisions not set."
