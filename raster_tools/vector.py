@@ -5,7 +5,6 @@ import dask.dataframe as dd
 import dask_geopandas as dgpd
 import fiona
 import geopandas as gpd
-import numpy as np
 import pandas as pd
 import rasterio as rio
 import xarray as xr
@@ -16,7 +15,7 @@ from rasterio.features import rasterize as rio_rasterize
 from raster_tools import Raster
 from raster_tools.raster import is_raster_class
 
-from ._types import F64, U64
+from ._types import F64, I64, U64
 from ._utils import is_int, is_str
 
 __all__ = ["open_vectors", "Vector"]
@@ -195,15 +194,15 @@ def _rasterize_map_blocks(template, geometry, values, dtype, all_touched):
     return result.data
 
 
-def _rasterize_partition(df, xlike, values, all_touched=True):
+def _rasterize_partition(df, xlike, field, all_touched=True):
     if xlike.shape[0] > 1:
         xlike = xlike[:1]
     geometry = df.geometry
-    if values.dtype == U64:
-        # rasterio doesn't like uint64
-        # This is very unlikely. n would have to be huge. If this triggers,
-        # other things will likely break.
-        values.astype(F64)
+    values = df.index if field is None else df[field]
+    values = values.to_dask_array()
+    if values.dtype == U64 or values.dtype == I64:
+        # rasterio doesn't like uint64 or int64
+        values = values.astype(F64)
     template = xr.zeros_like(xlike, dtype=values.dtype)
 
     # geometry is likely lazy. It could also potentially wrap a very large
@@ -223,15 +222,9 @@ def _rasterize_partition(df, xlike, values, all_touched=True):
     return result
 
 
-def _vector_to_raster_dask(df, xlike, all_touched=True):
+def _vector_to_raster_dask(df, xlike, field=None, all_touched=True):
     if not dask.is_dask_collection(xlike):
         raise ValueError("xlike must be a dask collection")
-
-    n = _get_geo_len(df, error=True)
-    values_dtype = np.min_scalar_type(n)
-    if not dask.is_dask_collection(df) or df.npartitions == 1:
-        values = np.arange(1, n + 1, dtype=values_dtype)
-        return _rasterize_partition(df, xlike, values, all_touched=all_touched)
 
     # There is no way to neatly align the dataframe partitions with the raster
     # chunks. Because of this, we burn in each partition on its own raster and
@@ -240,13 +233,10 @@ def _vector_to_raster_dask(df, xlike, all_touched=True):
     offset = 0
     for part in df.partitions:
         n = _get_geo_len(part, error=True)
-        values = dask.array.arange(
-            offset + 1, offset + n + 1, dtype=values_dtype
-        )
         res = _rasterize_partition(
             part,
             xlike,
-            values,
+            field,
             all_touched=all_touched,
         )
         offset += n
@@ -432,7 +422,7 @@ class Vector:
         """Returns the vector data as a list of shapely geometries objects."""
         return self.geometry.to_list()
 
-    def to_raster(self, like, all_touched=True):
+    def to_raster(self, like, field=None, all_touched=True):
         """Convert vector data to a raster.
 
         Parameters
@@ -440,6 +430,9 @@ class Vector:
         like : Raster
             A to use for grid and CRS information. The resulting raster will be
             on the same grid as `like`.
+        field : str, optional
+            The name of a field to use for fill values when rasterizing the
+            vector features.
         all_touched : bool, optional
             If ``True``, grid cells that the vector touches will be burned in.
             If False, only cells with a center point inside of the vector
@@ -457,10 +450,16 @@ class Vector:
 
         """
         like = _parse_input_raster(like)
+        if field is not None:
+            if not is_str(field):
+                raise TypeError("Field must be a string")
+            if field not in self._geo:
+                raise ValueError(f"Invalid field name: {repr(field)}")
 
         xrs = _vector_to_raster_dask(
             self.to_crs(like.crs)._geo,
             xlike=like.to_xarray(),
+            field=field,
             all_touched=all_touched,
         )
         return Raster(xrs).set_null_value(0)
