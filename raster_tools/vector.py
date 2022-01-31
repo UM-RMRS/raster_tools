@@ -199,7 +199,11 @@ def _rasterize_partition(df, xlike, field, all_touched=True):
         xlike = xlike[:1]
     geometry = df.geometry
     values = df.index if field is None else df[field]
-    values = values.to_dask_array()
+    values = (
+        values.to_dask_array()
+        if dask.is_dask_collection(values)
+        else values.to_numpy()
+    )
     if values.dtype == U64 or values.dtype == I64:
         # rasterio doesn't like uint64 or int64
         values = values.astype(F64)
@@ -230,16 +234,14 @@ def _vector_to_raster_dask(df, xlike, field=None, all_touched=True):
     # chunks. Because of this, we burn in each partition on its own raster and
     # then merge the results.
     results = []
-    offset = 0
-    for part in df.partitions:
-        n = _get_geo_len(part, error=True)
+    parts = df.partitions if dask.is_dask_collection(df) else [df]
+    for part in parts:
         res = _rasterize_partition(
             part,
             xlike,
             field,
             all_touched=all_touched,
         )
-        offset += n
         results.append(res)
     # Merge along band dim using max
     result = xr.concat(results, dim="band").max(axis=0, keep_attrs=True)
