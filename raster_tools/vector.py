@@ -19,11 +19,45 @@ from raster_tools.raster import is_raster_class
 from ._types import F64, I64, U64
 from ._utils import is_float, is_int, is_str
 
-__all__ = ["open_vectors", "Vector"]
+__all__ = ["Vector", "list_layers", "count_layer_features", "open_vectors"]
 
 
 class VectorError(Exception):
     pass
+
+
+def list_layers(path):
+    """List the layers in a vector source file."""
+    if not os.path.exists(path):
+        raise IOError(f"No such file or directory: {path!r}")
+    return fiona.listlayers(path)
+
+
+def count_layer_features(path, layer):
+    """Count the number of features in a layer of a vector source file.
+
+    Parameters
+    ----------
+    path : str
+        The path to a vector source file.
+    layer : str, int
+        The layer to count features from. Can be the 0-based index or a string.
+
+    Returns
+    -------
+    int
+        The number of features.
+
+    """
+    if not os.path.exists(path):
+        raise IOError(f"No such file or directory: {path!r}")
+    if not is_int(layer) and not is_str(layer):
+        raise TypeError("The layer must be an int or string.")
+    if is_int(layer) and layer < 0:
+        raise ValueError("The layer must be positive.")
+
+    with fiona.open(path, layer=layer) as src:
+        return len(src)
 
 
 def _df_asign_index(df, index):
