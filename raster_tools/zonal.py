@@ -242,7 +242,7 @@ def _entropy_asm_agg(
         return 0
     values = _split_concat(pairs, _ravel_values)
     if len(values) == 0:
-        return np.array()
+        return np.array([])
     counts = _split_concat(pairs, _ravel_counts)
     # NOTE: wrapping the value in an array is a hack to prevent dask from
     # mishandling the return value as an array with dims, leading to index
