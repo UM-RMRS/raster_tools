@@ -5,6 +5,7 @@ import dask.dataframe as dd
 import dask_geopandas as dgpd
 import fiona
 import geopandas as gpd
+import numpy as np
 import pandas as pd
 import rasterio as rio
 import xarray as xr
@@ -194,7 +195,7 @@ def _rasterize_map_blocks(template, geometry, values, dtype, all_touched):
     return result.data
 
 
-def _rasterize_partition(df, xlike, field, all_touched=True):
+def _rasterize_partition(df, xlike, field, target_dtype, all_touched=True):
     if xlike.shape[0] > 1:
         xlike = xlike[:1]
     geometry = df.geometry
@@ -204,6 +205,11 @@ def _rasterize_partition(df, xlike, field, all_touched=True):
         if dask.is_dask_collection(values)
         else values.to_numpy()
     )
+    if field is None:
+        # Convert to 1-based index
+        values = values + 1
+        # Convert to minimum dtype
+        values = values.astype(target_dtype)
     if values.dtype == U64 or values.dtype == I64:
         # rasterio doesn't like uint64 or int64
         values = values.astype(F64)
@@ -226,7 +232,7 @@ def _rasterize_partition(df, xlike, field, all_touched=True):
     return result
 
 
-def _vector_to_raster_dask(df, xlike, field=None, all_touched=True):
+def _vector_to_raster_dask(df, size, xlike, field=None, all_touched=True):
     if not dask.is_dask_collection(xlike):
         raise ValueError("xlike must be a dask collection")
 
@@ -240,6 +246,7 @@ def _vector_to_raster_dask(df, xlike, field=None, all_touched=True):
             part,
             xlike,
             field,
+            target_dtype=np.min_scalar_type(size),
             all_touched=all_touched,
         )
         results.append(res)
@@ -460,6 +467,7 @@ class Vector:
 
         xrs = _vector_to_raster_dask(
             self.to_crs(like.crs)._geo,
+            self.size,
             xlike=like.to_xarray(),
             field=field,
             all_touched=all_touched,
