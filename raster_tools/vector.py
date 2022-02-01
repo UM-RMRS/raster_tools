@@ -54,7 +54,7 @@ def _read_file_delayed(path, layer, npartitions):
     meta = gpd.read_file(path, layer=layer, rows=1)
     divs = tuple(divs)
     # Returns a dask_geopandas GeoDataFrame
-    return dd.from_delayed(dfs, meta, divisions=divs)
+    return dd.from_delayed(dfs, meta, divisions=divs), total_size
 
 
 def _normalize_layers_arg(layers):
@@ -129,32 +129,61 @@ def open_vectors(path, layers=None):
             # TODO: determine number of partitions
             dfs.append(_read_file_delayed(path, layer, 10))
         else:
-            dfs.append(gpd.read_file(path, layer=layer))
+            dfs.append((gpd.read_file(path, layer=layer), n))
     if len(dfs) > 1:
-        return [Vector(df) for df in dfs]
-    return Vector(dfs[0])
+        return [Vector(df, n) for df, n in dfs]
+    return Vector(*dfs[0])
 
 
 def _get_len_from_divisions(divs):
+    # This should never overcount but may undercount by 1 because
+    # dask.dataframe special cases the last division when creating a dataframe.
+    #
+    # NOTE: Dask dataframes have a divisions property. This is a tuple of
+    # locations along the index where partitions start and stop. It looks like
+    # this: (0, 10, 20, 29) for a dataframe with 3 divisions and 30 elements.
+    # The first element is the start of the first partition and is inclusive.
+    # The next is the exclusive end of the first partition and the inclusive
+    # start of the second partition. This continues until the last partition
+    # where a monkey wrench is thrown in. The last division in the tuple is
+    # inclusive but dask treats it like every other division, which makes
+    # things less clear and potentially makes the size of the dataframe
+    # inexact. Because partitions can be merged etc., there is no way to tell
+    # if the last partition in a dataframe you have been given is actually the
+    # original last partition. Dask also does not make an effort to keep track
+    # of the total length. The best way I have found to get the length without
+    # computing it, is to go by the divisions. Because of the special case and
+    # the inability to differentiate it from other partitions, this func may
+    # undercount by 1. It will give the exact value only if the original last
+    # partition is no longer part of given dataframe. It is safer to undercount
+    # than overcount however.
     n = 0
     for i in range(len(divs) - 1):
         left = divs[i]
         right = divs[i + 1]
         n += right - left
-    n += 1
     return n
 
 
-def _get_geo_len(geo, error=False):
-    if dask.is_dask_collection(geo):
-        if geo.known_divisions:
-            return _get_len_from_divisions(geo.divisions)
-        if error:
-            raise ValueError(
-                "Could not determine size of lazy geo data. Divisions not set."
-            )
-        return None
-    return len(geo)
+def _guess_geo_len(geo):
+    if not dask.is_dask_collection(geo):
+        return len(geo)
+
+    if geo.known_divisions:
+        return _get_len_from_divisions(geo.divisions)
+    raise ValueError("Divisions must be set.")
+
+
+def _get_best_effort_geo_len(geo):
+    if not dask.is_dask_collection(geo) or geo.npartitions == 1:
+        return len(geo)
+
+    n = _guess_geo_len(geo.partitions[:-1])
+    # Evaluate the last partition to get its exact size. Hopefully this is the
+    # special-cased partition. If it isn't, this will undercount by 1. See
+    # the note in _get_len_from_divisions.
+    n += len(geo.partitions[-1])
+    return n
 
 
 def _rasterize_block(block, geometry, values, dtype, all_touched):
@@ -277,51 +306,64 @@ def _is_frame(geo):
     return isinstance(geo, (gpd.GeoDataFrame, dgpd.GeoDataFrame))
 
 
+def _normalize_geo_data(geo):
+    if not _is_series(geo) and not _is_frame(geo):
+        raise TypeError(
+            "Invalid data type. Must be some type GeoDataFrame or"
+            f" GeoSeries. Got {type(geo)}."
+        )
+    if _is_series(geo):
+        geo = geo.to_frame()
+    if dask.is_dask_collection(geo) and not geo.known_divisions:
+        raise ValueError(
+            "Unknown divisions set on input data. Divisions must be set."
+        )
+    return geo
+
+
 _GMTRY = "geometry"
 
 
 class Vector:
-    """A class representing vector data.
+    """A class representing vector data."""
 
-    Avoid explicitly creating `Vector` objects. Use :func:`open_vectors`
-    instead.
-
-    """
-
-    def __init__(self, geo):
+    def __init__(self, geo, size=None):
         """Create a `Vector` object.
 
         Parameters
         ----------
         geo : GeoDataFrame or GeoSeries
-            The vector data to use. This can be as geopandas or dask_geopandas
+            The vector data to use. This can be a geopandas or dask_geopandas
             object.
+        size : int, optional
+            The number of features. If not provided, A best effort will be made
+            to determine the number of features. Part of the data may be
+            temporarily loaded.
 
         """
-        if not _is_series(geo) and not _is_frame(geo):
-            raise TypeError(
-                "Invalid data type. Must be some type GeoDataFrame or"
-                f" GeoSeries. Got {type(geo)}."
-            )
-        if _is_series(geo):
-            geo = geo.to_frame()
-        self._geo = geo
-        size = _get_geo_len(self._geo)
+        self._geo = _normalize_geo_data(geo)
+        # NOTE: self._size is not data-dependant so when adding features that
+        # can affect length, care must be taken to properly update _size.
         if size is None:
-            raise VectorError(
-                "Could not determine size of dask data. Make sure to set the"
-                " divisions."
-            )
+            self._size = _get_best_effort_geo_len(geo)
+        else:
+            if not is_int(size):
+                raise TypeError("Size must be an int.")
+
+            # The guess will underestimate by 1 in most cases
+            size_guess = _guess_geo_len(geo)
+            if size == size_guess or size == (size_guess + 1):
+                self._size = size
+            else:
+                raise ValueError("Given size does not match divisions in data")
 
     def __len__(self):
-        return _get_geo_len(self._geo)
+        return self._size
 
     def __repr__(self):
+        lazy = dask.is_dask_collection(self._geo)
         return "<Vector(shapes: {}, fields: {}, CRS: {}, lazy:{})>".format(
-            self.size,
-            self.shape[1],
-            self.crs,
-            dask.is_dask_collection(self._geo),
+            self.size, self.shape[1], self.crs, lazy
         )
 
     @property
@@ -335,7 +377,11 @@ class Vector:
 
     @property
     def size(self):
-        """The number of vectors contained."""
+        """
+        The number of vectors contained. NaN is returned if the vector is lazy.
+
+        Use `len(vector)` to trigger computation of the length.
+        """
         return len(self)
 
     @property
@@ -415,7 +461,9 @@ class Vector:
         if npartitions is None:
             # TODO: calculate better value based on df size
             npartitions = 1
-        return Vector(dgpd.from_geopandas(self._geo, npartitions=npartitions))
+        return Vector(
+            dgpd.from_geopandas(self._geo, npartitions=npartitions), self.size
+        )
 
     def to_dask(self):
         """
@@ -544,7 +592,7 @@ class Vector:
         # allow iteration over the resulting Vector.
         subgeo = self._geo.loc[[idx]]
         subgeo.index = dask.array.from_array([0]).to_dask_dataframe()
-        return Vector(subgeo)
+        return Vector(subgeo, 1)
 
     def buffer(self, *args, **kwargs):
         """Apply the buffer operation to the vector geometries.
