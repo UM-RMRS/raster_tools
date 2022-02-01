@@ -325,7 +325,11 @@ _GMTRY = "geometry"
 
 
 class Vector:
-    """A class representing vector data."""
+    """A class representing vector data.
+
+    Take care to provide the actual number of features in the data when
+    creating a new Vector.
+    """
 
     def __init__(self, geo, size=None):
         """Create a `Vector` object.
