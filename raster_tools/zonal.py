@@ -3,13 +3,17 @@ from functools import partial
 
 import dask
 import dask.array as da
+import dask.dataframe as dd
 import numba as nb
 import numpy as np
+import pandas as pd
+from dask_image import ndmeasure
 
 from raster_tools._types import F64, I64
-from raster_tools._utils import is_str
-from raster_tools.raster import RasterNoDataError
+from raster_tools._utils import is_int, is_str
+from raster_tools.raster import Raster, RasterNoDataError
 from raster_tools.rsv_utils import get_raster, get_vector
+from raster_tools.vector import Vector
 
 __all__ = ["ZONAL_STAT_FUNCS", "zonal_stats"]
 
@@ -61,6 +65,7 @@ def _nan_count(x):
 
 
 def _nan_median(x):
+    x = da.asarray(x)
     return da.nanmedian(x, axis=0)
 
 
@@ -330,23 +335,116 @@ def _get_zonal_data(vec, raster, all_touched=True):
     return values
 
 
-def zonal_stats(feature_vecs, data_raster, stats):
-    """
-    Apply stat functions to data taken from a raster based on a set of vectors.
+def _build_zonal_stats_data(data_raster, feat_raster, feat_labels, stats):
+    nbands = data_raster.shape[0]
+    feat_data = feat_raster._rs.data
+    # data will end up looking like:
+    # {
+    #   # band number
+    #   1: {
+    #     # Stat results
+    #     "mean": [X, X, X], <- dask array
+    #     "std": [X, X, X],
+    #     ...
+    #   },
+    #   2: {
+    #     # Stat results
+    #     "mean": [X, X, X],
+    #     "std": [X, X, X],
+    #     ...
+    #   },
+    #   ...
+    data = {}
+    for ibnd in range(nbands):
+        ibnd += 1
+        data[ibnd] = {}
+        rs_data = get_raster(
+            data_raster.get_bands(ibnd), null_to_nan=True
+        )._rs.data
+        for f in stats:
+            result_delayed = dask.delayed(ndmeasure.labeled_comprehension)(
+                rs_data,
+                feat_data,
+                feat_labels,
+                _ZONAL_STAT_FUNCS[f],
+                F64,
+                np.nan,
+            )
+            data[ibnd][f] = da.from_delayed(
+                result_delayed,
+                feat_labels.shape,
+                dtype=F64,
+                meta=np.array([], dtype=F64),
+            )
+    return data
+
+
+def _create_dask_range_index(start, stop):
+    # dask.dataframe only allows dask.dataframe.index objects but doesn't have
+    # a way to create them. this is a hack to create one using from_pandas.
+    dummy = pd.DataFrame(
+        {"tmp": np.zeros(stop - start, dtype="u1")},
+        index=pd.RangeIndex(start, stop),
+    )
+    return dd.from_pandas(dummy, 1).index
+
+
+def _build_zonal_stats_dataframe(zonal_data):
+    bands = list(zonal_data)
+    snames = list(zonal_data[bands[0]])
+    n = zonal_data[bands[0]][snames[0]].size
+    # Get the number of partitions that dask thinks is reasonable. The data
+    # arrays have chunks of size 1 so we need to rechunk later and then
+    # repartition everything else in the dataframe to match.
+    nparts = zonal_data[bands[0]][snames[0]].rechunk().npartitions
+
+    df = None
+    for bnd in bands:
+        df_part = None
+        band_data = zonal_data[bnd]
+        band = da.full(n, bnd, dtype=I64)
+        # We need to create an index because the concat operation later will
+        # blindly paste in each dataframe's index. If an explicit index is not
+        # set, the default is a range index from 0 to n. Thus the final
+        # resulting dataframe would have identical indexes chained end-to-end:
+        # [0, 1, ..., n-1, 0, 1, ..., n-1, 0, 1..., n-1]. By setting an index
+        # we get [0, 1, ..., n, n+1, ..., n + n, ...].
+        ind_start = n * (bnd - 1)
+        ind_end = ind_start + n
+        index = _create_dask_range_index(ind_start, ind_end)
+        df_part = band.to_dask_dataframe("band", index=index).to_frame()
+        # Repartition to match the data
+        df_part = df_part.repartition(npartitions=nparts)
+        index = index.repartition(npartitions=nparts)
+        for name in snames:
+            df_part[name] = (
+                band_data[name].rechunk().to_dask_dataframe(name, index=index)
+            )
+        if df is None:
+            df = df_part
+        else:
+            # Use interleave_partitions to keep partition and division info
+            df = dd.concat([df, df_part], interleave_partitions=True)
+    return df
+
+
+def zonal_stats(features, data_raster, stats, raster_feature_values=None):
+    """Apply stat functions to a raster based on a set of features.
 
     Parameters
     ----------
-    feature_vecs : Vector, str
-        A `Vector` or path string pointing to a vector file. The vector
-        features are used like cookie cutters to pull data from the
-        `data_raster`.
+    features : str, Vector, Raster
+        A `Vector` or path string pointing to a vector file or a categorical
+        Raster. The vector features are used like cookie cutters to pull data
+        from the `data_raster` bands. If `features` is a Raster, it must be an
+        int dtype and have only one band.
     data_raster : Raster, str
         A `Raster` or path string pointing to a raster file. The data raster
         to pull data from and apply the stat functions to.
     stats : str, list of str
         A single string or list of strings corresponding to stat funcstions.
         These functions will be applied to the raster data for each of the
-        features in `feature_vecs`. Valid string values:
+        features in `features`. Valid string values:
 
         'asm'
             Angular second moment. Applies -sum(P(g)**2) where P(g) gives the
@@ -375,6 +473,10 @@ def zonal_stats(feature_vecs, data_raster, stats):
             Count unique values.
         'var'
             Calculate the variance.
+    raster_feature_values : sequence of ints, optional
+        Unique values to be used when the `features` argument is a Raster. If
+        `features` is a Raster and this is not provided the unique values in
+        the raster will be calculated.
 
     Returns
     -------
@@ -382,12 +484,22 @@ def zonal_stats(feature_vecs, data_raster, stats):
         A delayed dask DataFrame. The columns are the values in `stats` plus a
         column indicating the band the calculation was carried out on. Each row
         is the set of statistical calculations carried out on data pulled from
-        `data_raster` based on the corresponding feature in `feature_vecs`. NaN
+        `data_raster` based on the corresponding feature in `features`. NaN
         values indicate where a feature was outside of the raster or all data
         under the feature was null.
 
     """
-    feature_vecs = get_vector(feature_vecs)
+    if is_str(features) or isinstance(features, Vector):
+        features = get_vector(features)
+    elif isinstance(features, Raster):
+        if not is_int(features.dtype):
+            raise TypeError("Feature raster must be an integer type.")
+        if features.shape[0] > 1:
+            raise ValueError("Feature raster must have only 1 band.")
+    else:
+        raise TypeError(
+            "Could not understand features arg. Must be Vector, str or Raster"
+        )
     data_raster = get_raster(data_raster)
     if is_str(stats):
         stats = [stats]
@@ -400,33 +512,32 @@ def zonal_stats(feature_vecs, data_raster, stats):
     for stat in stats:
         if stat not in ZONAL_STAT_FUNCS:
             raise ValueError(f"Invalid stats function: {repr(stat)}")
+    if isinstance(features, Raster):
+        if features.crs != data_raster.crs:
+            raise ValueError("Feature raster CRS must match data raster")
+        if features.shape != data_raster.shape:
+            raise ValueError("Feature raster shape must match data raster")
 
-    nbands = data_raster.shape[0]
-    seriess = {
-        "band": da.zeros(len(feature_vecs) * nbands, dtype=I64),
-        **{f: da.zeros(len(feature_vecs) * nbands, dtype=F64) for f in stats},
-    }
-    i = 0
-    for ibnd in range(nbands):
-        ibnd += 1
-        rs = data_raster.get_bands(ibnd)
-        # This loop is the major timesink. The bounds of each sub-vector are
-        # computed which takes time.
-        # TODO: find way to delay bounds calculations
-        zonal_data = [_get_zonal_data(vec, rs) for vec in feature_vecs]
-        for zd in zonal_data:
-            seriess["band"][i] = ibnd
-            for f in stats:
-                series = seriess[f]
-                if zd.size == 0:
-                    # vector feature was outside the raster bounds
-                    series[i] = np.nan
-                else:
-                    series[i] = _ZONAL_STAT_FUNCS[f](zd)
-            i += 1
-    df = seriess["band"].to_dask_dataframe().to_frame("band")
-    for k in stats:
-        df[k] = seriess[k]
-    if hasattr(feature_vecs.table, "npartitions"):
-        df = df.repartition(npartitions=feature_vecs.table.npartitions)
+    feature_labels = None
+    features_raster = None
+    if isinstance(features, Vector):
+        feature_labels = np.arange(1, len(features) + 1)
+        features_raster = features.to_raster(data_raster)
+    else:
+        if raster_feature_values is None:
+            (raster_feature_values,) = dask.compute(
+                np.unique(features._rs.data)
+            )
+        else:
+            raster_feature_values = np.atleast_1d(raster_feature_values)
+            raster_feature_values = raster_feature_values[
+                raster_feature_values > 0
+            ]
+        feature_labels = raster_feature_values
+        features_raster = features
+
+    data = _build_zonal_stats_data(
+        data_raster, features_raster, feature_labels, stats
+    )
+    df = _build_zonal_stats_dataframe(data)
     return df
