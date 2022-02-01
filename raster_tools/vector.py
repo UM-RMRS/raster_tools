@@ -17,7 +17,7 @@ from raster_tools import Raster
 from raster_tools.raster import is_raster_class
 
 from ._types import F64, I64, U64
-from ._utils import is_int, is_str
+from ._utils import is_float, is_int, is_str
 
 __all__ = ["open_vectors", "Vector"]
 
@@ -464,6 +464,11 @@ class Vector:
                 raise TypeError("Field must be a string")
             if field not in self._geo:
                 raise ValueError(f"Invalid field name: {repr(field)}")
+            dtype = self.field_schema[field]
+            if not is_int(dtype) and not is_float(dtype):
+                raise ValueError(
+                    "The specified field must be a scalar data type"
+                )
 
         xrs = _vector_to_raster_dask(
             self.to_crs(like.crs)._geo,
