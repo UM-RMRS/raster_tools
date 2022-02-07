@@ -9,7 +9,7 @@ import xarray as xr
 from dask.array.core import normalize_chunks as dask_chunks
 
 from ._types import F64, I64, U8
-from ._utils import create_null_mask, is_bool, validate_file
+from ._utils import create_null_mask, is_bool, validate_path
 
 
 class RasterIOError(BaseException):
@@ -114,7 +114,7 @@ def open_raster_from_path(path):
         raise RasterIOError(
             f"Could not resolve input to a raster path: '{path}'"
         )
-    validate_file(path)
+    validate_path(path)
     ext = _get_extension(path)
 
     xrs = None

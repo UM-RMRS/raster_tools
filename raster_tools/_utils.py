@@ -12,6 +12,12 @@ def validate_file(path):
     raise FileNotFoundError(f"Could not find file: '{path}'")
 
 
+def validate_path(path):
+    if os.path.exists(path):
+        return path
+    raise FileNotFoundError(f"Path does not exist: '{path}'")
+
+
 def is_str(value):
     return isinstance(value, str)
 
