@@ -7,7 +7,7 @@ build the docs, we need to create a python environment using
 
 ```sh
 # Create an environment for building the docs
-conda env create -f ../ci/requirements/docs.yml
+conda env create -f ../requirements/docs.yml
 conda activate rstools-docs
 # Build them
 make html
