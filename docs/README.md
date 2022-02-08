@@ -17,8 +17,8 @@ If using pip
 
 ```sh
 # Create an environment for building the docs
-python venv venv
-. venv/bin/activate
+python -m venv ../docs-venv
+. ../docs-venv/bin/activate
 pip install -r ../requirements/docs.txt
 ```
 
