@@ -4,7 +4,7 @@ import dask.array as da
 import numpy as np
 
 from raster_tools._utils import is_int, is_scalar
-from raster_tools.rsv_utils import get_raster
+from raster_tools.raster import get_raster
 
 __all__ = [
     "constant_raster",

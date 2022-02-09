@@ -11,9 +11,8 @@ from dask_image import ndmeasure
 
 from raster_tools._types import F64, I64
 from raster_tools._utils import is_int, is_str
-from raster_tools.raster import Raster, RasterNoDataError
-from raster_tools.rsv_utils import get_raster, get_vector
-from raster_tools.vector import Vector
+from raster_tools.raster import Raster, RasterNoDataError, get_raster
+from raster_tools.vector import Vector, get_vector
 
 __all__ = ["ZONAL_STAT_FUNCS", "zonal_stats"]
 

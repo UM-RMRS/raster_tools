@@ -37,12 +37,40 @@ from ._utils import (
 )
 from .io import (
     IO_UNDERSTOOD_TYPES,
+    RasterDataError,
+    RasterIOError,
     chunk,
     is_batch_file,
     normalize_xarray_data,
     open_raster_from_path,
     write_raster,
 )
+
+
+def get_raster(src, strict=True, null_to_nan=False):
+    rs = None
+    if isinstance(src, Raster):
+        rs = src
+    elif is_str(src):
+        rs = Raster(src)
+    elif strict:
+        raise TypeError(
+            f"Input must be a Raster or path string. Got {repr(type(src))}"
+        )
+    else:
+        try:
+            rs = Raster(src)
+        except (ValueError, TypeError, RasterDataError, RasterIOError):
+            raise ValueError(f"Could not convert input to Raster: {repr(src)}")
+
+    if null_to_nan and rs._masked:
+        rs = rs.copy()
+        data = rs._rs.data
+        new_dtype = promote_dtype_to_float(data.dtype)
+        if new_dtype != data.dtype:
+            data = data.astype(new_dtype)
+        rs._rs.data = da.where(rs._mask, np.nan, data)
+    return rs
 
 
 def is_raster_class(value):

@@ -19,7 +19,13 @@ from raster_tools.raster import is_raster_class
 from ._types import F64, I64, U64
 from ._utils import is_float, is_int, is_str
 
-__all__ = ["Vector", "list_layers", "count_layer_features", "open_vectors"]
+__all__ = [
+    "Vector",
+    "get_vector",
+    "list_layers",
+    "count_layer_features",
+    "open_vectors",
+]
 
 
 class VectorError(Exception):
@@ -167,6 +173,17 @@ def open_vectors(path, layers=None):
     if len(dfs) > 1:
         return [Vector(df, n) for df, n in dfs]
     return Vector(*dfs[0])
+
+
+def get_vector(src):
+    if isinstance(src, Vector):
+        return src
+    elif is_str(src):
+        result = open_vectors(src)
+        if not isinstance(result, Vector):
+            # More than one layer was found
+            raise ValueError("Input source must only have 1 layer")
+        return result
 
 
 def _get_len_from_divisions(divs):

@@ -17,7 +17,7 @@ from raster_tools import Raster
 from raster_tools._types import F64, U64, get_default_null_value
 from raster_tools._utils import is_float, is_int, is_str
 from raster_tools.creation import zeros_like
-from raster_tools.rsv_utils import get_raster
+from raster_tools.raster import get_raster
 from raster_tools.stat_common import (
     nan_unique_count_jit,
     nanargmax_jit,
