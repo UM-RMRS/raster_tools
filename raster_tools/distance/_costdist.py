@@ -2,10 +2,9 @@ import dask.array as da
 import numpy as np
 import xarray as xr
 
-from raster_tools import Raster
 from raster_tools._types import I64
 from raster_tools._utils import is_float, is_str
-from raster_tools.raster import _raster_like, is_raster_class
+from raster_tools.raster import Raster
 
 from ._core import cost_distance_analysis_numpy
 
@@ -111,12 +110,12 @@ def cost_distance_analysis(costs, sources, elevation=None):
     * `ESRI: How path distance tools work <https://pro.arcgis.com/en/pro-app/latest/tool-reference/spatial-analyst/how-the-path-distance-tools-work.htm>`_
 
     """  # noqa: E501
-    if not is_raster_class(costs):
+    if not isinstance(costs, Raster):
         costs = Raster(costs)
         if costs.shape[0] != 1:
             raise ValueError("Costs raster cannot be multibanded")
     if elevation is not None:
-        if not is_raster_class(elevation):
+        if not isinstance(elevation, Raster):
             elevation = Raster(elevation)
             if elevation.shape[0] != 1:
                 raise ValueError("Elevation raster cannot be multibanded")
@@ -126,7 +125,7 @@ def cost_distance_analysis(costs, sources, elevation=None):
             )
 
     src_idxs = None
-    if is_raster_class(sources) or is_str(sources):
+    if isinstance(sources, Raster) or is_str(sources):
         if is_str(sources):
             sources = Raster(sources)
         if sources.shape != costs.shape:
@@ -184,9 +183,9 @@ def cost_distance_analysis(costs, sources, elevation=None):
     # Add 1 to match ESRI 0-8 scale
     xtr += 1
 
-    cd = _raster_like(costs, xcd, null_value=costs.null_value)
-    tr = _raster_like(costs, xtr, null_value=_TRACEBACK_NOT_REACHED + 1)
-    al = _raster_like(costs, xal, null_value=sources_null_value)
+    cd = costs._replace(xcd, null_value=costs.null_value)
+    tr = costs._replace(xtr, null_value=_TRACEBACK_NOT_REACHED + 1)
+    al = costs._replace(xal, null_value=sources_null_value)
     return cd, tr, al
 
 

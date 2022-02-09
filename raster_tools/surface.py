@@ -10,8 +10,7 @@ import dask.array as da
 import numba as nb
 import numpy as np
 
-from raster_tools import Raster
-from raster_tools.raster import is_raster_class
+from raster_tools.raster import Raster
 
 from ._types import (
     F32,
@@ -37,7 +36,7 @@ DEGREES_TO_RADIANS = np.pi / 180
 
 
 def _get_rs(raster):
-    if not is_raster_class(raster) and not is_str(raster):
+    if not isinstance(raster, Raster) and not is_str(raster):
         raise TypeError(
             "First argument must be a Raster or path string to a raster"
         )

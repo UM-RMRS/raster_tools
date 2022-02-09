@@ -4,7 +4,7 @@ import dask.array as da
 import numpy as np
 import xarray as xr
 
-from raster_tools.raster import Raster, _raster_like, get_default_null_value
+from raster_tools.raster import Raster, get_default_null_value
 
 from ._utils import is_bool, is_float, is_int, is_scalar
 
@@ -100,4 +100,4 @@ def band_concat(rasters, null_value=None):
     # values in line with what open_rasterio() returns for multiband
     # rasters.
     rs["band"] = list(range(1, rs.shape[0] + 1))
-    return _raster_like(rasters[0], rs, mask=mask, null_value=new_nv)
+    return rasters[0]._replace(rs, mask=mask, null_value=new_nv)

@@ -73,12 +73,8 @@ def get_raster(src, strict=True, null_to_nan=False):
     return rs
 
 
-def is_raster_class(value):
-    return isinstance(value, Raster)
-
-
 def _is_using_dask(raster):
-    rs = raster._rs if is_raster_class(raster) else raster
+    rs = raster._rs if isinstance(raster, Raster) else raster
     return dask.is_dask_collection(rs)
 
 
@@ -216,28 +212,6 @@ def _try_to_get_null_value_xarray(xrs):
     return nv1 if nv1 is not None else nv2
 
 
-def _raster_like(
-    orig_rs,
-    new_xrs,
-    attrs=None,
-    device=None,
-    mask=None,
-    null_value=None,
-    null_value_none=False,
-):
-    new_rs = Raster(new_xrs)
-    new_rs._attrs = attrs or orig_rs._attrs
-    new_rs._set_device(device or orig_rs.device)
-    new_rs._mask = mask if mask is not None else orig_rs._mask
-    if not null_value_none:
-        new_rs._null_value = (
-            null_value if null_value is not None else orig_rs.null_value
-        )
-    else:
-        new_rs._null_value = None
-    return new_rs
-
-
 class Raster:
     """Abstraction of georeferenced raster data with lazy function evaluation.
 
@@ -265,7 +239,7 @@ class Raster:
         self._mask = None
         self._rs = None
 
-        if is_raster_class(raster):
+        if isinstance(raster, Raster):
             self._rs = raster._rs.copy()
             self._set_device(raster.device)
             self._mask = raster._mask.copy()
@@ -309,6 +283,27 @@ class Raster:
 
     def __array__(self, dtype=None):
         return self._rs.__array__(dtype)
+
+    def _replace(
+        self,
+        new_xrs,
+        attrs=None,
+        device=None,
+        mask=None,
+        null_value=None,
+        null_value_none=False,
+    ):
+        new_rs = Raster(new_xrs)
+        new_rs._attrs = attrs or self._attrs
+        new_rs._set_device(device or self.device)
+        new_rs._mask = mask if mask is not None else self._mask
+        if not null_value_none:
+            new_rs._null_value = (
+                null_value if null_value is not None else self.null_value
+            )
+        else:
+            new_rs._null_value = None
+        return new_rs
 
     def _to_presentable_xarray(self):
         """Returns a DataArray with null locations filled by the null value."""
@@ -414,7 +409,7 @@ class Raster:
         """Returns the underlying data as a dask array."""
         rs = self
         if not _is_using_dask(self):
-            rs = _raster_like(self, chunk(self._rs))
+            rs = self._replace(chunk(self._rs))
         return rs._rs.data
 
     def close(self):
@@ -469,7 +464,7 @@ class Raster:
         rs = chunk(self._rs.compute())
         mask = da.from_array(self._mask.compute())
         # A new raster is returned to mirror the xarray and dask APIs
-        return _raster_like(self, rs, mask=mask)
+        return self._replace(rs, mask=mask)
 
     def copy(self):
         """Returns a copy of this Raster."""
@@ -487,7 +482,7 @@ class Raster:
     def _check_device_mismatch(self, other):
         if is_scalar(other):
             return
-        if is_raster_class(other) and (self.device == other.device):
+        if isinstance(other, Raster) and (self.device == other.device):
             return
         raise RasterDeviceMismatchError(
             f"Raster devices must match: {self.device} != {other.device}"
@@ -540,7 +535,7 @@ class Raster:
                     mask = np.isnan(xrs)
                     xrs = xrs.fillna(nv)
         xrs = xrs.astype(dtype)
-        return _raster_like(self, xrs, mask=mask, null_value=nv)
+        return self._replace(xrs, mask=mask, null_value=nv)
 
     def round(self, round_null_value=True):
         """Round the data to the nearest integer value. Return a new Raster.
@@ -565,7 +560,7 @@ class Raster:
         nv = self.null_value
         if round_null_value and self._masked:
             nv = np.round(nv)
-        return _raster_like(self, xrs, null_value=nv)
+        return self._replace(xrs, null_value=nv)
 
     def get_bands(self, bands):
         """Retrieve the specified bands as a new Raster. Indexing starts at 1.
@@ -602,7 +597,7 @@ class Raster:
         rs = self._rs[bands]
         mask = self._mask[bands]
         # TODO: look into making attrs consistant with bands
-        return _raster_like(self, rs, mask=mask)
+        return self._replace(rs, mask=mask)
 
     def set_crs(self, crs):
         """Set the CRS for the underlying data.
@@ -621,7 +616,7 @@ class Raster:
 
         """
         xrs = self._rs.rio.write_crs(crs)
-        return _raster_like(self, xrs, attrs=xrs.attrs)
+        return self._replace(xrs, attrs=xrs.attrs)
 
     def set_null_value(self, value):
         """Sets or replaces the null value for the raster.
@@ -654,7 +649,7 @@ class Raster:
 
         if value is None:
             mask = create_null_mask(xrs, value)
-            return _raster_like(self, xrs, mask=mask, null_value_none=True)
+            return self._replace(xrs, mask=mask, null_value_none=True)
 
         # Update mask
         mask = self._mask
@@ -665,7 +660,7 @@ class Raster:
             mask = mask | temp_mask
         else:
             mask = temp_mask
-        return _raster_like(self, xrs, mask=mask, null_value=value)
+        return self._replace(xrs, mask=mask, null_value=value)
 
     def to_null_mask(self):
         """
@@ -680,7 +675,7 @@ class Raster:
         """
         xrs = self._rs.copy()
         xrs.data = self._mask.copy()
-        return _raster_like(self, xrs, null_value=True)
+        return self._replace(xrs, null_value=True)
 
     def replace_null(self, value):
         """Replaces null values with `value`.
@@ -706,7 +701,7 @@ class Raster:
         if self._masked:
             xrs = xrs.where(~self._mask, value)
         mask = da.zeros(xrs.shape, dtype=bool)
-        return _raster_like(self, xrs, mask=mask)
+        return self._replace(xrs, mask=mask)
 
     def where(self, condition, other):
         """Filter elements from this raster according to `condition`.
@@ -730,14 +725,14 @@ class Raster:
             The resulting filtered Raster.
 
         """
-        if not is_raster_class(condition) and not is_str(condition):
+        if not isinstance(condition, Raster) and not is_str(condition):
             raise TypeError(
                 f"Invalid type for condition argument: {type(condition)}"
             )
         if (
             not is_scalar(other)
             and not is_str(other)
-            and not is_raster_class(other)
+            and not isinstance(other, Raster)
         ):
             raise TypeError(f"Invalid type for `other`: {type(other)}")
         if is_str(condition):
@@ -753,7 +748,7 @@ class Raster:
                 raise ValueError("Could not resolve other to a raster")
 
         xrs = self._rs
-        other_arg = other._rs if is_raster_class(other) else other
+        other_arg = other._rs if isinstance(other, Raster) else other
         xcondition = condition._rs.copy()
         mask = condition._mask
         if is_int(condition.dtype):
@@ -770,7 +765,7 @@ class Raster:
             xrs = xr.where(mask, nv, xrs)
         else:
             mask = create_null_mask(xrs, None)
-        return _raster_like(self, xrs, mask=mask)
+        return self._replace(xrs, mask=mask)
 
     def remap_range(self, min, max, new_value, *args):
         """Remaps values in the range [`min`, `max`) to `new_value`.
@@ -821,7 +816,7 @@ class Raster:
         return rs
 
     def _input_to_raster(self, raster_input):
-        if is_raster_class(raster_input):
+        if isinstance(raster_input, Raster):
             self._check_device_mismatch(raster_input)
             raster = raster_input
         else:
@@ -850,7 +845,7 @@ class Raster:
             raise ValueError(f"Unknown arithmetic operation: '{op}'")
         operand = self._handle_binary_op_input(raster_or_scalar, False)
         parsed_operand = raster_or_scalar
-        if is_raster_class(operand):
+        if isinstance(operand, Raster):
             parsed_operand = operand
             operand = operand._rs
         left, right = self._rs, operand
@@ -859,25 +854,25 @@ class Raster:
         xrs = _BINARY_ARITHMETIC_OPS[op](left, right)
 
         mask = self._mask
-        if is_raster_class(parsed_operand):
+        if isinstance(parsed_operand, Raster):
             mask = mask | parsed_operand._mask
 
-        return _raster_like(self, xrs, mask=mask)
+        return self._replace(xrs, mask=mask)
 
     def _binary_logical(self, raster_or_scalar, op):
         if op not in _BINARY_LOGICAL_OPS:
             raise ValueError(f"Unknown arithmetic operation: '{op}'")
         operand = self._handle_binary_op_input(raster_or_scalar, False)
         parsed_operand = raster_or_scalar
-        if is_raster_class(operand):
+        if isinstance(operand, Raster):
             parsed_operand = operand
             operand = operand._rs
         xrs = _BINARY_LOGICAL_OPS[op](self._rs, operand)
 
         mask = self._mask
-        if is_raster_class(parsed_operand):
+        if isinstance(parsed_operand, Raster):
             mask = mask | parsed_operand._mask
-        return _raster_like(self, xrs, mask=mask)
+        return self._replace(xrs, mask=mask)
 
     def add(self, raster_or_scalar):
         """Add this Raster with another Raster or scalar.
@@ -1020,7 +1015,7 @@ class Raster:
 
         """
         xrs = np.sqrt(self._rs)
-        return _raster_like(self, xrs)
+        return self._replace(xrs)
 
     def __pos__(self):
         return self
@@ -1031,7 +1026,7 @@ class Raster:
         Returns a new Raster.
 
         """
-        return _raster_like(self, -self._rs)
+        return self._replace(-self._rs)
 
     def __neg__(self):
         return self.negate()
@@ -1043,7 +1038,7 @@ class Raster:
 
         """
         xrs = np.log(self._rs)
-        return _raster_like(self, xrs)
+        return self._replace(xrs)
 
     def log10(self):
         """Take the base-10 logarithm of this Raster.
@@ -1052,7 +1047,7 @@ class Raster:
 
         """
         xrs = np.log10(self._rs)
-        return _raster_like(self, xrs)
+        return self._replace(xrs)
 
     def eq(self, other):
         """
@@ -1175,7 +1170,7 @@ class Raster:
         else:
             operand = self._handle_binary_op_input(other, False)
         parsed_operand = operand
-        if is_raster_class(operand):
+        if isinstance(operand, Raster):
             operand = operand._rs
         left, right = _coerce_to_bool_for_and_or(
             [self._rs, operand], to_bool_op
@@ -1183,9 +1178,9 @@ class Raster:
         xrs = _BINARY_BITWISE_OPS[and_or](left, right).astype(F16)
 
         mask = self._mask
-        if is_raster_class(parsed_operand):
+        if isinstance(parsed_operand, Raster):
             mask = mask | parsed_operand._mask
-        return _raster_like(self, xrs, mask=mask)
+        return self._replace(xrs, mask=mask)
 
     def and_(self, other, to_bool_op="gt0"):
         """Returns this Raster and'd with another. Both are coerced to bools
@@ -1260,7 +1255,7 @@ class Raster:
                 xrs.data = da.where(self._mask, self.null_value, ~xrs.data)
             else:
                 xrs = ~xrs
-            return _raster_like(self, xrs)
+            return self._replace(xrs)
         if is_float(self.dtype):
             raise TypeError(
                 "Bitwise complement operation not supported for floating point"
@@ -1303,4 +1298,4 @@ class Raster:
             mask = da.zeros_like(xrs.data, dtype=bool)
         # TODO: This will throw a rioxarray.exceptions.MissingCRS exception if
         # no crs is set. Add code to fall back on
-        return _raster_like(self, xrs, mask=mask)
+        return self._replace(xrs, mask=mask)

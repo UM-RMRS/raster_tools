@@ -5,8 +5,7 @@ import numba as nb
 import numpy as np
 from dask_image import ndfilters
 
-from raster_tools import Raster
-from raster_tools.raster import is_raster_class
+from raster_tools.raster import Raster
 from raster_tools.stat_common import (
     nan_unique_count_jit,
     nanasm_jit,
@@ -371,7 +370,7 @@ def focal(raster, focal_type, width_or_radius, height=None):
         bands will have the same shape as the original Raster.
 
     """
-    if not is_raster_class(raster) and not is_str(raster):
+    if not isinstance(raster, Raster) and not is_str(raster):
         raise TypeError(
             "First argument must be a Raster or path string to a raster"
         )
@@ -547,7 +546,7 @@ def correlate(raster, kernel, mode="constant", cval=0.0):
     Raster
         The resulting new Raster.
     """
-    if not is_raster_class(raster) and not is_str(raster):
+    if not isinstance(raster, Raster) and not is_str(raster):
         raise TypeError(
             "First argument must be a Raster or path string to a raster"
         )
