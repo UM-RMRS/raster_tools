@@ -13,10 +13,8 @@ from dask.delayed import delayed
 from rasterio.enums import MergeAlg
 from rasterio.features import rasterize as rio_rasterize
 
+from raster_tools.dtypes import F64, I64, U64, is_float, is_int, is_str
 from raster_tools.raster import Raster
-
-from ._types import F64, I64, U64
-from ._utils import is_float, is_int, is_str
 
 __all__ = [
     "Vector",

@@ -3,7 +3,7 @@ from collections.abc import Sequence
 import dask.array as da
 import numpy as np
 
-from raster_tools._utils import is_int, is_scalar
+from raster_tools.dtypes import is_int, is_scalar
 from raster_tools.raster import get_raster
 
 __all__ = [

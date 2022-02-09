@@ -10,16 +10,15 @@ import dask.array as da
 import numba as nb
 import numpy as np
 
-from raster_tools.raster import Raster
-
-from ._types import (
+from raster_tools.dtypes import (
     F32,
     F64,
     U8,
     get_default_null_value,
+    is_str,
     promote_dtype_to_float,
 )
-from ._utils import is_str
+from raster_tools.raster import Raster
 
 __all__ = [
     "aspect",

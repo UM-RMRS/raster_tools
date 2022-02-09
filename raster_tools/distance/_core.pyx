@@ -4,8 +4,7 @@
 import cython
 import numpy as np
 
-from raster_tools._types import F16, F32, F64
-from raster_tools._utils import is_scalar
+from raster_tools.dtypes import F16, F32, F64, is_scalar
 
 cimport numpy as cnp
 from libc.math cimport isnan, sqrt

@@ -1,7 +1,7 @@
+from numbers import Integral, Number
+
 import numpy as np
 from xarray.core.dtypes import maybe_promote as xr_maybe_promote
-
-from ._utils import is_float
 
 U8 = np.dtype(np.uint8)
 U16 = np.dtype(np.uint16)
@@ -69,7 +69,31 @@ DTYPE_INPUT_TO_DTYPE = {
     np.dtype("bool"): BOOL,
 }
 
-INT_KINDS = frozenset(("u", "i"))
+
+def is_str(value):
+    return isinstance(value, str)
+
+
+def is_scalar(value):
+    return isinstance(value, Number)
+
+
+def is_int(value_or_dtype):
+    if isinstance(value_or_dtype, np.dtype):
+        return value_or_dtype.kind in ("u", "i")
+    return isinstance(value_or_dtype, Integral)
+
+
+def is_float(value_or_dtype):
+    if isinstance(value_or_dtype, np.dtype):
+        return value_or_dtype.kind == "f"
+    return is_scalar(value_or_dtype) and not is_int(value_or_dtype)
+
+
+def is_bool(value_or_dtype):
+    if isinstance(value_or_dtype, np.dtype):
+        return value_or_dtype.kind == "b"
+    return isinstance(value_or_dtype, (bool, np.bool_))
 
 
 def promote_dtype_to_float(dtype):
@@ -88,7 +112,7 @@ def maybe_promote(dtype):
 
 
 def should_promote_to_fit(dtype, value):
-    return is_float(value) and dtype.kind in INT_KINDS
+    return is_float(value) and is_int(dtype)
 
 
 def promote_data_dtype(xrs):

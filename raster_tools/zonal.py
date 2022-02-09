@@ -9,8 +9,7 @@ import numpy as np
 import pandas as pd
 from dask_image import ndmeasure
 
-from raster_tools._types import F64, I64
-from raster_tools._utils import is_int, is_str
+from raster_tools.dtypes import F64, I64, is_int, is_str
 from raster_tools.raster import Raster, RasterNoDataError, get_raster
 from raster_tools.vector import Vector, get_vector
 

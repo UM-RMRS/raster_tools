@@ -15,24 +15,25 @@ try:
 except (ImportError, ModuleNotFoundError):
     GPU_ENABLED = False
 
-from ._types import (
+from raster_tools.dtypes import (
     BOOL,
     DTYPE_INPUT_TO_DTYPE,
     F16,
     get_default_null_value,
+    is_bool,
+    is_float,
+    is_int,
+    is_scalar,
+    is_str,
     promote_dtype_to_float,
     should_promote_to_fit,
 )
+
 from ._utils import (
     create_null_mask,
-    is_bool,
     is_dask,
-    is_float,
-    is_int,
     is_numpy,
     is_numpy_masked,
-    is_scalar,
-    is_str,
     is_xarray,
 )
 from .io import (

@@ -5,6 +5,19 @@ import numba as nb
 import numpy as np
 from dask_image import ndfilters
 
+from raster_tools.dtypes import (
+    F64,
+    U8,
+    U16,
+    U32,
+    U64,
+    is_bool,
+    is_float,
+    is_int,
+    is_str,
+    promote_data_dtype,
+    promote_dtype_to_float,
+)
 from raster_tools.raster import Raster
 from raster_tools.stat_common import (
     nan_unique_count_jit,
@@ -19,17 +32,6 @@ from raster_tools.stat_common import (
     nansum_jit,
     nanvar_jit,
 )
-
-from ._types import (
-    F64,
-    U8,
-    U16,
-    U32,
-    U64,
-    promote_data_dtype,
-    promote_dtype_to_float,
-)
-from ._utils import is_bool, is_float, is_int, is_str
 
 __all__ = [
     "check_kernel",

@@ -1,5 +1,4 @@
 import os
-from numbers import Integral, Number
 
 import dask
 import numpy as np
@@ -16,32 +15,6 @@ def validate_path(path):
     if os.path.exists(path):
         return path
     raise FileNotFoundError(f"Path does not exist: '{path}'")
-
-
-def is_str(value):
-    return isinstance(value, str)
-
-
-def is_scalar(value):
-    return isinstance(value, Number)
-
-
-def is_int(value_or_dtype):
-    if isinstance(value_or_dtype, np.dtype):
-        return value_or_dtype.kind in ("u", "i")
-    return isinstance(value_or_dtype, Integral)
-
-
-def is_float(value_or_dtype):
-    if isinstance(value_or_dtype, np.dtype):
-        return value_or_dtype.kind == "f"
-    return is_scalar(value_or_dtype) and not is_int(value_or_dtype)
-
-
-def is_bool(value_or_dtype):
-    if isinstance(value_or_dtype, np.dtype):
-        return value_or_dtype.kind == "b"
-    return isinstance(value_or_dtype, (bool, np.bool_))
 
 
 def is_xarray(rs):

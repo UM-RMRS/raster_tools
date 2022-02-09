@@ -8,7 +8,7 @@ import xarray as xr
 
 import raster_tools.focal as focal
 from raster_tools import Raster, band_concat
-from raster_tools._types import DTYPE_INPUT_TO_DTYPE
+from raster_tools.dtypes import DTYPE_INPUT_TO_DTYPE
 from raster_tools.raster import (
     _BINARY_ARITHMETIC_OPS,
     _BINARY_LOGICAL_OPS,

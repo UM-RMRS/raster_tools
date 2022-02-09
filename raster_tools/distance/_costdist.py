@@ -2,8 +2,7 @@ import dask.array as da
 import numpy as np
 import xarray as xr
 
-from raster_tools._types import I64
-from raster_tools._utils import is_float, is_str
+from raster_tools.dtypes import I64, is_float, is_str
 from raster_tools.raster import Raster
 
 from ._core import cost_distance_analysis_numpy

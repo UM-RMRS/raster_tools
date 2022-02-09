@@ -4,9 +4,14 @@ import dask.array as da
 import numpy as np
 import xarray as xr
 
-from raster_tools.raster import Raster, get_default_null_value
-
-from ._utils import is_bool, is_float, is_int, is_scalar
+from raster_tools.dtypes import (
+    get_default_null_value,
+    is_bool,
+    is_float,
+    is_int,
+    is_scalar,
+)
+from raster_tools.raster import Raster
 
 
 def band_concat(rasters, null_value=None):

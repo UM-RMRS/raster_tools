@@ -5,7 +5,7 @@ import numpy as np
 from scipy import stats
 
 import raster_tools.stat_common as stc
-from raster_tools._utils import is_scalar
+from raster_tools.dtypes import is_scalar
 
 INPUTS = [
     0,
