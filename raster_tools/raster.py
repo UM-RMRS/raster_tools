@@ -431,7 +431,7 @@ class Raster:
             The target location to save the raster to.
         no_data_value : scalar, optional
             A new null value to use when saving.
-        **rio_gdal_kwargs : kwargs, optional
+        **gdal_kwargs : kwargs, optional
             Additional keyword arguments to to pass to rasterio and GDAL when
             writing the raster data.
 
