@@ -18,6 +18,7 @@ Welcome to raster_tools' documentation!
 
    reference/index
    modules
+   GitHub <https://github.com/UM-RMRS/raster_tools>
 
 
 Indices and tables
