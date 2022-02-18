@@ -11,7 +11,7 @@ from raster_tools.raster_funcs import band_concat
 from raster_tools.vector import Vector, open_vectors
 from raster_tools.zonal import ZONAL_STAT_FUNCS, zonal_stats
 
-from . import distance, focal, surface
+from . import clipping, distance, focal, surface
 
 __all__ = [
     "CPU",
@@ -22,6 +22,7 @@ __all__ = [
     "band_concat",
     "constant_raster",
     "distance",
+    "clipping",
     "empty_like",
     "focal",
     "full_like",
