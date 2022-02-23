@@ -9,7 +9,7 @@ import xarray as xr
 from dask.array.core import normalize_chunks as dask_chunks
 
 from raster_tools._utils import create_null_mask, validate_path
-from raster_tools.dtypes import F64, I64, U8, is_bool
+from raster_tools.dtypes import F32, F64, I64, U8, is_bool
 
 
 class RasterIOError(BaseException):
@@ -106,6 +106,17 @@ def normalize_xarray_data(xrs):
     return xrs
 
 
+ESRI_DEFAULT_F32_NV = -3.4028230607370965e38
+
+
+def normalize_null_value(nv, dtype):
+    # Make sure that ESRI's default F32 null value is properly
+    # registered as F32
+    if dtype == F32 and nv == ESRI_DEFAULT_F32_NV:
+        nv = F32.type(nv)
+    return nv
+
+
 def open_raster_from_path(path):
     if type(path) in IO_UNDERSTOOD_TYPES:
         path = str(path)
@@ -142,6 +153,8 @@ def open_raster_from_path(path):
     xrs = normalize_xarray_data(xrs)
 
     nv = xrs.attrs.get("_FillValue", None)
+    nv = normalize_null_value(nv, xrs.dtype)
+    xrs.attrs["_FillValue"] = nv
     mask = None
     mask = create_null_mask(xrs, nv)
     return xrs, mask, nv
