@@ -73,6 +73,21 @@ def _finalize_rs(rs, data):
     return rs
 
 
+def _map_surface_func(
+    data, func, out_dtype, depth={0: 1, 1: 1}, boundary=np.nan
+):
+    out_data = da.empty_like(data, dtype=out_dtype)
+    for bnd in range(data.shape[0]):
+        out_data[bnd] = data[bnd].map_overlap(
+            func,
+            depth=depth,
+            boundary=boundary,
+            dtype=out_dtype,
+            meta=np.array((), dtype=out_dtype),
+        )
+    return out_data
+
+
 @nb.jit(nopython=True, nogil=True)
 def _surface_area_3d(xarr, res):
     # TODO: handle non-symmetrical resolutions
@@ -153,16 +168,8 @@ def surface_area_3d(raster):
     rs = _get_rs(raster)
     data = rs._rs.data
     ffun = partial(_surface_area_3d, res=rs.resolution[0])
-    for bnd in range(data.shape[0]):
-        data[bnd] = data[bnd].map_overlap(
-            ffun,
-            depth={0: 1, 1: 1},
-            boundary=np.nan,
-            dtype=F64,
-            meta=np.array((), dtype=F64),
-        )
-
-    return _finalize_rs(rs, data)
+    out_data = _map_surface_func(data, ffun, F64)
+    return _finalize_rs(rs, out_data)
 
 
 @nb.jit(nopython=True, nogil=True)
@@ -222,16 +229,8 @@ def slope(raster, degrees=True):
     data = rs._rs.data
 
     ffun = partial(_slope, res=rs.resolution, degrees=bool(degrees))
-    for bnd in range(data.shape[0]):
-        data[bnd] = data[bnd].map_overlap(
-            ffun,
-            depth={0: 1, 1: 1},
-            boundary=np.nan,
-            dtype=F64,
-            meta=np.array((), dtype=F64),
-        )
-
-    return _finalize_rs(rs, data)
+    out_data = _map_surface_func(data, ffun, F64)
+    return _finalize_rs(rs, out_data)
 
 
 @nb.jit(nopython=True, nogil=True)
@@ -296,16 +295,8 @@ def aspect(raster):
     rs = _get_rs(raster)
     data = rs._rs.data
 
-    for bnd in range(data.shape[0]):
-        data[bnd] = data[bnd].map_overlap(
-            _aspect,
-            depth={0: 1, 1: 1},
-            boundary=np.nan,
-            dtype=F64,
-            meta=np.array((), dtype=F64),
-        )
-
-    return _finalize_rs(rs, data)
+    out_data = _map_surface_func(data, _aspect, F64)
+    return _finalize_rs(rs, out_data)
 
 
 @nb.jit(nopython=True, nogil=True)
@@ -357,16 +348,8 @@ def curvature(raster):
     data = rs._rs.data
 
     ffun = partial(_curv, res=rs.resolution)
-    for bnd in range(data.shape[0]):
-        data[bnd] = data[bnd].map_overlap(
-            ffun,
-            depth={0: 1, 1: 1},
-            boundary=np.nan,
-            dtype=F64,
-            meta=np.array((), dtype=F64),
-        )
-
-    return _finalize_rs(rs, data)
+    out_data = _map_surface_func(data, ffun, F64)
+    return _finalize_rs(rs, out_data)
 
 
 def _northing_easting(rs, do_northing):
@@ -512,16 +495,9 @@ def hillshade(raster, azimuth=315, altitude=45):
     ffun = partial(
         _hillshade, res=rs.resolution, azimuth=azimuth, altitude=altitude
     )
-    for bnd in range(data.shape[0]):
-        data[bnd] = data[bnd].map_overlap(
-            ffun,
-            depth={0: 1, 1: 1},
-            boundary=np.nan,
-            dtype=F32,
-            meta=np.array((), dtype=F32),
-        )
+    out_data = _map_surface_func(data, ffun, F32)
 
-    rs = _finalize_rs(rs, data)
+    rs = _finalize_rs(rs, out_data)
     rs = rs.replace_null(255)
     rs = rs.set_null_value(255)
     rs = rs.astype(U8)
