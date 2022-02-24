@@ -3,7 +3,7 @@ import numpy as np
 import xarray as xr
 
 from raster_tools.dtypes import get_default_null_value
-from raster_tools.raster import get_raster
+from raster_tools.raster import RasterNoDataError, get_raster
 from raster_tools.vector import get_vector
 
 
@@ -31,7 +31,13 @@ def _clip(
             (bounds,) = dask.compute(feat.bounds)
         else:
             bounds = np.atleast_1d(bounds)
-        rs = rs.clip_box(*bounds)
+        try:
+            rs = rs.clip_box(*bounds)
+        except RasterNoDataError:
+            raise RuntimeError(
+                "No data in given bounds. Make sure that the bounds are in the"
+                " same CRS as the data raster."
+            )
 
     feat_rs = feat.to_raster(rs)
     if not envelope:
