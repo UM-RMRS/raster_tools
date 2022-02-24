@@ -4,7 +4,7 @@ import dask
 import numpy as np
 
 from raster_tools import clipping
-from raster_tools.raster import Raster
+from raster_tools.raster import Raster, RasterNoDataError
 from raster_tools.vector import open_vectors
 
 
@@ -63,3 +63,29 @@ class TestClipping(TestCase):
 
         with self.assertRaises(RuntimeError):
             clipping._clip(self.v10, self.dem, bounds=self.v10.bounds)
+
+    def test_clip_box(self):
+        self.dem = Raster("test/data/elevation.tif")
+        rs_clipped = Raster("test/data/elevation_small.tif")
+        bounds = [
+            rs_clipped._rs.x.min().item(),
+            rs_clipped._rs.y.min().item(),
+            rs_clipped._rs.x.max().item(),
+            rs_clipped._rs.y.max().item(),
+        ]
+        test = clipping.clip_box(self.dem, bounds)
+        self.assertTrue(test.shape == rs_clipped.shape)
+        self.assertTrue(np.allclose(test._values, rs_clipped._values))
+
+        # Test that the mask is also clipped
+        x = np.arange(25).reshape((1, 5, 5))
+        x[x < 12] = 0
+        rs = Raster(x).set_null_value(0).set_crs("epsg:3857")
+        self.assertTrue(np.allclose(x == 0, rs._mask))
+        rs_clipped = clipping.clip_box(rs, (1, 1, 3, 3))
+        mask_truth = np.array([[[1, 1, 1], [1, 0, 0], [0, 0, 0]]], dtype=bool)
+        self.assertTrue(np.allclose(rs_clipped._mask, mask_truth))
+
+    def test_clip_out_of_bounds(self):
+        with self.assertRaises(RasterNoDataError):
+            clipping.clip_box(self.dem, (9e6, 9e6, 10e6, 10e6))
