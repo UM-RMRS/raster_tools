@@ -5,7 +5,6 @@ import warnings
 import dask
 import dask.array as da
 import numpy as np
-import rioxarray as rxr
 import xarray as xr
 
 try:
@@ -1265,38 +1264,3 @@ class Raster:
         raise TypeError(
             "Bitwise complement operation not supported for this raster dtype"
         )
-
-    def clip_box(self, minx, miny, maxx, maxy):
-        """Clip the raster to the specified box.
-
-        Parameters
-        ----------
-        minx : scalar
-            The minimum x coordinate bound.
-        miny : scalar
-            The minimum y coordinate bound.
-        maxx : scalar
-            The maximum x coordinate bound.
-        maxy : scalar
-            The maximum y coordinate bound.
-
-        Returns
-        -------
-        Raster
-            The clipped raster.
-
-        """
-        try:
-            xrs = self._rs.rio.clip_box(minx, miny, maxx, maxy)
-        except rxr.exceptions.NoDataInBounds:
-            raise RasterNoDataError("No data found within provided bounds")
-        if self._masked:
-            xmask = xr.DataArray(
-                self._mask, dims=self._rs.dims, coords=self._rs.coords
-            )
-            mask = xmask.rio.clip_box(minx, miny, maxx, maxy).data
-        else:
-            mask = da.zeros_like(xrs.data, dtype=bool)
-        # TODO: This will throw a rioxarray.exceptions.MissingCRS exception if
-        # no crs is set. Add code to fall back on
-        return self._replace(xrs, mask=mask)

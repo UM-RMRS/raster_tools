@@ -1,5 +1,7 @@
 import dask
+import dask.array as da
 import numpy as np
+import rioxarray as rxr
 import xarray as xr
 
 from raster_tools.dtypes import get_default_null_value
@@ -32,7 +34,7 @@ def _clip(
         else:
             bounds = np.atleast_1d(bounds)
         try:
-            rs = rs.clip_box(*bounds)
+            rs = clip_box(rs, bounds)
         except RasterNoDataError:
             raise RuntimeError(
                 "No data in given bounds. Make sure that the bounds are in the"
@@ -184,3 +186,36 @@ def envelope(feature, data_raster):
         trim=True,
         envelope=True,
     )
+
+
+def clip_box(raster, bounds):
+    """Clip the raster to the specified box.
+
+    Parameters
+    ----------
+    raster : str, Raster
+        The Raster or raster path string to clip.
+    bounds : tuple, list, array, optional
+        The bounding box of the clip operation: (minx, miny, maxx, maxy).
+
+    Returns
+    -------
+    Raster
+        The raster clipped to the given bounds.
+
+    """
+    rs = get_raster(raster)
+    if bounds is not None and len(bounds) != 4:
+        raise ValueError("Invalid bounds. Must be a size 4 array or tuple.")
+    try:
+        xrs = rs._rs.rio.clip_box(*bounds)
+    except rxr.exceptions.NoDataInBounds:
+        raise RasterNoDataError("No data found within provided bounds")
+    if rs._masked:
+        xmask = xr.DataArray(rs._mask, dims=rs._rs.dims, coords=rs._rs.coords)
+        mask = xmask.rio.clip_box(*bounds).data
+    else:
+        mask = da.zeros_like(xrs.data, dtype=bool)
+    # TODO: This will throw a rioxarray.exceptions.MissingCRS exception if
+    # no crs is set. Add code to fall back on
+    return rs._replace(xrs, mask=mask)

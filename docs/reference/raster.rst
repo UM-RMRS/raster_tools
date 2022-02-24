@@ -83,7 +83,6 @@ Reshaping and Reorganizing
 .. autosummary::
    :toctree: generated/
 
-   Raster.clip_box
    Raster.get_bands
 
 Null Data and Remapping

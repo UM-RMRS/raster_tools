@@ -9,11 +9,7 @@ import xarray as xr
 import raster_tools.focal as focal
 from raster_tools import Raster, band_concat
 from raster_tools.dtypes import DTYPE_INPUT_TO_DTYPE
-from raster_tools.raster import (
-    _BINARY_ARITHMETIC_OPS,
-    _BINARY_LOGICAL_OPS,
-    RasterNoDataError,
-)
+from raster_tools.raster import _BINARY_ARITHMETIC_OPS, _BINARY_LOGICAL_OPS
 
 TEST_ARRAY = np.array(
     [
@@ -572,35 +568,6 @@ class TestReplaceNull(unittest.TestCase):
         rs = rs.replace_null(fill_value)
         self.assertTrue(np.allclose(rs._values, rsnp_replaced, equal_nan=True))
         self.assertEqual(rs.null_value, nv)
-
-
-class TestClipBox(unittest.TestCase):
-    def test_clip_box(self):
-        rs = Raster("test/data/elevation.tif")
-        rs_clipped = Raster("test/data/elevation_small.tif")
-        bounds = [
-            rs_clipped._rs.x.min().item(),
-            rs_clipped._rs.y.min().item(),
-            rs_clipped._rs.x.max().item(),
-            rs_clipped._rs.y.max().item(),
-        ]
-        test = rs.clip_box(*bounds)
-        self.assertTrue(test.shape == rs_clipped.shape)
-        self.assertTrue(np.allclose(test._values, rs_clipped._values))
-
-        # Test that the mask is also clipped
-        x = np.arange(25).reshape((1, 5, 5))
-        x[x < 12] = 0
-        rs = Raster(x).set_null_value(0).set_crs("epsg:3857")
-        self.assertTrue(np.allclose(x == 0, rs._mask))
-        rs_clipped = rs.clip_box(1, 1, 3, 3)
-        mask_truth = np.array([[[1, 1, 1], [1, 0, 0], [0, 0, 0]]], dtype=bool)
-        self.assertTrue(np.allclose(rs_clipped._mask, mask_truth))
-
-    def test_clip_out_of_bounds(self):
-        rs = Raster("test/data/elevation.tif")
-        with self.assertRaises(RasterNoDataError):
-            rs.clip_box(9e6, 9e6, 10e6, 10e6)
 
 
 class TestToNullMask(unittest.TestCase):
