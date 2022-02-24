@@ -10,7 +10,7 @@ import pandas as pd
 from dask_image import ndmeasure
 
 from raster_tools.dtypes import F64, I64, is_int, is_str
-from raster_tools.raster import Raster, RasterNoDataError, get_raster
+from raster_tools.raster import Raster, get_raster
 from raster_tools.vector import Vector, get_vector
 
 __all__ = ["ZONAL_STAT_FUNCS", "zonal_stats"]
@@ -307,30 +307,6 @@ _ZONAL_STAT_FUNCS = {
 }
 # The set of valid zonal function names/keys
 ZONAL_STAT_FUNCS = frozenset(_ZONAL_STAT_FUNCS)
-
-
-def _get_zonal_data(vec, raster, all_touched=True):
-    if raster.shape[0] > 1:
-        raise ValueError("Only single band rasters are allowed")
-    try:
-        raster_clipped = raster.clip_box(
-            # Use persist here to kick off computation of the bounds in the
-            # background. The bounds have to be computed one way or another at
-            # this point and persist allows it to start before the block occurs
-            # in clip_box. If a large number of zonal calculations are being
-            # carried out, this can provide a significant times savings.
-            *dask.persist(vec.to_crs(raster.crs.wkt).bounds)[0]
-        )
-    except RasterNoDataError:
-        return da.from_array([], dtype=raster_clipped.dtype)
-    vec_mask = vec.to_raster(raster_clipped, all_touched=all_touched) > 0
-    values = raster_clipped._rs.data[vec_mask._rs.data]
-    # Filter null values
-    if raster._masked:
-        nv_mask = raster_clipped._mask[vec_mask._rs.data]
-        values = values[~nv_mask]
-    # Output is a 1-D dask array with unknown size
-    return values
 
 
 def _build_zonal_stats_data(data_raster, feat_raster, feat_labels, stats):
