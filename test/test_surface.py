@@ -2,7 +2,8 @@ import unittest
 
 import numpy as np
 
-from raster_tools import Raster, surface
+from raster_tools import surface
+from raster_tools.raster import Raster
 
 
 class TestSurface(unittest.TestCase):

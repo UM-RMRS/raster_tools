@@ -10,15 +10,8 @@ import dask.array as da
 import numba as nb
 import numpy as np
 
-from raster_tools.dtypes import (
-    F32,
-    F64,
-    U8,
-    get_default_null_value,
-    is_str,
-    promote_dtype_to_float,
-)
-from raster_tools.raster import Raster
+from raster_tools.dtypes import F32, F64, U8, get_default_null_value
+from raster_tools.raster import get_raster
 
 __all__ = [
     "aspect",
@@ -32,29 +25,6 @@ __all__ = [
 
 RADIANS_TO_DEGREES = 180 / np.pi
 DEGREES_TO_RADIANS = np.pi / 180
-
-
-def _get_rs(raster):
-    if not isinstance(raster, Raster) and not is_str(raster):
-        raise TypeError(
-            "First argument must be a Raster or path string to a raster"
-        )
-    elif is_str(raster):
-        raster = Raster(raster)
-
-    rs = raster.copy()
-
-    # Convert to float. Most of the ops in this module expect a float raster
-    data = rs._rs.data
-    new_dtype = promote_dtype_to_float(raster.dtype)
-    if new_dtype != data.dtype:
-        data = data.astype(new_dtype)
-    if raster._masked:
-        # Fill nulls with nan, if needed
-        # Keep null_value intact for later use
-        data = da.where(raster._mask, np.nan, data)
-    rs._rs.data = data
-    return rs
 
 
 def _finalize_rs(rs, data):
@@ -165,7 +135,7 @@ def surface_area_3d(raster):
     * `Jense, 2004 <https://www.fs.usda.gov/treesearch/pubs/20437>`_
 
     """
-    rs = _get_rs(raster)
+    rs = get_raster(raster, null_to_nan=True).copy()
     data = rs._rs.data
     ffun = partial(_surface_area_3d, res=rs.resolution[0])
     out_data = _map_surface_func(data, ffun, F64)
@@ -225,7 +195,7 @@ def slope(raster, degrees=True):
     * `ESRI slope <https://pro.arcgis.com/en/pro-app/latest/tool-reference/3d-analyst/how-slope-works.htm>`_
 
     """  # noqa: E501
-    rs = _get_rs(raster)
+    rs = get_raster(raster, null_to_nan=True).copy()
     data = rs._rs.data
 
     ffun = partial(_slope, res=rs.resolution, degrees=bool(degrees))
@@ -292,7 +262,7 @@ def aspect(raster):
     * `ESRI aspect <https://pro.arcgis.com/en/pro-app/latest/tool-reference/3d-analyst/how-aspect-works.htm>`_
 
     """  # noqa: E501
-    rs = _get_rs(raster)
+    rs = get_raster(raster, null_to_nan=True).copy()
     data = rs._rs.data
 
     out_data = _map_surface_func(data, _aspect, F64)
@@ -344,7 +314,7 @@ def curvature(raster):
     * `ESRI curvature <https://pro.arcgis.com/en/pro-app/latest/tool-reference/3d-analyst/how-curvature-works.htm>`_
 
     """  # noqa: E501
-    rs = _get_rs(raster)
+    rs = get_raster(raster, null_to_nan=True).copy()
     data = rs._rs.data
 
     ffun = partial(_curv, res=rs.resolution)
@@ -387,7 +357,7 @@ def northing(raster, is_aspect=False):
     if not is_aspect:
         raster = aspect(raster)
 
-    rs = _get_rs(raster)
+    rs = get_raster(raster, null_to_nan=True).copy()
     return _northing_easting(rs, True)
 
 
@@ -414,7 +384,7 @@ def easting(raster, is_aspect=False):
     if not is_aspect:
         raster = aspect(raster)
 
-    rs = _get_rs(raster)
+    rs = get_raster(raster, null_to_nan=True).copy()
     return _northing_easting(rs, False)
 
 
@@ -490,7 +460,7 @@ def hillshade(raster, azimuth=315, altitude=45):
     * `ESRI hillshade <https://pro.arcgis.com/en/pro-app/latest/tool-reference/spatial-analyst/how-hillshade-works.htm>`_
 
     """  # noqa: E501
-    rs = _get_rs(raster)
+    rs = get_raster(raster, null_to_nan=True).copy()
     data = rs._rs.data
     ffun = partial(
         _hillshade, res=rs.resolution, azimuth=azimuth, altitude=altitude
