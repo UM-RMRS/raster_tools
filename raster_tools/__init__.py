@@ -1,3 +1,4 @@
+from raster_tools import clipping, distance, focal, surface
 from raster_tools.creation import (
     constant_raster,
     empty_like,
@@ -10,8 +11,6 @@ from raster_tools.general import band_concat
 from raster_tools.raster import CPU, GPU, Raster
 from raster_tools.vector import Vector, open_vectors
 from raster_tools.zonal import ZONAL_STAT_FUNCS, zonal_stats
-
-from . import clipping, distance, focal, surface
 
 __all__ = [
     "CPU",

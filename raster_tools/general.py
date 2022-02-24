@@ -14,7 +14,6 @@ import numpy as np
 import xarray as xr
 from dask_image import ndmeasure as ndm
 
-from raster_tools import Raster
 from raster_tools.creation import zeros_like
 from raster_tools.dtypes import (
     F64,
@@ -26,7 +25,7 @@ from raster_tools.dtypes import (
     is_scalar,
     is_str,
 )
-from raster_tools.raster import get_raster
+from raster_tools.raster import Raster, get_raster
 from raster_tools.stat_common import (
     nan_unique_count_jit,
     nanargmax_jit,
