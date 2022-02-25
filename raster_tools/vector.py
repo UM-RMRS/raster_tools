@@ -491,7 +491,7 @@ class Vector:
     def eval(self):
         """Computes the built-up chain of operations on the underlying data."""
         if dask.is_dask_collection(self._geo):
-            return Vector(self._geo.compute())
+            return Vector(self._geo.compute(), self._size)
         return self
 
     def to_lazy(self, npartitions=None):
