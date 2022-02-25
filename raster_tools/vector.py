@@ -393,7 +393,10 @@ class Vector:
             temporarily loaded.
 
         """
-        self._geo = _normalize_geo_data(geo)
+        geo = _normalize_geo_data(geo)
+        if not dask.is_dask_collection(geo):
+            geo = dgpd.from_geopandas(geo, npartitions=1)
+        self._geo = geo
         # NOTE: self._size is not data-dependant so when adding features that
         # can affect length, care must be taken to properly update _size.
         if size is None:

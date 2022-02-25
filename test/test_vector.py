@@ -27,7 +27,7 @@ class TestOpenVectors(unittest.TestCase):
         pods3 = open_vectors("test/data/vector/Zones.gdb", layers=["PODs"])
         pods4 = open_vectors("test/data/vector/Zones.gdb", layers=[1])
         for v in [pods2, pods3, pods4]:
-            self.assertTrue(pods1.data.equals(v.data))
+            self.assertTrue(pods1.data.compute().equals(v.data.compute()))
 
     def test_open_vectors_errors(self):
         with self.assertRaises(ValueError):
@@ -51,7 +51,7 @@ class TestVectorProperties(unittest.TestCase):
 
     def test_table(self):
         self.assertTrue(hasattr(self.v, "table"))
-        self.assertIsInstance(self.v.table, gpd.GeoDataFrame)
+        self.assertIsInstance(self.v.table, dgpd.GeoDataFrame)
         self.assertTrue(len(self.v) == len(self.v.table))
         # Table doesn't contain geometry. It is only vector attributes
         self.assertTrue("geometry" not in self.v.table.columns)
@@ -66,7 +66,7 @@ class TestVectorProperties(unittest.TestCase):
     def test_shape(self):
         self.assertTrue(hasattr(self.v, "shape"))
         self.assertIsInstance(self.v.shape, tuple)
-        self.assertTrue(self.v.shape == self.v.table.shape)
+        self.assertTrue(self.v.shape == dask.compute(self.v.table.shape)[0])
 
     def test_crs(self):
         self.assertTrue(hasattr(self.v, "crs"))
@@ -92,13 +92,17 @@ class TestVectorProperties(unittest.TestCase):
 
     def test_geometry(self):
         self.assertTrue(hasattr(self.v, "geometry"))
-        self.assertIsInstance(self.v.geometry, gpd.GeoSeries)
-        self.assertTrue((self.v.geometry == self.v.data.geometry).all())
+        self.assertIsInstance(self.v.geometry, dgpd.GeoSeries)
+        self.assertTrue(
+            (self.v.geometry == self.v.data.geometry).all().compute()
+        )
 
     def test_tasks(self):
         self.assertTrue(hasattr(self.v, "tasks"))
-        self.assertFalse(dask.is_dask_collection(self.v.data))
-        self.assertTrue(self.v.tasks == 0)
+        v = self.v.copy()
+        v._geo = v._geo.compute()
+        self.assertFalse(dask.is_dask_collection(v.data))
+        self.assertTrue(v.tasks == 0)
         v = self.v.to_lazy()
         self.assertTrue(v.tasks == 1)
 
@@ -123,10 +127,12 @@ class TestSpecialMethods(unittest.TestCase):
     def test_getitem(self):
         self.assertTrue(hasattr(self.v, "__getitem__"))
         self.assertIsInstance(self.v[0], Vector)
-        self.assertTrue(self.v[0].data.equals(self.v.data.loc[[0]]))
+        self.assertTrue(
+            self.v[0].data.compute().equals(self.v.data.loc[[0]].compute())
+        )
         last = self.v.data.loc[[self.v.size - 1]]
-        last.index = [0]
-        self.assertTrue(self.v[-1].data.equals(last))
+        last.index = dask.array.from_array([0]).to_dask_dataframe()
+        self.assertTrue(self.v[-1].data.compute().equals(last.compute()))
         with self.assertRaises(NotImplementedError):
             self.v[0:3]
         with self.assertRaises(TypeError):
@@ -145,19 +151,23 @@ class TestCopy(unittest.TestCase):
         vc = v.copy()
         self.assertIsNot(v, vc)
         self.assertIsNot(v.data, vc.data)
-        self.assertTrue(v.data.equals(vc.data))
+        self.assertTrue(v.data.compute().equals(vc.data.compute()))
+
+
+class TestLazyByDefault(unittest.TestCase):
+    def test_lazy_by_default(self):
+        v = open_vectors("test/data/vector/pods.shp")
+        self.assertTrue(dask.is_dask_collection(v._geo))
 
 
 class TestEval(unittest.TestCase):
-    def test_eva(self):
-        v = open_vectors("test/data/vector/pods.shp")
-        vd = v.to_lazy()
-        ve = vd.eval()
-
-        self.assertIs(v, v.eval())
-        self.assertTrue(dask.is_dask_collection(vd.data))
-        self.assertIsNot(vd, ve)
-        self.assertFalse(dask.is_dask_collection(ve.data))
+    def test_eval(self):
+        v = open_vectors("test/data/vector/Zones.gdb", 0)
+        self.assertTrue(dask.is_dask_collection(v.data))
+        self.assertTrue(v.data.npartitions == 10)
+        ve = v.eval()
+        self.assertTrue(dask.is_dask_collection(ve.data))
+        self.assertTrue(ve.data.npartitions == 1)
 
 
 class TestConversions(unittest.TestCase):
@@ -165,16 +175,19 @@ class TestConversions(unittest.TestCase):
         self.v = open_vectors("test/data/vector/pods.shp")
 
     def test_to_lazy(self):
-        self.assertIsNot(self.v, self.v.to_lazy())
-        self.assertFalse(dask.is_dask_collection(self.v.data))
-        self.assertTrue(dask.is_dask_collection(self.v.to_lazy().data))
+        vc = self.v.copy()
+        vc._geo = vc._geo.compute()
+        self.assertFalse(dask.is_dask_collection(vc.data))
+        self.assertTrue(dask.is_dask_collection(vc.to_lazy().data))
 
     def test_to_dataframe(self):
-        self.assertIsInstance(self.v.to_dataframe(), gpd.GeoDataFrame)
+        self.assertIsInstance(self.v.to_dataframe(), dgpd.GeoDataFrame)
         self.assertIsInstance(
             self.v.to_lazy().to_dataframe(), dgpd.GeoDataFrame
         )
-        self.assertTrue(self.v.data.equals(self.v.to_dataframe()))
+        self.assertTrue(
+            self.v.data.compute().equals(self.v.to_dataframe().compute())
+        )
 
     def test_to_crs(self):
         crs = rio.crs.CRS.from_epsg(4326)
