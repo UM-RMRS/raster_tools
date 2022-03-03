@@ -12,7 +12,7 @@ Options.fast_fail = True
 def get_version():
     with open(os.path.join("raster_tools", "_version.py")) as fd:
         # contents are __version__ = "<vstring>"
-        return fd.read().split("=")[1].strip()
+        return fd.read().split("=")[1].strip().strip('"')
 
 
 setup(
