@@ -1,4 +1,5 @@
 from raster_tools import clipping, distance, focal, surface
+from raster_tools._version import __version__  # noqa
 from raster_tools.creation import (
     constant_raster,
     empty_like,

@@ -15,6 +15,8 @@ import sys
 
 from sphinx.domains.python import PythonDomain
 
+import raster_tools
+
 sys.path.insert(0, os.path.abspath(".."))
 
 
@@ -28,7 +30,7 @@ copyright = (
 author = "raster_tools Contributors"
 
 # The full version, including alpha/beta/rc tags
-release = "0.1"
+release = raster_tools.__version__
 
 
 # -- General configuration ---------------------------------------------------

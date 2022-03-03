@@ -1,3 +1,4 @@
+import os
 from multiprocessing import cpu_count
 
 import numpy as np
@@ -7,8 +8,16 @@ from setuptools import Extension, setup
 
 Options.fast_fail = True
 
+
+def get_version():
+    with open(os.path.join("raster_tools", "_version.py")) as fd:
+        # contents are __version__ = "<vstring>"
+        return fd.read().split("=")[1].strip()
+
+
 setup(
     name="raster-tools",
+    version=get_version(),
     ext_modules=cythonize(
         [
             Extension(
