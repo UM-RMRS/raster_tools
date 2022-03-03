@@ -15,10 +15,9 @@ import sys
 
 from sphinx.domains.python import PythonDomain
 
-import raster_tools
-
 sys.path.insert(0, os.path.abspath(".."))
 
+import raster_tools  # noqa: E402
 
 # -- Project information -----------------------------------------------------
 
