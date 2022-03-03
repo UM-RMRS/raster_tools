@@ -20,6 +20,14 @@ raster\_tools.batch module
    :undoc-members:
    :show-inheritance:
 
+raster\_tools.clipping module
+-----------------------------
+
+.. automodule:: raster_tools.clipping
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 raster\_tools.creation module
 -----------------------------
 
@@ -64,14 +72,6 @@ raster\_tools.raster module
 ---------------------------
 
 .. automodule:: raster_tools.raster
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-raster\_tools.raster\_funcs module
-----------------------------------
-
-.. automodule:: raster_tools.raster_funcs
    :members:
    :undoc-members:
    :show-inheritance:
