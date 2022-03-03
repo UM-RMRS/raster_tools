@@ -6,8 +6,8 @@
  fiona
  geopandas
  nose2
- numba==0.54
- numpy==1.20.3
+ numba
+ numpy==1.21.5
  pandas
  pre-commit
  pygeos
