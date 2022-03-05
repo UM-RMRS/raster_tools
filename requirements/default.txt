@@ -5,7 +5,6 @@
  dask-image
  fiona
  geopandas
- nose2
  numba
  numpy==1.21.5
  pandas
