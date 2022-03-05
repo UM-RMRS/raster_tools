@@ -27,7 +27,7 @@ RMRS Raster Utility Project
     With conda:
 
     ```sh
-    $ conda env create -f ./requirements/dev.yml
+    $ conda env create -f requirements/dev.yml
     $ conda activate rstools
     ```
 
@@ -42,15 +42,8 @@ RMRS Raster Utility Project
 5. Install the project into the virtual environment and build the cython modules:
 
     ```sh
-    $ SITE_PACKAGES=$(python -c "from distutils.sysconfig import get_python_lib; print(get_python_lib())")
-    $ echo -e "$(pwd)\n." > "${SITE_PACKAGES}/raster-tools.egg-link"
-    $ python setup.py build_ext --inplace
+    $ pip install --no-build-isolation -e .
     ```
-
-    ***NOTE: The above departs from the normal build process because of a bug
-    in pip. See [this link](https://github.com/pypa/pip/issues/9542) and
-    [this link](https://github.com/scikit-learn-contrib/hdbscan/issues/457#issuecomment-773671043)
-    for more details.***
 
 6. Setup pre-commit hooks
 
@@ -63,7 +56,13 @@ RMRS Raster Utility Project
     $ git checkout -b my-dev-branch
     ```
 
-8. Make your changes.
+8. Make your changes. If you make any changes to the Cython code, you can
+   rebuild with:
+
+   ```sh
+   python setup.py build_ext -i -f
+   ```
+
 9. Run the tests and fix anything that broke:
 
     ```sh
