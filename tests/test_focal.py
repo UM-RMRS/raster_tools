@@ -386,7 +386,7 @@ class TestCorrelate(unittest.TestCase):
 
 class TestFocalIntegration(unittest.TestCase):
     def test_focal_integration(self):
-        rs = Raster("test/data/multiband_small.tif")
+        rs = Raster("tests/data/multiband_small.tif")
         rsnp = rs._rs.values
         truth = rsnp.astype(float)
         for bnd in range(truth.shape[0]):
@@ -409,7 +409,7 @@ class TestFocalIntegration(unittest.TestCase):
         self.assertTrue(np.allclose(truth, res, equal_nan=True))
 
     def test_focal_integration_raster_input(self):
-        rs = Raster("test/data/multiband_small.tif")
+        rs = Raster("tests/data/multiband_small.tif")
         rsnp = rs._rs.values
         with self.assertRaises(TypeError):
             focal.focal(rsnp, "median", 3)
@@ -417,7 +417,7 @@ class TestFocalIntegration(unittest.TestCase):
         self.assertTrue(np.allclose(rsnp, res, equal_nan=True))
 
     def test_focal_output_type(self):
-        rs = Raster("test/data/multiband_small.tif") * 100
+        rs = Raster("tests/data/multiband_small.tif") * 100
         rs_masked = rs.set_null_value(-1).astype(int)
         rsi = rs.set_null_value(None).astype(int)
 
@@ -444,7 +444,7 @@ class TestFocalIntegration(unittest.TestCase):
 
 class TestCorrelateConvolveIntegration(unittest.TestCase):
     def test_correlate_integration(self):
-        rs = Raster("test/data/multiband_small.tif").astype(float)
+        rs = Raster("tests/data/multiband_small.tif").astype(float)
         rsnp = rs._rs.values
         truth = rsnp.astype(float)
         kernel = np.array([[1, 1, 1], [1, 1, 0], [1, 0, 0]]).astype(float)
@@ -471,7 +471,7 @@ class TestCorrelateConvolveIntegration(unittest.TestCase):
         self.assertTrue(np.allclose(truth, res, equal_nan=True))
 
     def test_convolve_integration(self):
-        rs = Raster("test/data/multiband_small.tif").astype(float)
+        rs = Raster("tests/data/multiband_small.tif").astype(float)
         rsnp = rs._rs.values
         truth = rsnp.astype(float)
         kernel = np.array([[1, 1, 1], [1, 1, 0], [1, 0, 0]]).astype(float)
@@ -500,7 +500,7 @@ class TestCorrelateConvolveIntegration(unittest.TestCase):
         self.assertTrue(np.allclose(truth, res, equal_nan=True))
 
     def test_correlate_integration_raster_input(self):
-        rs = Raster("test/data/multiband_small.tif")
+        rs = Raster("tests/data/multiband_small.tif")
         rsnp = rs._rs.values
         with self.assertRaises(TypeError):
             focal.correlate(rsnp, 3)
@@ -508,7 +508,7 @@ class TestCorrelateConvolveIntegration(unittest.TestCase):
         self.assertTrue(np.allclose(rsnp, res, equal_nan=True))
 
     def test_correlate_output_type(self):
-        rs = Raster("test/data/multiband_small.tif") * 100
+        rs = Raster("tests/data/multiband_small.tif") * 100
         rs = rs.set_null_value(-1)
         rs = rs.astype(int)
 

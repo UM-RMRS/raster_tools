@@ -8,13 +8,13 @@ from raster_tools.raster import Raster
 
 class TestSurface(unittest.TestCase):
     def setUp(self):
-        self.dem = Raster("test/data/elevation.tif")
+        self.dem = Raster("tests/data/elevation.tif")
 
     # TODO: add test for surface_area_3d
 
     def test_slope(self):
         slope = surface.slope(self.dem)
-        truth = Raster("test/data/raster/slope.tif")
+        truth = Raster("tests/data/raster/slope.tif")
 
         # Test default degrees
         self.assertTrue(slope._masked)
@@ -28,7 +28,7 @@ class TestSurface(unittest.TestCase):
         self.assertTrue(np.allclose(slope, truth))
         self.assertTrue(slope.dtype == np.dtype("float64"))
         # Test degrees=False
-        truth = Raster("test/data/raster/slope_percent.tif")
+        truth = Raster("tests/data/raster/slope_percent.tif")
         slope = surface.slope(self.dem, degrees=False)
         self.assertTrue(slope._masked)
         self.assertTrue(slope.null_value == self.dem.null_value)
@@ -37,7 +37,7 @@ class TestSurface(unittest.TestCase):
 
     def test_aspect(self):
         aspect = surface.aspect(self.dem)
-        truth = Raster("test/data/raster/aspect.tif")
+        truth = Raster("tests/data/raster/aspect.tif")
 
         self.assertTrue(aspect._masked)
         self.assertTrue(aspect.null_value == self.dem.null_value)
@@ -46,7 +46,7 @@ class TestSurface(unittest.TestCase):
 
     def test_curvature(self):
         curv = surface.curvature(self.dem)
-        truth = Raster("test/data/raster/curv.tif")
+        truth = Raster("tests/data/raster/curv.tif")
 
         self.assertTrue(curv._masked)
         self.assertTrue(curv.null_value == self.dem.null_value)
@@ -61,7 +61,7 @@ class TestSurface(unittest.TestCase):
 
     def test_northing(self):
         northing = surface.northing(self.dem)
-        truth = Raster("test/data/raster/northing.tif")
+        truth = Raster("tests/data/raster/northing.tif")
 
         self.assertTrue(self.dem._masked)
         self.assertTrue(northing._masked)
@@ -77,7 +77,7 @@ class TestSurface(unittest.TestCase):
 
     def test_easting(self):
         easting = surface.easting(self.dem)
-        truth = Raster("test/data/raster/easting.tif")
+        truth = Raster("tests/data/raster/easting.tif")
 
         self.assertTrue(easting._masked)
         self.assertTrue(easting.null_value == self.dem.null_value)
@@ -92,7 +92,7 @@ class TestSurface(unittest.TestCase):
 
     def test_hillshade(self):
         hill = surface.hillshade(self.dem)
-        truth = Raster("test/data/raster/hillshade.tif")
+        truth = Raster("tests/data/raster/hillshade.tif")
 
         self.assertTrue(hill._masked)
         self.assertTrue(hill.null_value == 255)

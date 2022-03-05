@@ -160,7 +160,7 @@ class TestCostDist(unittest.TestCase):
         self.assertTrue(allocation.null_value == -1)
 
     def test_negative_resolution(self):
-        cs = Raster("test/data/elevation_small.tif")
+        cs = Raster("tests/data/elevation_small.tif")
         srcs = np.array([[20, 20]])
         _ = distance.cost_distance_analysis(cs, srcs)
 
@@ -202,24 +202,24 @@ class TestCostDist(unittest.TestCase):
         with self.assertRaises(ValueError):
             # Must be single band
             distance.cost_distance_analysis(
-                "test/data/multiband_small.tif", self.srcs
+                "tests/data/multiband_small.tif", self.srcs
             )
         with self.assertRaises(ValueError):
             # Must have same shape
             distance.cost_distance_analysis(
-                self.cs, "test/data/elevation_small.tif"
+                self.cs, "tests/data/elevation_small.tif"
             )
         with self.assertRaises(TypeError):
             # source raster must be int
             distance.cost_distance_analysis(
-                "test/data/elevation_small.tif",
-                "test/data/elevation_small.tif",
+                "tests/data/elevation_small.tif",
+                "tests/data/elevation_small.tif",
             )
         with self.assertRaises(ValueError):
             # source raster must have null value
             distance.cost_distance_analysis(
-                "test/data/elevation_small.tif",
-                Raster("test/data/elevation_small.tif").astype(np.int64),
+                "tests/data/elevation_small.tif",
+                Raster("tests/data/elevation_small.tif").astype(np.int64),
             )
         with self.assertRaises(ValueError):
             # sources array must have shape (M, 2)
@@ -252,7 +252,7 @@ class TestCostDist(unittest.TestCase):
 
 class TestCostDistAttrsPropagation(unittest.TestCase):
     def test_distance_attrs(self):
-        rs = Raster("test/data/elevation_small.tif")
+        rs = Raster("tests/data/elevation_small.tif")
         srcs = np.array([[1, 1], [20, 30]])
         attrs = rs._attrs
         cd, tr, al = distance.cost_distance_analysis(rs, srcs)

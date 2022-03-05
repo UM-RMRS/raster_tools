@@ -1,4 +1,4 @@
-test/data/
+tests/data/
 docs/**/generated/
 *.npy
 
