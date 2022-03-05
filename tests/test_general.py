@@ -9,8 +9,8 @@ from raster_tools.raster import Raster
 # TODO: fully test module
 class TestSurface(unittest.TestCase):
     def setUp(self):
-        self.dem = Raster("./test/data/elevation.tif")
-        self.multi = Raster("./test/data/multiband_small.tif")
+        self.dem = Raster("tests/data/elevation.tif")
+        self.multi = Raster("tests/data/multiband_small.tif")
 
     def test_regions(self):
         rs_pos = creation.random_raster(
@@ -50,8 +50,8 @@ class TestSurface(unittest.TestCase):
 
 class TestBandConcat(unittest.TestCase):
     def test_band_concat(self):
-        rs1 = Raster("test/data/elevation_small.tif")
-        rs2 = Raster("test/data/elevation2_small.tif")
+        rs1 = Raster("tests/data/elevation_small.tif")
+        rs2 = Raster("tests/data/elevation2_small.tif")
         rsnp1 = rs1._rs.values
         rsnp2 = rs2._rs.values
         truth = np.concatenate((rsnp1, rsnp2))
@@ -64,8 +64,8 @@ class TestBandConcat(unittest.TestCase):
         self.assertTrue(np.allclose(test, truth))
 
     def test_band_concat_band_dim_values(self):
-        rs1 = Raster("test/data/elevation_small.tif")
-        rs2 = Raster("test/data/elevation2_small.tif")
+        rs1 = Raster("tests/data/elevation_small.tif")
+        rs2 = Raster("tests/data/elevation2_small.tif")
         test = general.band_concat([rs1, rs2])
         # Make sure that band is now an increaseing list starting at 1 and
         # incrementing by 1
@@ -74,8 +74,8 @@ class TestBandConcat(unittest.TestCase):
         self.assertTrue(all(test._rs.band == [1, 2, 3, 4]))
 
     def test_band_concat_path_inputs(self):
-        rs1 = Raster("test/data/elevation_small.tif")
-        rs2 = Raster("test/data/elevation2_small.tif")
+        rs1 = Raster("tests/data/elevation_small.tif")
+        rs2 = Raster("tests/data/elevation2_small.tif")
         rsnp1 = rs1._rs.values
         rsnp2 = rs2._rs.values
         truth = np.concatenate((rsnp1, rsnp2, rsnp1, rsnp2))
@@ -83,15 +83,15 @@ class TestBandConcat(unittest.TestCase):
             [
                 rs1,
                 rs2,
-                "test/data/elevation_small.tif",
-                "test/data/elevation2_small.tif",
+                "tests/data/elevation_small.tif",
+                "tests/data/elevation2_small.tif",
             ]
         )
         self.assertEqual(test.shape, truth.shape)
         self.assertTrue(np.allclose(test, truth))
 
     def test_band_concat_bool_rasters(self):
-        rs1 = Raster("test/data/elevation_small.tif") > -100
+        rs1 = Raster("tests/data/elevation_small.tif") > -100
         rs2 = rs1.copy()
         result = general.band_concat((rs1, rs2))
         self.assertTrue(rs1.null_value == result.null_value)
@@ -105,9 +105,9 @@ class TestBandConcat(unittest.TestCase):
         self.assertTrue(np.all(np.array(result) == 1))
 
     def test_band_concat_errors(self):
-        rs1 = Raster("test/data/elevation_small.tif")
-        rs2 = Raster("test/data/elevation2_small.tif")
-        rs3 = Raster("test/data/elevation.tif")
+        rs1 = Raster("tests/data/elevation_small.tif")
+        rs2 = Raster("tests/data/elevation2_small.tif")
+        rs3 = Raster("tests/data/elevation.tif")
         with self.assertRaises(ValueError):
             general.band_concat([])
         with self.assertRaises(ValueError):

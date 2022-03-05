@@ -5,7 +5,7 @@ import numpy as np
 
 from raster_tools import Raster, band_concat, open_vectors
 from raster_tools.zonal import _ZONAL_STAT_FUNCS, ZONAL_STAT_FUNCS, zonal_stats
-from test.test_focal import asm, entropy, mode, unique
+from tests.test_focal import asm, entropy, mode, unique
 
 
 def _apply_stat(dem, vrs, func):
@@ -40,9 +40,9 @@ all_stats = {
 
 class TestZonalStats(TestCase):
     def setUp(self):
-        self.dem = Raster("test/data/elevation.tif")
+        self.dem = Raster("tests/data/elevation.tif")
         self.dem_np = np.array(self.dem)
-        self.vc = open_vectors("test/data/vector/pods_first_10.shp")
+        self.vc = open_vectors("tests/data/vector/pods_first_10.shp")
         self.vc_rasters = [v.to_raster(self.dem).eval() for v in self.vc]
 
     def test_stat_func_set(self):

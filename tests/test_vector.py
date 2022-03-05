@@ -12,7 +12,7 @@ from raster_tools.vector import Vector, open_vectors
 
 class TestOpenVectors(unittest.TestCase):
     def test_open_vectors(self):
-        vs = open_vectors("test/data/vector/Zones.gdb")
+        vs = open_vectors("tests/data/vector/Zones.gdb")
 
         self.assertIsInstance(vs, list)
         self.assertTrue(len(vs) == 2)
@@ -21,33 +21,33 @@ class TestOpenVectors(unittest.TestCase):
         self.assertTrue(len(vs[0]) == 10642)
         self.assertTrue(len(vs[1]) == 184)
 
-        pods1 = open_vectors("test/data/vector/Zones.gdb", layers="PODs")
+        pods1 = open_vectors("tests/data/vector/Zones.gdb", layers="PODs")
         self.assertIsInstance(pods1, Vector)
-        pods2 = open_vectors("test/data/vector/Zones.gdb", layers=1)
-        pods3 = open_vectors("test/data/vector/Zones.gdb", layers=["PODs"])
-        pods4 = open_vectors("test/data/vector/Zones.gdb", layers=[1])
+        pods2 = open_vectors("tests/data/vector/Zones.gdb", layers=1)
+        pods3 = open_vectors("tests/data/vector/Zones.gdb", layers=["PODs"])
+        pods4 = open_vectors("tests/data/vector/Zones.gdb", layers=[1])
         for v in [pods2, pods3, pods4]:
             self.assertTrue(pods1.data.compute().equals(v.data.compute()))
 
     def test_open_vectors_errors(self):
         with self.assertRaises(ValueError):
-            open_vectors("test/data/vector/Zones.gdb", layers="dummy")
+            open_vectors("tests/data/vector/Zones.gdb", layers="dummy")
         with self.assertRaises(ValueError):
-            open_vectors("test/data/vector/Zones.gdb", layers=2)
+            open_vectors("tests/data/vector/Zones.gdb", layers=2)
         with self.assertRaises(ValueError):
-            open_vectors("test/data/vector/Zones.gdb", layers=-1)
+            open_vectors("tests/data/vector/Zones.gdb", layers=-1)
         with self.assertRaises(ValueError):
-            open_vectors("test/data/vector/Zones.gdb", layers=[-1])
+            open_vectors("tests/data/vector/Zones.gdb", layers=[-1])
 
         with self.assertRaises(TypeError):
-            open_vectors("test/data/vector/Zones.gdb", layers=[0, "PODs"])
+            open_vectors("tests/data/vector/Zones.gdb", layers=[0, "PODs"])
         with self.assertRaises(TypeError):
-            open_vectors("test/data/vector/Zones.gdb", layers={})
+            open_vectors("tests/data/vector/Zones.gdb", layers={})
 
 
 class TestVectorProperties(unittest.TestCase):
     def setUp(self):
-        self.v = open_vectors("test/data/vector/pods.shp")
+        self.v = open_vectors("tests/data/vector/pods.shp")
 
     def test_table(self):
         self.assertTrue(hasattr(self.v, "table"))
@@ -108,8 +108,8 @@ class TestVectorProperties(unittest.TestCase):
 
     def test_bounds(self):
         self.assertTrue(hasattr(self.v, "bounds"))
-        df = gpd.read_file("test/data/vector/pods.shp")
-        v = open_vectors("test/data/vector/pods.shp")
+        df = gpd.read_file("tests/data/vector/pods.shp")
+        v = open_vectors("tests/data/vector/pods.shp")
         self.assertTrue(all(v.bounds == df.total_bounds))
         self.assertTrue(dask.is_dask_collection(v.to_lazy().bounds))
         self.assertTrue(all(v.to_lazy().bounds == df.total_bounds))
@@ -117,7 +117,7 @@ class TestVectorProperties(unittest.TestCase):
 
 class TestSpecialMethods(unittest.TestCase):
     def setUp(self):
-        self.v = open_vectors("test/data/vector/pods.shp")
+        self.v = open_vectors("tests/data/vector/pods.shp")
 
     def test_len(self):
         self.assertTrue(hasattr(self.v, "__len__"))
@@ -147,7 +147,7 @@ class TestSpecialMethods(unittest.TestCase):
 
 class TestCopy(unittest.TestCase):
     def test_copy(self):
-        v = open_vectors("test/data/vector/pods.shp")
+        v = open_vectors("tests/data/vector/pods.shp")
         vc = v.copy()
         self.assertIsNot(v, vc)
         self.assertIsNot(v.data, vc.data)
@@ -156,13 +156,13 @@ class TestCopy(unittest.TestCase):
 
 class TestLazyByDefault(unittest.TestCase):
     def test_lazy_by_default(self):
-        v = open_vectors("test/data/vector/pods.shp")
+        v = open_vectors("tests/data/vector/pods.shp")
         self.assertTrue(dask.is_dask_collection(v._geo))
 
 
 class TestEval(unittest.TestCase):
     def test_eval(self):
-        v = open_vectors("test/data/vector/Zones.gdb", 0)
+        v = open_vectors("tests/data/vector/Zones.gdb", 0)
         self.assertTrue(dask.is_dask_collection(v.data))
         self.assertTrue(v.data.npartitions == 10)
         ve = v.eval()
@@ -172,7 +172,7 @@ class TestEval(unittest.TestCase):
 
 class TestConversions(unittest.TestCase):
     def setUp(self):
-        self.v = open_vectors("test/data/vector/pods.shp")
+        self.v = open_vectors("tests/data/vector/pods.shp")
 
     def test_to_lazy(self):
         vc = self.v.copy()
@@ -197,8 +197,8 @@ class TestConversions(unittest.TestCase):
         self.assertTrue(self.v.to_crs("epsg:4326").crs == crs)
 
     def test_to_raster_many(self):
-        like = Raster("test/data/elevation.tif")
-        truth = Raster("test/data/pods_like_elevation.tif")
+        like = Raster("tests/data/elevation.tif")
+        truth = Raster("tests/data/pods_like_elevation.tif")
         result = self.v.to_raster(like)
 
         self.assertTrue(result.null_value == 0)
@@ -210,8 +210,8 @@ class TestConversions(unittest.TestCase):
         self.assertTrue(np.allclose(result._rs.band, truth._rs.band))
 
     def test_to_raster_single(self):
-        like = Raster("test/data/elevation.tif")
-        truth = Raster("test/data/pods0_like_elevation.tif")
+        like = Raster("tests/data/elevation.tif")
+        truth = Raster("tests/data/pods0_like_elevation.tif")
         result = self.v[0].to_raster(like)
 
         self.assertTrue(result.null_value == 0)
@@ -225,8 +225,8 @@ class TestConversions(unittest.TestCase):
         self.assertTrue(all(np.unique(result) == [0, 1]))
 
     def test_to_raster_lazy_one_partition(self):
-        like = Raster("test/data/elevation.tif")
-        truth = Raster("test/data/pods_like_elevation.tif")
+        like = Raster("tests/data/elevation.tif")
+        truth = Raster("tests/data/pods_like_elevation.tif")
         result = self.v.to_lazy().to_raster(like)
 
         self.assertTrue(result.null_value == 0)
@@ -238,8 +238,8 @@ class TestConversions(unittest.TestCase):
         self.assertTrue(np.allclose(result._rs.band, truth._rs.band))
 
     def test_to_raster_lazy_many_partitions(self):
-        like = Raster("test/data/elevation.tif")
-        truth = Raster("test/data/pods_like_elevation.tif")
+        like = Raster("tests/data/elevation.tif")
+        truth = Raster("tests/data/pods_like_elevation.tif")
         v = Vector(self.v.to_lazy().data.repartition(10))
         result = v.to_raster(like)
 
@@ -254,7 +254,7 @@ class TestConversions(unittest.TestCase):
 
 class TestCastField(unittest.TestCase):
     def test_cast_field(self):
-        v = open_vectors("test/data/vector/pods.shp")
+        v = open_vectors("tests/data/vector/pods.shp")
         dtypes = [int, "int16", np.int32, float, "float"]
         for d in dtypes:
             dt = np.dtype(d)
