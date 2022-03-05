@@ -11,13 +11,15 @@ dependencies:
   - dask-image
   - fiona
   - geopandas
-  - nose2
   - numba
   - numpy
   - pandas
+  - pip
   - pre-commit
   - pygeos
   - pyproj
   - rioxarray
   - scipy
   - xarray
+  - pip:
+    - nose2
