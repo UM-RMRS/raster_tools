@@ -595,6 +595,7 @@ class Raster:
         if len(bands) == 1 and n_bands == 1:
             return self.copy()
         rs = self._rs[bands]
+        rs["band"] = list(range(1, len(rs) + 1))
         mask = self._mask[bands]
         # TODO: look into making attrs consistant with bands
         return self._replace(rs, mask=mask)

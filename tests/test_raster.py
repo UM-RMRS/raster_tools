@@ -778,7 +778,10 @@ class TestGetBands(unittest.TestCase):
         self.assertTrue(rs_eq_array(rs.get_bands(4), rsnp[3:4]))
         for bands in [[1], [1, 2], [1, 1], [3, 1, 2], [4, 3, 2, 1]]:
             np_bands = [i - 1 for i in bands]
-            self.assertTrue(rs_eq_array(rs.get_bands(bands), rsnp[np_bands]))
+            result = rs.get_bands(bands)
+            self.assertTrue(np.allclose(result, rsnp[np_bands]))
+            bnd_dim = list(range(1, len(bands) + 1))
+            self.assertTrue(np.allclose(result._rs.band, bnd_dim))
 
         self.assertTrue(len(rs.get_bands(1).shape) == 3)
 
