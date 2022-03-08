@@ -81,7 +81,7 @@ setup(
     packages=find_packages(exclude=["docs", "tests"]),
     package_data={"": ["*.pyx", "*.pxd"]},
     install_requires=INSTALL_REQUIRES,
-    python_requires=">=3.8",
+    python_requires=">=3.7",
     ext_modules=EXT_MODULES,
     include_dirs=[np.get_include()],
 )
