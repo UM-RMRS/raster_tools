@@ -329,15 +329,15 @@ def _build_zonal_stats_data(data_raster, feat_raster, feat_labels, stats):
     #   },
     #   ...
     data = {}
+    raster_data = get_raster(data_raster, null_to_nan=True)._rs.data
     for ibnd in range(nbands):
         ibnd += 1
         data[ibnd] = {}
-        rs_data = get_raster(
-            data_raster.get_bands(ibnd), null_to_nan=True
-        )._rs.data
+        # Use range to keep band dimension intact
+        band_data = raster_data[ibnd - 1 : ibnd]
         for f in stats:
             result_delayed = dask.delayed(ndmeasure.labeled_comprehension)(
-                rs_data,
+                band_data,
                 feat_data,
                 feat_labels,
                 _ZONAL_STAT_FUNCS[f],
