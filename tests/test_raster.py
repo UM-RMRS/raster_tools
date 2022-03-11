@@ -568,6 +568,7 @@ class TestReplaceNull(unittest.TestCase):
         rs = rs.replace_null(fill_value)
         self.assertTrue(np.allclose(rs._values, rsnp_replaced, equal_nan=True))
         self.assertEqual(rs.null_value, nv)
+        self.assertTrue(rs._mask.sum().compute() == 0)
 
 
 class TestToNullMask(unittest.TestCase):

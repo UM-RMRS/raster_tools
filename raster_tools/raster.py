@@ -701,7 +701,7 @@ class Raster:
             xrs = xrs.astype(promote_dtype_to_float(xrs.dtype))
         if self._masked:
             xrs = xrs.where(~self._mask, value)
-        mask = da.zeros(xrs.shape, dtype=bool)
+        mask = da.zeros_like(xrs.data, dtype=bool)
         return self._replace(xrs, mask=mask)
 
     def where(self, condition, other):
