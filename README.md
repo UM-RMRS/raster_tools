@@ -11,7 +11,6 @@ RMRS Raster Utility Project
 * [rasterio](https://rasterio.readthedocs.io/en/latest/)
 * [rioxarray](https://corteva.github.io/rioxarray/stable/)
 * [xarray](https://xarray.pydata.org/en/stable/)
-* [cupy](https://cupy.dev/): optional and very experimental
 
 ## Contributing
 1. Fork the _raster_tools_ repo.

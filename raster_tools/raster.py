@@ -7,13 +7,6 @@ import dask.array as da
 import numpy as np
 import xarray as xr
 
-try:
-    import cupy as cp
-
-    GPU_ENABLED = True
-except (ImportError, ModuleNotFoundError):
-    GPU_ENABLED = False
-
 from raster_tools.dtypes import (
     BOOL,
     DTYPE_INPUT_TO_DTYPE,
@@ -121,14 +114,6 @@ def _map_chunk_function(raster, func, args, **kwargs):
     return raster
 
 
-def _chunk_to_cpu(chunk, *args):
-    try:
-        return chunk.get()
-    except AttributeError:
-        # assume chunk is already on the cpu
-        return chunk
-
-
 def _gt0(x):
     return x > 0
 
@@ -159,10 +144,6 @@ def _coerce_to_bool_for_and_or(operands, to_bool_op):
     return boperands
 
 
-GPU = "gpu"
-CPU = "cpu"
-
-
 def _array_to_xarray(ar):
     if len(ar.shape) > 3 or len(ar.shape) < 2:
         raise ValueError(f"Invalid raster shape for numpy array: {ar.shape}")
@@ -184,13 +165,6 @@ def _array_to_xarray(ar):
             # No way to know null value
             xrs.attrs["_FillValue"] = None
     return xrs
-
-
-def _dask_from_array_with_device(arr, device):
-    arr = da.from_array(arr)
-    if GPU_ENABLED and device == GPU:
-        arr = arr.map_blocks(cp.asarray)
-    return arr
 
 
 def _try_to_get_null_value_xarray(xrs):
@@ -235,13 +209,11 @@ class Raster:
     """
 
     def __init__(self, raster):
-        self._device = CPU
         self._mask = None
         self._rs = None
 
         if isinstance(raster, Raster):
             self._rs = raster._rs.copy()
-            self._set_device(raster.device)
             self._mask = raster._mask.copy()
             self._null_value = raster._null_value
         elif is_xarray(raster):
@@ -288,14 +260,12 @@ class Raster:
         self,
         new_xrs,
         attrs=None,
-        device=None,
         mask=None,
         null_value=None,
         null_value_none=False,
     ):
         new_rs = Raster(new_xrs)
         new_rs._attrs = attrs or self._attrs
-        new_rs._set_device(device or self.device)
         new_rs._mask = mask if mask is not None else self._mask
         if not null_value_none:
             new_rs._null_value = (
@@ -347,18 +317,6 @@ class Raster:
     def null_value(self):
         """The raster's null value used to fill missing or invalid entries."""
         return self._null_value
-
-    @property
-    def device(self):
-        """The hardware device where the raster is processed, `CPU` or `GPU`"""
-        return self._device
-
-    def _set_device(self, dev):
-        if dev not in (CPU, GPU):
-            raise RasterDeviceError(f"Unknown device: '{dev}'")
-        if not GPU_ENABLED and dev == GPU:
-            raise RasterDeviceError("GPU support is not enabled")
-        self._device = dev
 
     @property
     def dtype(self):
@@ -469,31 +427,6 @@ class Raster:
     def copy(self):
         """Returns a copy of this Raster."""
         return Raster(self)
-
-    def gpu(self):
-        if not GPU_ENABLED:
-            raise RasterDeviceError("GPU support is not enabled")
-        if self.device == GPU:
-            return self
-        rs = _map_chunk_function(self.copy(), cp.asarray, args=None)
-        rs._set_device(GPU)
-        return rs
-
-    def _check_device_mismatch(self, other):
-        if is_scalar(other):
-            return
-        if isinstance(other, Raster) and (self.device == other.device):
-            return
-        raise RasterDeviceMismatchError(
-            f"Raster devices must match: {self.device} != {other.device}"
-        )
-
-    def cpu(self):
-        if self.device == CPU:
-            return self
-        rs = _map_chunk_function(self.copy(), _chunk_to_cpu, args=None)
-        rs._set_device(CPU)
-        return rs
 
     def astype(self, dtype):
         """Return a copy of the Raster cast to the specified type.
@@ -818,12 +751,9 @@ class Raster:
 
     def _input_to_raster(self, raster_input):
         if isinstance(raster_input, Raster):
-            self._check_device_mismatch(raster_input)
             raster = raster_input
         else:
             raster = Raster(raster_input)
-            if self.device == GPU:
-                raster = raster.gpu()
         if raster._rs.size == 0:
             raise ValueError(
                 f"Input raster is empty with shape {raster._rs.shape}"

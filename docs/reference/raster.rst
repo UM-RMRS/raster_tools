@@ -20,7 +20,6 @@ Attributes
 
    Raster.affine
    Raster.crs
-   Raster.device
    Raster.dtype
    Raster.null_value
    Raster.resolution
@@ -68,14 +67,6 @@ Logical
 
    Raster.and_
    Raster.or_
-
-Hardware Switching
-------------------
-.. autosummary::
-   :toctree: generated/
-
-   Raster.cpu
-   Raster.gpu
 
 Reshaping and Reorganizing
 --------------------------
