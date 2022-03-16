@@ -12,6 +12,8 @@
  pre-commit
  pygeos
  pyproj
+ pytest
+ pytest-xdist
  rioxarray
  scipy
  wheel
