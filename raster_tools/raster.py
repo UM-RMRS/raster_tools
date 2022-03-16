@@ -659,27 +659,19 @@ class Raster:
             The resulting filtered Raster.
 
         """
-        if not isinstance(condition, Raster) and not is_str(condition):
-            raise TypeError(
-                f"Invalid type for condition argument: {type(condition)}"
-            )
-        if (
-            not is_scalar(other)
-            and not is_str(other)
-            and not isinstance(other, Raster)
-        ):
-            raise TypeError(f"Invalid type for `other`: {type(other)}")
-        if is_str(condition):
-            condition = Raster(condition)
+        condition = get_raster(condition)
+        if not is_scalar(other):
+            try:
+                other = get_raster(other)
+            except TypeError:
+                raise TypeError(
+                    f"Could not understand other argument. Got: {other!r}"
+                )
+
         if not is_bool(condition.dtype) and not is_int(condition.dtype):
             raise TypeError(
                 "Condition argument must be a boolean or integer raster"
             )
-        if is_str(other):
-            try:
-                other = Raster(other)
-            except ValueError:
-                raise ValueError("Could not resolve other to a raster")
 
         xrs = self._rs
         other_arg = other._rs if isinstance(other, Raster) else other
@@ -690,13 +682,14 @@ class Raster:
             # assume that condition is raster of 0 and 1 values.
             # condition > 0 will grab all 1/True values.
             xcondition = xcondition > 0
-        xrs = xr.where(xcondition, xrs, other_arg)
+        xrs = xr.where(xcondition, xrs, other_arg, keep_attrs=True)
         # Drop null cells from both the condition raster and this
         if condition._masked or self._masked:
             mask = mask | self._mask
             nv = self.null_value if self._masked else condition.null_value
             # Fill null areas
-            xrs = xr.where(mask, nv, xrs)
+            xmask = xr.DataArray(mask, dims=xrs.dims, coords=xrs.coords)
+            xrs = xr.where(xmask, nv, xrs, keep_attrs=True)
         else:
             mask = create_null_mask(xrs, None)
         return self._replace(xrs, mask=mask)

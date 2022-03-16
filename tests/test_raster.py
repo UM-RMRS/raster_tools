@@ -571,6 +571,40 @@ class TestReplaceNull(unittest.TestCase):
         self.assertTrue(rs._mask.sum().compute() == 0)
 
 
+class TestWhere(unittest.TestCase):
+    def test_where(self):
+        rs = Raster("tests/data/elevation_small.tif")
+        c = rs > 1100
+
+        r = rs.where(c, 0)
+        rsnp = np.asarray(rs)
+        truth = np.where(rsnp > 1100, rsnp, 0)
+        self.assertTrue(np.allclose(r, truth, equal_nan=True))
+        self.assertTrue(
+            np.allclose(
+                rs.where(c, "tests/data/elevation_small.tif"),
+                rs,
+                equal_nan=True,
+            )
+        )
+
+        c = c.astype(int)
+        r = rs.where(c, 0)
+        self.assertTrue(np.allclose(r, truth, equal_nan=True))
+
+        self.assertTrue(rs._masked)
+        self.assertTrue(r._masked)
+        self.assertTrue(rs.crs is not None)
+        self.assertTrue(r.crs == rs.crs)
+        self.assertDictEqual(r._attrs, rs._attrs)
+
+        with self.assertRaises(TypeError):
+            cf = c.astype(float)
+            rs.where(cf, 0)
+        with self.assertRaises(TypeError):
+            rs.where(c, None)
+
+
 class TestToNullMask(unittest.TestCase):
     def test_to_null_mask(self):
         rs = Raster("tests/data/null_values.tiff")
