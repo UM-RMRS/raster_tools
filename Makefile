@@ -12,10 +12,10 @@ install-dev:
 	pip install --no-build-isolation -e .
 
 test:
-	nose2
+	pytest
 
 test-mp:
-	nose2 --plugin=nose2.plugins.mp -N 10
+	pytest -n 10
 
 clean:
 	rm -rf build/

@@ -14,12 +14,11 @@ dependencies:
   - numba
   - numpy
   - pandas
-  - pip
   - pre-commit
   - pygeos
   - pyproj
+  - pytest
+  - pytest-xdist
   - rioxarray
   - scipy
   - xarray
-  - pip:
-    - nose2
