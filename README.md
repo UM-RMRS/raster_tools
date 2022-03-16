@@ -65,7 +65,7 @@ RMRS Raster Utility Project
 9. Run the tests and fix anything that broke:
 
     ```sh
-    $ nose2
+    $ pytest
     ```
 
 10. (Optional) Run `pre-commit` to find/fix any formatting and flake8 issues:
