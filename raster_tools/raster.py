@@ -1,6 +1,6 @@
-import collections
 import operator
 import warnings
+from collections import abc
 
 import dask
 import dask.array as da
@@ -289,7 +289,7 @@ class Raster:
 
     @_attrs.setter
     def _attrs(self, attrs):
-        if attrs is not None and isinstance(attrs, collections.Mapping):
+        if attrs is not None and isinstance(attrs, abc.Mapping):
             self._rs.attrs = attrs.copy()
         else:
             raise TypeError("attrs cannot be None and must be mapping type")
