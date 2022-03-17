@@ -682,14 +682,14 @@ class Raster:
             # assume that condition is raster of 0 and 1 values.
             # condition > 0 will grab all 1/True values.
             xcondition = xcondition > 0
-        xrs = xr.where(xcondition, xrs, other_arg, keep_attrs=True)
+        xrs = xrs.where(xcondition, other_arg)
         # Drop null cells from both the condition raster and this
         if condition._masked or self._masked:
             mask = mask | self._mask
             nv = self.null_value if self._masked else condition.null_value
             # Fill null areas
             xmask = xr.DataArray(mask, dims=xrs.dims, coords=xrs.coords)
-            xrs = xr.where(xmask, nv, xrs, keep_attrs=True)
+            xrs = xrs.where(~xmask, nv)
         else:
             mask = create_null_mask(xrs, None)
         return self._replace(xrs, mask=mask)
