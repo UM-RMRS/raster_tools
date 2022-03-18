@@ -6,4 +6,4 @@ include setup.py
 include requirements/default.txt
 exclude requirements/dev.txt
 exclude requirements/docs.txt
-recursive-include raster_tools *.py *.pyx *.pxd
+recursive-include raster_tools *.py

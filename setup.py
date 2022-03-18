@@ -1,12 +1,7 @@
 import os
-from multiprocessing import cpu_count
 
 import numpy as np
-from Cython.Build import cythonize
-from Cython.Compiler import Options
-from setuptools import Extension, find_packages, setup
-
-Options.fast_fail = True
+from setuptools import find_packages, setup
 
 
 def read_file(fname):
@@ -36,29 +31,6 @@ PROJECT_URLS = {
     "Bug Tracker": "https://github.com/UM-RMRS/raster_tools/issues"
 }
 INSTALL_REQUIRES = get_requirements("requirements/default.txt")
-EXT_MODULES = cythonize(
-    [
-        Extension(
-            "raster_tools.distance._heap",
-            ["raster_tools/distance/_heap.pyx"],
-            extra_compile_args=[
-                "-O3",
-                "-march=native",
-                "-g0",
-            ],
-        ),
-        Extension(
-            "raster_tools.distance._core",
-            ["raster_tools/distance/_core.pyx"],
-            extra_compile_args=[
-                "-O3",
-                "-march=native",
-                "-g0",
-            ],
-        ),
-    ],
-    nthreads=cpu_count(),
-)
 
 
 setup(
@@ -79,9 +51,7 @@ setup(
     ],
     package_dir={"": "."},
     packages=find_packages(exclude=["docs", "tests"]),
-    package_data={"": ["*.pyx", "*.pxd"]},
     install_requires=INSTALL_REQUIRES,
     python_requires=">=3.7",
-    ext_modules=EXT_MODULES,
     include_dirs=[np.get_include()],
 )
