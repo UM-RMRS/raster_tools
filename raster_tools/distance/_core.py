@@ -179,7 +179,7 @@ def _cost_distance_analysis_core(
     # ref: https://pro.arcgis.com/en/pro-app/latest/tool-reference/spatial-analyst/how-the-cost-distance-tools-work.htm  # noqa: E501
     # ref: https://en.wikipedia.org/wiki/Dijkstra%27s_algorithm
     for it in range(maxiter):
-        if heap_state.count == 0:
+        if heap_state[0].count == 0:
             break
 
         # Get the cumulative cost at the current pixel of interest and get the
