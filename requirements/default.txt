@@ -1,5 +1,4 @@
  affine
- cython
  dask
  dask-geopandas
  dask-image
