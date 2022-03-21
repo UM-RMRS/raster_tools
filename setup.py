@@ -1,6 +1,5 @@
 import os
 
-import numpy as np
 from setuptools import find_packages, setup
 
 
@@ -53,5 +52,4 @@ setup(
     packages=find_packages(exclude=["docs", "tests"]),
     install_requires=INSTALL_REQUIRES,
     python_requires=">=3.7",
-    include_dirs=[np.get_include()],
 )
