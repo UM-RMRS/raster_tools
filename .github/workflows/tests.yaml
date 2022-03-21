@@ -23,7 +23,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install pytest
-          python -m pip install -f requirements/default.txt
+          python -m pip install -r requirements/default.txt
       - name: Test with pytest
         run: |
           pytest
