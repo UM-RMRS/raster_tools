@@ -2,8 +2,6 @@
 # Minimum requirements for the build system to execute.
 requires = [
     "setuptools>=42",
-    "wheel",
-    "numpy"
 ]
 build-backend = "setuptools.build_meta"
 
