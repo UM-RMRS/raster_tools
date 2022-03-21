@@ -3,7 +3,12 @@ include MANIFEST.in
 include README.md
 include pyproject.toml
 include setup.py
+
 include requirements/default.txt
 exclude requirements/dev.txt
+exclude requirements/dev.yml
 exclude requirements/docs.txt
+exclude requirements/docs.yml
+exclude requirements/release.yml
+
 recursive-include raster_tools *.py

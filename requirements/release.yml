@@ -1,0 +1,23 @@
+name: rstools-release
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.8
+  - affine
+  - build
+  - dask
+  - dask-geopandas
+  - dask-image
+  - fiona
+  - geopandas
+  - numba
+  - numpy
+  - pandas
+  - pre-commit
+  - pygeos
+  - pyproj
+  - rioxarray
+  - scipy
+  - twine
+  - xarray

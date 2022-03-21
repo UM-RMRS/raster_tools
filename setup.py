@@ -24,7 +24,7 @@ NAME = "raster-tools"
 DESCRIPTION = "Tools for processing geospatial data"
 LONG_DESCRIPTION = read_file("README.md")
 VERSION = get_version()
-LICENSE = read_file("LICENSE")
+LICENSE = "GPL-3.0"
 URL = "https://github.com/UM-RMRS/raster_tools"
 PROJECT_URLS = {
     "Bug Tracker": "https://github.com/UM-RMRS/raster_tools/issues"

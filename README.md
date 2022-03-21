@@ -2,7 +2,6 @@
 RMRS Raster Utility Project
 
 ## Dependencies
-* [cython](https://cython.readthedocs.io/en/latest/)
 * [dask](https://dask.org/)
 * [dask_image](https://image.dask.org/en/latest/)
 * [dask-geopandas](https://github.com/geopandas/dask-geopandas)
@@ -38,10 +37,10 @@ RMRS Raster Utility Project
     $ pip install -r ./requirements/dev.txt
     ```
 
-5. Install the project into the virtual environment and build the cython modules:
+5. Install the project into the virtual environment:
 
     ```sh
-    $ pip install --no-build-isolation -e .
+    $ pip install -e .
     ```
 
 6. Setup pre-commit hooks
@@ -55,20 +54,13 @@ RMRS Raster Utility Project
     $ git checkout -b my-dev-branch
     ```
 
-8. Make your changes. If you make any changes to the Cython code, you can
-   rebuild with:
-
-   ```sh
-   python setup.py build_ext -i -f
-   ```
-
-9. Run the tests and fix anything that broke:
+8. Run the tests and fix anything that broke:
 
     ```sh
     $ pytest
     ```
 
-10. (Optional) Run `pre-commit` to find/fix any formatting and flake8 issues:
+9. (Optional) Run `pre-commit` to find/fix any formatting and flake8 issues:
 
     ```sh
     $ pre-commit run --all-files
@@ -78,7 +70,7 @@ RMRS Raster Utility Project
     recommended to do this and fix any errors that are flagged so that the
     changes can be cleanly commited.
 
-11. Commit your changes to your branch and push to your remote repo:
+10. Commit your changes to your branch and push to your remote repo:
 
     ```sh
     $ git add .
@@ -86,4 +78,4 @@ RMRS Raster Utility Project
     $ git push origin my-dev-branch
     ```
 
-12. Submit a pull request through GitHub.
+11. Submit a pull request through GitHub.
