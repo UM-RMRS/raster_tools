@@ -16,4 +16,5 @@ Combining Rasters
    full_like
    ones_like
    random_raster
+   remap_range
    zeros_like

@@ -1,6 +1,7 @@
 import unittest
 
 import numpy as np
+import pytest
 
 from raster_tools import creation, general
 from raster_tools.raster import Raster
@@ -114,3 +115,64 @@ class TestBandConcat(unittest.TestCase):
             general.band_concat([rs1, rs2, rs3])
         with self.assertRaises(ValueError):
             general.band_concat([rs3, rs2])
+
+
+def test_remap_range():
+    rs = Raster(np.arange(25).reshape((5, 5)))
+    rsnp = rs._rs.values
+
+    mapping = (0, 5, 1)
+    result = general.remap_range(rs, mapping)
+    truth = rsnp.copy()
+    truth[(rsnp >= mapping[0]) & (rsnp < mapping[1])] = mapping[2]
+    assert np.allclose(result, truth)
+
+    mappings = [mapping, (5, 15, -1)]
+    result = general.remap_range(rs, mappings)
+    truth[(rsnp >= mappings[1][0]) & (rsnp < mappings[1][1])] = mappings[1][2]
+    assert np.allclose(result, truth)
+
+    # Test multiple with potential conflict in last 2
+    mappings = [(0, 1, 0), (1, 2, 1), (2, 3, 8), (8, 9, 2)]
+    result = general.remap_range(rs, mappings)
+    truth = rsnp.copy()
+    for m in mappings:
+        truth[(rsnp >= m[0]) & (rsnp < m[1])] = m[2]
+    assert np.allclose(result._rs.values, truth)
+
+    # Test precedence
+    mappings = [(0, 2, 0), (1, 2, 1)]
+    result = general.remap_range(rs, mappings)
+    truth = rsnp.copy()
+    m = mappings[0]
+    truth[(rsnp >= m[0]) & (rsnp < m[1])] = m[2]
+    assert np.allclose(result._rs.values, truth)
+
+
+def test_remap_range_errors():
+    rs = Raster("tests/data/elevation_small.tif")
+    # TypeError if not scalars
+    with pytest.raises(TypeError):
+        general.remap_range(rs, (None, 2, 4))
+    with pytest.raises(TypeError):
+        general.remap_range(rs, (0, "2", 4))
+    with pytest.raises(TypeError):
+        general.remap_range(rs, (0, 2, None))
+    with pytest.raises(TypeError):
+        general.remap_range(rs, [(0, 2, 1), (2, 3, None)])
+    # ValueError if nan
+    with pytest.raises(ValueError):
+        general.remap_range(rs, (np.nan, 2, 4))
+    with pytest.raises(ValueError):
+        general.remap_range(rs, (0, np.nan, 4))
+    # ValueError if range reversed
+    with pytest.raises(ValueError):
+        general.remap_range(rs, (0, -1, 6))
+    with pytest.raises(ValueError):
+        general.remap_range(rs, (1, 1, 6))
+    with pytest.raises(ValueError):
+        general.remap_range(rs, (0, 1))
+    with pytest.raises(ValueError):
+        general.remap_range(rs, [(0, 1, 2), (0, 3)])
+    with pytest.raises(ValueError):
+        general.remap_range(rs, ())

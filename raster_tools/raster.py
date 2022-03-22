@@ -694,53 +694,35 @@ class Raster:
             mask = create_null_mask(xrs, None)
         return self._replace(xrs, mask=mask)
 
-    def remap_range(self, min, max, new_value, *args):
-        """Remaps values in the range [`min`, `max`) to `new_value`.
+    def remap_range(self, mapping):
+        """Remaps values in a range [`min`, `max`) to a `new_value`.
+
+        Mappings are applied all at once with earlier mappings taking
+        precedence.
 
         Parameters
         ----------
-        min : scalar
-            The minimum value of the mapping range (inclusive).
-        max : scalar
-            The maximum value of the mapping range (exclusive).
-        new_value : scalar
-            The new value to map the range to.
-        *args : tuple
-            Additional remap groups allowing for multiple ranges to be
-            remapped. This allows calls like
-            `remap_range(0, 12, 0, 12, 20, 1, 20, 30, 2)`. An error is raised
-            if the number of additional remap args is not a multiple of 3. The
-            remap groups are applied sequentially.
+        mapping : 3-tuple of scalars or list of 3-tuples of scalars
+            A tuple or list of tuples containing ``(min, max, new_value)``
+            scalars. The mappiing(s) map values between the min (inclusive) and
+            max (exclusive) to the ``new_value``. If `mapping` is a list and
+            there are mappings that conflict or overlap, earlier mappings take
+            precedence.
 
         Returns
         -------
         Raster
             The resulting Raster.
 
+        See Also
+        --------
+        raster_tools.general.remap_range
+
         """
-        remaps = [(min, max, new_value)]
-        if len(args):
-            if len(args) % 3 != 0:
-                raise RuntimeError(
-                    "Too few additional args to form a remap operation."
-                    " Additional args must be in groups of 3."
-                )
-            remaps += [args[i : i + 3] for i in range(0, len(args), 3)]
-        rs = self
-        for (min, max, new_value) in remaps:
-            if not all([is_scalar(v) for v in (min, max, new_value)]):
-                raise TypeError("min, max, and new_value must all be scalars")
-            if np.isnan((min, max)).any():
-                raise ValueError("min and max cannot be NaN")
-            if min >= max:
-                raise ValueError(f"min must be less than max: ({min}, {max})")
-            condition = rs.copy()
-            crs = rs._rs >= min
-            crs &= rs._rs < max
-            # Invert for where operation
-            condition._rs = ~crs
-            rs = rs.where(condition, new_value)
-        return rs
+        # local import to avoid circular import
+        from raster_tools.general import remap_range
+
+        return remap_range(self, mapping)
 
     def _input_to_raster(self, raster_input):
         if isinstance(raster_input, Raster):

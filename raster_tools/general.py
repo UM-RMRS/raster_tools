@@ -7,6 +7,7 @@
 """  # noqa: E501
 import warnings
 from collections.abc import Sequence
+from functools import partial
 
 import dask.array as da
 import numba as nb
@@ -18,6 +19,7 @@ from raster_tools.creation import zeros_like
 from raster_tools.dtypes import (
     F64,
     U64,
+    get_common_dtype,
     get_default_null_value,
     is_bool,
     is_float,
@@ -36,11 +38,12 @@ from raster_tools.stat_common import (
 )
 
 __all__ = [
-    "band_concat",
-    "regions",
     "aggregate",
-    "predict_model",
+    "band_concat",
     "local_stats",
+    "predict_model",
+    "regions",
+    "remap_range",
 ]
 
 # TODO: mosaic
@@ -651,3 +654,98 @@ def band_concat(rasters, null_value=None):
     # rasters.
     rs["band"] = list(range(1, rs.shape[0] + 1))
     return rasters[0]._replace(rs, mask=mask, null_value=new_nv)
+
+
+@nb.jit(nopython=True, nogil=True)
+def _remap_values(x, mappings):
+    outx = np.zeros_like(x)
+    bands, rows, columns = x.shape
+    rngs = mappings.shape[0]
+    for bnd in range(bands):
+        for rw in range(rows):
+            for cl in range(columns):
+                vl = int(x[bnd, rw, cl])
+                remapped = False
+                for imap in range(rngs):
+                    if mappings[imap, 0] <= vl < mappings[imap, 1]:
+                        outx[bnd, rw, cl] = mappings[imap, 2]
+                        remapped = True
+                        break
+                if not remapped:
+                    outx[bnd, rw, cl] = x[bnd, rw, cl]
+    return outx
+
+
+def _normalize_mappings(mappings):
+    if not isinstance(mappings, (list, tuple)):
+        raise TypeError(
+            "Mappings must be either single 3-tuple or list of 3-tuples of "
+            "scalars"
+        )
+    if not len(mappings):
+        raise ValueError("No mappings provided")
+    if len(mappings) and is_scalar(mappings[0]):
+        mappings = [mappings]
+    try:
+        mappings = [list(m) for m in mappings]
+    except TypeError:
+        raise TypeError(
+            "Mappings must be either single 3-tuple or list of 3-tuples of "
+            "scalars"
+        )
+    for m in mappings:
+        if len(m) != 3:
+            raise ValueError(
+                "Mappings must be either single 3-tuple or list of 3-tuples of"
+                " scalars"
+            )
+        if not all(is_scalar(mi) for mi in m):
+            raise TypeError("Mappings values must be scalars")
+        if any(np.isnan(mi) for mi in m[:2]):
+            raise ValueError("Mapping min and max values cannot be NaN")
+        if m[0] >= m[1]:
+            raise ValueError(
+                "Mapping min value must be strictly less than max value:"
+                f" {m[0]}, {m[1]}"
+            )
+    return mappings
+
+
+def remap_range(raster, mapping):
+    """Remaps values in a range [`min`, `max`) to a `new_value`.
+
+    Mappings are applied all at once with earlier mappings taking
+    precedence.
+
+    Parameters
+    ----------
+    raster : Raster or str
+        Path string or Raster to perform remap on.
+    mapping : 3-tuple of scalars or list of 3-tuples of scalars
+        A tuple or list of tuples containing ``(min, max, new_value)``
+        scalars. The mappiing(s) map values between the min (inclusive) and
+        max (exclusive) to the ``new_value``. If `mapping` is a list and
+        there are mappings that conflict or overlap, earlier mappings take
+        precedence.
+
+    Returns
+    -------
+    Raster
+        The resulting Raster.
+
+    """
+    raster = get_raster(raster)
+    mappings = _normalize_mappings(mapping)
+    mappings_common_dtype = get_common_dtype([m[-1] for m in mappings])
+    out_dtype = np.promote_types(raster.dtype, mappings_common_dtype)
+    mappings = np.atleast_2d(mappings)
+
+    outrs = raster.copy()
+    if out_dtype != outrs.dtype:
+        outrs = outrs.astype(out_dtype)
+    data = outrs._rs.data
+    func = partial(_remap_values, mappings=mappings)
+    outrs._rs.data = data.map_blocks(
+        func, dtype=data.dtype, meta=np.array((), dtype=data.dtype)
+    )
+    return outrs

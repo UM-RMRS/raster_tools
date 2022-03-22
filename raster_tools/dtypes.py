@@ -1,3 +1,4 @@
+from functools import reduce
 from numbers import Integral, Number
 
 import numpy as np
@@ -94,6 +95,10 @@ def is_bool(value_or_dtype):
     if isinstance(value_or_dtype, np.dtype):
         return value_or_dtype.kind == "b"
     return isinstance(value_or_dtype, (bool, np.bool_))
+
+
+def get_common_dtype(values):
+    return reduce(np.promote_types, map(np.min_scalar_type, values))
 
 
 def promote_dtype_to_float(dtype):
