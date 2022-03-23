@@ -378,12 +378,7 @@ class Raster:
         """Close the underlying source"""
         self._rs.close()
 
-    def save(
-        self,
-        path,
-        no_data_value=None,
-        **gdal_kwargs,
-    ):
+    def save(self, path, no_data_value=None, **gdal_kwargs):
         """Compute the final raster and save it to the provided location.
 
         Parameters
