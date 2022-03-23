@@ -101,7 +101,7 @@ def random_raster(
     shape = (bands, rows, columns)
     # Use get_bands to get data with the right chunks
     outrs = rst.get_bands(band_list)
-    chunks = outrs._rs.data.chunks
+    chunks = outrs._data.chunks
 
     dist = distribution.lower()
     if dist not in _VALID_RANDOM_DISTRIBUTIONS:
@@ -135,7 +135,7 @@ def random_raster(
         ndata = da.random.random(size=shape, chunks=chunks)
     # TODO: add more distributions
 
-    outrs._rs.data = ndata
+    outrs._data = ndata
     outrs._null_value = None
     outrs._mask = da.zeros_like(ndata, dtype=bool)
     return outrs
@@ -180,8 +180,8 @@ def empty_like(raster_template, bands=1, dtype=None):
 
     band_list = [1] * bands
     outrs = rst.get_bands(band_list)
-    ndata = da.empty_like(outrs._rs.data, dtype=dtype)
-    outrs._rs.data = ndata
+    ndata = da.empty_like(outrs._data, dtype=dtype)
+    outrs._data = ndata
     outrs._null_value = None
     outrs._mask = da.zeros_like(ndata, dtype=bool)
     return outrs
@@ -235,8 +235,8 @@ def full_like(raster_template, value, bands=1, dtype=None):
 
     band_list = [1] * bands
     outrs = rst.get_bands(band_list)
-    ndata = da.full_like(outrs._rs.data, value, dtype=dtype)
-    outrs._rs.data = ndata
+    ndata = da.full_like(outrs._data, value, dtype=dtype)
+    outrs._data = ndata
     outrs._null_value = None
     outrs._mask = da.zeros_like(ndata, dtype=bool)
     return outrs

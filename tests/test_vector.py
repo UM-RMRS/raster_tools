@@ -205,9 +205,9 @@ class TestConversions(unittest.TestCase):
         self.assertTrue(result.dtype == np.dtype("uint8"))
         self.assertTrue(result.shape[0] == 1)
         self.assertTrue(np.allclose(result, truth))
-        self.assertTrue(np.allclose(result._rs.x, truth._rs.x))
-        self.assertTrue(np.allclose(result._rs.y, truth._rs.y))
-        self.assertTrue(np.allclose(result._rs.band, truth._rs.band))
+        self.assertTrue(np.allclose(result.xrs.x, truth.xrs.x))
+        self.assertTrue(np.allclose(result.xrs.y, truth.xrs.y))
+        self.assertTrue(np.allclose(result.xrs.band, truth.xrs.band))
 
     def test_to_raster_single(self):
         like = Raster("tests/data/elevation.tif")
@@ -218,9 +218,9 @@ class TestConversions(unittest.TestCase):
         self.assertTrue(result.dtype == np.dtype("uint8"))
         self.assertTrue(result.shape[0] == 1)
         self.assertTrue(np.allclose(result, truth))
-        self.assertTrue(np.allclose(result._rs.x, truth._rs.x))
-        self.assertTrue(np.allclose(result._rs.y, truth._rs.y))
-        self.assertTrue(np.allclose(result._rs.band, truth._rs.band))
+        self.assertTrue(np.allclose(result.xrs.x, truth.xrs.x))
+        self.assertTrue(np.allclose(result.xrs.y, truth.xrs.y))
+        self.assertTrue(np.allclose(result.xrs.band, truth.xrs.band))
 
         self.assertTrue(all(np.unique(result) == [0, 1]))
 
@@ -233,9 +233,9 @@ class TestConversions(unittest.TestCase):
         self.assertTrue(result.dtype == np.dtype("uint8"))
         self.assertTrue(result.shape[0] == 1)
         self.assertTrue(np.allclose(result, truth))
-        self.assertTrue(np.allclose(result._rs.x, truth._rs.x))
-        self.assertTrue(np.allclose(result._rs.y, truth._rs.y))
-        self.assertTrue(np.allclose(result._rs.band, truth._rs.band))
+        self.assertTrue(np.allclose(result.xrs.x, truth.xrs.x))
+        self.assertTrue(np.allclose(result.xrs.y, truth.xrs.y))
+        self.assertTrue(np.allclose(result.xrs.band, truth.xrs.band))
 
     def test_to_raster_lazy_many_partitions(self):
         like = Raster("tests/data/elevation.tif")
@@ -247,9 +247,9 @@ class TestConversions(unittest.TestCase):
         self.assertTrue(result.dtype == np.dtype("uint8"))
         self.assertTrue(result.shape[0] == 1)
         self.assertTrue(np.allclose(result, truth))
-        self.assertTrue(np.allclose(result._rs.x, truth._rs.x))
-        self.assertTrue(np.allclose(result._rs.y, truth._rs.y))
-        self.assertTrue(np.allclose(result._rs.band, truth._rs.band))
+        self.assertTrue(np.allclose(result.xrs.x, truth.xrs.x))
+        self.assertTrue(np.allclose(result.xrs.y, truth.xrs.y))
+        self.assertTrue(np.allclose(result.xrs.band, truth.xrs.band))
 
 
 class TestCastField(unittest.TestCase):

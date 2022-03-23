@@ -54,9 +54,9 @@ def _clip(
         nv = get_default_null_value(rs.dtype)
 
     if invert:
-        clip_mask._rs = ~clip_mask._rs
+        clip_mask._rs = ~clip_mask.xrs
         clip_mask._mask = ~clip_mask._mask
-    xrs_out = xr.where(clip_mask._rs, rs._rs, nv)
+    xrs_out = xr.where(clip_mask.xrs, rs.xrs, nv)
     mask_out = clip_mask._mask
 
     if rs._masked:
@@ -208,11 +208,11 @@ def clip_box(raster, bounds):
     if bounds is not None and len(bounds) != 4:
         raise ValueError("Invalid bounds. Must be a size 4 array or tuple.")
     try:
-        xrs = rs._rs.rio.clip_box(*bounds)
+        xrs = rs.xrs.rio.clip_box(*bounds)
     except rxr.exceptions.NoDataInBounds:
         raise RasterNoDataError("No data found within provided bounds")
     if rs._masked:
-        xmask = xr.DataArray(rs._mask, dims=rs._rs.dims, coords=rs._rs.coords)
+        xmask = xr.DataArray(rs._mask, dims=rs.xrs.dims, coords=rs.xrs.coords)
         mask = xmask.rio.clip_box(*bounds).data
     else:
         mask = da.zeros_like(xrs.data, dtype=bool)

@@ -53,8 +53,8 @@ class TestBandConcat(unittest.TestCase):
     def test_band_concat(self):
         rs1 = Raster("tests/data/elevation_small.tif")
         rs2 = Raster("tests/data/elevation2_small.tif")
-        rsnp1 = rs1._rs.values
-        rsnp2 = rs2._rs.values
+        rsnp1 = rs1.xrs.values
+        rsnp2 = rs2.xrs.values
         truth = np.concatenate((rsnp1, rsnp2))
         test = general.band_concat([rs1, rs2])
         self.assertEqual(test.shape, truth.shape)
@@ -70,15 +70,15 @@ class TestBandConcat(unittest.TestCase):
         test = general.band_concat([rs1, rs2])
         # Make sure that band is now an increaseing list starting at 1 and
         # incrementing by 1
-        self.assertTrue(all(test._rs.band == [1, 2]))
+        self.assertTrue(all(test.xrs.band == [1, 2]))
         test = general.band_concat([rs1, test, rs2])
-        self.assertTrue(all(test._rs.band == [1, 2, 3, 4]))
+        self.assertTrue(all(test.xrs.band == [1, 2, 3, 4]))
 
     def test_band_concat_path_inputs(self):
         rs1 = Raster("tests/data/elevation_small.tif")
         rs2 = Raster("tests/data/elevation2_small.tif")
-        rsnp1 = rs1._rs.values
-        rsnp2 = rs2._rs.values
+        rsnp1 = rs1.xrs.values
+        rsnp2 = rs2.xrs.values
         truth = np.concatenate((rsnp1, rsnp2, rsnp1, rsnp2))
         test = general.band_concat(
             [
@@ -119,7 +119,7 @@ class TestBandConcat(unittest.TestCase):
 
 def test_remap_range():
     rs = Raster(np.arange(25).reshape((5, 5)))
-    rsnp = rs._rs.values
+    rsnp = rs.xrs.values
 
     mapping = (0, 5, 1)
     result = general.remap_range(rs, mapping)
@@ -138,7 +138,7 @@ def test_remap_range():
     truth = rsnp.copy()
     for m in mappings:
         truth[(rsnp >= m[0]) & (rsnp < m[1])] = m[2]
-    assert np.allclose(result._rs.values, truth)
+    assert np.allclose(result.xrs.values, truth)
 
     # Test precedence
     mappings = [(0, 2, 0), (1, 2, 1)]
@@ -146,7 +146,7 @@ def test_remap_range():
     truth = rsnp.copy()
     m = mappings[0]
     truth[(rsnp >= m[0]) & (rsnp < m[1])] = m[2]
-    assert np.allclose(result._rs.values, truth)
+    assert np.allclose(result.xrs.values, truth)
 
 
 def test_remap_range_errors():

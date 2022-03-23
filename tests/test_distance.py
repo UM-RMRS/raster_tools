@@ -168,7 +168,7 @@ class TestCostDist(unittest.TestCase):
         coefs = [af.a, af.b, af.c, af.d, -af.e, af.f]
         trans = Affine(*coefs)
         cs = self.cs.copy()
-        xcs = self.cs._rs.rio.write_transform(trans)
+        xcs = self.cs.xrs.rio.write_transform(trans)
         cs._rs = xcs
         cost_dist, traceback, allocation = distance.cost_distance_analysis(
             cs, self.srcs
@@ -237,7 +237,7 @@ class TestCostDist(unittest.TestCase):
         coefs = [5, af.b, af.c, af.d, 5, af.f]
         trans = Affine(*coefs)
         cs = self.cs.copy()
-        xcs = self.cs._rs.rio.write_transform(trans)
+        xcs = self.cs.xrs.rio.write_transform(trans)
         xcs["x"] = xcs.x * 5
         xcs["y"] = xcs.y * 5
         cs._rs = xcs
@@ -259,7 +259,7 @@ class TestCostDistAttrsPropagation(unittest.TestCase):
         self.assertEqual(cd._attrs, attrs)
         # Null values may not match costs raster for traceback and allocation
         attrs.pop("_FillValue")
-        tr._rs.attrs.pop("_FillValue")
+        tr.xrs.attrs.pop("_FillValue")
         self.assertEqual(tr._attrs, attrs)
-        al._rs.attrs.pop("_FillValue")
+        al.xrs.attrs.pop("_FillValue")
         self.assertEqual(al._attrs, attrs)

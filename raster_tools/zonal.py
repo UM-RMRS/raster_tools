@@ -311,7 +311,7 @@ ZONAL_STAT_FUNCS = frozenset(_ZONAL_STAT_FUNCS)
 
 def _build_zonal_stats_data(data_raster, feat_raster, feat_labels, stats):
     nbands = data_raster.shape[0]
-    feat_data = feat_raster._rs.data
+    feat_data = feat_raster._data
     # data will end up looking like:
     # {
     #   # band number
@@ -329,7 +329,7 @@ def _build_zonal_stats_data(data_raster, feat_raster, feat_labels, stats):
     #   },
     #   ...
     data = {}
-    raster_data = get_raster(data_raster, null_to_nan=True)._rs.data
+    raster_data = get_raster(data_raster, null_to_nan=True)._data
     for ibnd in range(nbands):
         ibnd += 1
         data[ibnd] = {}
@@ -499,9 +499,7 @@ def zonal_stats(features, data_raster, stats, raster_feature_values=None):
         features_raster = features.to_raster(data_raster)
     else:
         if raster_feature_values is None:
-            (raster_feature_values,) = dask.compute(
-                np.unique(features._rs.data)
-            )
+            (raster_feature_values,) = dask.compute(np.unique(features._data))
         else:
             raster_feature_values = np.atleast_1d(raster_feature_values)
             raster_feature_values = raster_feature_values[

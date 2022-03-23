@@ -121,8 +121,8 @@ def regions(raster, neighbors=4, unique_values=None):
         else:
             raise TypeError("Invalid type for unique_values parameter")
 
-    data = raster._rs.data
-    dout = rs_out._rs.data
+    data = raster._data
+    dout = rs_out._data
     if raster._masked:
         # Set null values to 0 to skip them in the labeling phase
         data = da.where(raster._mask, 0, data)
@@ -139,7 +139,7 @@ def regions(raster, neighbors=4, unique_values=None):
         else:
             nv = get_default_null_value(rs_out.dtype)
             dout = da.where(raster._mask, nv, dout)
-    rs_out._rs.data = dout
+    rs_out._data = dout
     return rs_out
 
 
@@ -322,7 +322,7 @@ def aggregate(raster, expand_cells, stype):
     ):
         raise ValueError(f"Invalid stype argument: {repr(stype)}")
 
-    xda = rs._rs
+    xda = rs.xrs
     mask = rs._mask
     dim_map = {"y": expand_cells[0], "x": expand_cells[1]}
     if stype in _COARSEN_STYPE_TO_FUNC:
@@ -333,7 +333,7 @@ def aggregate(raster, expand_cells, stype):
         xda = _coarsen(xda, expand_cells, stype)
     # Coarsen mask as well
     if rs._masked:
-        xmask = xr.DataArray(rs._mask, dims=rs._rs.dims, coords=rs._rs.coords)
+        xmask = xr.DataArray(rs._mask, dims=rs.xrs.dims, coords=rs.xrs.coords)
         mask = xmask.coarsen(dim=dim_map, boundary="trim").all().data
 
     rs_out = rs.copy()
@@ -358,13 +358,13 @@ def aggregate(raster, expand_cells, stype):
                     nv = get_default_null_value(rs_out.dtype)
         elif stype == "mode":
             # Cast back to original dtype. Original null value will work
-            rs_out._rs = rs_out._rs.astype(orig_dtype)
+            rs_out._rs = rs_out.xrs.astype(orig_dtype)
         # asm/entropy both result in F64 which should hold any value
         rs_out._null_value = nv
         # Replace null cells with null value acording to mask
-        rs_out._rs.data = da.where(rs_out._mask, nv, rs_out._rs.data)
+        rs_out._data = da.where(rs_out._mask, nv, rs_out._data)
     else:
-        rs_out._mask = da.zeros_like(rs_out._rs.data, dtype=bool)
+        rs_out._mask = da.zeros_like(rs_out._data, dtype=bool)
     return rs_out
 
 
@@ -396,7 +396,7 @@ def predict_model(raster, model):
 
     """
     rs = get_raster(raster, null_to_nan=True)
-    xarr = rs._rs
+    xarr = rs.xrs
     xarrout = model.predict(xarr)
 
     return Raster(xarrout)
@@ -511,7 +511,7 @@ def local_stats(raster, stype):
     ):
         raise ValueError(f"Invalid stype aregument: {repr(stype)}")
 
-    xda = rs._rs
+    xda = rs.xrs
     mask = rs._mask
     if stype in _LOCAL_STYPE_TO_NUMPY_FUNC:
         xndata = xda.reduce(
@@ -520,10 +520,10 @@ def local_stats(raster, stype):
     else:
         data = xda.data
         # Destination dataarary with correct dims and copied meta data
-        xndata = rs.get_bands(1)._rs
+        xndata = rs.get_bands(1).xrs
         xndata.data = _local(data, stype)
     if rs._masked:
-        xmask = xr.DataArray(mask, dims=rs._rs.dims, coords=rs._rs.coords)
+        xmask = xr.DataArray(mask, dims=rs.xrs.dims, coords=rs.xrs.coords)
         mask = xmask.reduce(
             np.all,
             dim="band",
@@ -552,13 +552,13 @@ def local_stats(raster, stype):
                     nv = get_default_null_value(rs_out.dtype)
         elif stype == "mode":
             # Cast back to original dtype. Original null value will work
-            rs_out._rs = rs_out._rs.astype(orig_dtype)
+            rs_out._rs = rs_out.xrs.astype(orig_dtype)
         # asm/entropy both result in F64 which should hold any value
         rs_out._null_value = nv
         # Replace null cells with null value acording to mask
-        rs_out._rs.data = da.where(rs_out._mask, nv, rs_out._rs.data)
+        rs_out._data = da.where(rs_out._mask, nv, rs_out._data)
     else:
-        rs_out._mask = da.zeros_like(rs_out._rs.data, dtype=bool)
+        rs_out._mask = da.zeros_like(rs_out._data, dtype=bool)
     return rs_out
 
 
@@ -599,7 +599,7 @@ def band_concat(rasters, null_value=None):
     if len(shapes) != 1:
         raise ValueError("X and Y dimensions must match for input rasters")
 
-    xrs = [r._rs for r in rasters]
+    xrs = [r.xrs for r in rasters]
     masks = [r._mask for r in rasters]
 
     # Choose a null value from the supplied rasters
@@ -743,9 +743,9 @@ def remap_range(raster, mapping):
     outrs = raster.copy()
     if out_dtype != outrs.dtype:
         outrs = outrs.astype(out_dtype)
-    data = outrs._rs.data
+    data = outrs._data
     func = partial(_remap_values, mappings=mappings)
-    outrs._rs.data = data.map_blocks(
+    outrs._data = data.map_blocks(
         func, dtype=data.dtype, meta=np.array((), dtype=data.dtype)
     )
     return outrs

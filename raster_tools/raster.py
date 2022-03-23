@@ -58,16 +58,16 @@ def get_raster(src, strict=True, null_to_nan=False):
 
     if null_to_nan and rs._masked:
         rs = rs.copy()
-        data = rs._rs.data
+        data = rs._data
         new_dtype = promote_dtype_to_float(data.dtype)
         if new_dtype != data.dtype:
             data = data.astype(new_dtype)
-        rs._rs.data = da.where(rs._mask, np.nan, data)
+        rs._data = da.where(rs._mask, np.nan, data)
     return rs
 
 
 def _is_using_dask(raster):
-    rs = raster._rs if isinstance(raster, Raster) else raster
+    rs = raster.xrs if isinstance(raster, Raster) else raster
     return dask.is_dask_collection(rs)
 
 
@@ -108,9 +108,9 @@ _BINARY_BITWISE_OPS = {
 def _map_chunk_function(raster, func, args, **kwargs):
     """Map a function to the dask chunks of a raster."""
     if _is_using_dask(raster):
-        raster._rs.data = raster._rs.data.map_blocks(func, args, **kwargs)
+        raster._data = raster._data.map_blocks(func, args, **kwargs)
     else:
-        raster._rs.data = func(raster._rs.data, args)
+        raster._data = func(raster._data, args)
     return raster
 
 
@@ -304,6 +304,19 @@ class Raster:
         return self._rs.values
 
     @property
+    def xrs(self):
+        """The underlying xarray DataArray"""
+        return self._rs
+
+    @property
+    def _data(self):
+        return self.xrs.data
+
+    @_data.setter
+    def _data(self, data):
+        self.xrs.data = data
+
+    @property
     def _null_value(self):
         return self._rs.attrs.get("_FillValue", None)
 
@@ -354,21 +367,12 @@ class Raster:
         """The x and y cell sizes as a tuple. Values are always positive."""
         return self._rs.rio.resolution(True)
 
-    def to_xarray(self):
-        """Returns the underlying data as an xarray.DataArray.
-
-        This may be a reference to the underlying datastructure so changes made
-        to the resulting DataArray may also affect this Raster.
-
-        """
-        return self._rs
-
     def to_dask(self):
         """Returns the underlying data as a dask array."""
         rs = self
         if not _is_using_dask(self):
             rs = self._replace(chunk(self._rs))
-        return rs._rs.data
+        return rs._data
 
     def close(self):
         """Close the underlying source"""
@@ -419,7 +423,7 @@ class Raster:
         Raster will be unaltered.
 
         """
-        rs = chunk(self._rs.compute())
+        rs = chunk(self.xrs.compute())
         mask = da.from_array(self._mask.compute())
         # A new raster is returned to mirror the xarray and dask APIs
         return self._replace(rs, mask=mask)
@@ -452,7 +456,7 @@ class Raster:
         if dtype == self.dtype:
             return self.copy()
 
-        xrs = self._rs
+        xrs = self.xrs
         nv = self.null_value
         mask = self._mask
         if self._masked:
@@ -485,7 +489,7 @@ class Raster:
             The resulting rounded raster.
 
         """
-        xrs = self._rs
+        xrs = self.xrs
         if self._masked:
             xrs = xr.where(~self._mask, xrs.round(), self.null_value)
         else:
@@ -527,7 +531,7 @@ class Raster:
         bands = [b - 1 for b in bands]
         if len(bands) == 1 and n_bands == 1:
             return self.copy()
-        rs = self._rs[bands]
+        rs = self.xrs[bands]
         rs["band"] = list(range(1, len(rs) + 1))
         mask = self._mask[bands]
         # TODO: look into making attrs consistant with bands
@@ -549,7 +553,7 @@ class Raster:
             A new raster with the specified CRS.
 
         """
-        xrs = self._rs.rio.write_crs(crs)
+        xrs = self.xrs.rio.write_crs(crs)
         return self._replace(xrs, attrs=xrs.attrs)
 
     def set_null_value(self, value):
@@ -576,7 +580,7 @@ class Raster:
         if value is not None and not is_scalar(value):
             raise TypeError(f"Value must be a scalar or None: {value}")
 
-        xrs = self._rs.copy()
+        xrs = self.xrs.copy()
         # Cast up to float if needed
         if should_promote_to_fit(self.dtype, value):
             xrs = xrs.astype(promote_dtype_to_float(self.dtype))
@@ -607,7 +611,7 @@ class Raster:
             null values and False everywhere else.
 
         """
-        xrs = self._rs.copy()
+        xrs = self.xrs.copy()
         xrs.data = self._mask.copy()
         return self._replace(xrs, null_value=True)
 
@@ -629,7 +633,7 @@ class Raster:
         if not is_scalar(value):
             raise TypeError("value must be a scalar")
 
-        xrs = self._rs
+        xrs = self.xrs
         if should_promote_to_fit(xrs.dtype, value):
             xrs = xrs.astype(promote_dtype_to_float(xrs.dtype))
         if self._masked:
@@ -673,9 +677,9 @@ class Raster:
                 "Condition argument must be a boolean or integer raster"
             )
 
-        xrs = self._rs
-        other_arg = other._rs if isinstance(other, Raster) else other
-        xcondition = condition._rs.copy()
+        xrs = self.xrs
+        other_arg = other.xrs if isinstance(other, Raster) else other
+        xcondition = condition.xrs.copy()
         mask = condition._mask
         if is_int(condition.dtype):
             # if condition.dtype is not bool then must be an int raster so
@@ -729,9 +733,9 @@ class Raster:
             raster = raster_input
         else:
             raster = Raster(raster_input)
-        if raster._rs.size == 0:
+        if raster.xrs.size == 0:
             raise ValueError(
-                f"Input raster is empty with shape {raster._rs.shape}"
+                f"Input raster is empty with shape {raster.xrs.shape}"
             )
         return raster
 
@@ -741,7 +745,7 @@ class Raster:
         else:
             operand = self._input_to_raster(raster_or_scalar)
             if xarray:
-                operand = operand._rs
+                operand = operand.xrs
         return operand
 
     def _binary_arithmetic(self, raster_or_scalar, op, swap=False):
@@ -753,8 +757,8 @@ class Raster:
         parsed_operand = raster_or_scalar
         if isinstance(operand, Raster):
             parsed_operand = operand
-            operand = operand._rs
-        left, right = self._rs, operand
+            operand = operand.xrs
+        left, right = self.xrs, operand
         if swap:
             left, right = right, left
         xrs = _BINARY_ARITHMETIC_OPS[op](left, right)
@@ -772,8 +776,8 @@ class Raster:
         parsed_operand = raster_or_scalar
         if isinstance(operand, Raster):
             parsed_operand = operand
-            operand = operand._rs
-        xrs = _BINARY_LOGICAL_OPS[op](self._rs, operand)
+            operand = operand.xrs
+        xrs = _BINARY_LOGICAL_OPS[op](self.xrs, operand)
 
         mask = self._mask
         if isinstance(parsed_operand, Raster):
@@ -920,7 +924,7 @@ class Raster:
         Returns a new Raster.
 
         """
-        xrs = np.sqrt(self._rs)
+        xrs = np.sqrt(self.xrs)
         return self._replace(xrs)
 
     def __pos__(self):
@@ -932,7 +936,7 @@ class Raster:
         Returns a new Raster.
 
         """
-        return self._replace(-self._rs)
+        return self._replace(-self.xrs)
 
     def __neg__(self):
         return self.negate()
@@ -943,7 +947,7 @@ class Raster:
         Returns a new Raster.
 
         """
-        xrs = np.log(self._rs)
+        xrs = np.log(self.xrs)
         return self._replace(xrs)
 
     def log10(self):
@@ -952,7 +956,7 @@ class Raster:
         Returns a new Raster.
 
         """
-        xrs = np.log10(self._rs)
+        xrs = np.log10(self.xrs)
         return self._replace(xrs)
 
     def eq(self, other):
@@ -1077,9 +1081,9 @@ class Raster:
             operand = self._handle_binary_op_input(other, False)
         parsed_operand = operand
         if isinstance(operand, Raster):
-            operand = operand._rs
+            operand = operand.xrs
         left, right = _coerce_to_bool_for_and_or(
-            [self._rs, operand], to_bool_op
+            [self.xrs, operand], to_bool_op
         )
         xrs = _BINARY_BITWISE_OPS[and_or](left, right).astype(F16)
 
@@ -1156,7 +1160,7 @@ class Raster:
 
     def __invert__(self):
         if is_bool(self.dtype) or is_int(self.dtype):
-            xrs = self._rs.copy()
+            xrs = self.xrs.copy()
             if self._masked:
                 xrs.data = da.where(self._mask, self.null_value, ~xrs.data)
             else:

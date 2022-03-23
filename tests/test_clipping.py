@@ -68,10 +68,10 @@ class TestClipping(TestCase):
         self.dem = Raster("tests/data/elevation.tif")
         rs_clipped = Raster("tests/data/elevation_small.tif")
         bounds = [
-            rs_clipped._rs.x.min().item(),
-            rs_clipped._rs.y.min().item(),
-            rs_clipped._rs.x.max().item(),
-            rs_clipped._rs.y.max().item(),
+            rs_clipped.xrs.x.min().item(),
+            rs_clipped.xrs.y.min().item(),
+            rs_clipped.xrs.x.max().item(),
+            rs_clipped.xrs.y.max().item(),
         ]
         test = clipping.clip_box(self.dem, bounds)
         self.assertTrue(test.shape == rs_clipped.shape)

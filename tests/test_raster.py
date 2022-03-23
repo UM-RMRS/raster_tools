@@ -24,7 +24,7 @@ TEST_ARRAY = np.array(
 
 
 def rs_eq_array(rs, ar):
-    return (rs._rs.values == ar).all()
+    return (rs.xrs.values == ar).all()
 
 
 class TestRasterCreation(unittest.TestCase):
@@ -37,12 +37,12 @@ class TestRasterCreation(unittest.TestCase):
     def test_increasing_coords(self):
         # This raster has an inverted y axis
         rs = Raster("tests/data/elevation_small.tif")
-        x, y = rs._rs.x.values, rs._rs.y.values
+        x, y = rs.xrs.x.values, rs.xrs.y.values
         self.assertTrue((np.diff(x) > 0).all())
         self.assertTrue((np.diff(y) > 0).all())
 
         rs = Raster(TEST_ARRAY)
-        x, y = rs._rs.x.values, rs._rs.y.values
+        x, y = rs.xrs.x.values, rs.xrs.y.values
         self.assertTrue((np.diff(x) > 0).all())
         self.assertTrue((np.diff(y) > 0).all())
 
@@ -57,10 +57,10 @@ class TestRasterCreation(unittest.TestCase):
         # Band dim has been added
         self.assertTrue(rs.shape == (1, 6, 6))
         # Band dim starts at 1
-        self.assertTrue((rs._rs.band == [1]).all())
+        self.assertTrue((rs.xrs.band == [1]).all())
         # x/y dims start at 0 and increase
-        self.assertTrue((rs._rs.x == np.arange(0, 6)).all())
-        self.assertTrue((rs._rs.y == np.arange(0, 6)).all())
+        self.assertTrue((rs.xrs.x == np.arange(0, 6)).all())
+        self.assertTrue((rs.xrs.y == np.arange(0, 6)).all())
         # No null value determined for int type
         self.assertIsNone(rs.null_value)
 
@@ -71,7 +71,7 @@ class TestRasterCreation(unittest.TestCase):
 class TestProperties(unittest.TestCase):
     def test__attrs(self):
         rs = Raster("tests/data/elevation_small.tif")
-        self.assertDictEqual(rs._attrs, rs._rs.attrs)
+        self.assertDictEqual(rs._attrs, rs.xrs.attrs)
         rs._attrs = {}
         self.assertDictEqual(rs._attrs, {})
 
@@ -88,32 +88,32 @@ class TestProperties(unittest.TestCase):
 
     def test__values(self):
         rs = Raster("tests/data/elevation_small.tif")
-        self.assertTrue((rs._values == rs._rs.values).all())
+        self.assertTrue((rs._values == rs.xrs.values).all())
 
     def test__null_value(self):
         rs = Raster("tests/data/elevation_small.tif")
-        self.assertEqual(rs._null_value, rs._rs.attrs["_FillValue"])
+        self.assertEqual(rs._null_value, rs.xrs.attrs["_FillValue"])
         rs._null_value = 1
         self.assertEqual(rs._null_value, 1)
-        self.assertEqual(rs._rs.attrs["_FillValue"], 1)
+        self.assertEqual(rs.xrs.attrs["_FillValue"], 1)
 
     def test_null_value(self):
         rs = Raster("tests/data/elevation_small.tif")
-        self.assertEqual(rs.null_value, rs._rs.attrs["_FillValue"])
+        self.assertEqual(rs.null_value, rs.xrs.attrs["_FillValue"])
 
     def test_dtype(self):
         rs = Raster("tests/data/elevation_small.tif")
-        self.assertTrue(rs.dtype == rs._rs.dtype)
+        self.assertTrue(rs.dtype == rs.xrs.dtype)
 
     def test_shape(self):
         rs = Raster("tests/data/elevation_small.tif")
-        self.assertTrue(rs.shape == rs._rs.shape)
+        self.assertTrue(rs.shape == rs.xrs.shape)
         self.assertIsInstance(rs.shape, tuple)
 
     def test_crs(self):
         rs = Raster("tests/data/elevation_small.tif")
         self.assertIsInstance(rs.crs, rio.crs.CRS)
-        self.assertTrue(rs.crs == rs._rs.rio.crs)
+        self.assertTrue(rs.crs == rs.xrs.rio.crs)
 
         x = np.arange(25).reshape((5, 5))
         rs = Raster(x)
@@ -122,23 +122,37 @@ class TestProperties(unittest.TestCase):
     def test_affine(self):
         rs = Raster("tests/data/elevation_small.tif")
         self.assertIsInstance(rs.affine, affine.Affine)
-        self.assertTrue(rs.affine == rs._rs.rio.transform())
+        self.assertTrue(rs.affine == rs.xrs.rio.transform())
 
     def test_resolution(self):
         rs = Raster("tests/data/elevation_small.tif")
-        self.assertTupleEqual(rs.resolution, rs._rs.rio.resolution(True))
+        self.assertTupleEqual(rs.resolution, rs.xrs.rio.resolution(True))
 
         r = np.arange(25).reshape((5, 5))
         rs = Raster(r)
-        self.assertTupleEqual(rs.resolution, rs._rs.rio.resolution(True))
+        self.assertTupleEqual(rs.resolution, rs.xrs.rio.resolution(True))
+
+
+def test_property_xrs():
+    rs = Raster("tests/data/elevation_small.tif")
+    assert hasattr(rs, "xrs")
+    assert isinstance(rs.xrs, xr.DataArray)
+    assert rs.xrs is rs._rs
+
+
+def test_property__data():
+    rs = Raster("tests/data/elevation_small.tif")
+    assert hasattr(rs, "_data")
+    assert isinstance(rs._data, dask.array.Array)
+    assert rs._data is rs._rs.data
 
 
 class TestRasterMath(unittest.TestCase):
     def setUp(self):
         self.rs1 = Raster("tests/data/elevation_small.tif")
-        self.rs1_np = self.rs1._rs.values
+        self.rs1_np = self.rs1.xrs.values
         self.rs2 = Raster("tests/data/elevation2_small.tif")
-        self.rs2_np = self.rs2._rs.values
+        self.rs2_np = self.rs2.xrs.values
 
     def tearDown(self):
         self.rs1.close()
@@ -250,7 +264,7 @@ class TestRasterMath(unittest.TestCase):
             rst = self.rs1 / v
             self.assertTrue(rs_eq_array(rst, truth))
             rst = v / self.rs1
-            np.testing.assert_array_almost_equal(rst._rs.values, 1 / truth)
+            np.testing.assert_array_almost_equal(rst.xrs.values, 1 / truth)
         for v in [-123.8, -1.0, 1.0, 2.0, 345.6]:
             truth = self.rs1_np / v
             rst = self.rs1.divide(v)
@@ -258,7 +272,7 @@ class TestRasterMath(unittest.TestCase):
             rst = self.rs1 / v
             self.assertTrue(rs_eq_array(rst, truth))
             rst = v / self.rs1
-            np.testing.assert_array_almost_equal(rst._rs.values, 1 / truth)
+            np.testing.assert_array_almost_equal(rst.xrs.values, 1 / truth)
 
     def test_mod(self):
         # Raster % raster
@@ -294,8 +308,8 @@ class TestRasterMath(unittest.TestCase):
 
     def test_power(self):
         # Raster ** raster
-        rs1 = self.rs1 / self.rs1._rs.max().values.item() * 2
-        rs2 = self.rs2 / self.rs2._rs.max().values.item() * 2
+        rs1 = self.rs1 / self.rs1.xrs.max().values.item() * 2
+        rs2 = self.rs2 / self.rs2.xrs.max().values.item() * 2
         rs1_np = self.rs1_np / self.rs1_np.max() * 2
         rs2_np = self.rs2_np / self.rs2_np.max() * 2
         truth = rs1_np ** rs2_np
@@ -334,7 +348,7 @@ class TestRasterMath(unittest.TestCase):
 
     def test_sqrt(self):
         rs = self.rs1 + np.abs(self.rs1_np.min())
-        rsnp = rs._rs.values
+        rsnp = rs.xrs.values
         truth = np.sqrt(rsnp)
         self.assertTrue(rs_eq_array(rs.sqrt(), truth))
 
@@ -342,9 +356,9 @@ class TestRasterMath(unittest.TestCase):
 class TestLogicalOps(unittest.TestCase):
     def setUp(self):
         self.rs1 = Raster("tests/data/elevation_small.tif")
-        self.rs1_np = self.rs1._rs.values
+        self.rs1_np = self.rs1.xrs.values
         self.rs2 = Raster("tests/data/elevation2_small.tif")
-        self.rs2_np = self.rs2._rs.values
+        self.rs2_np = self.rs2.xrs.values
 
     def tearDown(self):
         self.rs1.close()
@@ -441,7 +455,7 @@ class TestAstype(unittest.TestCase):
 
     def test_dtype_property(self):
         rs = Raster("tests/data/elevation_small.tif")
-        self.assertEqual(rs.dtype, rs._rs.dtype)
+        self.assertEqual(rs.dtype, rs.xrs.dtype)
 
     def test_astype_str_uppercase(self):
         rs = Raster("tests/data/elevation_small.tif")
@@ -458,10 +472,10 @@ class TestRasterAttrsPropagation(unittest.TestCase):
         v = 2.1
         for op in _BINARY_ARITHMETIC_OPS.keys():
             r2 = r1._binary_arithmetic(v, op).eval()
-            self.assertEqual(r2._rs.attrs, true_attrs)
+            self.assertEqual(r2.xrs.attrs, true_attrs)
             self.assertEqual(r2._attrs, true_attrs)
         for r in [+r1, -r1]:
-            self.assertEqual(r._rs.attrs, true_attrs)
+            self.assertEqual(r.xrs.attrs, true_attrs)
             self.assertEqual(r._attrs, true_attrs)
 
     def test_logical_attrs(self):
@@ -470,7 +484,7 @@ class TestRasterAttrsPropagation(unittest.TestCase):
         v = 1.0
         for op in _BINARY_LOGICAL_OPS.keys():
             r2 = r1._binary_logical(v, op).eval()
-            self.assertEqual(r2._rs.attrs, true_attrs)
+            self.assertEqual(r2.xrs.attrs, true_attrs)
             self.assertEqual(r2._attrs, true_attrs)
 
     def test_ctor_attrs(self):
@@ -490,7 +504,7 @@ class TestRasterAttrsPropagation(unittest.TestCase):
 
     def test_sqrt_attrs(self):
         rs = Raster("tests/data/elevation_small.tif")
-        rs += np.abs(rs._rs.values.min())
+        rs += np.abs(rs.xrs.values.min())
         attrs = rs._attrs
         self.assertEqual(rs.sqrt()._attrs, attrs)
 
@@ -522,9 +536,9 @@ class TestCopy(unittest.TestCase):
         rs = Raster("tests/data/elevation_small.tif")
         copy = rs.copy()
         self.assertIsNot(rs, copy)
-        self.assertIsNot(rs._rs, copy._rs)
+        self.assertIsNot(rs.xrs, copy.xrs)
         self.assertIsNot(rs._attrs, copy._attrs)
-        self.assertTrue((rs._rs == copy._rs).all())
+        self.assertTrue((rs.xrs == copy.xrs).all())
         self.assertEqual(rs._attrs, copy._attrs)
 
 
@@ -621,7 +635,7 @@ class TestToNullMask(unittest.TestCase):
 class TestEval(unittest.TestCase):
     def test_eval(self):
         rs = Raster("tests/data/elevation_small.tif")
-        rsnp = rs._rs.values
+        rsnp = rs.xrs.values
         rs += 2
         rsnp += 2
         rs -= rs
@@ -631,39 +645,32 @@ class TestEval(unittest.TestCase):
         result = rs.eval()
         # Make sure new raster returned
         self.assertIsNot(rs, result)
-        self.assertIsNot(rs._rs, result._rs)
+        self.assertIsNot(rs.xrs, result.xrs)
         # Make sure that original raster is still lazy
-        self.assertTrue(dask.is_dask_collection(rs._rs))
+        self.assertTrue(dask.is_dask_collection(rs.xrs))
         self.assertTrue(rs_eq_array(result, rsnp))
-        self.assertTrue(dask.is_dask_collection(result._rs))
+        self.assertTrue(dask.is_dask_collection(result.xrs))
         # 2 operations: 1 copy and 1 chunk operation
-        self.assertEqual(len(result._rs.data.dask), 2)
+        self.assertEqual(len(result._data.dask), 2)
         self.assertTrue(dask.is_dask_collection(result._mask))
         # 1 operation: dask.array.from_array()
         self.assertTrue(len(result._mask.dask), 1)
-
-
-class TestToXarray(unittest.TestCase):
-    def test_to_xarray(self):
-        rs = Raster("tests/data/elevation2_small.tif")
-        self.assertTrue(isinstance(rs.to_xarray(), xr.DataArray))
-        self.assertIs(rs.to_xarray(), rs._rs)
 
 
 class TestToDask(unittest.TestCase):
     def test_to_dask(self):
         rs = Raster("tests/data/elevation2_small.tif")
         self.assertTrue(isinstance(rs.to_dask(), dask.array.Array))
-        self.assertIs(rs.to_dask(), rs._rs.data)
+        self.assertIs(rs.to_dask(), rs._data)
         self.assertTrue(isinstance(rs.eval().to_dask(), dask.array.Array))
 
 
 class TestAndOr(unittest.TestCase):
     def test_and(self):
         rs1 = Raster("tests/data/elevation_small.tif")
-        rsnp1 = rs1._rs.values
+        rsnp1 = rs1.xrs.values
         rs2 = Raster("tests/data/elevation2_small.tif")
-        rsnp2 = rs2._rs.values
+        rsnp2 = rs2.xrs.values
         rsnp2 -= rsnp2.max() / 2
         truth = (rsnp1 > 0) & (rsnp2 > 0)
         self.assertTrue(rs_eq_array(rs1 & rs2, truth))
@@ -685,9 +692,9 @@ class TestAndOr(unittest.TestCase):
 
     def test_or(self):
         rs1 = Raster("tests/data/elevation_small.tif")
-        rsnp1 = rs1._rs.values
+        rsnp1 = rs1.xrs.values
         rs2 = Raster("tests/data/elevation2_small.tif")
-        rsnp2 = rs2._rs.values
+        rsnp2 = rs2.xrs.values
         rsnp2 -= rsnp2.max() / 2
         truth = (rsnp1 > 0) | (rsnp2 > 0)
         self.assertTrue(rs_eq_array(rs1 | rs2, truth))
@@ -730,7 +737,7 @@ class TestBitwiseComplement(unittest.TestCase):
 class TestGetBands(unittest.TestCase):
     def test_get_bands(self):
         rs = Raster("tests/data/multiband_small.tif")
-        rsnp = rs._rs.values
+        rsnp = rs.xrs.values
         self.assertTrue(rs_eq_array(rs.get_bands(1), rsnp[:1]))
         self.assertTrue(rs_eq_array(rs.get_bands(2), rsnp[1:2]))
         self.assertTrue(rs_eq_array(rs.get_bands(3), rsnp[2:3]))
@@ -740,7 +747,7 @@ class TestGetBands(unittest.TestCase):
             result = rs.get_bands(bands)
             self.assertTrue(np.allclose(result, rsnp[np_bands]))
             bnd_dim = list(range(1, len(bands) + 1))
-            self.assertTrue(np.allclose(result._rs.band, bnd_dim))
+            self.assertTrue(np.allclose(result.xrs.band, bnd_dim))
 
         self.assertTrue(len(rs.get_bands(1).shape) == 3)
 

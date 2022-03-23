@@ -16,7 +16,7 @@ __all__ = [
 
 
 def _normalize_raster_data(rs, missing=-1):
-    data = rs._rs.data
+    data = rs._data
     # Make sure that null values are skipped
     nv = rs._null_value
     if rs._masked:
@@ -171,7 +171,7 @@ def cost_distance_analysis(costs, sources, elevation=None):
     # Make lazy and add band dim
     cd, tr, al = [da.from_array(r[None]) for r in results]
     # Convert to DataArrays using same coordinate system as costs
-    xcosts = costs.to_xarray()
+    xcosts = costs.xrs
     xcd, xtr, xal = [
         xr.DataArray(
             r, coords=xcosts.coords, dims=xcosts.dims, attrs=xcosts.attrs

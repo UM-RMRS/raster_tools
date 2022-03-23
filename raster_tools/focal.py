@@ -383,7 +383,7 @@ def focal(raster, focal_type, width_or_radius, height=None):
 
     window = get_focal_window(width_or_radius, height)
     rs = raster.copy()
-    data = rs._rs.data
+    data = rs._data
 
     # Convert to float and fill nulls with nan, if needed
     if raster._masked:
@@ -421,7 +421,7 @@ def focal(raster, focal_type, width_or_radius, height=None):
     if raster._masked:
         rs._mask = raster._mask | np.isnan(data)
         data = da.where(rs._mask, rs.null_value, data)
-    rs._rs.data = data
+    rs._data = data
     return rs
 
 
@@ -558,8 +558,8 @@ def correlate(raster, kernel, mode="constant", cval=0.0):
     check_kernel(kernel)
     rs = raster.copy()
     if is_float(kernel.dtype) and is_int(rs.dtype):
-        rs._rs.data = rs._rs.data.astype(F64)
-    data = rs._rs.data
+        rs._data = rs._data.astype(F64)
+    data = rs._data
     final_dtype = data.dtype
 
     # Convert to float and fill nulls with nan, if needed
@@ -580,7 +580,7 @@ def correlate(raster, kernel, mode="constant", cval=0.0):
     if upcast:
         data = data.astype(final_dtype)
 
-    rs._rs.data = data
+    rs._data = data
     return rs
 
 

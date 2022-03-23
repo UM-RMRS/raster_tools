@@ -54,7 +54,7 @@ class TestSurface(unittest.TestCase):
         # surface.curvature does not so we ignore the edges in the comparison.
         self.assertTrue(
             np.allclose(
-                curv._rs.data[..., 1:-1, 1:-1], truth._rs.data[..., 1:-1, 1:-1]
+                curv._data[..., 1:-1, 1:-1], truth._data[..., 1:-1, 1:-1]
             )
         )
         self.assertTrue(curv.dtype == np.dtype("float64"))

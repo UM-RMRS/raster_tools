@@ -24,6 +24,7 @@ Attributes
    Raster.null_value
    Raster.resolution
    Raster.shape
+   Raster.xrs
 
 Operations
 ==========
@@ -96,7 +97,6 @@ Contents / Conversion
 
    Raster.astype
    Raster.copy
-   Raster.to_xarray
    Raster.to_dask
 
 Georeferencing

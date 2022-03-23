@@ -576,7 +576,7 @@ class Vector:
         xrs = _vector_to_raster_dask(
             self.to_crs(like.crs)._geo,
             self.size,
-            xlike=like.to_xarray(),
+            xlike=like.xrs,
             field=field,
             all_touched=all_touched,
         )
