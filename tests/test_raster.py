@@ -312,38 +312,38 @@ class TestRasterMath(unittest.TestCase):
         rs2 = self.rs2 / self.rs2.xrs.max().values.item() * 2
         rs1_np = self.rs1_np / self.rs1_np.max() * 2
         rs2_np = self.rs2_np / self.rs2_np.max() * 2
-        truth = rs1_np ** rs2_np
+        truth = rs1_np**rs2_np
         rst = rs1.pow(rs2)
         self.assertTrue(rs_eq_array(rst, truth))
         rst = rs2.pow(rs1)
         self.assertTrue(rs_eq_array(rst, truth))
-        rst = rs1 ** rs2
+        rst = rs1**rs2
         self.assertTrue(rs_eq_array(rst, truth))
-        truth = rs2_np ** rs1_np
-        rst = rs2 ** rs1
+        truth = rs2_np**rs1_np
+        rst = rs2**rs1
         self.assertTrue(rs_eq_array(rst, truth))
         # Raster ** scalar, scalar ** raster
         for v in [-10, -1, 1, 2, 11]:
-            truth = rs1_np ** v
+            truth = rs1_np**v
             rst = rs1.pow(v)
             self.assertTrue(rs_eq_array(rst, truth))
-            rst = rs1 ** v
+            rst = rs1**v
             self.assertTrue(rs_eq_array(rst, truth))
             # Avoid complex numbers issues
             if v >= 0:
-                truth = v ** rs1_np
-                rst = v ** rs1
+                truth = v**rs1_np
+                rst = v**rs1
                 self.assertTrue(rs_eq_array(rst, truth))
         for v in [-10.5, -1.0, 1.0, 2.0, 11.3]:
-            truth = rs1_np ** v
+            truth = rs1_np**v
             rst = rs1.pow(v)
             self.assertTrue(rs_eq_array(rst, truth))
-            rst = rs1 ** v
+            rst = rs1**v
             self.assertTrue(rs_eq_array(rst, truth))
             # Avoid complex numbers issues
             if v >= 0:
-                truth = v ** rs1_np
-                rst = v ** rs1
+                truth = v**rs1_np
+                rst = v**rs1
                 self.assertTrue(rs_eq_array(rst, truth))
 
     def test_sqrt(self):

@@ -61,8 +61,8 @@ def _map_surface_func(
 @nb.jit(nopython=True, nogil=True)
 def _surface_area_3d(xarr, res):
     # TODO: handle non-symmetrical resolutions
-    dd = (res ** 2) * 2
-    sd = res ** 2
+    dd = (res**2) * 2
+    sd = res**2
     outx = np.empty_like(xarr, dtype=F64)
     rows, cols = xarr.shape
     for rw in range(1, rows - 1):
