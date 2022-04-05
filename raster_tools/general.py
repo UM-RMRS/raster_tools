@@ -17,6 +17,8 @@ from dask_image import ndmeasure as ndm
 
 from raster_tools.creation import zeros_like
 from raster_tools.dtypes import (
+    F16,
+    F32,
     F64,
     U64,
     get_common_dtype,
@@ -738,14 +740,23 @@ def remap_range(raster, mapping):
     mappings = _normalize_mappings(mapping)
     mappings_common_dtype = get_common_dtype([m[-1] for m in mappings])
     out_dtype = np.promote_types(raster.dtype, mappings_common_dtype)
+    # numba doesn't understand f16 so use f32 and then downcast
+    f16_workaround = out_dtype == F16
     mappings = np.atleast_2d(mappings)
 
     outrs = raster.copy()
     if out_dtype != outrs.dtype:
-        outrs = outrs.astype(out_dtype)
+        if not f16_workaround:
+            outrs = outrs.astype(out_dtype)
+        else:
+            outrs = outrs.astype(F32)
+    elif f16_workaround:
+        outrs = outrs.astype(F32)
     data = outrs._data
     func = partial(_remap_values, mappings=mappings)
     outrs._data = data.map_blocks(
         func, dtype=data.dtype, meta=np.array((), dtype=data.dtype)
     )
+    if f16_workaround:
+        outrs = outrs.astype(F16)
     return outrs

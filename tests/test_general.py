@@ -149,6 +149,28 @@ def test_remap_range():
     assert np.allclose(result.xrs.values, truth)
 
 
+def test_remap_range_f16():
+    rs = Raster(np.arange(25).reshape((5, 5))).astype("float16")
+    rsnp = rs._values
+    mapping = (0, 5, 1)
+    result = general.remap_range(rs, mapping)
+    truth = rsnp.copy()
+    truth[(rsnp >= mapping[0]) & (rsnp < mapping[1])] = mapping[2]
+    assert rs.dtype == np.dtype("float16")
+    assert result.dtype == np.dtype("float16")
+    assert np.allclose(result, truth)
+
+    rs = Raster(np.arange(25).reshape((5, 5))).astype("int8")
+    rsnp = rs._values
+    mapping = (0, 5, 2.0)
+    result = general.remap_range(rs, mapping)
+    truth = rsnp.copy().astype("float16")
+    truth[(rsnp >= mapping[0]) & (rsnp < mapping[1])] = mapping[2]
+    assert rs.dtype == np.dtype("int8")
+    assert result.dtype == np.dtype("float16")
+    assert np.allclose(result, truth)
+
+
 def test_remap_range_errors():
     rs = Raster("tests/data/elevation_small.tif")
     # TypeError if not scalars
