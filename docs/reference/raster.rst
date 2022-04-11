@@ -29,45 +29,52 @@ Attributes
 Operations
 ==========
 
-Arithmetic
------------
+Arithmetic and Comparison Operations
+----------------------------------------------
 
-.. autosummary::
-   :toctree: generated/
+Raster objects support all arithmetic (``+``, ``-``, ``*``,
+``/``, ``//``, ``%``, ``divmod()``, ``**``, ``<<``, ``>>``, ``&``, ``^``,
+``|``, ``~``) and comparison operations (``==``, ``<``, ``>``, ``<=``,
+``>=``, ``!=``). Because of this, they can be used like regular scalar
+variables. Some examples:
 
-   Raster.add
-   Raster.subtract
-   Raster.divide
-   Raster.multiply
-   Raster.negate
-   Raster.mod
-   Raster.pow
-   Raster.log
-   Raster.log10
-   Raster.round
-   Raster.sqrt
+* Addition and subtraction: ``rs4 = rs1 + rs2 - rs3``
+* Floor division: ``rs3 = rs1 // rs2``
+* With scalars: ``rs3 = 1.5 * (rs1 ** (-rs2 - 2))``
+* divmod: ``rs_div, rs_mod = divmod(rs1)``
+* Bit shifting: ``rs2 = rs1 << 1``
+* Bitwise and: ``rs3 = rs1 & rs2``
+* Bitwise complement: ``rs2 = ~rs1``
+* Comparison: ``rs_bool = rs1 >= rs2``
 
-Comparisons
------------
+The bitwise/logical operators (``&``, ``|``, ``^``, ``~``) have been overloaded
+so that they behave differently from python's (or numpy's). Non-boolean
+operands are coerced to the boolean type such that values greater than zero
+become ``True`` and values less than or equal to zero become ``False``.
 
-.. autosummary::
-   :toctree: generated/
-
-   Raster.eq
-   Raster.ge
-   Raster.gt
-   Raster.le
-   Raster.lt
-   Raster.ne
-
-Logical
+General
 -------
 
 .. autosummary::
    :toctree: generated/
 
-   Raster.and_
-   Raster.or_
+   Raster.round
+
+Reductions
+----------
+
+.. autosummary::
+   :toctree: generated/
+
+   Raster.all
+   Raster.any
+   Raster.max
+   Raster.mean
+   Raster.min
+   Raster.prod
+   Raster.std
+   Raster.sum
+   Raster.var
 
 Reshaping and Reorganizing
 --------------------------

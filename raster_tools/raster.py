@@ -1,4 +1,4 @@
-import operator
+import numbers
 import warnings
 from collections import abc
 
@@ -7,10 +7,9 @@ import dask.array as da
 import numpy as np
 import xarray as xr
 
+from raster_tools.dask_utils import dask_nanmax, dask_nanmin
 from raster_tools.dtypes import (
-    BOOL,
     DTYPE_INPUT_TO_DTYPE,
-    F16,
     get_default_null_value,
     is_bool,
     is_float,
@@ -40,37 +39,6 @@ from .io import (
 )
 
 
-def get_raster(src, strict=True, null_to_nan=False):
-    rs = None
-    if isinstance(src, Raster):
-        rs = src
-    elif is_str(src):
-        rs = Raster(src)
-    elif strict:
-        raise TypeError(
-            f"Input must be a Raster or path string. Got {repr(type(src))}"
-        )
-    else:
-        try:
-            rs = Raster(src)
-        except (ValueError, TypeError, RasterDataError, RasterIOError):
-            raise ValueError(f"Could not convert input to Raster: {repr(src)}")
-
-    if null_to_nan and rs._masked:
-        rs = rs.copy()
-        data = rs._data
-        new_dtype = promote_dtype_to_float(data.dtype)
-        if new_dtype != data.dtype:
-            data = data.astype(new_dtype)
-        rs._data = da.where(rs._mask, np.nan, data)
-    return rs
-
-
-def _is_using_dask(raster):
-    rs = raster.xrs if isinstance(raster, Raster) else raster
-    return dask.is_dask_collection(rs)
-
-
 class RasterDeviceMismatchError(BaseException):
     pass
 
@@ -83,65 +51,235 @@ class RasterNoDataError(BaseException):
     pass
 
 
-_BINARY_ARITHMETIC_OPS = {
-    "+": operator.add,
-    "-": operator.sub,
-    "*": operator.mul,
-    "/": operator.truediv,
-    "**": operator.pow,
-    "%": operator.mod,
+_REDUCTION_FUNCS = (
+    "all",
+    "any",
+)
+_NAN_REDUCTION_FUNCS = (
+    "max",
+    "mean",
+    "min",
+    "prod",
+    "std",
+    "sum",
+    "var",
+)
+
+
+_REDUCTION_DOCSTRING = """\
+    Reduce the raster to a single dask value by applying `{}` across all bands.
+
+    All arguments are ignored.
+"""
+
+
+def _inject_reductions(cls):
+    pass
+    funcs = [(name, getattr(np, name)) for name in _REDUCTION_FUNCS]
+    funcs += [
+        (name, getattr(np, "nan" + name)) for name in _NAN_REDUCTION_FUNCS
+    ]
+    for name, f in funcs:
+        func = cls._build_reduce_method(f)
+        func.__name__ = name
+        func.__doc__ = _REDUCTION_DOCSTRING.format(name)
+        setattr(cls, name, func)
+
+
+_MIN_MAX_FUNC_MAP = {
+    np.max: dask_nanmax,
+    np.nanmax: dask_nanmax,
+    np.min: dask_nanmin,
+    np.nanmin: dask_nanmin,
 }
-_BINARY_LOGICAL_OPS = {
-    "==": operator.eq,
-    "!=": operator.ne,
-    "<=": operator.le,
-    ">=": operator.ge,
-    "<": operator.lt,
-    ">": operator.gt,
-}
-_BINARY_BITWISE_OPS = {
-    "&": operator.and_,
-    "|": operator.or_,
-}
 
 
-def _map_chunk_function(raster, func, args, **kwargs):
-    """Map a function to the dask chunks of a raster."""
-    if _is_using_dask(raster):
-        raster._data = raster._data.map_blocks(func, args, **kwargs)
-    else:
-        raster._data = func(raster._data, args)
-    return raster
+class _ReductionsMixin:
+    """
+    This mixin class adds reduction methods like `all`, `sum`, etc to the
+    Raster class. Having these methods also allows numpy reduction functions to
+    use them for dynamic dispatch. So `np.sum(raster)` will call the class'
+    `sum` method. All reductions return dask results.
+    """
+
+    __slots__ = ()
+
+    def __init_subclass__(cls, **kwargs):
+        _inject_reductions(cls)
+        super().__init_subclass__(**kwargs)
+
+    @classmethod
+    def _build_reduce_method(cls, func):
+        if func in _MIN_MAX_FUNC_MAP:
+            func = _MIN_MAX_FUNC_MAP[func]
+
+        def method(self, *args, **kwargs):
+            # Take args and kwargs to stay compatible with numpy
+            data = self._rs.data
+            values = data[~self._mask]
+            return func(values)
+
+        return method
 
 
-def _gt0(x):
-    return x > 0
+def _is_using_dask(raster):
+    rs = raster.xrs if isinstance(raster, Raster) else raster
+    return dask.is_dask_collection(rs)
 
 
-def _cast_to_bool(x):
-    if is_scalar(x):
-        return bool(x)
-    return x.astype(BOOL)
+def _normalize_ndarray_for_ufunc(other, target_shape):
+    if isinstance(other, da.Array) and np.isnan(other.size):
+        raise ValueError(
+            "Arithmetic with dask arrays only works for arrays with "
+            "known chunks."
+        )
+    if other.size == 1:
+        return other.ravel()
+    try:
+        if np.broadcast_shapes(target_shape, other.shape) == target_shape:
+            return other
+    except ValueError:
+        if len(other.shape) == 1 and other.size == target_shape[0]:
+            # Map a list/array of values that has same length as # of bands to
+            # each band
+            return other.reshape((other.size, 1, 1))
+    raise ValueError(
+        "Received array with incompatible shape in arithmetic: "
+        f"{other.shape}"
+    )
 
 
-def _coerce_to_bool_for_and_or(operands, to_bool_op):
-    if is_str(to_bool_op):
-        if to_bool_op == "gt0":
-            to_bool_op = _gt0
-        elif to_bool_op == "cast":
-            to_bool_op = _cast_to_bool
+def _normalize_input_for_ufunc(other, target_shape):
+    from raster_tools.raster import Raster
+
+    if isinstance(other, (np.ndarray, da.Array)):
+        other = _normalize_ndarray_for_ufunc(other, target_shape)
+    elif isinstance(other, (list, tuple, range)):
+        other = _normalize_ndarray_for_ufunc(
+            np.atleast_1d(other), target_shape
+        )
+    elif isinstance(other, xr.DataArray):
+        other = Raster(other)
+    return other
+
+
+def _merge_null_values(values):
+    if all(v is None for v in values):
+        return None
+    values = [v for v in values if v is not None]
+    # Take left most value
+    return values[0]
+
+
+def _apply_ufunc(ufunc, *args, kwargs=None, out=None):
+    raster_args = [a for a in args if isinstance(a, Raster)]
+    xr_args = [getattr(a, "_rs", a) for a in args]
+    kwargs = kwargs or {}
+
+    with xr.set_options(keep_attrs=True):
+        ufname = ufunc.__name__
+        if ufname.startswith("bitwise") or ufname.startswith("logical"):
+            # Extend bitwise operations to non-boolean dtypes by coercing the
+            # inputs to boolean.
+            tmp = []
+            for arg in xr_args:
+                if not is_bool(getattr(arg, "dtype", arg)):
+                    # TODO: Come to consensus on best coercion operation
+                    arg = arg > 0
+                tmp.append(arg)
+            xr_args = tmp
+        xr_out = ufunc(*xr_args, **kwargs)
+    xmask = None
+    for r in raster_args:
+        # Use xarray to align grids
+        if xmask is None:
+            xmask = xr.DataArray(r._mask, coords=r.xrs.coords, dims=r.xrs.dims)
+        elif r._masked:
+            xmask |= xr.DataArray(
+                r._mask, coords=r.xrs.coords, dims=r.xrs.dims
+            )
+    mask = xmask.data
+    nv = _merge_null_values([r.null_value for r in raster_args])
+
+    if out is not None:
+        # Inplace
+        return out._replace_inplace(
+            xr_out, mask=mask, null_value=nv, null_value_none=nv is None
+        )
+
+    if isinstance(xr_out, xr.DataArray):
+        return raster_args[0]._replace(
+            xr_out, mask=mask, null_value=nv, null_value_none=nv is None
+        )
+
+    rs_outs = tuple(
+        raster_args[0]._replace(
+            o, mask=mask, null_value=nv, null_value_none=nv is None
+        )
+        for o in xr_out
+    )
+    return rs_outs
+
+
+_UNARY_UFUNCS = frozenset((np.absolute, np.invert, np.negative, np.positive))
+
+
+class _RasterBase(np.lib.mixins.NDArrayOperatorsMixin, _ReductionsMixin):
+    """This class implements methods for handling numpy ufuncs."""
+
+    __slots__ = ()
+
+    _HANDLED_TYPES = (
+        numbers.Number,
+        xr.DataArray,
+        np.ndarray,
+        da.Array,
+        list,
+        tuple,
+        range,
+    )
+    # Higher than xarray objects
+    __array_priority__ = 70
+
+    def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
+        out = kwargs.get("out", ())
+        for x in inputs + out:
+            if not isinstance(x, self._HANDLED_TYPES + (_RasterBase,)):
+                return NotImplemented
+
+        if ufunc.signature is not None:
+            raise NotImplementedError("Raster does not support gufuncs")
+
+        if method != "__call__":
+            raise NotImplementedError(
+                f"{method} for ufunc {ufunc} is not implemented on Raster "
+                "objects."
+            )
+
+        if len(out):
+            if len(out) > 1:
+                raise NotImplementedError(
+                    "The 'out' keyword is only supported for inplace "
+                    "operations, not operations with multiple outputs."
+                )
+            (out,) = out
+            if out is not self:
+                raise NotImplementedError(
+                    "'out' must be the raster being operated on."
+                )
         else:
-            raise ValueError("Unknown conversion to bool")
-    elif not callable(to_bool_op):
-        raise TypeError("Invalid conversion to bool")
+            out = None
 
-    boperands = []
-    for opr in operands:
-        if not is_scalar(opr) and (is_bool(opr) or is_bool(opr.dtype)):
-            boperands.append(opr)
-        else:
-            boperands.append(to_bool_op(opr))
-    return boperands
+        if ufunc in _UNARY_UFUNCS:
+            if ufunc == np.invert and is_float(self.dtype):
+                raise TypeError("ufunc 'invert' not supported for float types")
+            return self._replace(ufunc(self._rs, **kwargs))
+
+        inputs = [_normalize_input_for_ufunc(i, self.shape) for i in inputs]
+        return _apply_ufunc(ufunc, *inputs, out=out)
+
+    def __array__(self, dtype=None):
+        return self._rs.__array__(dtype)
 
 
 def _array_to_xarray(ar):
@@ -186,7 +324,7 @@ def _try_to_get_null_value_xarray(xrs):
     return nv1 if nv1 is not None else nv2
 
 
-class Raster:
+class Raster(_RasterBase):
     """Abstraction of georeferenced raster data with lazy function evaluation.
 
     Raster is a wrapper around xarray Datasets and DataArrays. It takes
@@ -207,6 +345,8 @@ class Raster:
         numpy array, it is used as the source.
 
     """
+
+    __slots__ = ("_rs", "_mask")
 
     def __init__(self, raster):
         self._mask = None
@@ -253,9 +393,6 @@ class Raster:
         # TODO: implement
         return repr(self._rs)
 
-    def __array__(self, dtype=None):
-        return self._rs.__array__(dtype)
-
     def _replace(
         self,
         new_xrs,
@@ -274,6 +411,25 @@ class Raster:
         else:
             new_rs._null_value = None
         return new_rs
+
+    def _replace_inplace(
+        self,
+        new_xrs,
+        attrs=None,
+        mask=None,
+        null_value=None,
+        null_value_none=False,
+    ):
+        old_attrs = self._attrs
+        old_nv = self.null_value
+        self._rs = new_xrs
+        self._attrs = attrs or old_attrs
+        self._mask = mask if mask is not None else self._mask
+        if not null_value_none:
+            self._null_value = null_value if null_value is not None else old_nv
+        else:
+            self._null_value = None
+        return self
 
     def _to_presentable_xarray(self):
         """Returns a DataArray with null locations filled by the null value."""
@@ -305,7 +461,7 @@ class Raster:
 
     @property
     def xrs(self):
-        """The underlying xarray DataArray"""
+        """The underlying xarray DataArray (read only)"""
         return self._rs
 
     @property
@@ -468,31 +624,6 @@ class Raster:
                     xrs = xrs.fillna(nv)
         xrs = xrs.astype(dtype)
         return self._replace(xrs, mask=mask, null_value=nv)
-
-    def round(self, round_null_value=True):
-        """Round the data to the nearest integer value. Return a new Raster.
-
-        Parameters
-        ----------
-        round_null_value : bool, optional
-            If ``True``, the resulting raster will have its null value rounded
-            as well. Default is ``True``,
-
-        Returns
-        -------
-        Raster
-            The resulting rounded raster.
-
-        """
-        xrs = self.xrs
-        if self._masked:
-            xrs = xr.where(~self._mask, xrs.round(), self.null_value)
-        else:
-            xrs = xrs.round()
-        nv = self.null_value
-        if round_null_value and self._masked:
-            nv = np.round(nv)
-        return self._replace(xrs, null_value=nv)
 
     def get_bands(self, bands):
         """Retrieve the specified bands as a new Raster. Indexing starts at 1.
@@ -723,449 +854,46 @@ class Raster:
 
         return remap_range(self, mapping)
 
-    def _input_to_raster(self, raster_input):
-        if isinstance(raster_input, Raster):
-            raster = raster_input
-        else:
-            raster = Raster(raster_input)
-        if raster.xrs.size == 0:
-            raise ValueError(
-                f"Input raster is empty with shape {raster.xrs.shape}"
-            )
-        return raster
-
-    def _handle_binary_op_input(self, raster_or_scalar, xarray=True):
-        if is_scalar(raster_or_scalar):
-            operand = raster_or_scalar
-        else:
-            operand = self._input_to_raster(raster_or_scalar)
-            if xarray:
-                operand = operand.xrs
-        return operand
-
-    def _binary_arithmetic(self, raster_or_scalar, op, swap=False):
-        # TODO: handle mapping of list of values to bands
-        # TODO: handle case where shapes match but geo references don't
-        if op not in _BINARY_ARITHMETIC_OPS:
-            raise ValueError(f"Unknown arithmetic operation: '{op}'")
-        operand = self._handle_binary_op_input(raster_or_scalar, False)
-        parsed_operand = raster_or_scalar
-        if isinstance(operand, Raster):
-            parsed_operand = operand
-            operand = operand.xrs
-        left, right = self.xrs, operand
-        if swap:
-            left, right = right, left
-        xrs = _BINARY_ARITHMETIC_OPS[op](left, right)
-
-        mask = self._mask
-        if isinstance(parsed_operand, Raster):
-            mask = mask | parsed_operand._mask
-
-        return self._replace(xrs, mask=mask)
-
-    def _binary_logical(self, raster_or_scalar, op):
-        if op not in _BINARY_LOGICAL_OPS:
-            raise ValueError(f"Unknown arithmetic operation: '{op}'")
-        operand = self._handle_binary_op_input(raster_or_scalar, False)
-        parsed_operand = raster_or_scalar
-        if isinstance(operand, Raster):
-            parsed_operand = operand
-            operand = operand.xrs
-        xrs = _BINARY_LOGICAL_OPS[op](self.xrs, operand)
-
-        mask = self._mask
-        if isinstance(parsed_operand, Raster):
-            mask = mask | parsed_operand._mask
-        return self._replace(xrs, mask=mask)
-
-    def add(self, raster_or_scalar):
-        """Add this Raster with another Raster or scalar.
+    def round(self, decimals=0):
+        """Evenly round to the given number of decimals
 
         Parameters
         ----------
-        raster_or_scalar : scalar, str, or Raster
-            The scalar or Raster to add to this raster.
+        decimals : int, optional
+            The number of decimal places to round to. If negative, value
+            specifies the number of positions to the left of the decimal point.
+            Default is 0.
 
         Returns
         -------
         Raster
-            Returns the resulting Raster.
+            Rounded raster.
 
         """
-        return self._binary_arithmetic(raster_or_scalar, "+")
-
-    def __add__(self, other):
-        return self.add(other)
-
-    def __radd__(self, other):
-        return self.add(other)
-
-    def subtract(self, raster_or_scalar):
-        """Subtract another Raster or scalar from This Raster.
-
-        Parameters
-        ----------
-        raster_or_scalar : scalar, str, or Raster
-            The scalar or Raster to subtract from this raster.
-
-        Returns
-        -------
-        Raster
-            Returns the resulting Raster.
-
-        """
-        return self._binary_arithmetic(raster_or_scalar, "-")
-
-    def __sub__(self, other):
-        return self.subtract(other)
-
-    def __rsub__(self, other):
-        return self.negate().add(other)
-
-    def multiply(self, raster_or_scalar):
-        """Multiply this Raster with another Raster or scalar.
-
-        Parameters
-        ----------
-        raster_or_scalar : scalar, str, or Raster
-            The scalar or Raster to multiply with this raster.
-
-        Returns
-        -------
-        Raster
-            Returns the resulting Raster.
-
-        """
-        return self._binary_arithmetic(raster_or_scalar, "*")
-
-    def __mul__(self, other):
-        return self.multiply(other)
-
-    def __rmul__(self, other):
-        return self.multiply(other)
-
-    def divide(self, raster_or_scalar):
-        """Divide this Raster by another Raster or scalar.
-
-        Parameters
-        ----------
-        raster_or_scalar : scalar, str, or Raster
-            The scalar or Raster to divide this raster by.
-
-        Returns
-        -------
-        Raster
-            Returns the resulting Raster.
-
-        """
-        return self._binary_arithmetic(raster_or_scalar, "/")
-
-    def __truediv__(self, other):
-        return self.divide(other)
-
-    def __rtruediv__(self, other):
-        return self._binary_arithmetic(other, "/", swap=True)
-
-    def mod(self, raster_or_scalar):
-        """Perform the modulo operation on this Raster with another Raster or
-        scalar.
-
-        Parameters
-        ----------
-        raster_or_scalar : scalar, str, or Raster
-            The scalar or Raster to mod this raster with.
-
-        Returns
-        -------
-        Raster
-            Returns the resulting Raster.
-
-        """
-        return self._binary_arithmetic(raster_or_scalar, "%")
-
-    def __mod__(self, other):
-        return self.mod(other)
-
-    def __rmod__(self, other):
-        return self._binary_arithmetic(other, "%", swap=True)
-
-    def pow(self, value):
-        """
-        Raise this raster by another Raster or scalar.
-
-        Parameters
-        ----------
-        raster_or_scalar : scalar, str, or Raster
-            The scalar or Raster to raise this raster to.
-
-        Returns
-        -------
-        Raster
-            Returns the resulting Raster.
-
-        """
-        return self._binary_arithmetic(value, "**")
-
-    def __pow__(self, value):
-        return self.pow(value)
-
-    def __rpow__(self, value):
-        return self._binary_arithmetic(value, "**", swap=True)
-
-    def sqrt(self):
-        """Take the square root of the raster.
-
-        Returns a new Raster.
-
-        """
-        xrs = np.sqrt(self.xrs)
-        return self._replace(xrs)
-
-    def __pos__(self):
-        return self
-
-    def negate(self):
-        """Negate this Raster.
-
-        Returns a new Raster.
-
-        """
-        return self._replace(-self.xrs)
-
-    def __neg__(self):
-        return self.negate()
-
-    def log(self):
-        """Take the natural logarithm of this Raster.
-
-        Returns a new Raster.
-
-        """
-        xrs = np.log(self.xrs)
-        return self._replace(xrs)
-
-    def log10(self):
-        """Take the base-10 logarithm of this Raster.
-
-        Returns a new Raster.
-
-        """
-        xrs = np.log10(self.xrs)
-        return self._replace(xrs)
-
-    def eq(self, other):
-        """
-        Perform element-wise equality test against `other`.
-
-        Parameters
-        ----------
-        other : scalar, str, or Raster
-            The value or raster to compare with.
-
-        Returns
-        -------
-        Raster
-            The resulting boolean raster.
-
-        """
-        return self._binary_logical(other, "==")
-
-    def __eq__(self, other):
-        return self.eq(other)
-
-    def ne(self, other):
-        """Perform element-wise not-equal test against `other`.
-
-        Parameters
-        ----------
-        other : scalar, str, or Raster
-            The value or raster to compare with.
-
-        Returns
-        -------
-        Raster
-            The resulting boolean raster.
-
-        """
-        return self._binary_logical(other, "!=")
-
-    def __ne__(self, other):
-        return self.ne(other)
-
-    def le(self, other):
-        """Perform element-wise less-than-or-equal test against `other`.
-
-        Parameters
-        ----------
-        other : scalar, str, or Raster
-            The value or raster to compare with.
-
-        Returns
-        -------
-        Raster
-            The resulting boolean raster.
-
-        """
-        return self._binary_logical(other, "<=")
-
-    def __le__(self, other):
-        return self.le(other)
-
-    def ge(self, other):
-        """Perform element-wise greater-than-or-equal test against `other`.
-
-        Parameters
-        ----------
-        other : scalar, str, or Raster
-            The value or raster to compare with.
-
-        Returns
-        -------
-        Raster
-            The resulting boolean raster.
-
-        """
-        return self._binary_logical(other, ">=")
-
-    def __ge__(self, other):
-        return self.ge(other)
-
-    def lt(self, other):
-        """Perform element-wise less-than test against `other`.
-
-        Parameters
-        ----------
-        other : scalar, str, or Raster
-            The value or raster to compare with.
-
-        Returns
-        -------
-        Raster
-            The resulting boolean raster.
-
-        """
-        return self._binary_logical(other, "<")
-
-    def __lt__(self, other):
-        return self.lt(other)
-
-    def gt(self, other):
-        """Perform element-wise greater-than test against `other`.
-
-        Parameters
-        ----------
-        other : scalar, str, or Raster
-            The value or raster to compare with.
-
-        Returns
-        -------
-        Raster
-            The resulting boolean raster.
-
-        """
-        return self._binary_logical(other, ">")
-
-    def __gt__(self, other):
-        return self.gt(other)
-
-    def _and_or(self, other, and_or, to_bool_op):
-        if isinstance(other, (bool, np.bool_)):
-            operand = other
-        else:
-            operand = self._handle_binary_op_input(other, False)
-        parsed_operand = operand
-        if isinstance(operand, Raster):
-            operand = operand.xrs
-        left, right = _coerce_to_bool_for_and_or(
-            [self.xrs, operand], to_bool_op
-        )
-        xrs = _BINARY_BITWISE_OPS[and_or](left, right).astype(F16)
-
-        mask = self._mask
-        if isinstance(parsed_operand, Raster):
-            mask = mask | parsed_operand._mask
-        return self._replace(xrs, mask=mask)
-
-    def and_(self, other, to_bool_op="gt0"):
-        """Returns this Raster and'd with another. Both are coerced to bools
-        according to `to_bool_op`.
-
-        Parameters
-        ----------
-        other : Raster or path or bool or scalar
-            The raster to and this raster with
-        to_bool_op : {'gt0', 'cast'} or callable, optional
-            Controls how the two rasters are coerced to dtype bool. If a
-            callable, to_bool_op is called on this raster and `other`
-            separately to convert them to bool types. For a str:
-
-            'gt0'
-                The two operands are compared against 0 using greater-than.
-                Default.
-            'cast'
-                The two operands are cast to bool.
-
-        Returns
-        -------
-        Raster
-            The resulting Raster of zeros and ones.
-
-        """
-        return self._and_or(other, "&", to_bool_op)
-
-    def __and__(self, other):
-        return self._and_or(other, "&", "gt0")
-
-    def __rand__(self, other):
-        return self._and_or(other, "&", "gt0")
-
-    def or_(self, other, to_bool_op="gt0"):
-        """
-        Returns this Raster or'd with another. Both are coerced to bools
-        according to `to_bool_op`.
-
-        Parameters
-        ----------
-        other : Raster or path or bool or scalar
-            The raster to and this raster with
-        to_bool_op : {'gt0', 'cast'} or callable, optional
-            Controls how the two rasters are coerced to dtype bool. If a
-            callable, to_bool_op is called on this raster and `other`
-            separately to convert them to bool types. For a str:
-
-            'gt0'
-                The two operands are compared against 0 using greater-than.
-                Default.
-            'cast'
-                The two operands are cast to bool.
-
-        Returns
-        -------
-        Raster
-            The resulting Raster of zeros and ones.
-        """
-        return self._and_or(other, "|", to_bool_op)
-
-    def __or__(self, other):
-        return self._and_or(other, "|", "gt0")
-
-    def __ror__(self, other):
-        return self._and_or(other, "|", "gt0")
-
-    def __invert__(self):
-        if is_bool(self.dtype) or is_int(self.dtype):
-            xrs = self.xrs.copy()
-            if self._masked:
-                xrs.data = da.where(self._mask, self.null_value, ~xrs.data)
-            else:
-                xrs = ~xrs
-            return self._replace(xrs)
-        if is_float(self.dtype):
-            raise TypeError(
-                "Bitwise complement operation not supported for floating point"
-                " rasters"
-            )
+        return np.round(self, decimals=decimals)
+
+
+def get_raster(src, strict=True, null_to_nan=False):
+    rs = None
+    if isinstance(src, Raster):
+        rs = src
+    elif is_str(src):
+        rs = Raster(src)
+    elif strict:
         raise TypeError(
-            "Bitwise complement operation not supported for this raster dtype"
+            f"Input must be a Raster or path string. Got {repr(type(src))}"
         )
+    else:
+        try:
+            rs = Raster(src)
+        except (ValueError, TypeError, RasterDataError, RasterIOError):
+            raise ValueError(f"Could not convert input to Raster: {repr(src)}")
+
+    if null_to_nan and rs._masked:
+        rs = rs.copy()
+        data = rs._data
+        new_dtype = promote_dtype_to_float(data.dtype)
+        if new_dtype != data.dtype:
+            data = data.astype(new_dtype)
+        rs._data = da.where(rs._mask, np.nan, data)
+    return rs
