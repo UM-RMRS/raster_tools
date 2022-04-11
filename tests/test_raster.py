@@ -1,15 +1,31 @@
+import operator
 import unittest
 
 import affine
 import dask
 import numpy as np
+import pytest
 import rasterio as rio
 import xarray as xr
 
 import raster_tools.focal as focal
 from raster_tools import Raster, band_concat
-from raster_tools.dtypes import DTYPE_INPUT_TO_DTYPE
-from raster_tools.raster import _BINARY_ARITHMETIC_OPS, _BINARY_LOGICAL_OPS
+from raster_tools.dtypes import (
+    DTYPE_INPUT_TO_DTYPE,
+    F16,
+    F32,
+    F64,
+    I8,
+    I16,
+    I32,
+    I64,
+    U8,
+    U16,
+    U32,
+    U64,
+    is_int,
+    is_scalar,
+)
 
 TEST_ARRAY = np.array(
     [
@@ -147,294 +163,396 @@ def test_property__data():
     assert rs._data is rs._rs.data
 
 
-class TestRasterMath(unittest.TestCase):
-    def setUp(self):
-        self.rs1 = Raster("tests/data/elevation_small.tif")
-        self.rs1_np = self.rs1.xrs.values
-        self.rs2 = Raster("tests/data/elevation2_small.tif")
-        self.rs2_np = self.rs2.xrs.values
-
-    def tearDown(self):
-        self.rs1.close()
-        self.rs2.close()
-
-    def test_add(self):
-        # Raster + raster
-        truth = self.rs1_np + self.rs2_np
-        rst = self.rs1.add(self.rs2)
-        self.assertTrue(rs_eq_array(rst, truth))
-        rst = self.rs2.add(self.rs1)
-        self.assertTrue(rs_eq_array(rst, truth))
-        rst = self.rs1 + self.rs2
-        self.assertTrue(rs_eq_array(rst, truth))
-        rst = self.rs2 + self.rs1
-        self.assertTrue(rs_eq_array(rst, truth))
-        # Raster + scalar
-        for v in [-23, 0, 1, 2, 321]:
-            truth = self.rs1_np + v
-            rst = self.rs1.add(v)
-            self.assertTrue(rs_eq_array(rst, truth))
-            rst = self.rs1 + v
-            self.assertTrue(rs_eq_array(rst, truth))
-            rst = v + self.rs1
-            self.assertTrue(rs_eq_array(rst, truth))
-        for v in [-23.3, 0.0, 1.0, 2.0, 321.4]:
-            truth = self.rs1_np + v
-            rst = self.rs1.add(v)
-            self.assertTrue(rs_eq_array(rst, truth))
-            rst = self.rs1 + v
-            self.assertTrue(rs_eq_array(rst, truth))
-            rst = v + self.rs1
-            self.assertTrue(rs_eq_array(rst, truth))
-
-    def test_subtract(self):
-        # Raster - raster
-        truth = self.rs1_np - self.rs2_np
-        rst = self.rs1.subtract(self.rs2)
-        self.assertTrue(rs_eq_array(rst, truth))
-        rst = self.rs2.subtract(self.rs1)
-        self.assertTrue(rs_eq_array(rst, -truth))
-        rst = self.rs1 - self.rs2
-        self.assertTrue(rs_eq_array(rst, truth))
-        rst = self.rs2 - self.rs1
-        self.assertTrue(rs_eq_array(rst, -truth))
-        # Raster - scalar
-        for v in [-1359, 0, 1, 2, 42]:
-            truth = self.rs1_np - v
-            rst = self.rs1.subtract(v)
-            self.assertTrue(rs_eq_array(rst, truth))
-            rst = self.rs1 - v
-            self.assertTrue(rs_eq_array(rst, truth))
-            rst = v - self.rs1
-            self.assertTrue(rs_eq_array(rst, -truth))
-        for v in [-1359.2, 0.0, 1.0, 2.0, 42.5]:
-            truth = self.rs1_np - v
-            rst = self.rs1.subtract(v)
-            self.assertTrue(rs_eq_array(rst, truth))
-            rst = self.rs1 - v
-            self.assertTrue(rs_eq_array(rst, truth))
-            rst = v - self.rs1
-            self.assertTrue(rs_eq_array(rst, -truth))
-
-    def test_mult(self):
-        # Raster * raster
-        truth = self.rs1_np * self.rs2_np
-        rst = self.rs1.multiply(self.rs2)
-        self.assertTrue(rs_eq_array(rst, truth))
-        rst = self.rs2.multiply(self.rs1)
-        self.assertTrue(rs_eq_array(rst, truth))
-        rst = self.rs1 * self.rs2
-        self.assertTrue(rs_eq_array(rst, truth))
-        rst = self.rs2 * self.rs1
-        self.assertTrue(rs_eq_array(rst, truth))
-        # Raster * scalar
-        for v in [-123, 0, 1, 2, 345]:
-            truth = self.rs1_np * v
-            rst = self.rs1.multiply(v)
-            self.assertTrue(rs_eq_array(rst, truth))
-            rst = self.rs1 * v
-            self.assertTrue(rs_eq_array(rst, truth))
-            rst = v * self.rs1
-            self.assertTrue(rs_eq_array(rst, truth))
-        for v in [-123.9, 0.0, 1.0, 2.0, 345.3]:
-            truth = self.rs1_np * v
-            rst = self.rs1.multiply(v)
-            self.assertTrue(rs_eq_array(rst, truth))
-            rst = self.rs1 * v
-            self.assertTrue(rs_eq_array(rst, truth))
-            rst = v * self.rs1
-            self.assertTrue(rs_eq_array(rst, truth))
-
-    def test_div(self):
-        # Raster / raster
-        truth = self.rs1_np / self.rs2_np
-        rst = self.rs1.divide(self.rs2)
-        self.assertTrue(rs_eq_array(rst, truth))
-        rst = self.rs2.divide(self.rs1)
-        self.assertTrue(rs_eq_array(rst, 1 / truth))
-        rst = self.rs1 / self.rs2
-        self.assertTrue(rs_eq_array(rst, truth))
-        rst = self.rs2 / self.rs1
-        self.assertTrue(rs_eq_array(rst, 1 / truth))
-        # Raster / scalar, scalar / raster
-        for v in [-123, -1, 1, 2, 345]:
-            truth = self.rs1_np / v
-            rst = self.rs1.divide(v)
-            self.assertTrue(rs_eq_array(rst, truth))
-            rst = self.rs1 / v
-            self.assertTrue(rs_eq_array(rst, truth))
-            rst = v / self.rs1
-            np.testing.assert_array_almost_equal(rst.xrs.values, 1 / truth)
-        for v in [-123.8, -1.0, 1.0, 2.0, 345.6]:
-            truth = self.rs1_np / v
-            rst = self.rs1.divide(v)
-            self.assertTrue(rs_eq_array(rst, truth))
-            rst = self.rs1 / v
-            self.assertTrue(rs_eq_array(rst, truth))
-            rst = v / self.rs1
-            np.testing.assert_array_almost_equal(rst.xrs.values, 1 / truth)
-
-    def test_mod(self):
-        # Raster % raster
-        truth = self.rs1_np % self.rs2_np
-        rst = self.rs1.mod(self.rs2)
-        self.assertTrue(rs_eq_array(rst, truth))
-        rst = self.rs1 % self.rs2
-        self.assertTrue(rs_eq_array(rst, truth))
-        truth = self.rs2_np % self.rs1_np
-        rst = self.rs2.mod(self.rs1)
-        self.assertTrue(rs_eq_array(rst, truth))
-        rst = self.rs2 % self.rs1
-        self.assertTrue(rs_eq_array(rst, truth))
-        # Raster % scalar, scalar % raster
-        for v in [-123, -1, 1, 2, 345]:
-            truth = self.rs1_np % v
-            rst = self.rs1.mod(v)
-            self.assertTrue(rs_eq_array(rst, truth))
-            rst = self.rs1 % v
-            self.assertTrue(rs_eq_array(rst, truth))
-            truth = v % self.rs1_np
-            rst = v % self.rs1
-            self.assertTrue(rs_eq_array(rst, truth))
-        for v in [-123.8, -1.0, 1.0, 2.0, 345.6]:
-            truth = self.rs1_np % v
-            rst = self.rs1.mod(v)
-            self.assertTrue(rs_eq_array(rst, truth))
-            rst = self.rs1 % v
-            self.assertTrue(rs_eq_array(rst, truth))
-            truth = v % self.rs1_np
-            rst = v % self.rs1
-            self.assertTrue(rs_eq_array(rst, truth))
-
-    def test_power(self):
-        # Raster ** raster
-        rs1 = self.rs1 / self.rs1.xrs.max().values.item() * 2
-        rs2 = self.rs2 / self.rs2.xrs.max().values.item() * 2
-        rs1_np = self.rs1_np / self.rs1_np.max() * 2
-        rs2_np = self.rs2_np / self.rs2_np.max() * 2
-        truth = rs1_np**rs2_np
-        rst = rs1.pow(rs2)
-        self.assertTrue(rs_eq_array(rst, truth))
-        rst = rs2.pow(rs1)
-        self.assertTrue(rs_eq_array(rst, truth))
-        rst = rs1**rs2
-        self.assertTrue(rs_eq_array(rst, truth))
-        truth = rs2_np**rs1_np
-        rst = rs2**rs1
-        self.assertTrue(rs_eq_array(rst, truth))
-        # Raster ** scalar, scalar ** raster
-        for v in [-10, -1, 1, 2, 11]:
-            truth = rs1_np**v
-            rst = rs1.pow(v)
-            self.assertTrue(rs_eq_array(rst, truth))
-            rst = rs1**v
-            self.assertTrue(rs_eq_array(rst, truth))
-            # Avoid complex numbers issues
-            if v >= 0:
-                truth = v**rs1_np
-                rst = v**rs1
-                self.assertTrue(rs_eq_array(rst, truth))
-        for v in [-10.5, -1.0, 1.0, 2.0, 11.3]:
-            truth = rs1_np**v
-            rst = rs1.pow(v)
-            self.assertTrue(rs_eq_array(rst, truth))
-            rst = rs1**v
-            self.assertTrue(rs_eq_array(rst, truth))
-            # Avoid complex numbers issues
-            if v >= 0:
-                truth = v**rs1_np
-                rst = v**rs1
-                self.assertTrue(rs_eq_array(rst, truth))
-
-    def test_sqrt(self):
-        rs = self.rs1 + np.abs(self.rs1_np.min())
-        rsnp = rs.xrs.values
-        truth = np.sqrt(rsnp)
-        self.assertTrue(rs_eq_array(rs.sqrt(), truth))
+_BINARY_ARITHMETIC_OPS = [
+    operator.add,
+    operator.sub,
+    operator.mul,
+    operator.pow,
+    operator.truediv,
+    operator.floordiv,
+    operator.mod,
+]
+_BINARY_COMPARISON_OPS = [
+    operator.lt,
+    operator.le,
+    operator.gt,
+    operator.ge,
+    operator.eq,
+    operator.ne,
+]
 
 
-class TestLogicalOps(unittest.TestCase):
-    def setUp(self):
-        self.rs1 = Raster("tests/data/elevation_small.tif")
-        self.rs1_np = self.rs1.xrs.values
-        self.rs2 = Raster("tests/data/elevation2_small.tif")
-        self.rs2_np = self.rs2.xrs.values
+@pytest.mark.parametrize("op", _BINARY_ARITHMETIC_OPS + _BINARY_COMPARISON_OPS)
+@pytest.mark.parametrize("operand", [-2.0, -1, 0, 2, 3.0, True])
+@pytest.mark.parametrize(
+    "rs_type", [F16, F32, F64, I16, I32, I64, I8, U16, U32, U64, U8]
+)
+@pytest.mark.filterwarnings("ignore:divide by zero")
+@pytest.mark.filterwarnings("ignore:invalid value encountered")
+@pytest.mark.filterwarnings("ignore:overflow")
+def test_binary_ops_arithmetic_against_scalar(op, operand, rs_type):
+    x = np.arange(4 * 5 * 5).reshape((4, 5, 5)).astype(rs_type)
+    rs = Raster(x).remap_range((0, 10, 0)).set_null_value(0)
+    x = rs._values
 
-    def tearDown(self):
-        self.rs1.close()
-        self.rs2.close()
+    result = op(operand, rs)
+    truth = op(operand, x)
+    assert np.allclose(result, truth, equal_nan=True)
+    assert result.dtype == truth.dtype
+    assert result._attrs == rs._attrs
+    assert np.allclose(result._mask, rs._mask)
+    assert np.all(result.xrs.spatial_ref == rs.xrs.spatial_ref).values
+    # Make sure raising ints to negative ints raises TypeError
+    if (
+        op == operator.pow
+        and is_int(rs.dtype)
+        and is_int(operand)
+        and operand < 0
+        # Numpy promotes to float64 in this case
+        and rs.dtype != U64
+    ):
+        with pytest.raises(TypeError):
+            op(rs, operand)
+    else:
+        truth = op(x, operand)
+        result = op(rs, operand)
+        assert np.allclose(result, truth, equal_nan=True)
+        assert result.dtype == truth.dtype
+        assert result._attrs == rs._attrs
+        assert np.allclose(result._mask, rs._mask)
+        assert np.all(result.xrs.spatial_ref == rs.xrs.spatial_ref).values
 
-    def test_eq(self):
-        for v, vnp in [
-            (self.rs2, self.rs2_np),
-            (0, 0),
-            (self.rs1_np[0, 10, 10], self.rs1_np[0, 10, 10]),
-        ]:
-            truth = self.rs1_np == vnp
-            rst = self.rs1.eq(v)
-            self.assertTrue(rs_eq_array(rst, truth))
-            rst = self.rs1 == v
-            self.assertTrue(rs_eq_array(rst, truth))
 
-    def test_ne(self):
-        for v, vnp in [
-            (self.rs2, self.rs2_np),
-            (0, 0),
-            (self.rs1_np[0, 10, 10], self.rs1_np[0, 10, 10]),
-        ]:
-            truth = self.rs1_np != vnp
-            rst = self.rs1.ne(v)
-            self.assertTrue(rs_eq_array(rst, truth))
-            rst = self.rs1 != v
-            self.assertTrue(rs_eq_array(rst, truth))
+unknown_chunk_array = dask.array.ones((5, 5))
+unknown_chunk_array = unknown_chunk_array[unknown_chunk_array > 0]
 
-    def test_le(self):
-        for v, vnp in [
-            (self.rs2, self.rs2_np),
-            (0, 0),
-            (self.rs1_np[0, 10, 10], self.rs1_np[0, 10, 10]),
-        ]:
-            truth = self.rs1_np <= vnp
-            rst = self.rs1.le(v)
-            self.assertTrue(rs_eq_array(rst, truth))
-            rst = self.rs1 <= v
-            self.assertTrue(rs_eq_array(rst, truth))
 
-    def test_ge(self):
-        for v, vnp in [
-            (self.rs2, self.rs2_np),
-            (0, 0),
-            (self.rs1_np[0, 10, 10], self.rs1_np[0, 10, 10]),
-        ]:
-            truth = self.rs1_np >= vnp
-            rst = self.rs1.ge(v)
-            self.assertTrue(rs_eq_array(rst, truth))
-            rst = self.rs1 >= v
-            self.assertTrue(rs_eq_array(rst, truth))
+@pytest.mark.parametrize("op", _BINARY_ARITHMETIC_OPS + _BINARY_COMPARISON_OPS)
+@pytest.mark.parametrize(
+    "operand,error",
+    [
+        ([1], False),
+        (np.array([1]), False),
+        (np.array([[1]]), False),
+        (np.ones((5, 5)), False),
+        (np.ones((1, 5, 5)), False),
+        (np.ones((4, 5, 5)), False),
+        ([1, 2, 3, 4], False),
+        (range(1, 5), False),
+        (np.array([1, 2, 3, 4]), False),
+        (dask.array.ones((5, 5)), False),
+        (np.array([1, 1]), True),
+        (unknown_chunk_array, True),
+    ],
+)
+@pytest.mark.filterwarnings("ignore:divide by zero")
+@pytest.mark.filterwarnings("ignore:invalid value encountered")
+@pytest.mark.filterwarnings("ignore:overflow")
+def test_binary_ops_arithmetic_against_array(op, operand, error):
+    data = np.arange(4 * 5 * 5).reshape((4, 5, 5)).astype(float)
+    rs = Raster(data).remap_range((0, 10, 0)).set_null_value(0)
+    data = rs._values
 
-    def test_lt(self):
-        for v, vnp in [
-            (self.rs2, self.rs2_np),
-            (0, 0),
-            (self.rs1_np[0, 10, 10], self.rs1_np[0, 10, 10]),
-        ]:
-            truth = self.rs1_np < vnp
-            rst = self.rs1.lt(v)
-            self.assertTrue(rs_eq_array(rst, truth))
-            rst = self.rs1 < v
-            self.assertTrue(rs_eq_array(rst, truth))
+    if error:
+        with pytest.raises(ValueError):
+            op(rs, operand)
+        with pytest.raises(ValueError):
+            op(operand, rs)
+    else:
+        if len(operand) == len(data) and (
+            isinstance(operand, (list, range)) or operand.size == 4
+        ):
+            truth1 = op(data, np.array(operand).reshape((-1, 1, 1)))
+            truth2 = op(np.array(operand).reshape((-1, 1, 1)), data)
+        else:
+            truth1 = op(data, operand)
+            truth2 = op(operand, data)
+        result = op(rs, operand)
+        (truth1,) = dask.compute(truth1)
+        assert np.allclose(result, truth1, equal_nan=True)
+        assert result._attrs == rs._attrs
+        assert np.allclose(result._mask, rs._mask)
+        assert np.all(result.xrs.spatial_ref == rs.xrs.spatial_ref).values
+        result = op(operand, rs)
+        (truth2,) = dask.compute(truth2)
+        assert np.allclose(result, truth2, equal_nan=True)
+        assert result._attrs == rs._attrs
+        assert np.allclose(result._mask, rs._mask)
+        assert np.all(result.xrs.spatial_ref == rs.xrs.spatial_ref).values
 
-    def test_gt(self):
-        for v, vnp in [
-            (self.rs2, self.rs2_np),
-            (0, 0),
-            (self.rs1_np[0, 10, 10], self.rs1_np[0, 10, 10]),
-        ]:
-            truth = self.rs1_np > vnp
-            rst = self.rs1.gt(v)
-            self.assertTrue(rs_eq_array(rst, truth))
-            rst = self.rs1 > v
-            self.assertTrue(rs_eq_array(rst, truth))
+
+@pytest.mark.parametrize("op", _BINARY_ARITHMETIC_OPS + _BINARY_COMPARISON_OPS)
+@pytest.mark.filterwarnings("ignore:divide by zero")
+@pytest.mark.filterwarnings("ignore:invalid value encountered")
+@pytest.mark.filterwarnings("ignore:overflow")
+def test_binary_ops_arithmetic_against_raster(op):
+    data = np.arange(4 * 5 * 5).reshape((4, 5, 5)).astype(float)
+    rs = Raster(data).remap_range((0, 10, 0)).set_null_value(0)
+    data = rs._values
+    data2 = np.ones_like(data, dtype=int) * 2
+    rs2 = Raster(data2)
+
+    truth1 = op(data, data2)
+    truth2 = op(data2, data)
+    result = op(rs, rs2)
+    assert np.allclose(result, truth1, equal_nan=True)
+    assert result._attrs == rs._attrs
+    assert np.allclose(result._mask, rs._mask)
+    assert np.all(result.xrs.spatial_ref == rs.xrs.spatial_ref).values
+    result = op(rs2, rs)
+    assert np.allclose(result, truth2, equal_nan=True)
+    assert result._attrs == rs._attrs
+    assert np.allclose(result._mask, rs._mask)
+    assert np.all(result.xrs.spatial_ref == rs.xrs.spatial_ref).values
+
+
+def test_binary_ops_arithmetic_inplace():
+    data = np.arange(4 * 5 * 5).reshape((4, 5, 5))
+    rs = Raster(data)
+
+    r = rs.copy()
+    rr = r
+    r += 3
+    t = data + 3
+    assert np.allclose(r, t)
+    assert rr is r
+
+    r = rs.copy()
+    rr = r
+    r -= 3
+    t = data - 3
+    assert np.allclose(r, t)
+    assert rr is r
+
+    r = rs.copy()
+    rr = r
+    r *= 3
+    t = data * 3
+    assert np.allclose(r, t)
+    assert rr is r
+
+    r = rs.copy()
+    rr = r
+    r **= 3
+    t = data**3
+    assert np.allclose(r, t)
+    assert rr is r
+
+    r = rs.copy()
+    rr = r
+    r /= 3
+    t = data / 3
+    assert np.allclose(r, t)
+    assert rr is r
+
+    r = rs.copy()
+    rr = r
+    r //= 3
+    t = data // 3
+    assert np.allclose(r, t)
+    assert rr is r
+
+    r = rs.copy()
+    rr = r
+    r %= 3
+    t = data % 3
+    assert np.allclose(r, t)
+    assert rr is r
+
+
+_NP_UFUNCS = list(
+    filter(
+        lambda x: isinstance(x, np.ufunc)
+        # not valid for rasters
+        and x not in (np.isnat, np.matmul, np.binary_repr),
+        map(lambda x: getattr(np, x), dir(np)),
+    )
+)
+_NP_UFUNCS_NIN_SINGLE = list(filter(lambda x: x.nin == 1, _NP_UFUNCS))
+_NP_UFUNCS_NIN_MULT = list(filter(lambda x: x.nin > 1, _NP_UFUNCS))
+
+
+@pytest.mark.parametrize("ufunc", _NP_UFUNCS_NIN_SINGLE)
+@pytest.mark.filterwarnings("ignore:divide by zero")
+@pytest.mark.filterwarnings("ignore:invalid value encountered")
+def test_ufuncs_single_input(ufunc):
+    data = np.arange(4 * 5 * 5).reshape((4, 5, 5))
+    rs = Raster(data).remap_range((0, 10, 0)).set_null_value(0)
+    data = rs._values
+
+    if ufunc.__name__.startswith("logical"):
+        truth = ufunc(data > 0)
+    else:
+        truth = ufunc(data)
+    result = ufunc(rs)
+    if ufunc.nout == 1:
+        assert np.allclose(result, truth, equal_nan=True)
+        assert np.allclose(result._mask, rs._mask, equal_nan=True)
+        assert result._attrs == rs._attrs
+    else:
+        for (r, t) in zip(result, truth):
+            assert np.allclose(r, t, equal_nan=True)
+            assert np.allclose(r._mask, rs._mask, equal_nan=True)
+            assert r._attrs == rs._attrs
+
+
+@pytest.mark.parametrize("ufunc", _NP_UFUNCS_NIN_MULT)
+@pytest.mark.filterwarnings("ignore:divide by zero")
+@pytest.mark.filterwarnings("ignore:invalid value encountered")
+@pytest.mark.filterwarnings("ignore:overflow")
+def test_ufuncs_multiple_input_against_scalar(ufunc):
+    data = np.arange(4 * 5 * 5).reshape((4, 5, 5))
+    rs = Raster(data).remap_range((0, 10, 0)).set_null_value(0)
+    data = rs._values
+    extra = ufunc.nin - 1
+
+    args = [rs] + [2 for i in range(extra)]
+    args_np = [getattr(a, "_values", a) for a in args]
+    if ufunc.__name__.startswith("bitwise") or ufunc.__name__.startswith(
+        "logical"
+    ):
+        truth = ufunc(*[a > 0 for a in args_np])
+    else:
+        truth = ufunc(*args_np)
+    result = ufunc(*args)
+    if ufunc.nout == 1:
+        assert np.allclose(result, truth, equal_nan=True)
+        assert np.allclose(result._mask, rs._mask, equal_nan=True)
+        assert result._attrs == rs._attrs
+    else:
+        for (r, t) in zip(result, truth):
+            assert np.allclose(r, t, equal_nan=True)
+            assert np.allclose(r._mask, rs._mask, equal_nan=True)
+            assert r._attrs == rs._attrs
+    # Reflected
+    args = args[::-1]
+    args_np = args_np[::-1]
+    if ufunc.__name__.startswith("bitwise") or ufunc.__name__.startswith(
+        "logical"
+    ):
+        truth = ufunc(*[a > 0 for a in args_np])
+    else:
+        truth = ufunc(*args_np)
+    result = ufunc(*args)
+    if ufunc.nout == 1:
+        assert np.allclose(result, truth, equal_nan=True)
+        assert np.allclose(result._mask, rs._mask, equal_nan=True)
+        assert result._attrs == rs._attrs
+    else:
+        for (r, t) in zip(result, truth):
+            assert np.allclose(r, t, equal_nan=True)
+            assert np.allclose(r._mask, rs._mask, equal_nan=True)
+            assert r._attrs == rs._attrs
+
+
+@pytest.mark.parametrize("ufunc", _NP_UFUNCS_NIN_MULT)
+@pytest.mark.filterwarnings("ignore:divide by zero")
+@pytest.mark.filterwarnings("ignore:invalid value encountered")
+@pytest.mark.filterwarnings("ignore:overflow")
+def test_ufuncs_multiple_input_against_raster(ufunc):
+    data = np.arange(4 * 5 * 5).reshape((4, 5, 5))
+    rs = Raster(data).remap_range((0, 10, 0)).set_null_value(0)
+    data = rs._values
+    extra = ufunc.nin - 1
+    other = Raster(np.ones_like(data) * 2)
+    other.xrs.data[0, 0, 0] = 25
+    other = other.set_null_value(25)
+    assert other._mask.compute().sum() == 1
+    mask = rs._mask | other._mask
+
+    args = [rs] + [other.copy() for i in range(extra)]
+    args_np = [a._values for a in args]
+    if ufunc.__name__.startswith("bitwise") or ufunc.__name__.startswith(
+        "logical"
+    ):
+        truth = ufunc(*[a > 0 for a in args_np])
+    else:
+        truth = ufunc(*args_np)
+    result = ufunc(*args)
+    if ufunc.nout == 1:
+        assert np.allclose(result, truth, equal_nan=True)
+        assert np.allclose(result._mask, mask, equal_nan=True)
+        assert result._attrs == rs._attrs
+    else:
+        for (r, t) in zip(result, truth):
+            assert np.allclose(r, t, equal_nan=True)
+            assert np.allclose(r._mask, mask, equal_nan=True)
+            assert r._attrs == rs._attrs
+    # Test reflected
+    args = args[::-1]
+    args_np = args_np[::-1]
+    if ufunc.__name__.startswith("bitwise") or ufunc.__name__.startswith(
+        "logical"
+    ):
+        truth = ufunc(*[a > 0 for a in args_np])
+    else:
+        truth = ufunc(*args_np)
+    result = ufunc(*args)
+    if ufunc.nout == 1:
+        assert np.allclose(result, truth, equal_nan=True)
+        assert np.allclose(result._mask, mask, equal_nan=True)
+        assert result._attrs == other._attrs
+    else:
+        for (r, t) in zip(result, truth):
+            assert np.allclose(r, t, equal_nan=True)
+            assert np.allclose(r._mask, mask, equal_nan=True)
+            assert r._attrs == other._attrs
+
+
+def test_invert():
+    data = np.arange(4 * 5 * 5).reshape((4, 5, 5))
+    rs = Raster(data).remap_range((0, 10, 0)).set_null_value(0)
+    data = rs._values
+
+    assert np.allclose(np.invert(rs), np.invert(data))
+    assert np.allclose(~rs, np.invert(data))
+    assert np.allclose(
+        np.invert(rs.astype(bool)), np.invert(data.astype(bool))
+    )
+    with pytest.raises(TypeError):
+        ~rs.astype(float)
+
+
+@pytest.mark.parametrize(
+    "func",
+    [
+        np.all,
+        np.any,
+        np.max,
+        np.mean,
+        np.min,
+        np.prod,
+        np.std,
+        np.sum,
+        np.var,
+    ],
+)
+def test_reductions(func):
+    data = np.arange(3 * 5 * 5).reshape((3, 5, 5)) - 25
+    rs = Raster(data).set_null_value(4)
+    valid = ~rs._mask.compute()
+
+    fname = func.__name__
+    if fname in ("amin", "amax"):
+        # Drop leading 'a'
+        fname = fname[1:]
+    assert hasattr(rs, fname)
+    truth = func(data[valid])
+    for result in (func(rs), getattr(rs, fname)()):
+        assert isinstance(result, dask.array.Array)
+        assert result.size == 1
+        assert result.shape == ()
+        if fname in ("all", "any"):
+            assert isinstance(result.compute(), (bool, np.bool_))
+        else:
+            assert is_scalar(result.compute())
+        assert np.allclose(result, truth, equal_nan=True)
+    if fname in ("all", "any"):
+        rs = rs > 0
+        data = data > 0
+        truth = func(data[valid])
+        assert np.allclose(func(rs), truth, equal_nan=True)
+        assert np.allclose(getattr(rs, fname)(), truth, equal_nan=True)
 
 
 class TestAstype(unittest.TestCase):
@@ -466,27 +584,6 @@ class TestAstype(unittest.TestCase):
 
 
 class TestRasterAttrsPropagation(unittest.TestCase):
-    def test_arithmetic_attrs(self):
-        r1 = Raster("tests/data/elevation_small.tif")
-        true_attrs = r1._attrs
-        v = 2.1
-        for op in _BINARY_ARITHMETIC_OPS.keys():
-            r2 = r1._binary_arithmetic(v, op).eval()
-            self.assertEqual(r2.xrs.attrs, true_attrs)
-            self.assertEqual(r2._attrs, true_attrs)
-        for r in [+r1, -r1]:
-            self.assertEqual(r.xrs.attrs, true_attrs)
-            self.assertEqual(r._attrs, true_attrs)
-
-    def test_logical_attrs(self):
-        r1 = Raster("tests/data/elevation_small.tif")
-        true_attrs = r1._attrs
-        v = 1.0
-        for op in _BINARY_LOGICAL_OPS.keys():
-            r2 = r1._binary_logical(v, op).eval()
-            self.assertEqual(r2.xrs.attrs, true_attrs)
-            self.assertEqual(r2._attrs, true_attrs)
-
     def test_ctor_attrs(self):
         r1 = Raster("tests/data/elevation_small.tif")
         true_attrs = r1._attrs.copy()
@@ -501,18 +598,6 @@ class TestRasterAttrsPropagation(unittest.TestCase):
         rs = Raster("tests/data/elevation_small.tif")
         attrs = rs._attrs
         self.assertEqual(rs.astype(int)._attrs, attrs)
-
-    def test_sqrt_attrs(self):
-        rs = Raster("tests/data/elevation_small.tif")
-        rs += np.abs(rs.xrs.values.min())
-        attrs = rs._attrs
-        self.assertEqual(rs.sqrt()._attrs, attrs)
-
-    def test_log_attrs(self):
-        rs = Raster("tests/data/elevation_small.tif")
-        attrs = rs._attrs
-        self.assertEqual(rs.log()._attrs, attrs)
-        self.assertEqual(rs.log10()._attrs, attrs)
 
     def test_convolve_attrs(self):
         rs = Raster("tests/data/elevation_small.tif")
@@ -663,75 +748,6 @@ class TestToDask(unittest.TestCase):
         self.assertTrue(isinstance(rs.to_dask(), dask.array.Array))
         self.assertIs(rs.to_dask(), rs._data)
         self.assertTrue(isinstance(rs.eval().to_dask(), dask.array.Array))
-
-
-class TestAndOr(unittest.TestCase):
-    def test_and(self):
-        rs1 = Raster("tests/data/elevation_small.tif")
-        rsnp1 = rs1.xrs.values
-        rs2 = Raster("tests/data/elevation2_small.tif")
-        rsnp2 = rs2.xrs.values
-        rsnp2 -= rsnp2.max() / 2
-        truth = (rsnp1 > 0) & (rsnp2 > 0)
-        self.assertTrue(rs_eq_array(rs1 & rs2, truth))
-        self.assertTrue(rs_eq_array(rs1.and_(rs2), truth))
-        truth = rsnp1.astype(bool) & rsnp2.astype(bool)
-        self.assertTrue(rs_eq_array(rs1.and_(rs2, "cast"), truth))
-        for v in [-22.0, -20, 0, 1, 1.0, 23.1, 30]:
-            truth = (rsnp1 > 0) & (v > 0)
-            self.assertTrue(rs_eq_array(rs1 & v, truth))
-            self.assertTrue(rs_eq_array(rs1.and_(v), truth))
-            truth = rsnp1.astype(bool) & bool(v)
-            self.assertTrue(rs_eq_array(rs1.and_(v, "cast"), truth))
-        for v in [False, True]:
-            truth = (rsnp1 > 0) & v
-            self.assertTrue(rs_eq_array(rs1 & v, truth))
-            self.assertTrue(rs_eq_array(rs1.and_(v), truth))
-            truth = rsnp1.astype(bool) & v
-            self.assertTrue(rs_eq_array(rs1.and_(v, "cast"), truth))
-
-    def test_or(self):
-        rs1 = Raster("tests/data/elevation_small.tif")
-        rsnp1 = rs1.xrs.values
-        rs2 = Raster("tests/data/elevation2_small.tif")
-        rsnp2 = rs2.xrs.values
-        rsnp2 -= rsnp2.max() / 2
-        truth = (rsnp1 > 0) | (rsnp2 > 0)
-        self.assertTrue(rs_eq_array(rs1 | rs2, truth))
-        self.assertTrue(rs_eq_array(rs1.or_(rs2), truth))
-        truth = rsnp1.astype(bool) | rsnp2.astype(bool)
-        self.assertTrue(rs_eq_array(rs1.or_(rs2, "cast"), truth))
-        for v in [-22.0, -20, 0, 1, 1.0, 23.1, 30]:
-            truth = (rsnp1 > 0) | (v > 0)
-            self.assertTrue(rs_eq_array(rs1 | v, truth))
-            self.assertTrue(rs_eq_array(rs1.or_(v), truth))
-            truth = rsnp1.astype(bool) | bool(v)
-            self.assertTrue(rs_eq_array(rs1.or_(v, "cast"), truth))
-        for v in [False, True]:
-            truth = (rsnp1 > 0) | v
-            self.assertTrue(rs_eq_array(rs1 | v, truth))
-            self.assertTrue(rs_eq_array(rs1.or_(v), truth))
-            truth = rsnp1.astype(bool) | v
-            self.assertTrue(rs_eq_array(rs1.or_(v, "cast"), truth))
-
-
-class TestBitwiseComplement(unittest.TestCase):
-    def test_invert(self):
-        ar = np.array([[0, 1], [1, 0]])
-        bool_ar = ar.astype(bool)
-        inv_bool_ar = np.array([[1, 0], [0, 1]], dtype=bool)
-
-        rs = Raster(bool_ar)
-        rs_inv = Raster(inv_bool_ar)
-        self.assertTrue(rs_eq_array(~rs, inv_bool_ar))
-        self.assertTrue(rs_eq_array(~rs_inv, bool_ar))
-        self.assertTrue(rs_eq_array(~Raster(ar), ~ar))
-
-    def test_invert_errors(self):
-        ar = np.array([[0, 1], [1, 0]], dtype=float)
-        rs = Raster(ar)
-        with self.assertRaises(TypeError):
-            ~rs
 
 
 class TestGetBands(unittest.TestCase):

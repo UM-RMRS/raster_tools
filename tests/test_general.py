@@ -97,7 +97,7 @@ class TestBandConcat(unittest.TestCase):
         result = general.band_concat((rs1, rs2))
         self.assertTrue(rs1.null_value == result.null_value)
         self.assertTrue(result.dtype == np.dtype(bool))
-        self.assertTrue(np.all(result))
+        self.assertTrue(np.array(result).all())
 
         # Force bool to be converted to int to accommodate the null value
         result = general.band_concat((rs1, rs2), -1)
