@@ -54,7 +54,7 @@ def _clip(
         nv = get_default_null_value(rs.dtype)
 
     if invert:
-        clip_mask._rs = ~clip_mask.xrs
+        clip_mask = ~clip_mask
         clip_mask._mask = ~clip_mask._mask
     xrs_out = xr.where(clip_mask.xrs, rs.xrs, nv)
     mask_out = clip_mask._mask
