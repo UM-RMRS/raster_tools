@@ -1,4 +1,5 @@
  affine
+ build
  dask
  dask-geopandas
  dask-image
@@ -15,5 +16,6 @@
  pytest-xdist
  rioxarray
  scipy
+ twine
  wheel
  xarray
