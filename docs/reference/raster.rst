@@ -22,6 +22,7 @@ Attributes
    Raster.crs
    Raster.dtype
    Raster.null_value
+   Raster.pxrs
    Raster.resolution
    Raster.shape
    Raster.xrs

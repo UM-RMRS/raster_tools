@@ -156,6 +156,23 @@ def test_property_xrs():
     assert rs.xrs is rs._rs
 
 
+def test_property_pxrs():
+    data = np.arange(25).reshape((1, 5, 5))
+    rs = Raster(data).remap_range((0, 10, -999)).set_null_value(-999)
+    assert not np.isnan(rs).any().compute()
+    assert hasattr(rs, "pxrs")
+    assert isinstance(rs.pxrs, xr.DataArray)
+    assert np.isnan(rs.pxrs).sum().compute() == 10
+    assert rs.pxrs is not rs._rs
+    tdata = np.where(data < 10, np.nan, data)
+    assert np.allclose(rs.pxrs, tdata, equal_nan=True)
+
+    rs = Raster(data)
+    assert not np.isnan(rs).any().compute()
+    assert rs.pxrs is rs._rs
+    assert not np.isnan(rs.pxrs).any().compute()
+
+
 def test_property__data():
     rs = Raster("tests/data/elevation_small.tif")
     assert hasattr(rs, "_data")
