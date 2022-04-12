@@ -90,6 +90,7 @@ Null Data and Remapping
 .. autosummary::
    :toctree: generated/
 
+   Raster.burn_mask
    Raster.replace_null
    Raster.remap_range
    Raster.set_null_value

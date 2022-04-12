@@ -461,8 +461,19 @@ class Raster(_RasterBase):
 
     @property
     def xrs(self):
-        """The underlying xarray DataArray (read only)"""
+        """The underlying :class:`xarray.DataArray` (read only)"""
         return self._rs
+
+    @property
+    def pxrs(self):
+        """Plottable xrs. Same as :attr:`~Raster.xrs` but null cells are filled
+        with NaN.
+
+        This makes for nicer plots when calling :meth:`xarray.DataArray.plot`.
+        """
+        if not self._masked:
+            return self.xrs
+        return xr.where(self._mask, np.nan, self._rs)
 
     @property
     def _data(self):
@@ -725,6 +736,21 @@ class Raster(_RasterBase):
         else:
             mask = temp_mask
         return self._replace(xrs, mask=mask, null_value=value)
+
+    def burn_mask(self):
+        """Fill null-masked cells with null value.
+
+        Use this as a way to return the underlying data to a known state. If
+        dtype is boolean, the null cells are set to ``False`` instead of
+        promoting to fit the null value.
+        """
+        if not self._masked:
+            return self
+        nv = self.null_value
+        if is_bool(self.dtype):
+            nv = False
+        xrs = xr.where(self._mask, nv, self._rs)
+        return self._replace(xrs)
 
     def to_null_mask(self):
         """

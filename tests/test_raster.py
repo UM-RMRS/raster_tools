@@ -774,5 +774,30 @@ class TestGetBands(unittest.TestCase):
             rs.get_bands([])
 
 
+def test_burn_mask():
+    data = np.arange(25).reshape((1, 5, 5))
+    rs = Raster(data).remap_range((0, 10, -999)).set_null_value(-999)
+    true_mask = data < 10
+    true_state = data.copy()
+    true_state[true_mask] = -999
+    assert np.allclose(true_mask, rs._mask)
+    assert np.allclose(true_state, rs._values)
+
+    rs.xrs.data = data
+    assert np.allclose(rs, data)
+    assert np.allclose(rs.burn_mask(), true_state)
+
+    data = np.arange(25).reshape((1, 5, 5))
+    rs = Raster(data).remap_range((20, 26, 999)).set_null_value(999)
+    rs = rs > 15
+    assert rs.dtype == np.dtype(bool)
+    assert rs.null_value == 999
+    true_state = data > 15
+    true_state = np.where(data >= 20, False, true_state)
+    print(rs.burn_mask()._values)
+    print(true_state)
+    assert np.allclose(rs.burn_mask(), true_state)
+
+
 if __name__ == "__main__":
     unittest.main()
