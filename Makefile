@@ -1,8 +1,8 @@
-.PHONY: all build clean clean-env clean-build clean-pyc clean-docs dev test test-mp
+.PHONY: all dist clean clean-env clean-build clean-pyc clean-docs dev test test-mp
 
-all: build
+all: dist
 
-build: clean
+dist: clean
 	python -m build
 
 dev:
