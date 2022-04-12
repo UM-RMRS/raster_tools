@@ -2,6 +2,9 @@
 
 all: build
 
+build: clean
+	python -m build
+
 dev:
 	conda env create -f requirements/dev.yml
 
