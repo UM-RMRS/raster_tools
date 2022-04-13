@@ -42,7 +42,7 @@ variables. Some examples:
 * Addition and subtraction: ``rs4 = rs1 + rs2 - rs3``
 * Floor division: ``rs3 = rs1 // rs2``
 * With scalars: ``rs3 = 1.5 * (rs1 ** (-rs2 - 2))``
-* divmod: ``rs_div, rs_mod = divmod(rs1)``
+* divmod: ``rs_div, rs_mod = divmod(rs1, rs2)``
 * Bit shifting: ``rs2 = rs1 << 1``
 * Bitwise and: ``rs3 = rs1 & rs2``
 * Bitwise complement: ``rs2 = ~rs1``
