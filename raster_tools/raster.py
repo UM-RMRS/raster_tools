@@ -208,13 +208,13 @@ def _apply_ufunc(ufunc, *args, kwargs=None, out=None):
         )
 
     if isinstance(xr_out, xr.DataArray):
-        return raster_args[0]._replace(
-            xr_out, mask=mask, null_value=nv, null_value_none=nv is None
+        return Raster(xr_out)._replace(
+            mask=mask, null_value=nv, null_value_none=nv is None
         )
 
     rs_outs = tuple(
-        raster_args[0]._replace(
-            o, mask=mask, null_value=nv, null_value_none=nv is None
+        Raster(o)._replace(
+            mask=mask, null_value=nv, null_value_none=nv is None
         )
         for o in xr_out
     )
@@ -401,13 +401,16 @@ class Raster(_RasterBase):
 
     def _replace(
         self,
-        new_xrs,
+        new_xrs=None,
         attrs=None,
         mask=None,
         null_value=None,
         null_value_none=False,
     ):
-        new_rs = Raster(new_xrs)
+        if new_xrs is not None:
+            new_rs = Raster(new_xrs)
+        else:
+            new_rs = self.copy()
         new_rs._attrs = attrs or self._attrs
         new_rs._mask = mask if mask is not None else self._mask
         if not null_value_none:
