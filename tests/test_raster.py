@@ -381,12 +381,21 @@ _NP_UFUNCS = list(
     filter(
         lambda x: isinstance(x, np.ufunc)
         # not valid for rasters
-        and x not in (np.isnat, np.matmul, np.binary_repr),
+        and x not in (np.isnat, np.matmul),
         map(lambda x: getattr(np, x), dir(np)),
     )
 )
 _NP_UFUNCS_NIN_SINGLE = list(filter(lambda x: x.nin == 1, _NP_UFUNCS))
 _NP_UFUNCS_NIN_MULT = list(filter(lambda x: x.nin > 1, _NP_UFUNCS))
+_UNSUPPORED_UFUNCS = frozenset((np.isnat, np.matmul))
+
+
+@pytest.mark.parametrize("ufunc", list(_UNSUPPORED_UFUNCS))
+def test_ufuncs_unsupported(ufunc):
+    rs = Raster(np.arange(4 * 5 * 5).reshape((4, 5, 5)))
+    with pytest.raises(TypeError):
+        args = [rs for i in range(ufunc.nin)]
+        ufunc(*args)
 
 
 @pytest.mark.parametrize("ufunc", _NP_UFUNCS_NIN_SINGLE)

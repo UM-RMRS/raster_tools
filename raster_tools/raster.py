@@ -222,6 +222,7 @@ def _apply_ufunc(ufunc, *args, kwargs=None, out=None):
 
 
 _UNARY_UFUNCS = frozenset((np.absolute, np.invert, np.negative, np.positive))
+_UNSUPPORED_UFUNCS = frozenset((np.isnat, np.matmul))
 
 
 class _RasterBase(np.lib.mixins.NDArrayOperatorsMixin, _ReductionsMixin):
@@ -246,6 +247,11 @@ class _RasterBase(np.lib.mixins.NDArrayOperatorsMixin, _ReductionsMixin):
         for x in inputs + out:
             if not isinstance(x, self._HANDLED_TYPES + (_RasterBase,)):
                 return NotImplemented
+
+        if ufunc in _UNSUPPORED_UFUNCS:
+            raise TypeError(
+                f"Raster objects are not supported for ufunc: '{ufunc}'."
+            )
 
         if ufunc.signature is not None:
             raise NotImplementedError("Raster does not support gufuncs")
