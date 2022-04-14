@@ -555,14 +555,17 @@ def test_invert():
 )
 def test_reductions(func):
     data = np.arange(3 * 5 * 5).reshape((3, 5, 5)) - 25
+    data = data.astype(float)
     rs = Raster(data).set_null_value(4)
-    valid = ~rs._mask.compute()
+    rs._data[:, :2, :2] = np.nan
+    valid = ~(rs._mask | np.isnan(rs._data)).compute()
 
     fname = func.__name__
     if fname in ("amin", "amax"):
         # Drop leading 'a'
         fname = fname[1:]
     assert hasattr(rs, fname)
+    assert not np.allclose(valid, rs._mask)
     truth = func(data[valid])
     for result in (func(rs), getattr(rs, fname)()):
         assert isinstance(result, dask.array.Array)
