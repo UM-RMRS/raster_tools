@@ -584,6 +584,19 @@ def test_reductions(func):
         assert np.allclose(getattr(rs, fname)(), truth, equal_nan=True)
 
 
+def test_round():
+    data = np.arange(5 * 5).reshape((5, 5)).astype(float)
+    data += np.linspace(0, 4, 5 * 5).reshape((5, 5))
+    rs = Raster(data)
+
+    assert hasattr(rs, "round")
+    truth = np.round(data)
+    assert isinstance(rs.round(), Raster)
+    assert np.allclose(rs.round(), truth)
+    truth = np.round(data, decimals=2)
+    assert np.allclose(rs.round(2), truth)
+
+
 class TestAstype(unittest.TestCase):
     def test_astype(self):
         rs = Raster("tests/data/elevation_small.tif")

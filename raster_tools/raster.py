@@ -905,7 +905,7 @@ class Raster(_RasterBase):
             Rounded raster.
 
         """
-        return np.round(self, decimals=decimals)
+        return self._replace(self._rs.round(decimals=decimals))
 
 
 def get_raster(src, strict=True, null_to_nan=False):
