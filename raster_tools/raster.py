@@ -122,11 +122,6 @@ class _ReductionsMixin:
         return method
 
 
-def _is_using_dask(raster):
-    rs = raster.xrs if isinstance(raster, Raster) else raster
-    return dask.is_dask_collection(rs)
-
-
 def _normalize_ndarray_for_ufunc(other, target_shape):
     if isinstance(other, da.Array) and np.isnan(other.size):
         raise ValueError(
@@ -365,7 +360,7 @@ class Raster(_RasterBase):
         elif is_xarray(raster):
             if isinstance(raster, xr.Dataset):
                 raise TypeError("Unable to handle xarray.Dataset objects")
-            if _is_using_dask(raster):
+            if dask.is_dask_collection(raster):
                 raster = chunk(raster)
             self._rs = normalize_xarray_data(raster)
             null = _try_to_get_null_value_xarray(raster)
@@ -546,7 +541,7 @@ class Raster(_RasterBase):
     def to_dask(self):
         """Returns the underlying data as a dask array."""
         rs = self
-        if not _is_using_dask(self):
+        if not dask.is_dask_collection(self._rs):
             rs = self._replace(chunk(self._rs))
         return rs._data
 
