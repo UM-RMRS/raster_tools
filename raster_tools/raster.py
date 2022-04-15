@@ -662,6 +662,8 @@ class Raster(_RasterBase):
         n_bands, *_ = self.shape
         if is_int(bands):
             bands = [bands]
+        if not all(is_int(b) for b in bands):
+            raise TypeError("All band numbers must be integers")
         bands = list(bands)
         if len(bands) == 0:
             raise ValueError("No bands provided")

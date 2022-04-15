@@ -792,28 +792,29 @@ class TestToDask(unittest.TestCase):
         self.assertTrue(isinstance(rs.eval().to_dask(), dask.array.Array))
 
 
-class TestGetBands(unittest.TestCase):
-    def test_get_bands(self):
-        rs = Raster("tests/data/multiband_small.tif")
-        rsnp = rs.xrs.values
-        self.assertTrue(rs_eq_array(rs.get_bands(1), rsnp[:1]))
-        self.assertTrue(rs_eq_array(rs.get_bands(2), rsnp[1:2]))
-        self.assertTrue(rs_eq_array(rs.get_bands(3), rsnp[2:3]))
-        self.assertTrue(rs_eq_array(rs.get_bands(4), rsnp[3:4]))
-        for bands in [[1], [1, 2], [1, 1], [3, 1, 2], [4, 3, 2, 1]]:
-            np_bands = [i - 1 for i in bands]
-            result = rs.get_bands(bands)
-            self.assertTrue(np.allclose(result, rsnp[np_bands]))
-            bnd_dim = list(range(1, len(bands) + 1))
-            self.assertTrue(np.allclose(result.xrs.band, bnd_dim))
+def test_get_bands():
+    rs = Raster(np.arange(4 * 100 * 100).reshape((4, 100, 100)))
+    rsnp = rs.xrs.values
+    assert np.allclose(rs.get_bands(1), rsnp[:1])
+    assert np.allclose(rs.get_bands(2), rsnp[1:2])
+    assert np.allclose(rs.get_bands(3), rsnp[2:3])
+    assert np.allclose(rs.get_bands(4), rsnp[3:4])
+    for bands in [[1], [1, 2], [1, 1], [3, 1, 2], [4, 3, 2, 1]]:
+        np_bands = [i - 1 for i in bands]
+        result = rs.get_bands(bands)
+        assert np.allclose(result, rsnp[np_bands])
+        bnd_dim = list(range(1, len(bands) + 1))
+        assert np.allclose(result.xrs.band, bnd_dim)
 
-        self.assertTrue(len(rs.get_bands(1).shape) == 3)
+    assert len(rs.get_bands(1).shape) == 3
 
-        for bands in [0, 5, [1, 5], [0]]:
-            with self.assertRaises(IndexError):
-                rs.get_bands(bands)
-        with self.assertRaises(ValueError):
-            rs.get_bands([])
+    for bands in [0, 5, [1, 5], [0]]:
+        with pytest.raises(IndexError):
+            rs.get_bands(bands)
+    with pytest.raises(ValueError):
+        rs.get_bands([])
+    with pytest.raises(TypeError):
+        rs.get_bands(1.0)
 
 
 def test_burn_mask():
