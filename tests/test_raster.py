@@ -882,57 +882,65 @@ def test_index(x, y):
     assert rs.index(x, y) == rio.transform.rowcol(T, x, y)
 
 
+def _compare_raster_to_vectorized(rs, df):
+    data = rs._values
+    x = rs.xrs.x.values
+    y = rs.xrs.y.values
+    for dfrow in df.itertuples():
+        value = dfrow.value
+        band = dfrow.band
+        row = dfrow.row
+        col = dfrow.col
+        p = dfrow.geometry
+        assert band >= 1
+        assert value == data[band - 1, row, col]
+        assert x[col] == p.x
+        assert y[row] == p.y
+
+
 def test_to_vector():
     data = np.array(
         [
-            [0, 1, 1, 2],
-            [0, 1, 2, 2],
-            [0, 0, 1, 0],
-            [0, 1, 3, 0],
+            [
+                [0, 1, 1, 2],
+                [0, 1, 2, 2],
+                [0, 0, 1, 0],
+                [0, 1, 3, 0],
+            ],
+            [
+                [3, 2, 2, 1],
+                [0, 1, 2, 1],
+                [0, 0, 2, 0],
+                [0, 2, 4, 5],
+            ],
         ]
     )
     count = np.sum(data > 0)
-    x = np.arange(0.5, 4.5, 1)
-    y = np.arange(0.5, 4.5, 1)
     rs = Raster(data).set_null_value(0)
     ddf = rs.to_vector()
     df = ddf.compute()
 
     assert isinstance(ddf, GeoDataFrame)
+    assert ddf.crs == rs.crs
     assert len(df) == count
-    assert np.all(ddf.columns == ["value", "row", "col", "geometry"])
-
-    for dfrow in df.itertuples():
-        value = dfrow.value
-        row = dfrow.row
-        col = dfrow.col
-        p = dfrow.geometry
-        assert value == data[row, col]
-        assert x[col] == p.x
-        assert y[row] == p.y
+    assert np.all(ddf.columns == ["value", "band", "row", "col", "geometry"])
+    _compare_raster_to_vectorized(rs, df)
 
     rs = Raster("tests/data/elevation_small.tif")
-    data = rs._values[0]
+    rs = band_concat((rs, rs + 100))
+    data = rs._values
     rs.xrs.data = dask.array.rechunk(rs.xrs.data, (1, 20, 20))
     rs._mask = dask.array.rechunk(rs._mask, (1, 20, 20))
-    assert rs._data.npartitions == 25
-    assert rs._mask.sum().compute() == 0
-    x = rs.xrs.x.values
-    y = rs.xrs.y.values
-
     ddf = rs.to_vector()
-    assert ddf.npartitions == rs._data.npartitions
     df = ddf.compute()
-    assert len(df) == rs._data.size
 
-    for dfrow in df.itertuples():
-        value = dfrow.value
-        row = dfrow.row
-        col = dfrow.col
-        p = dfrow.geometry
-        assert value == data[row, col]
-        assert x[col] == p.x
-        assert y[row] == p.y
+    assert rs._data.npartitions == 50
+    assert rs._mask.sum().compute() == 0
+    assert ddf.npartitions == rs._data.npartitions
+    assert ddf.crs == rs.crs
+    assert len(df) == rs._data.size
+    assert np.all(ddf.columns == ["value", "band", "row", "col", "geometry"])
+    _compare_raster_to_vectorized(rs, df)
 
 
 if __name__ == "__main__":
