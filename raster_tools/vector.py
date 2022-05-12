@@ -1,10 +1,12 @@
 import os
 
 import dask
+import dask.dataframe as dd
 import dask_geopandas as dgpd
+import fiona
 import geopandas as gpd
 import numpy as np
-import pyogrio as ogr
+import pandas as pd
 import rasterio as rio
 import xarray as xr
 from dask.delayed import delayed
@@ -31,8 +33,7 @@ def list_layers(path):
     """List the layers in a vector source file."""
     if not os.path.exists(path):
         raise IOError(f"No such file or directory: {path!r}")
-    layers = ogr.list_layers(path)
-    return list(layers[:, 0])
+    return fiona.listlayers(path)
 
 
 def count_layer_features(path, layer):
@@ -58,13 +59,39 @@ def count_layer_features(path, layer):
     if is_int(layer) and layer < 0:
         raise ValueError("The layer must be positive.")
 
-    info = ogr.read_info(path, layer=layer)
-    return info["features"]
+    with fiona.open(path, layer=layer) as src:
+        return len(src)
 
 
 def _df_asign_index(df, index):
     df.index = index
     return df
+
+
+def _read_file_delayed(path, layer, npartitions):
+    with fiona.open(path, layer=layer) as src:
+        total_size = len(src)
+
+    batch_size = (total_size // npartitions) + 1
+
+    row_offset = 0
+    dfs = []
+    divs = []
+    while row_offset < total_size:
+        left = row_offset
+        right = min(row_offset + batch_size, total_size)
+        rows = slice(left, right)
+        df = delayed(gpd.read_file)(path, rows=rows, layer=layer)
+        index = pd.RangeIndex(left, right)
+        df = delayed(_df_asign_index)(df, index)
+        dfs.append(df)
+        divs.append(left)
+        row_offset += batch_size
+    divs.append(right - 1)
+    meta = gpd.read_file(path, layer=layer, rows=1)
+    divs = tuple(divs)
+    # Returns a dask_geopandas GeoDataFrame
+    return dd.from_delayed(dfs, meta, divisions=divs), total_size
 
 
 def _normalize_layers_arg(layers):
@@ -84,7 +111,7 @@ def _normalize_layers_arg(layers):
         raise TypeError(f"Could not understand layers argument: {layers!r}")
 
 
-_TARGET_CHUNK_SIZE = 1_000
+_LAZY_THRESHOLD = 10_000
 
 
 def open_vectors(path, layers=None):
@@ -112,7 +139,7 @@ def open_vectors(path, layers=None):
     if not os.path.exists(path):
         raise IOError(f"No such file or directory: {path!r}")
 
-    src_layers = list_layers(path)
+    src_layers = fiona.listlayers(path)
     n = len(src_layers)
     if layers is not None:
         layers = _normalize_layers_arg(layers)
@@ -133,9 +160,13 @@ def open_vectors(path, layers=None):
 
     dfs = []
     for layer in layers:
-        n = count_layer_features(path, layer=layer)
-        df = dgpd.read_file(path, layer=layer, chunksize=_TARGET_CHUNK_SIZE)
-        dfs.append((df, n))
+        with fiona.open(path, layer=layer) as fsrc:
+            n = len(fsrc)
+        if n >= _LAZY_THRESHOLD:
+            # TODO: determine number of partitions
+            dfs.append(_read_file_delayed(path, layer, 10))
+        else:
+            dfs.append((gpd.read_file(path, layer=layer), n))
     if len(dfs) > 1:
         return [Vector(df, n) for df, n in dfs]
     return Vector(*dfs[0])
@@ -670,9 +701,8 @@ class Vector:
         Returns
         -------
         Vector
-            Returns a new vector pointing to the saved location.
+            Returns itself.
 
         """
-        (geo,) = dask.compute(self._geo)
-        geo.to_file(path, **fiona_kwargs)
-        return open_vectors(path)
+        self._geo.to_file(path, **fiona_kwargs)
+        return self
