@@ -1000,11 +1000,12 @@ class Raster(_RasterBase):
             b, i, j = np.unravel_index(k, chunks_shape)
             yslice = y[slices["y"][i]]
             xslice = x[slices["x"][j]]
-            chunks.append((d, m, xslice, yslice, self.crs, self.affine))
+            chunks.append((d, m, xslice, yslice, b + 1, self.crs, self.affine))
 
         meta = gpd.GeoDataFrame(
             {
                 "value": [self.dtype.type(1)],
+                "band": [1],
                 "row": [0],
                 "col": [0],
                 "geometry": [Point(x[0], y[0])],
@@ -1072,13 +1073,20 @@ def _extract_values(data, mask):
 
 
 @dask.delayed
-def _vectorize(data, mask, cx, cy, crs, affine):
+def _vectorize(data, mask, cx, cy, band, crs, affine):
     xpoints, ypoints = _extract_points(mask, cx, cy)
     values = _extract_values(data, mask)
     points = [Point(x, y) for x, y in zip(xpoints, ypoints)]
     rows, cols = xy_to_rowcol(xpoints, ypoints, affine)
+    bands = [band] * len(values)
     df = gpd.GeoDataFrame(
-        {"value": values, "row": rows, "col": cols, "geometry": points},
+        {
+            "value": values,
+            "band": bands,
+            "row": rows,
+            "col": cols,
+            "geometry": points,
+        },
         crs=crs,
     )
     return df
