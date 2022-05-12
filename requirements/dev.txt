@@ -11,6 +11,7 @@
  pandas
  pre-commit
  pygeos
+ pyogrio
  pyproj
  pytest
  pytest-xdist
