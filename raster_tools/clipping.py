@@ -188,7 +188,7 @@ def envelope(feature, data_raster):
     )
 
 
-def clip_box(raster, bounds):
+def clip_box(raster, bounds=None):
     """Clip the raster to the specified box.
 
     Parameters
