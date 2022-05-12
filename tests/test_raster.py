@@ -7,6 +7,7 @@ import numpy as np
 import pytest
 import rasterio as rio
 import xarray as xr
+from dask_geopandas import GeoDataFrame
 
 import raster_tools.focal as focal
 from raster_tools import Raster, band_concat
@@ -75,8 +76,8 @@ class TestRasterCreation(unittest.TestCase):
         # Band dim starts at 1
         self.assertTrue((rs.xrs.band == [1]).all())
         # x/y dims start at 0 and increase
-        self.assertTrue((rs.xrs.x == np.arange(0, 6)).all())
-        self.assertTrue((rs.xrs.y == np.arange(0, 6)).all())
+        self.assertTrue((rs.xrs.x == np.arange(0, 6) + 0.5).all())
+        self.assertTrue((rs.xrs.y == np.arange(0, 6) + 0.5).all())
         # No null value determined for int type
         self.assertIsNone(rs.null_value)
 
@@ -840,6 +841,98 @@ def test_burn_mask():
     print(rs.burn_mask()._values)
     print(true_state)
     assert np.allclose(rs.burn_mask(), true_state)
+
+
+@pytest.mark.parametrize("index", [(0, 0), (0, 1), (1, 0), (-1, -1), (1, -1)])
+@pytest.mark.parametrize("offset", ["center", "ul", "ll", "ur", "lr"])
+def test_xy(index, offset):
+    rs = Raster("tests/data/elevation_small.tif")
+    i, j = index
+    if i == -1:
+        i = rs.shape[1] - 1
+    if j == -1:
+        j = rs.shape[2] - 1
+
+    rio_offset = offset
+    if rio_offset.startswith("u"):
+        rio_offset = "l" + rio_offset[-1]
+    elif rio_offset.startswith("l"):
+        rio_offset = "u" + rio_offset[-1]
+    T = rs.affine
+
+    assert rs.xy(i, j, offset) == rio.transform.xy(T, i, j, offset=rio_offset)
+
+
+@pytest.mark.parametrize(
+    "x,y",
+    [
+        (0, 0),
+        (-47848.38283538996, 65198.938461863494),
+        (-47278.38283538996, 65768.9384618635),
+        (-44878.38283538996, 68168.9384618635),
+        (-46048.38283538996, 66308.9384618635),
+        (-46048.0, 66328.1),
+        (-46025.0, 66328.1),
+    ],
+)
+def test_index(x, y):
+    rs = Raster("tests/data/elevation_small.tif")
+    T = rs.affine
+
+    assert rs.index(x, y) == rio.transform.rowcol(T, x, y)
+
+
+def test_to_vector():
+    data = np.array(
+        [
+            [0, 1, 1, 2],
+            [0, 1, 2, 2],
+            [0, 0, 1, 0],
+            [0, 1, 3, 0],
+        ]
+    )
+    count = np.sum(data > 0)
+    x = np.arange(0.5, 4.5, 1)
+    y = np.arange(0.5, 4.5, 1)
+    rs = Raster(data).set_null_value(0)
+    ddf = rs.to_vector()
+    df = ddf.compute()
+
+    assert isinstance(ddf, GeoDataFrame)
+    assert len(df) == count
+    assert np.all(ddf.columns == ["value", "row", "col", "geometry"])
+
+    for dfrow in df.itertuples():
+        value = dfrow.value
+        row = dfrow.row
+        col = dfrow.col
+        p = dfrow.geometry
+        assert value == data[row, col]
+        assert x[col] == p.x
+        assert y[row] == p.y
+
+    rs = Raster("tests/data/elevation_small.tif")
+    data = rs._values[0]
+    rs.xrs.data = dask.array.rechunk(rs.xrs.data, (1, 20, 20))
+    rs._mask = dask.array.rechunk(rs._mask, (1, 20, 20))
+    assert rs._data.npartitions == 25
+    assert rs._mask.sum().compute() == 0
+    x = rs.xrs.x.values
+    y = rs.xrs.y.values
+
+    ddf = rs.to_vector()
+    assert ddf.npartitions == rs._data.npartitions
+    df = ddf.compute()
+    assert len(df) == rs._data.size
+
+    for dfrow in df.itertuples():
+        value = dfrow.value
+        row = dfrow.row
+        col = dfrow.col
+        p = dfrow.geometry
+        assert value == data[row, col]
+        assert x[col] == p.x
+        assert y[row] == p.y
 
 
 if __name__ == "__main__":

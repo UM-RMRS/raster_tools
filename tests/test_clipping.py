@@ -82,7 +82,7 @@ class TestClipping(TestCase):
         x[x < 12] = 0
         rs = Raster(x).set_null_value(0).set_crs("epsg:3857")
         self.assertTrue(np.allclose(x == 0, rs._mask))
-        rs_clipped = clipping.clip_box(rs, (1, 1, 3, 3))
+        rs_clipped = clipping.clip_box(rs, (1, 1, 4, 4))
         mask_truth = np.array([[[1, 1, 1], [1, 0, 0], [0, 0, 0]]], dtype=bool)
         self.assertTrue(np.allclose(rs_clipped._mask, mask_truth))
 
