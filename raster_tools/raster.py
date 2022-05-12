@@ -4,8 +4,13 @@ from collections import abc
 
 import dask
 import dask.array as da
+import dask.dataframe as dd
+import geopandas as gpd
 import numpy as np
+import rasterio as rio
 import xarray as xr
+from numba import jit
+from shapely.geometry import Point
 
 from raster_tools.dask_utils import dask_nanmax, dask_nanmin
 from raster_tools.dtypes import (
@@ -293,7 +298,8 @@ def _array_to_xarray(ar):
         ar = da.from_array(ar)
     # The band dimension needs to start at 1 to match raster conventions
     coords = [np.arange(1, ar.shape[0] + 1)]
-    coords.extend([np.arange(d) for d in ar.shape[1:]])
+    # Add 0.5 offset to move coords to center of cell
+    coords.extend([np.arange(d) + 0.5 for d in ar.shape[1:]])
     xrs = xr.DataArray(ar, dims=["band", "y", "x"], coords=coords)
     if is_numpy_masked(ar._meta):
         xrs.attrs["_FillValue"] = ar._meta.fill_value
@@ -903,6 +909,179 @@ class Raster(_RasterBase):
 
         """
         return self._replace(self._rs.round(decimals=decimals))
+
+    def xy(self, row, col, offset="center"):
+        """Return the `(x, y)` coordinates of the pixel at `(row, col)`.
+
+        Parameters
+        ----------
+        row : int, float, array-like
+            row value(s) in the raster's CRS
+        col : int, float, array-like
+            row value(s) in the raster's CRS
+        offset : str, optional
+            Determines if the returned coordinates are for the center or a
+            corner. Default is `'center'`
+
+            'center'
+                The pixel center.
+            'ul'
+                The upper left corner.
+            'ur'
+                The upper right corner.
+            'll'
+                The lower left corner.
+            'lr'
+                The lower right corner.
+
+        Returns
+        -------
+        tuple
+            (x value(s), y value(s)). If the inputs where array-like, the
+            output values will be arrays.
+
+        """
+        return rowcol_to_xy(row, col, self.affine, offset)
+
+    def index(self, x, y):
+        """Return the `(row, col)` index of the pixel at `(x, y)`.
+
+        Parameters
+        ----------
+        x : float, array-like
+            x value(s) in the raster's CRS
+        y : float, array-like
+            y value(s) in the raster's CRS
+
+        Returns
+        -------
+        tuple
+            (row value(s), col value(s)). If the inputs where array-like, the
+            output values will be arrays.
+
+        """
+        return xy_to_rowcol(x, y, self.affine)
+
+    def to_vector(self):
+        """
+        Convert the raster into a vector where each non-null cell is a point.
+
+        The resulting points are located at the center of each grid cell.
+
+        Returns
+        -------
+        result
+            The result is a dask_geopandas GeoDataFrame with the following
+            columns: value, row, col, geometry. The value is the cell value
+            at the row and column in the raster.
+
+        """
+        xrs = self.xrs
+        mask = self._mask
+        data_delayed = xrs.data.to_delayed()
+        chunks_shape = data_delayed.shape
+        data_delayed = data_delayed.ravel()
+        mask_delayed = mask.to_delayed().ravel()
+
+        # Mapping from dim name to list of slices for coordinate arrays
+        slices = {}
+        for d, r in xrs.chunksizes.items():
+            r = np.add.accumulate([0, *r])
+            s = []
+            for i in range(len(r) - 1):
+                s.append(slice(*r[i : i + 2]))
+            slices[d] = s
+        x = xrs.x.data
+        y = xrs.y.data
+        # Group chunk data with corresponding coordinate data
+        chunks = []
+        for k, (d, m) in enumerate(zip(data_delayed, mask_delayed)):
+            # band index, chunk y index, chunk x index
+            b, i, j = np.unravel_index(k, chunks_shape)
+            yslice = y[slices["y"][i]]
+            xslice = x[slices["x"][j]]
+            chunks.append((d, m, xslice, yslice, self.crs, self.affine))
+
+        meta = gpd.GeoDataFrame(
+            {
+                "value": [self.dtype.type(1)],
+                "row": [0],
+                "col": [0],
+                "geometry": [Point(x[0], y[0])],
+            },
+            crs=self.crs,
+        )
+        results = [
+            dd.from_delayed(_vectorize(*chunk), meta=meta) for chunk in chunks
+        ]
+        ddf = dd.concat(results)
+        return ddf
+
+
+_XY_OFFSET_REMAP = {"ul": "ll", "ll": "ul", "ur": "lr", "lr": "ur"}
+
+
+def rowcol_to_xy(row, col, affine, offset):
+    """
+    Convert (row, col) index values to (x, y) coords using the transformation.
+    """
+    # Invert the north/south dim so that upper always gives north and lower
+    # gives south
+    if offset in _XY_OFFSET_REMAP:
+        offset = _XY_OFFSET_REMAP[offset]
+    result = rio.transform.xy(affine, row, col, offset=offset)
+    if is_scalar(row):
+        return result
+    return tuple(np.array(v) for v in result)
+
+
+def xy_to_rowcol(x, y, affine):
+    """
+    Convert (x, y) coords to (row, col) index values using the transformation.
+    """
+    result = rio.transform.rowcol(affine, x, y)
+    if is_scalar(x):
+        return result
+    return tuple(np.array(v) for v in result)
+
+
+@jit(nopython=True, nogil=True, cache=True)
+def _extract_points(mask, cx, cy):
+    shape = mask.shape
+    rx = []
+    ry = []
+    for i in range(shape[1]):
+        for j in range(shape[2]):
+            if mask[0, i, j]:
+                continue
+            rx.append(cx[j])
+            ry.append(cy[i])
+    return (rx, ry)
+
+
+@jit(nopython=True, nogil=True, cache=True)
+def _extract_values(data, mask):
+    shape = data.shape
+    results = []
+    for i in range(shape[1]):
+        for j in range(shape[2]):
+            if mask[0, i, j]:
+                continue
+            results.append(data[0, i, j])
+    return results
+
+
+@dask.delayed
+def _vectorize(data, mask, cx, cy, crs, affine):
+    xpoints, ypoints = _extract_points(mask, cx, cy)
+    values = _extract_values(data, mask)
+    points = [Point(x, y) for x, y in zip(xpoints, ypoints)]
+    rows, cols = xy_to_rowcol(xpoints, ypoints, affine)
+    df = gpd.GeoDataFrame(
+        {"value": values, "row": rows, "col": cols, "geometry": points},
+        crs=crs,
+    )
+    return df
 
 
 def get_raster(src, strict=True, null_to_nan=False):
