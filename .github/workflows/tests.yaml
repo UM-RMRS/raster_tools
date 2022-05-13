@@ -12,6 +12,9 @@ jobs:
   test:
     name: Test ${{matrix.os }} - ${{ matrix.env }}
     runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash -l {0}
     strategy:
       fail-fast: false
       matrix:
@@ -22,7 +25,7 @@ jobs:
           - requirements/39-ci.yml
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Setup Conda
         uses: conda-incubator/setup-miniconda@v2
