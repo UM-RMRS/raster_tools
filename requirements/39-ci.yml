@@ -1,0 +1,21 @@
+name: test
+channels:
+  - conda-forge
+dependencies:
+  - python=3.9
+  - affine
+  - dask
+  - dask-geopandas
+  - dask-image
+  - fiona
+  - geopandas
+  - numba
+  - numpy
+  - pandas
+  - pygeos
+  - pyproj
+  - pytest
+  - pytest-xdist
+  - rioxarray
+  - scipy
+  - xarray

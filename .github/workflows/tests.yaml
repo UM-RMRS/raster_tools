@@ -10,24 +10,34 @@ concurrency:
 
 jobs:
   test:
-    name: Test
-    runs-on: ubuntu-latest
+    name: Test ${{matrix.os }} - ${{ matrix.env }}
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.7", "3.8", "3.9"]
+        os: [ubuntu-latest]
+        env:
+          - requirements/37-ci.yml
+          - requirements/38-ci.yml
+          - requirements/39-ci.yml
 
     steps:
       - uses: actions/checkout@v2
-      - name: Test ${{ matrix.python-version }}
-        uses: actions/setup-python@v2
+
+      - name: Setup Conda
+        uses: conda-incubator/setup-miniconda@v2
         with:
-          python-version: ${{ matrix.python-vresion }}
-      - name: Install deps
+          environment-file: ${{ matrix.env }}
+          miniforge-version: latest
+          miniforge-variant: Mambaforge
+          use-mamba: true
+
+      - name: Log Environment
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install pytest
-          python -m pip install -r requirements/default.txt
-      - name: Test with pytest
+          python -V
+          conda info
+          conda list
+
+      - name: Test ${{ matrix.env }}
         run: |
-          pytest
+          pytest -v -n 2
