@@ -9,7 +9,7 @@ import xarray as xr
 from dask.array.core import normalize_chunks as dask_chunks
 
 from raster_tools._utils import create_null_mask, validate_path
-from raster_tools.dtypes import F32, F64, I64, U8, is_bool
+from raster_tools.dtypes import F32, F64, I64, U8, is_bool, is_float, is_int
 
 
 class RasterIOError(BaseException):
@@ -114,6 +114,11 @@ def normalize_null_value(nv, dtype):
     # registered as F32
     if dtype == F32 and nv == ESRI_DEFAULT_F32_NV:
         nv = F32.type(nv)
+    # Some rasters have (u)int dtype and a null value that is a whole number
+    # but it gets read in as a float. This can cause a lot of accidental type
+    # promotions down the pipeline. Check for this case and correct it.
+    if is_int(dtype) and is_float(nv) and float(nv).is_integer():
+        nv = int(nv)
     return nv
 
 
