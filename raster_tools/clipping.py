@@ -57,6 +57,7 @@ def _clip(
         clip_mask = ~clip_mask
         clip_mask._mask = ~clip_mask._mask
     xrs_out = xr.where(clip_mask.xrs, rs.xrs, nv)
+    xrs_out = xrs_out.rio.write_crs(rs.crs)
     mask_out = clip_mask._mask
 
     if rs._masked:

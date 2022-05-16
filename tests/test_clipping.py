@@ -24,31 +24,38 @@ class TestClipping(TestCase):
         res = clipping.clip(self.v10, self.dem)
         truth = Raster("tests/data/clipping_clip_pods_10.tif")
         self.assertTrue(np.allclose(res, truth))
+        assert res.crs == self.dem.crs
 
         res = clipping.clip(self.v10, self.dem, bounds=self.v10_bounds)
         self.assertTrue(np.allclose(res, truth))
+        assert res.crs == self.dem.crs
 
     def test_erase(self):
         res = clipping.erase(self.v10, self.dem)
         truth = Raster("tests/data/clipping_erase_pods_10.tif")
         self.assertTrue(np.allclose(res, truth))
+        assert res.crs == self.dem.crs
 
         res = clipping.erase(self.v10, self.dem, bounds=self.v10_bounds)
         self.assertTrue(np.allclose(res, truth))
+        assert res.crs == self.dem.crs
 
     def test_mask(self):
         res = clipping.mask(self.v10, self.dem)
         truth = Raster("tests/data/clipping_mask_pods_10.tif")
         self.assertTrue(np.allclose(res, truth))
+        assert res.crs == self.dem.crs
 
         res = clipping.mask(self.v10, self.dem, invert=True)
         truth = Raster("tests/data/clipping_mask_inverted_pods_10.tif")
         self.assertTrue(np.allclose(res, truth))
+        assert res.crs == self.dem.crs
 
     def test_envelope(self):
         res = clipping.envelope(self.v10, self.dem)
         truth = Raster("tests/data/clipping_envelope_pods_10.tif")
         self.assertTrue(np.allclose(res, truth))
+        assert res.crs == self.dem.crs
 
     def test_errors(self):
         with self.assertRaises(ValueError):
