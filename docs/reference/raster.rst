@@ -19,6 +19,7 @@ Attributes
    :toctree: generated/
 
    Raster.affine
+   Raster.bounds
    Raster.crs
    Raster.dtype
    Raster.null_value
@@ -107,6 +108,7 @@ Contents / Conversion
    Raster.astype
    Raster.copy
    Raster.to_dask
+   Raster.to_vector
 
 Georeferencing
 --------------
@@ -114,7 +116,9 @@ Georeferencing
 .. autosummary::
    :toctree: generated/
 
+   Raster.index
    Raster.set_crs
+   Raster.xy
 
 Raster IO
 ---------
