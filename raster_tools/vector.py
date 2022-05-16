@@ -29,6 +29,14 @@ class VectorError(Exception):
     pass
 
 
+def _is_series(geo):
+    return isinstance(geo, (gpd.GeoSeries, dgpd.GeoSeries))
+
+
+def _is_frame(geo):
+    return isinstance(geo, (gpd.GeoDataFrame, dgpd.GeoDataFrame))
+
+
 def list_layers(path):
     """List the layers in a vector source file."""
     if not os.path.exists(path):
@@ -181,6 +189,10 @@ def get_vector(src):
             # More than one layer was found
             raise ValueError("Input source must only have 1 layer")
         return result
+    elif _is_series(src) or _is_frame(src):
+        return Vector(src)
+    else:
+        raise TypeError("Invalid vector input")
 
 
 def _get_len_from_divisions(divs):
@@ -344,14 +356,6 @@ def _parse_input_raster(raster):
                 "Raster input must be a Raster type or path string"
             )
     return raster
-
-
-def _is_series(geo):
-    return isinstance(geo, (gpd.GeoSeries, dgpd.GeoSeries))
-
-
-def _is_frame(geo):
-    return isinstance(geo, (gpd.GeoDataFrame, dgpd.GeoDataFrame))
 
 
 def _normalize_geo_data(geo):
