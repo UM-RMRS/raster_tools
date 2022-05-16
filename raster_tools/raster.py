@@ -544,6 +544,14 @@ class Raster(_RasterBase):
         """The x and y cell sizes as a tuple. Values are always positive."""
         return self._rs.rio.resolution(True)
 
+    @property
+    def bounds(self):
+        """Bounds tuple (minx, miny, maxx, maxy)"""
+        minx, miny = self.xy(0, 0, offset="ll")
+        r, c = self.shape[1:]
+        maxx, maxy = self.xy(r - 1, c - 1, "ur")
+        return (minx, miny, maxx, maxy)
+
     def to_dask(self):
         """Returns the underlying data as a dask array."""
         rs = self

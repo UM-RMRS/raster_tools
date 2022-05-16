@@ -181,6 +181,29 @@ def test_property__data():
     assert rs._data is rs._rs.data
 
 
+def test_property_bounds():
+    rs = Raster("tests/data/elevation_small.tif")
+    assert hasattr(rs, "bounds")
+    assert isinstance(rs.bounds, tuple)
+    assert len(rs.bounds) == 4
+    assert rs.bounds == (
+        -47863.38283538996,
+        65183.938461863494,
+        -44863.38283538996,
+        68183.9384618635,
+    )
+
+    rs = Raster(
+        np.array(
+            [
+                [0, 0],
+                [0, 0],
+            ]
+        )
+    )
+    assert rs.bounds == (0, 0, 2, 2)
+
+
 _BINARY_ARITHMETIC_OPS = [
     operator.add,
     operator.sub,
