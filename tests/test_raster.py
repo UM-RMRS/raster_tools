@@ -861,8 +861,6 @@ def test_burn_mask():
     assert rs.null_value == 999
     true_state = data > 15
     true_state = np.where(data >= 20, False, true_state)
-    print(rs.burn_mask()._values)
-    print(true_state)
     assert np.allclose(rs.burn_mask(), true_state)
 
 
@@ -963,6 +961,27 @@ def test_to_vector():
     assert ddf.crs == rs.crs
     assert len(df) == rs._data.size
     assert np.all(ddf.columns == ["value", "band", "row", "col", "geometry"])
+    _compare_raster_to_vectorized(rs, df)
+
+    # make sure that empty (all-null) chunks are handled
+    data = np.array(
+        [
+            [
+                [0, 0, 1, 2],
+                [0, 0, 2, 2],
+                [0, 0, 1, 0],
+                [0, 1, 3, 0],
+            ]
+        ]
+    )
+    count = np.sum(data > 0)
+    rs = Raster(data).set_null_value(0)
+    rs.xrs.data = dask.array.rechunk(rs.xrs.data, (1, 2, 2))
+    rs._mask = dask.array.rechunk(rs._mask, (1, 2, 2))
+    ddf = rs.to_vector()
+    df = ddf.compute()
+
+    assert len(df) == count
     _compare_raster_to_vectorized(rs, df)
 
 

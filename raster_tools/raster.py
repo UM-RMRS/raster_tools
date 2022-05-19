@@ -1024,7 +1024,9 @@ class Raster(_RasterBase):
             dd.from_delayed(_vectorize(*chunk), meta=meta) for chunk in chunks
         ]
         ddf = dd.concat(results)
-        return ddf
+        # Add astype() as a workaround for
+        # https://github.com/geopandas/dask-geopandas/issues/190
+        return ddf.astype({"band": int, "row": int, "col": int})
 
 
 _XY_OFFSET_REMAP = {"ul": "ll", "ll": "ul", "ur": "lr", "lr": "ur"}
@@ -1083,10 +1085,17 @@ def _extract_values(data, mask):
 @dask.delayed
 def _vectorize(data, mask, cx, cy, band, crs, affine):
     xpoints, ypoints = _extract_points(mask, cx, cy)
-    values = _extract_values(data, mask)
-    points = [Point(x, y) for x, y in zip(xpoints, ypoints)]
-    rows, cols = xy_to_rowcol(xpoints, ypoints, affine)
-    bands = [band] * len(values)
+    if len(xpoints):
+        values = _extract_values(data, mask)
+        points = [Point(x, y) for x, y in zip(xpoints, ypoints)]
+        rows, cols = xy_to_rowcol(xpoints, ypoints, affine)
+        bands = [band] * len(values)
+    else:
+        values = []
+        points = []
+        bands = []
+        rows = []
+        cols = []
     df = gpd.GeoDataFrame(
         {
             "value": values,
