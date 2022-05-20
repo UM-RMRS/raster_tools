@@ -982,6 +982,10 @@ def test_to_vector():
     df = ddf.compute()
 
     assert len(df) == count
+    assert df["value"].dtype == data.dtype
+    assert df["band"].dtype == np.dtype(int)
+    assert df["row"].dtype == np.dtype(int)
+    assert df["col"].dtype == np.dtype(int)
     _compare_raster_to_vectorized(rs, df)
 
 
