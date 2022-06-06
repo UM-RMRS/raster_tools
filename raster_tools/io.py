@@ -85,6 +85,9 @@ def normalize_xarray_data(xrs):
         # Add band dim
         xrs = xrs.expand_dims("band")
     dims = xrs.dims
+    if "lon" in dims:
+        xrs = xrs.rename({"lon": "x", "lat": "y"})
+        dims = xrs.dims
     if not dims == ("band", "y", "x"):
         # No easy way to figure out how best to transpose based on dim names so
         # just assume the order is valid and rename.
