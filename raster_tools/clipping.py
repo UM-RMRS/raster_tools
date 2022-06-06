@@ -209,12 +209,12 @@ def clip_box(raster, bounds=None):
     if bounds is not None and len(bounds) != 4:
         raise ValueError("Invalid bounds. Must be a size 4 array or tuple.")
     try:
-        xrs = rs.xrs.rio.clip_box(*bounds)
+        xrs = rs.xrs.rio.clip_box(*bounds, auto_expand=True)
     except rxr.exceptions.NoDataInBounds:
         raise RasterNoDataError("No data found within provided bounds")
     if rs._masked:
         xmask = xr.DataArray(rs._mask, dims=rs.xrs.dims, coords=rs.xrs.coords)
-        mask = xmask.rio.clip_box(*bounds).data
+        mask = xmask.rio.clip_box(*bounds, auto_expand=True).data
     else:
         mask = da.zeros_like(xrs.data, dtype=bool)
     # TODO: This will throw a rioxarray.exceptions.MissingCRS exception if
