@@ -366,9 +366,10 @@ class Raster(_RasterBase):
         elif is_xarray(raster):
             if isinstance(raster, xr.Dataset):
                 raise TypeError("Unable to handle xarray.Dataset objects")
+            raster = normalize_xarray_data(raster)
             if dask.is_dask_collection(raster):
                 raster = chunk(raster)
-            self._rs = normalize_xarray_data(raster)
+            self._rs = raster
             null = _try_to_get_null_value_xarray(raster)
             self._mask = create_null_mask(self._rs, null)
             self._null_value = null
