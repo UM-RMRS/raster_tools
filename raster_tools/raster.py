@@ -1004,6 +1004,7 @@ class Raster(_RasterBase):
             slices[d] = s
         x = xrs.x.data
         y = xrs.y.data
+        # See issue for inspiration: https://github.com/dask/dask/issues/7589
         # Group chunk data with corresponding coordinate data
         chunks = []
         for k, (d, m) in enumerate(zip(data_delayed, mask_delayed)):
