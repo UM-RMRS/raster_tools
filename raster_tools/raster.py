@@ -415,6 +415,8 @@ class Raster(_RasterBase):
             new_rs = self.copy()
         new_rs._attrs = attrs or self._attrs
         new_rs._mask = mask if mask is not None else self._mask
+        if new_rs._data.chunks != new_rs._mask.chunks:
+            new_rs._mask = da.rechunk(new_rs._mask, new_rs._data.chunks)
         if not null_value_none:
             new_rs._null_value = (
                 null_value if null_value is not None else self.null_value
