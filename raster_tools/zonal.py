@@ -11,7 +11,7 @@ from dask_image import ndmeasure
 
 from raster_tools.dask_utils import dask_nanmax, dask_nanmin
 from raster_tools.dtypes import F64, I64, is_int, is_str
-from raster_tools.raster import Raster, get_raster
+from raster_tools.raster import Raster, get_raster, xy_to_rowcol
 from raster_tools.vector import Vector, get_vector
 
 __all__ = ["ZONAL_STAT_FUNCS", "zonal_stats"]
@@ -471,4 +471,90 @@ def zonal_stats(features, data_raster, stats, raster_feature_values=None):
         data_raster, features_raster, feature_labels, stats
     )
     df = _build_zonal_stats_dataframe(data)
+    return df
+
+
+def _xy_to_rowcol_wrapper(x, y, affine):
+    return np.stack(xy_to_rowcol(x, y, affine), axis=0)
+
+
+def _extract_points(data, r, c, valid_mask):
+    print(data)
+    r, c, valid_mask = dask.compute(r, c, valid_mask)
+    extracted = np.full((len(valid_mask),), np.nan, dtype=F64)
+    extracted[valid_mask] = data[r[valid_mask], c[valid_mask]]
+    return extracted
+
+
+def _build_zonal_stats_data_from_points(data, mask, x, y, affine):
+    r, c = da.blockwise(
+        _xy_to_rowcol_wrapper,
+        "zi",
+        x,
+        "i",
+        y,
+        "i",
+        affine=affine,
+        new_axes={"z": 2},
+        dtype=np.int64,
+    )
+    _, rn, cn = data.shape
+    r, c = dask.compute(r, c)
+    valid_mask = (r >= 0) & (r < rn) & (c >= 0) & (c < cn)
+    out = {
+        i + 1: {"extracted": da.full(len(valid_mask), np.nan, dtype=F64)}
+        for i in range(data.shape[0])
+    }
+    for i in range(data.shape[0]):
+        extracted = da.full(len(valid_mask), np.nan, dtype=F64)
+        extracted[valid_mask] = data.vindex[i, r[valid_mask], c[valid_mask]]
+        # Mask out missing points within the valid zones
+        exmask = da.zeros(len(valid_mask), dtype=bool)
+        exmask[valid_mask] = mask.vindex[i, r[valid_mask], c[valid_mask]]
+        extracted[exmask] = np.nan
+        out[i + 1]["extracted"] = extracted
+    return out
+
+
+def point_extraction(points, raster):
+    """Extract the raster cell values using point features
+
+    This finds the grid cells that the points fall into and extracts the value
+    at each point. The input feature will be partially computed to make sure
+    that all of the geometries are points.
+
+    Note
+    ----
+    This is experimental.
+
+    Parameters
+    ----------
+    points : str, Vector
+        The points to use for extracting data.
+    raster: str, Raster
+        The raster to pull data from.
+
+    Returns
+    -------
+    dask.dataframe.DataFrame
+        The columns are "band" and "extracted". These are the band data was
+        pulled from and the extracted value, respectively. NaN values in the
+        "extracted" column are where there was missing data in the raster or
+        the point was outside the raster's domain.
+
+    """
+    # TODO: properly test
+    points = get_vector(points)
+    if not (points.geometry.geom_type == "Point").all().compute():
+        raise TypeError("All geometries must be points.")
+    data_raster = get_raster(raster)
+    points = points.to_crs(data_raster.crs)
+    x = points.geometry.x.to_dask_array(True)
+    y = points.geometry.y.to_dask_array(True)
+    data = _build_zonal_stats_data_from_points(
+        data_raster._data, data_raster._mask, x, y, data_raster.affine
+    )
+    n = len(data[1]["extracted"])
+    df = _build_zonal_stats_dataframe(data).reset_index(drop=True)
+    df.divisions = (0, n - 1)
     return df
