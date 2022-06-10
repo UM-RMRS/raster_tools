@@ -399,22 +399,28 @@ class Vector:
         """
         geo = _normalize_geo_data(geo)
         if not dask.is_dask_collection(geo):
+            self._size = len(geo)
             geo = dgpd.from_geopandas(geo, npartitions=1)
-        self._geo = geo
-        # NOTE: self._size is not data-dependant so when adding features that
-        # can affect length, care must be taken to properly update _size.
-        if size is None:
-            self._size = _get_best_effort_geo_len(geo)
+            self._geo = geo
         else:
-            if not is_int(size):
-                raise TypeError("Size must be an int.")
-
-            # The guess will underestimate by 1 in most cases
-            size_guess = _guess_geo_len(geo)
-            if size == size_guess or size == (size_guess + 1):
-                self._size = size
+            self._geo = geo
+            # NOTE: self._size is not data-dependant so when adding features
+            # that can affect length, care must be taken to properly update
+            # _size.
+            if size is None:
+                self._size = _get_best_effort_geo_len(geo)
             else:
-                raise ValueError("Given size does not match divisions in data")
+                if not is_int(size):
+                    raise TypeError("Size must be an int.")
+
+                # The guess will underestimate by 1 in most cases
+                size_guess = _guess_geo_len(geo)
+                if size == size_guess or size == (size_guess + 1):
+                    self._size = size
+                else:
+                    raise ValueError(
+                        "Given size does not match divisions in data"
+                    )
 
     def __len__(self):
         return self._size
