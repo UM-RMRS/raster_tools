@@ -547,7 +547,7 @@ def point_extraction(points, raster):
     points = get_vector(points)
     if not (points.geometry.geom_type == "Point").all().compute():
         raise TypeError("All geometries must be points.")
-    data_raster = get_raster(raster)
+    data_raster = get_raster(raster, null_to_nan=True)
     points = points.to_crs(data_raster.crs)
     x = points.geometry.x.to_dask_array(True)
     y = points.geometry.y.to_dask_array(True)

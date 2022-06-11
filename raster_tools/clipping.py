@@ -189,14 +189,14 @@ def envelope(feature, data_raster):
     )
 
 
-def clip_box(raster, bounds=None):
+def clip_box(raster, bounds):
     """Clip the raster to the specified box.
 
     Parameters
     ----------
     raster : str, Raster
         The Raster or raster path string to clip.
-    bounds : tuple, list, array, optional
+    bounds : tuple, list, array
         The bounding box of the clip operation: (minx, miny, maxx, maxy).
 
     Returns
@@ -206,7 +206,7 @@ def clip_box(raster, bounds=None):
 
     """
     rs = get_raster(raster)
-    if bounds is not None and len(bounds) != 4:
+    if len(bounds) != 4:
         raise ValueError("Invalid bounds. Must be a size 4 array or tuple.")
     try:
         xrs = rs.xrs.rio.clip_box(*bounds, auto_expand=True)
