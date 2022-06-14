@@ -100,10 +100,10 @@ def normalize_xarray_data(xrs):
     # non-georeferenecd formats will be oriented the same.
     xdiff = np.diff(xrs.x)
     if len(xdiff) and (xdiff < 0).all():
-        xrs = xrs.reindex(x=xrs.x[::-1])
+        xrs = xrs.isel(x=slice(None, None, -1))
     ydiff = np.diff(xrs.y)
     if len(ydiff) and (ydiff < 0).all():
-        xrs = xrs.reindex(y=xrs.y[::-1])
+        xrs = xrs.isel(y=slice(None, None, -1))
     tf = xrs.rio.transform(True)
     xrs = xrs.rio.write_transform(tf)
     return xrs
