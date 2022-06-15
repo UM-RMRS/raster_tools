@@ -516,12 +516,13 @@ def _build_zonal_stats_data_from_points(data, mask, x, y, affine):
     return out
 
 
-def point_extraction(points, raster):
+def point_extraction(points, raster, skip_validation=False):
     """Extract the raster cell values using point features
 
     This finds the grid cells that the points fall into and extracts the value
     at each point. The input feature will be partially computed to make sure
-    that all of the geometries are points.
+    that all of the geometries are points, unless `skip_validation` is set to
+    `True`.
 
     Note
     ----
@@ -531,8 +532,12 @@ def point_extraction(points, raster):
     ----------
     points : str, Vector
         The points to use for extracting data.
-    raster: str, Raster
+    raster : str, Raster
         The raster to pull data from.
+    skip_validation : bool, optional
+        If `True`, the input `points` is not validated to make sure that all
+        features are points. This prevents partially computing the data.
+        Default is `False`.
 
     Returns
     -------
@@ -545,7 +550,10 @@ def point_extraction(points, raster):
     """
     # TODO: properly test
     points = get_vector(points)
-    if not (points.geometry.geom_type == "Point").all().compute():
+    if (
+        not skip_validation
+        and not (points.geometry.geom_type == "Point").all().compute()
+    ):
         raise TypeError("All geometries must be points.")
     data_raster = get_raster(raster, null_to_nan=True)
     points = points.to_crs(data_raster.crs)
