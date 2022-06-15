@@ -359,6 +359,7 @@ class Raster(_RasterBase):
         self._mask = None
         self._rs = None
 
+        # Copy to take ownership
         if isinstance(raster, Raster):
             self._rs = raster._rs.copy()
             self._mask = raster._mask.copy()
@@ -366,15 +367,14 @@ class Raster(_RasterBase):
         elif is_xarray(raster):
             if isinstance(raster, xr.Dataset):
                 raise TypeError("Unable to handle xarray.Dataset objects")
-            raster = normalize_xarray_data(raster)
-            if dask.is_dask_collection(raster):
+            raster = normalize_xarray_data(raster.copy())
+            if not dask.is_dask_collection(raster):
                 raster = chunk(raster)
             self._rs = raster
             null = _try_to_get_null_value_xarray(raster)
             self._mask = create_null_mask(self._rs, null)
             self._null_value = null
         elif is_numpy(raster) or is_dask(raster):
-            # Copy to take ownership
             raster = chunk(_array_to_xarray(raster.copy()))
             self._rs = normalize_xarray_data(raster)
             nv = raster.attrs.get("_FillValue", None)

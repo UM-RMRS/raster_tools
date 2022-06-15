@@ -801,11 +801,7 @@ class TestEval(unittest.TestCase):
         self.assertTrue(dask.is_dask_collection(rs.xrs))
         self.assertTrue(rs_eq_array(result, rsnp))
         self.assertTrue(dask.is_dask_collection(result.xrs))
-        # 2 operations: 1 copy and 1 chunk operation
-        self.assertEqual(len(result._data.dask), 2)
         self.assertTrue(dask.is_dask_collection(result._mask))
-        # 1 operation: dask.array.from_array()
-        self.assertTrue(len(result._mask.dask), 1)
 
 
 class TestToDask(unittest.TestCase):
