@@ -115,7 +115,7 @@ ESRI_DEFAULT_F32_NV = np.finfo(F32).min
 def normalize_null_value(nv, dtype):
     # Make sure that ESRI's default F32 null value is properly
     # registered as F32
-    if dtype == F32 and np.isclose(nv, ESRI_DEFAULT_F32_NV):
+    if dtype == F32 and nv is not None and np.isclose(nv, ESRI_DEFAULT_F32_NV):
         nv = F32.type(nv)
     # Some rasters have (u)int dtype and a null value that is a whole number
     # but it gets read in as a float. This can cause a lot of accidental type
