@@ -51,7 +51,6 @@ class TestVectorProperties(unittest.TestCase):
 
     def test_table(self):
         self.assertTrue(hasattr(self.v, "table"))
-        self.assertIsInstance(self.v.table, dgpd.GeoDataFrame)
         self.assertTrue(len(self.v) == len(self.v.table))
         # Table doesn't contain geometry. It is only vector attributes
         self.assertTrue("geometry" not in self.v.table.columns)
