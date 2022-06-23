@@ -12,6 +12,7 @@ dependencies:
   - numba
   - numpy
   - pandas
+  - pyogrio
   - rioxarray
   - scipy
   - sphinx
