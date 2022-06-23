@@ -5,7 +5,7 @@
  fiona
  geopandas
  numba
- numpy==1.21.5
+ numpy
  pandas
  pygeos
  pyproj
