@@ -1,10 +1,12 @@
 import os
+import sys
 
 import dask
+import dask.dataframe as dd
 import dask_geopandas as dgpd
 import geopandas as gpd
 import numpy as np
-import pyogrio as ogr
+import pandas as pd
 import rasterio as rio
 import xarray as xr
 from dask.delayed import delayed
@@ -13,6 +15,12 @@ from rasterio.features import rasterize as rio_rasterize
 
 from raster_tools.dtypes import F64, I64, U64, is_float, is_int, is_str
 from raster_tools.raster import Raster
+
+PYOGRIO_SUPPORTED = sys.version_info >= (3, 8)
+if PYOGRIO_SUPPORTED:
+    import pyogrio as ogr
+else:
+    import fiona
 
 __all__ = [
     "Vector",
@@ -39,8 +47,11 @@ def list_layers(path):
     """List the layers in a vector source file."""
     if not os.path.exists(path):
         raise IOError(f"No such file or directory: {path!r}")
-    layers = ogr.list_layers(path)
-    return list(layers[:, 0])
+    if PYOGRIO_SUPPORTED:
+        layers = ogr.list_layers(path)
+        return list(layers[:, 0])
+    else:
+        return fiona.listlayers(path)
 
 
 def count_layer_features(path, layer):
@@ -66,13 +77,41 @@ def count_layer_features(path, layer):
     if is_int(layer) and layer < 0:
         raise ValueError("The layer must be positive.")
 
-    info = ogr.read_info(path, layer=layer)
-    return info["features"]
+    if PYOGRIO_SUPPORTED:
+        info = ogr.read_info(path, layer=layer)
+        return info["features"]
+    else:
+        with fiona.open(path, layer=layer) as src:
+            return len(src)
 
 
 def _df_asign_index(df, index):
     df.index = index
     return df
+
+
+def _read_file_delayed(path, layer, npartitions):
+    total_size = count_layer_features(path, layer)
+    batch_size = (total_size // npartitions) + 1
+
+    row_offset = 0
+    dfs = []
+    divs = []
+    while row_offset < total_size:
+        left = row_offset
+        right = min(row_offset + batch_size, total_size)
+        rows = slice(left, right)
+        df = delayed(gpd.read_file)(path, rows=rows, layer=layer)
+        index = pd.RangeIndex(left, right)
+        df = delayed(_df_asign_index)(df, index)
+        dfs.append(df)
+        divs.append(left)
+        row_offset += batch_size
+    divs.append(right - 1)
+    meta = gpd.read_file(path, layer=layer, rows=1)
+    divs = tuple(divs)
+    # Returns a dask_geopandas GeoDataFrame
+    return dd.from_delayed(dfs, meta, divisions=divs), total_size
 
 
 def _normalize_layers_arg(layers):
@@ -121,7 +160,7 @@ def open_vectors(path, layers=None):
         raise IOError(f"No such file or directory: {path!r}")
 
     src_layers = list_layers(path)
-    n = len(src_layers)
+    n_layers = len(src_layers)
     if layers is not None:
         layers = _normalize_layers_arg(layers)
         src_layers_set = set(src_layers)
@@ -130,7 +169,7 @@ def open_vectors(path, layers=None):
         ):
             raise ValueError("Invalid layer name")
         elif is_int(layers[0]) and any(
-            layer >= n or layer < 0 for layer in layers
+            layer >= n_layers or layer < 0 for layer in layers
         ):
             raise ValueError(
                 "Invalid layer index. Index either outside valid range or less"
@@ -142,8 +181,16 @@ def open_vectors(path, layers=None):
     dfs = []
     for layer in layers:
         n = count_layer_features(path, layer=layer)
-        df = dgpd.read_file(path, layer=layer, chunksize=_TARGET_CHUNK_SIZE)
-        dfs.append((df, n))
+        if PYOGRIO_SUPPORTED:
+            df = dgpd.read_file(
+                path, layer=layer, chunksize=_TARGET_CHUNK_SIZE
+            )
+            pair = (df, n)
+        else:
+            n_parts = max(n // _TARGET_CHUNK_SIZE, 1)
+            pair = _read_file_delayed(path, layer, n_parts)
+        dfs.append(pair)
+
     if len(dfs) > 1:
         return [Vector(df, n) for df, n in dfs]
     return Vector(*dfs[0])

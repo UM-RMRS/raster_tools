@@ -97,13 +97,13 @@ class TestVectorProperties(unittest.TestCase):
         )
 
     def test_tasks(self):
-        self.assertTrue(hasattr(self.v, "tasks"))
+        assert hasattr(self.v, "tasks")
         v = self.v.copy()
         v._geo = v._geo.compute()
-        self.assertFalse(dask.is_dask_collection(v.data))
-        self.assertTrue(v.tasks == 0)
+        assert not dask.is_dask_collection(v.data)
+        assert v.tasks == 0
         v = self.v.to_lazy()
-        self.assertTrue(v.tasks == 1)
+        assert v.tasks >= 1
 
     def test_bounds(self):
         self.assertTrue(hasattr(self.v, "bounds"))

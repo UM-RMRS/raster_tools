@@ -13,7 +13,6 @@ dependencies:
   - numpy
   - pandas
   - pygeos
-  - pyogrio
   - pyproj
   - pytest
   - pytest-xdist
