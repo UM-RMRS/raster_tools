@@ -758,7 +758,7 @@ class Raster(_RasterBase):
             mask = mask | temp_mask
         else:
             mask = temp_mask
-        return self._replace(xrs, mask=mask, null_value=value)
+        return self._replace(xrs, mask=mask, null_value=value).burn_mask()
 
     def burn_mask(self):
         """Fill null-masked cells with null value.
