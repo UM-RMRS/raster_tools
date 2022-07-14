@@ -13,8 +13,17 @@ from dask.delayed import delayed
 from rasterio.enums import MergeAlg
 from rasterio.features import rasterize as rio_rasterize
 
-from raster_tools.dtypes import F64, I64, U64, is_float, is_int, is_str
-from raster_tools.raster import Raster
+from raster_tools.dtypes import (
+    F64,
+    I16,
+    I64,
+    U64,
+    get_default_null_value,
+    is_float,
+    is_int,
+    is_str,
+)
+from raster_tools.raster import Raster, get_raster
 
 PYOGRIO_SUPPORTED = sys.version_info >= (3, 8)
 if PYOGRIO_SUPPORTED:
@@ -262,23 +271,32 @@ def _get_best_effort_geo_len(geo):
     return n
 
 
-def _rasterize_block(block, geometry, values, dtype, all_touched):
+def _rasterize_block(block, geometry, values, dtype, fill, all_touched):
     shape = block.shape[1:]
+    rio_dtype = dtype
+    if dtype == U64 or dtype == I64:
+        rio_dtype = F64
+
     rast_array = rio_rasterize(
         zip(geometry.values, values),
         out_shape=shape,
         transform=block.rio.transform(),
-        fill=0,
+        fill=fill,
         all_touched=all_touched,
         merge_alg=MergeAlg.replace,
         dtype=dtype,
     )
+
+    if rio_dtype != dtype:
+        rast_array = rast_array.astype(dtype)
     # Add band dimension to array
     block.data = rast_array[None]
     return block
 
 
-def _rasterize_map_blocks(template, geometry, values, dtype, all_touched):
+def _rasterize_map_blocks(
+    template, geometry, values, dtype, fill, all_touched
+):
     # Force computation here to avoid computing in each block-rasterization
     # call.
     geometry, values = dask.compute(geometry, values)
@@ -293,6 +311,7 @@ def _rasterize_map_blocks(template, geometry, values, dtype, all_touched):
             geometry,
             values,
             dtype,
+            fill,
             all_touched,
         ],
         template=template,
@@ -300,7 +319,9 @@ def _rasterize_map_blocks(template, geometry, values, dtype, all_touched):
     return result.data
 
 
-def _rasterize_partition(df, xlike, field, target_dtype, all_touched=True):
+def _rasterize_partition(
+    df, xlike, field, fill, target_dtype, all_touched=True
+):
     if xlike.shape[0] > 1:
         xlike = xlike[:1]
     geometry = df.geometry
@@ -318,20 +339,20 @@ def _rasterize_partition(df, xlike, field, target_dtype, all_touched=True):
     if values.dtype == U64 or values.dtype == I64:
         # rasterio doesn't like uint64 or int64
         values = values.astype(F64)
-    template = xr.zeros_like(xlike, dtype=values.dtype)
+    template = xr.full_like(xlike, fill, dtype=target_dtype)
 
     # geometry is likely lazy. It could also potentially wrap a very large
     # feature collection. It must be computed at some point before mapping
     # the rasterization function onto the template blocks. To avoid doing this
     # here and now, we wrap the rasterization operation in a delayed object.
     lazy_result_data = delayed(_rasterize_map_blocks)(
-        template, geometry, values, values.dtype, all_touched
+        template, geometry, values, target_dtype, fill, all_touched
     )
     result = template.copy()
     result.data = dask.array.from_delayed(
         lazy_result_data,
         template.shape,
-        dtype=values.dtype,
+        dtype=target_dtype,
         meta=template.data,
     )
     return result
@@ -344,6 +365,20 @@ def _vector_to_raster_dask(df, size, xlike, field=None, all_touched=True):
     # There is no way to neatly align the dataframe partitions with the raster
     # chunks. Because of this, we burn in each partition on its own raster and
     # then merge the results.
+    fill = 0
+    if field is None:
+        target_dtype = np.min_scalar_type(size)
+    else:
+        target_dtype = df[field].dtype
+        if target_dtype.kind == "u":
+            # Null values are difficult for unsigned ints so cast up to the
+            # next largest width signed int. If target_dtype is U64, this will
+            # cast to a F64.
+            target_dtype = np.promote_types(target_dtype, I16)
+            print(f"new type: {target_dtype}")
+        fill = get_default_null_value(target_dtype)
+    print(target_dtype)
+    print(fill)
     results = []
     parts = df.partitions if dask.is_dask_collection(df) else [df]
     for part in parts:
@@ -351,7 +386,8 @@ def _vector_to_raster_dask(df, size, xlike, field=None, all_touched=True):
             part,
             xlike,
             field,
-            target_dtype=np.min_scalar_type(size),
+            fill,
+            target_dtype=target_dtype,
             all_touched=all_touched,
         )
         results.append(res)
@@ -360,18 +396,8 @@ def _vector_to_raster_dask(df, size, xlike, field=None, all_touched=True):
     result = result.expand_dims("band")
     result["band"] = [1]
     result["spatial_ref"] = xlike.spatial_ref
+    result.attrs["_FillValue"] = fill
     return result
-
-
-def _parse_input_raster(raster):
-    if not isinstance(raster, Raster):
-        if is_str(raster):
-            raster = Raster(raster)
-        else:
-            raise TypeError(
-                "Raster input must be a Raster type or path string"
-            )
-    return raster
 
 
 def _normalize_geo_data(geo):
@@ -587,7 +613,7 @@ class Vector:
             values. The null value is 0.
 
         """
-        like = _parse_input_raster(like)
+        like = get_raster(like)
         if field is not None:
             if not is_str(field):
                 raise TypeError("Field must be a string")
@@ -606,7 +632,7 @@ class Vector:
             field=field,
             all_touched=all_touched,
         )
-        return Raster(xrs).set_null_value(0)
+        return Raster(xrs)
 
     def to_crs(self, crs):
         """Transform the vector coordinates to the specified `crs`.

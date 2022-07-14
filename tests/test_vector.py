@@ -4,9 +4,11 @@ import dask
 import dask_geopandas as dgpd
 import geopandas as gpd
 import numpy as np
+import pytest
 import rasterio as rio
 
 from raster_tools import Raster
+from raster_tools.dtypes import I32, U16, get_default_null_value
 from raster_tools.vector import Vector, open_vectors
 
 
@@ -195,60 +197,72 @@ class TestConversions(unittest.TestCase):
         self.assertTrue(self.v.to_crs(4326).crs == crs)
         self.assertTrue(self.v.to_crs("epsg:4326").crs == crs)
 
-    def test_to_raster_many(self):
-        like = Raster("tests/data/elevation.tif")
+
+@pytest.mark.parametrize(
+    "key", ["many_shapes", "single_shape", "one_part", "many_part"]
+)
+def test_to_raster(key):
+    v = open_vectors("tests/data/vector/pods.shp")
+    like = Raster("tests/data/elevation.tif")
+    if key == "many_shapes":
         truth = Raster("tests/data/pods_like_elevation.tif")
-        result = self.v.to_raster(like)
-
-        self.assertTrue(result.null_value == 0)
-        self.assertTrue(result.dtype == np.dtype("uint8"))
-        self.assertTrue(result.shape[0] == 1)
-        self.assertTrue(np.allclose(result, truth))
-        self.assertTrue(np.allclose(result.xrs.x, truth.xrs.x))
-        self.assertTrue(np.allclose(result.xrs.y, truth.xrs.y))
-        self.assertTrue(np.allclose(result.xrs.band, truth.xrs.band))
-
-    def test_to_raster_single(self):
-        like = Raster("tests/data/elevation.tif")
+        result = v.to_raster(like)
+    elif key == "single_shape":
         truth = Raster("tests/data/pods0_like_elevation.tif")
-        result = self.v[0].to_raster(like)
-
-        self.assertTrue(result.null_value == 0)
-        self.assertTrue(result.dtype == np.dtype("uint8"))
-        self.assertTrue(result.shape[0] == 1)
-        self.assertTrue(np.allclose(result, truth))
-        self.assertTrue(np.allclose(result.xrs.x, truth.xrs.x))
-        self.assertTrue(np.allclose(result.xrs.y, truth.xrs.y))
-        self.assertTrue(np.allclose(result.xrs.band, truth.xrs.band))
-
-        self.assertTrue(all(np.unique(result) == [0, 1]))
-
-    def test_to_raster_lazy_one_partition(self):
-        like = Raster("tests/data/elevation.tif")
+        result = v[0].to_raster(like)
+    elif key == "one_part":
         truth = Raster("tests/data/pods_like_elevation.tif")
-        result = self.v.to_lazy().to_raster(like)
-
-        self.assertTrue(result.null_value == 0)
-        self.assertTrue(result.dtype == np.dtype("uint8"))
-        self.assertTrue(result.shape[0] == 1)
-        self.assertTrue(np.allclose(result, truth))
-        self.assertTrue(np.allclose(result.xrs.x, truth.xrs.x))
-        self.assertTrue(np.allclose(result.xrs.y, truth.xrs.y))
-        self.assertTrue(np.allclose(result.xrs.band, truth.xrs.band))
-
-    def test_to_raster_lazy_many_partitions(self):
-        like = Raster("tests/data/elevation.tif")
+        result = v.to_lazy().to_raster(like)
+    elif key == "many_part":
         truth = Raster("tests/data/pods_like_elevation.tif")
-        v = Vector(self.v.to_lazy().data.repartition(10))
+        v = Vector(v.to_lazy().data.repartition(10))
         result = v.to_raster(like)
 
-        self.assertTrue(result.null_value == 0)
-        self.assertTrue(result.dtype == np.dtype("uint8"))
-        self.assertTrue(result.shape[0] == 1)
-        self.assertTrue(np.allclose(result, truth))
-        self.assertTrue(np.allclose(result.xrs.x, truth.xrs.x))
-        self.assertTrue(np.allclose(result.xrs.y, truth.xrs.y))
-        self.assertTrue(np.allclose(result.xrs.band, truth.xrs.band))
+    result_eval = result.eval()
+
+    assert result.null_value == 0
+    assert result.dtype == np.dtype("uint8")
+    assert result.shape[0] == 1
+    assert result.crs == like.crs
+    assert result.affine == like.affine
+    assert result_eval.crs == like.crs
+    assert result_eval.affine == like.affine
+    assert np.allclose(result, truth)
+    assert np.allclose(result.xrs.x, truth.xrs.x)
+    assert np.allclose(result.xrs.y, truth.xrs.y)
+    assert np.allclose(result.xrs.band, truth.xrs.band)
+    if key == "single_shape":
+        assert all(np.unique(result) == [0, 1])
+
+
+def test_to_raster_field():
+    v = open_vectors("tests/data/vector/pods.shp")
+    like = Raster("tests/data/elevation.tif")
+    truth = Raster("tests/data/pods_like_elevation_objectid_field.tif")
+    result = v.to_raster(like, field="OBJECTID")
+
+    result_eval = result.eval()
+
+    assert result.null_value == get_default_null_value(v.data.OBJECTID.dtype)
+    assert result.dtype == v.data.OBJECTID.dtype
+    assert result.shape[0] == 1
+    assert result.crs == like.crs
+    assert result.affine == like.affine
+    assert result_eval.crs == like.crs
+    assert result_eval.affine == like.affine
+    assert result_eval.dtype == v.data.OBJECTID.dtype
+    assert np.allclose(result, truth)
+    assert np.allclose(result.xrs.x, truth.xrs.x)
+    assert np.allclose(result.xrs.y, truth.xrs.y)
+    assert np.allclose(result.xrs.band, truth.xrs.band)
+
+    v = v.cast_field("OBJECTID", U16)
+    result = v.to_raster(like, field="OBJECTID")
+    assert result.dtype == I32
+    assert result.null_value == get_default_null_value(I32)
+    assert np.allclose(
+        result, truth.set_null_value(get_default_null_value(I32))
+    )
 
 
 class TestCastField(unittest.TestCase):
