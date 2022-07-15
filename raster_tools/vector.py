@@ -10,11 +10,14 @@ import pandas as pd
 import rasterio as rio
 import xarray as xr
 from dask.delayed import delayed
+from packaging import version
 from rasterio.enums import MergeAlg
+from rasterio.env import GDALVersion
 from rasterio.features import rasterize as rio_rasterize
 
 from raster_tools.dtypes import (
     F64,
+    I8,
     I16,
     I64,
     U64,
@@ -271,11 +274,26 @@ def _get_best_effort_geo_len(geo):
     return n
 
 
+_RIO_64BIT_INTS_SUPPORTED = GDALVersion.runtime().at_least("3.5") and (
+    version.parse(rio.__version__) >= version.parse("1.3")
+)
+
+
+def _get_rio_dtype(dtype):
+    if dtype == I8:
+        return I16
+    # GDAL >= 3.5 and Rasterio >= 1.3 support 64-bit (u)ints
+    if dtype in (I64, U64) and not _RIO_64BIT_INTS_SUPPORTED:
+        return F64
+    return dtype
+
+
 def _rasterize_block(block, geometry, values, dtype, fill, all_touched):
     shape = block.shape[1:]
-    rio_dtype = dtype
-    if dtype == U64 or dtype == I64:
-        rio_dtype = F64
+    rio_dtype = _get_rio_dtype(dtype)
+    values_dtype = _get_rio_dtype(values.dtype)
+    if values_dtype != values.dtype:
+        values = values.astype(values_dtype)
 
     rast_array = rio_rasterize(
         zip(geometry.values, values),
@@ -336,9 +354,6 @@ def _rasterize_partition(
         values = values + 1
         # Convert to minimum dtype
         values = values.astype(target_dtype)
-    if values.dtype == U64 or values.dtype == I64:
-        # rasterio doesn't like uint64 or int64
-        values = values.astype(F64)
     template = xr.full_like(xlike, fill, dtype=target_dtype)
 
     # geometry is likely lazy. It could also potentially wrap a very large
