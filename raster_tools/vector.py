@@ -284,7 +284,7 @@ def _rasterize_block(block, geometry, values, dtype, fill, all_touched):
         fill=fill,
         all_touched=all_touched,
         merge_alg=MergeAlg.replace,
-        dtype=dtype,
+        dtype=rio_dtype,
     )
 
     if rio_dtype != dtype:
