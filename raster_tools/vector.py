@@ -375,10 +375,7 @@ def _vector_to_raster_dask(df, size, xlike, field=None, all_touched=True):
             # next largest width signed int. If target_dtype is U64, this will
             # cast to a F64.
             target_dtype = np.promote_types(target_dtype, I16)
-            print(f"new type: {target_dtype}")
         fill = get_default_null_value(target_dtype)
-    print(target_dtype)
-    print(fill)
     results = []
     parts = df.partitions if dask.is_dask_collection(df) else [df]
     for part in parts:
