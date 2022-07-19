@@ -18,7 +18,7 @@ __all__ = [
 ]
 
 
-ngjit = jit(nopython=True, nogil=True)
+ngcjit = jit(nopython=True, nogil=True, cache=True)
 
 
 # Numba has a long standing bug where scalars are not handled properly in
@@ -34,47 +34,47 @@ def _atleast_1d(x):
     return lambda x: np.atleast_1d(x)
 
 
-@ngjit
+@ngcjit
 def nanmin_jit(x):
     return np.nanmin(x)
 
 
-@ngjit
+@ngcjit
 def nanmax_jit(x):
     return np.nanmax(x)
 
 
-@ngjit
+@ngcjit
 def nanmean_jit(x):
     x = _atleast_1d(x)
     return np.nanmean(x)
 
 
-@ngjit
+@ngcjit
 def nanmedian_jit(x):
     x = _atleast_1d(x)
     return np.nanmedian(x)
 
 
-@ngjit
+@ngcjit
 def nansum_jit(x):
     x = _atleast_1d(x)
     return np.nansum(x)
 
 
-@ngjit
+@ngcjit
 def nanvar_jit(x):
     x = _atleast_1d(x)
     return np.nanvar(x)
 
 
-@ngjit
+@ngcjit
 def nanstd_jit(x):
     x = _atleast_1d(x)
     return np.nanstd(x)
 
 
-@ngjit
+@ngcjit
 def nan_unique_count_jit(x):
     x = _atleast_1d(x)
     # Create set of floats. {1.0} is a hack to tell numba.jit what type the set
@@ -87,7 +87,7 @@ def nan_unique_count_jit(x):
     return len(s)
 
 
-@ngjit
+@ngcjit
 def nanmode_jit(x):
     x = _atleast_1d(x)
     c = {}
@@ -112,7 +112,7 @@ def nanmode_jit(x):
     return vals[np.argmax(cnts)]
 
 
-@ngjit
+@ngcjit
 def nanentropy_jit(x):
     x = _atleast_1d(x)
     c = {}
@@ -133,7 +133,7 @@ def nanentropy_jit(x):
     return entr
 
 
-@ngjit
+@ngcjit
 def nanasm_jit(x):
     x = _atleast_1d(x)
     c = {}
@@ -154,7 +154,7 @@ def nanasm_jit(x):
     return asm
 
 
-@ngjit
+@ngcjit
 def nanargmin_jit(x):
     # Get argmin. If empty give -1, if all nan, give -2. This differs from
     # numpy which throws an error.
@@ -178,7 +178,7 @@ def nanargmin_jit(x):
     return j
 
 
-@ngjit
+@ngcjit
 def nanargmax_jit(x):
     # Get argmax. If empty give -1, if all nan, give -2. This differs from
     # numpy which throws an error.
