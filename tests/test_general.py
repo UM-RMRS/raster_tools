@@ -1,10 +1,101 @@
 import unittest
+from functools import partial
 
 import numpy as np
 import pytest
 
 from raster_tools import creation, general
+from raster_tools.dtypes import F32, F64, I32, I64
 from raster_tools.raster import Raster
+from raster_tools.stat_common import (
+    nan_unique_count_jit,
+    nanargmax_jit,
+    nanargmin_jit,
+    nanasm_jit,
+    nanentropy_jit,
+    nanmode_jit,
+)
+
+stat_funcs = {
+    "max": partial(np.nanmax, axis=0),
+    "mean": partial(np.nanmean, axis=0),
+    "median": partial(np.nanmedian, axis=0),
+    "min": partial(np.nanmin, axis=0),
+    "prod": partial(np.nanprod, axis=0),
+    "std": partial(np.nanstd, axis=0),
+    "sum": partial(np.nansum, axis=0),
+    "var": partial(np.nanvar, axis=0),
+}
+custom_stat_funcs = {
+    "asm": nanasm_jit,
+    "entropy": nanentropy_jit,
+    "maxband": nanargmax_jit,
+    "minband": nanargmin_jit,
+    "mode": nanmode_jit,
+    "unique": nan_unique_count_jit,
+}
+
+
+def get_stat_dtype(stat, input_data):
+    if stat == "unique":
+        return np.min_scalar_type(input_data.shape[0])
+    if stat in ("mode", "min", "max"):
+        return input_data.dtype
+    if stat in ("minband", "maxband"):
+        return np.min_scalar_type(input_data.shape[0] - 1)
+    if input_data.dtype == F32:
+        return F32
+    return F64
+
+
+@pytest.mark.parametrize("chunk", [False, True])
+@pytest.mark.parametrize("stat", list(custom_stat_funcs.keys()))
+def test_local_stats(stat, chunk):
+    for dt in (I32, I64, F32, F64):
+        x = np.arange(5 * 4 * 4).reshape(5, 4, 4) - 20
+        x[2, :, :-1] = 1
+        x[:, 2, 2] = 1
+        rs = Raster(x.astype(dt)).set_null_value(1)
+        if chunk:
+            rs._rs.data = rs._data.rechunk((1, 2, 2))
+            rs._mask = rs._mask.rechunk((1, 2, 2))
+            orig_chunks = rs._data.chunks
+        xx = np.where(rs._mask.compute(), np.nan, rs._data.compute())
+
+        if stat in stat_funcs:
+            sfunc = stat_funcs[stat]
+            truth = sfunc(xx)[None]
+            if stat != "sum":
+                truth = np.where(np.isnan(truth), 1, truth)
+            else:
+                truth = np.where(
+                    np.all(rs._mask, axis=0).compute(), rs.null_value, truth
+                )
+            result = general.local_stats(rs, stat)
+        else:
+            sfunc = custom_stat_funcs[stat]
+            truth = np.zeros(
+                (1, *rs.shape[1:]), dtype=get_stat_dtype(stat, rs._data)
+            )
+            for i in range(rs.shape[1]):
+                for j in range(rs.shape[2]):
+                    v = sfunc(xx[:, i, j])
+                    if np.isnan(v):
+                        v = rs.null_value
+                    truth[0, i, j] = v
+            truth = np.where(
+                np.all(rs._mask, axis=0).compute(), rs.null_value, truth
+            )
+            result = general.local_stats(rs, stat)
+        assert result.shape[0] == 1
+        assert result.shape == truth.shape
+        assert np.allclose(result, truth, equal_nan=True)
+        assert result._data.chunks == result._mask.chunks
+        if chunk:
+            assert result._data.chunks == ((1,), *orig_chunks[1:])
+        else:
+            assert result._data.chunks == ((1,), *rs._data.chunks[1:])
+        assert result.dtype == get_stat_dtype(stat, rs._data)
 
 
 # TODO: fully test module
@@ -18,21 +109,6 @@ class TestSurface(unittest.TestCase):
             self.dem, distribution="poisson", bands=1, params=[7, 0.5]
         )
         general.regions(rs_pos).eval()
-
-    def test_local_stats(self):
-        general.local_stats(self.multi, "mean").eval()
-        general.local_stats(self.multi, "median").eval()
-        general.local_stats(self.multi, "mode").eval()
-        general.local_stats(self.multi, "std").eval()
-        general.local_stats(self.multi, "var").eval()
-        general.local_stats(self.multi, "sum").eval()
-        general.local_stats(self.multi, "maxband").eval()
-        general.local_stats(self.multi, "minband").eval()
-        general.local_stats(self.multi, "min").eval()
-        general.local_stats(self.multi, "max").eval()
-        general.local_stats(self.multi, "entropy").eval()
-        general.local_stats(self.multi, "asm").eval()
-        general.local_stats(self.multi, "prod").eval()
 
     def test_aggregate(self):
         general.aggregate(self.dem, (3, 3), "mean").eval()

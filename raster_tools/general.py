@@ -449,6 +449,7 @@ _LOCAL_STYPE_TO_CUSTOM_FUNC = {
 
 def _local(data, stype):
     bnds = data.shape[0]
+    orig_chunks = data.chunks
     # Rechunk so band dim is contiguous and chunk sizes are reasonable
     data = da.rechunk(data, chunks=(bnds, "auto", "auto"))
 
@@ -462,6 +463,8 @@ def _local(data, stype):
         # will cause overflow for the unsigned type returned by
         # min_scalar_type. This is fine since we can mask them out later.
         out_dtype = np.min_scalar_type(data.shape[0] - 1)
+    elif data.dtype == F32:
+        out_dtype = F32
     else:
         out_dtype = F64
     ffun = _get_local_chunk_func(ffun, out_dtype)
@@ -476,7 +479,7 @@ def _local(data, stype):
     )
     # Rechunk again to expand/contract chunks to a reasonable size and split
     # bands apart
-    return da.rechunk(data_out, chunks=(1, "auto", "auto"))
+    return da.rechunk(data_out, chunks=(1, *orig_chunks[1:]))
 
 
 def local_stats(raster, stype):
