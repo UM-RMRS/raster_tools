@@ -98,6 +98,17 @@ def test_local_stats(stat, chunk):
         assert result.dtype == get_stat_dtype(stat, rs._data)
 
 
+def test_local_stats_reject_bad_stat():
+    rs = Raster(np.arange(5 * 4 * 4).reshape(5, 4, 4))
+
+    for stat in [0, np.nanvar, float]:
+        with pytest.raises(TypeError):
+            general.local_stats(rs, stat)
+    for stat in ["", "nanstd", "minn"]:
+        with pytest.raises(ValueError):
+            general.local_stats(rs, stat)
+
+
 # TODO: fully test module
 class TestSurface(unittest.TestCase):
     def setUp(self):

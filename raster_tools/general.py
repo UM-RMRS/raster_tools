@@ -505,8 +505,6 @@ def local_stats(raster, stype):
     * `ESRI local <https://pro.arcgis.com/en/pro-app/latest/tool-reference/spatial-analyst/an-overview-of-the-local-tools.htm>`_
 
     """  # noqa: E501
-    orig_dtype = get_raster(raster).dtype
-    rs = get_raster(raster, null_to_nan=True)
     if not is_str(stype):
         raise TypeError("stype argument must be a string")
     stype = stype.lower()
@@ -515,6 +513,8 @@ def local_stats(raster, stype):
         and stype not in _LOCAL_STYPE_TO_CUSTOM_FUNC
     ):
         raise ValueError(f"Invalid stype aregument: {repr(stype)}")
+    orig_dtype = get_raster(raster).dtype
+    rs = get_raster(raster, null_to_nan=True)
 
     xda = rs.xrs
     mask = rs._mask
