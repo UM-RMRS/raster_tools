@@ -20,6 +20,13 @@ from raster_tools.dtypes import (
     F16,
     F32,
     F64,
+    I8,
+    I16,
+    I32,
+    I64,
+    U8,
+    U16,
+    U32,
     U64,
     get_common_dtype,
     get_default_null_value,
@@ -145,43 +152,49 @@ def regions(raster, neighbors=4, unique_values=None):
     return rs_out
 
 
-@nb.jit(nopython=True, nogil=True)
-def _coarsen_chunk(x, ycells, xcells, func, out):
-    xshape = x.shape
-    bnds = xshape[0]
-    rws = xshape[1]
-    clms = xshape[2]
-    for b in range(bnds):
-        for r in range(0, rws, ycells):
-            nr = r // ycells
-            sr = r + ycells
-            for c in range(0, clms, xcells):
-                nc = c // xcells
-                sc = c + xcells
-                farr = x[b, r:sr, c:sc]
-                out[b, nr, nc] = func(farr)
+@nb.jit(nopython=True, nogil=True, parallel=True)
+def _coarsen_chunk(x, axis, func, out_dtype, check_nan):
+    dims = sorted(set(range(len(x.shape))) - set(axis))
+    shape = (x.shape[dims[0]], x.shape[dims[1]], x.shape[dims[2]])
+    out = np.empty(shape, out_dtype)
+    for i in range(shape[0]):
+        for j in nb.prange(shape[1]):
+            for k in nb.prange(shape[2]):
+                v = func(x[i, j, :, k, :])
+                # if check_nan and np.isnan(v):
+                #     # It doesn't matter what value is swapped with nan values
+                #     # since those cells will be masked out later.
+                #     v = 0
+                out[i, j, k] = v
     return out
 
 
-def _get_coarsen_chunk_func(func, ycells, xcells, out_shape, out_dtype):
-    def wrapped(x):
-        return _coarsen_chunk(
-            x, ycells, xcells, func, np.empty(out_shape, dtype=out_dtype)
-        )
+def _coarsen_block_map(x, axis, agg_func, out_dtype, check_nan):
+    dims = sorted(set(range(len(x.shape))) - set(axis))
+    chunks = tuple(x.chunks[d] for d in dims)
+    return da.map_blocks(
+        partial(
+            _coarsen_chunk,
+            axis=axis,
+            func=agg_func,
+            out_dtype=out_dtype,
+            check_nan=check_nan,
+        ),
+        x,
+        chunks=chunks,
+        drop_axis=axis,
+        meta=np.array((), dtype=out_dtype),
+    )
 
-    return wrapped
 
-
-def _get_chunk_array(bnds, rws, clms, tcy, tcx):
-    fcr = [tcy] * (rws // tcy)
-    fcc = [tcx] * (clms // tcx)
-    tcl = len(fcr) * tcy
-    trl = len(fcc) * tcx
-    if not (tcl == rws):
-        fcr = fcr + [rws - tcl]
-    if not (trl == clms):
-        fcc = fcc + [clms - trl]
-    return ((bnds), tuple(fcr), tuple(fcc))
+def _get_coarsen_dtype(stat, window_size, input_dtype):
+    if stat == "unique":
+        return np.min_scalar_type(window_size)
+    if stat in ("mode", "min", "max"):
+        return input_dtype
+    if input_dtype == F32:
+        return F32
+    return F64
 
 
 _COARSEN_STYPE_TO_FUNC = {
@@ -202,87 +215,20 @@ _COARSEN_STYPE_TO_CUSTOM_FUNC = {
 }
 
 
-def _coarsen(xarr, e_cells, stype):
-    data = xarr.data
-    dshape = data.shape
-    bnds, rws, clms = dshape
-    bnds = dshape[0]
-    rws = dshape[1]
-    clms = dshape[2]
-
-    # trim extent if necesary
-    trim = False
-    if rws % e_cells[0] > 0:
-        rws = (rws // e_cells[0]) * e_cells[0]
-        trim = True
-    if clms % e_cells[0] > 0:
-        clms = (clms // e_cells[1]) * e_cells[1]
-        trim = True
-    if trim:
-        data = data[:, :rws, :clms]
-        dshape = data.shape
-
-    # change chunksize if necessary to chunk along aggregation boundaries
-    dchc = data.chunksize
-    _, tcy, tcx = dchc
-    rechunk = False
-    if tcy % e_cells[0] > 0:
-        tcy = (tcy // e_cells[0]) * e_cells[0]
-        rechunk = True
-    if tcx % e_cells[1] > 0:
-        tcx = (tcx // e_cells[1]) * e_cells[1]
-        rechunk = True
-    nchunks = _get_chunk_array(dchc[0], rws, clms, tcy, tcx)
-    if rechunk:
-        data = data.rechunk(nchunks)
-        dchc = data.chunksize
-
-    # create new chunksize and coords for aggregated raster
-    ychunk = tuple(int(y / e_cells[0]) for y in nchunks[1])
-    xchunk = tuple(int(x / e_cells[1]) for x in nchunks[2])
-    out_chunks = (dchc[0], ychunk, xchunk)
-
-    dres = xarr.rio.resolution()
-    nres = (dres[0] * e_cells[0], dres[1] * e_cells[1])
-    ycells = rws // e_cells[0]
-    xcells = clms // e_cells[1]
-
-    syloc = float(xarr.coords["y"][e_cells[0] // 2])
-    sxloc = float(xarr.coords["x"][e_cells[0] // 2])
-    ycorarr = np.arange(ycells) * nres[0] + syloc
-    xcorarr = np.arange(xcells) * nres[1] + sxloc
-    tcoords = {"band": np.arange(bnds) + 1, "y": ycorarr, "x": xcorarr}
-
-    # select function to perform
-    if stype == "unique":
-        out_dtype = np.min_scalar_type(np.prod(e_cells))
-    elif stype == "mode":
-        out_dtype = data.dtype
-    else:
-        out_dtype = F64
-    ffun = _COARSEN_STYPE_TO_CUSTOM_FUNC[stype]
-    out_shape = [np.sum(d) for d in out_chunks]
-    ffun = _get_coarsen_chunk_func(ffun, ycells, xcells, out_shape, out_dtype)
-    # map function to blocks and create xarray
-    out_data = da.map_blocks(
-        ffun,
-        data,
-        chunks=out_chunks,
-        dtype=out_dtype,
-        meta=np.array((), dtype=out_dtype),
-    )
-    out_data = da.rechunk(out_data, chunks=(1, "auto", "auto"))
-
-    outxr = xr.DataArray(out_data, tcoords, dims=xarr.dims, attrs=xarr.attrs)
-    if xarr.rio.crs is not None:
-        outxr = outxr.rio.write_crs(xarr.rio.crs)
-    return outxr
+def _get_unique_dtype(cur_dtype):
+    if cur_dtype in (I8, U8):
+        return I16, get_default_null_value(I16)
+    if cur_dtype == U16:
+        return I32, get_default_null_value(I32)
+    if cur_dtype == U32:
+        return I64, get_default_null_value(I64)
+    return cur_dtype, get_default_null_value(cur_dtype)
 
 
 def aggregate(raster, expand_cells, stype):
     """Creates a Raster of aggregated cell values for a new resolution.
 
-    The approach is based ESRI's aggregate and majority filter functions.
+    The approach is based on ESRI's aggregate and majority filter functions.
 
     Parameters
     ----------
@@ -290,7 +236,8 @@ def aggregate(raster, expand_cells, stype):
         Input Raster object or path string
     expand_cells : 2-tuple, list, array-like
         Tuple, array, or list of the number of cells to expand in y and x
-        directions.
+        directions. The first element corresponds to the y dimension and the
+        second to the x dimension.
     stype : str
         Summarization type. Valid opition are mean, std, var, max, min,
         unique prod, median, mode, sum, unique, entropy, asm.
@@ -306,15 +253,15 @@ def aggregate(raster, expand_cells, stype):
     * `ESRI majority filter <https://pro.arcgis.com/en/pro-app/latest/tool-reference/spatial-analyst/majority-filter.htm>`_
 
     """  # noqa: E501
-    orig_dtype = get_raster(raster).dtype
-    rs = get_raster(raster, null_to_nan=True)
-    expand_cells = np.asarray(expand_cells)
+    expand_cells = np.atleast_1d(expand_cells)
     if not is_int(expand_cells.dtype):
         raise TypeError("expand_cells must contain integers")
-    if not (expand_cells > 1).all():
-        raise ValueError("expand_cells values must be greater than 1")
     if expand_cells.shape != (2,):
         raise ValueError("expand_cells must contain 2 elements")
+    if (expand_cells == 1).all():
+        raise ValueError("expand_cells values cannont both be one")
+    if not (expand_cells >= 1).all():
+        raise ValueError("All expand_cells values must be >= 1")
     if not is_str(stype):
         raise TypeError("stype argument must be a string")
     stype = stype.lower()
@@ -323,16 +270,31 @@ def aggregate(raster, expand_cells, stype):
         and stype not in _COARSEN_STYPE_TO_CUSTOM_FUNC
     ):
         raise ValueError(f"Invalid stype argument: {repr(stype)}")
+    orig_dtype = get_raster(raster).dtype
+    rs = get_raster(raster, null_to_nan=True)
 
     xda = rs.xrs
     mask = rs._mask
     dim_map = {"y": expand_cells[0], "x": expand_cells[1]}
+    xdac = xda.coarsen(dim=dim_map, boundary="trim")
     if stype in _COARSEN_STYPE_TO_FUNC:
-        xda = _COARSEN_STYPE_TO_FUNC[stype](
-            xda.coarsen(dim=dim_map, boundary="trim")
-        )
+        xda = _COARSEN_STYPE_TO_FUNC[stype](xdac)
     else:
-        xda = _coarsen(xda, expand_cells, stype)
+        custom_stat_func = _COARSEN_STYPE_TO_CUSTOM_FUNC[stype]
+        check_nan = stype == "mode"
+        out_dtype = _get_coarsen_dtype(
+            stype, np.prod(expand_cells), orig_dtype
+        )
+        # Use partial because reduce seems to be bugged and grabs kwargs that
+        # it shouldn't.
+        xda = xdac.reduce(
+            partial(
+                _coarsen_block_map,
+                agg_func=custom_stat_func,
+                out_dtype=out_dtype,
+                check_nan=check_nan,
+            )
+        )
     # Coarsen mask as well
     if rs._masked:
         xmask = xr.DataArray(rs._mask, dims=rs.xrs.dims, coords=rs.xrs.coords)
@@ -344,20 +306,8 @@ def aggregate(raster, expand_cells, stype):
         rs_out._mask = mask
         nv = rs.null_value
         if stype == "unique":
-            # Find null value that will work for uint type
-            if not np.can_cast(nv, rs_out.dtype):
-                if (
-                    is_float(nv)
-                    and hasattr(nv, "is_integer")
-                    and nv.is_integer()
-                ):
-                    nvi = int(nv)
-                    if np.can_cast(nvi, rs_out.dtype):
-                        nv = nvi
-                    else:
-                        nv = get_default_null_value(rs_out.dtype)
-                else:
-                    nv = get_default_null_value(rs_out.dtype)
+            dt, nv = _get_unique_dtype(rs_out.dtype)
+            rs_out._rs = rs_out.xrs.astype(dt)
         elif stype == "mode":
             # Cast back to original dtype. Original null value will work
             rs_out._rs = rs_out.xrs.astype(orig_dtype)
@@ -541,20 +491,8 @@ def local_stats(raster, stype):
         rs_out._mask = mask
         nv = rs.null_value
         if stype in ("unique", "minband", "maxband"):
-            # Find null value that will work for uint type
-            if not np.can_cast(nv, rs_out.dtype):
-                if (
-                    is_float(nv)
-                    and hasattr(nv, "is_integer")
-                    and nv.is_integer()
-                ):
-                    nvi = int(nv)
-                    if np.can_cast(nvi, rs_out.dtype):
-                        nv = nvi
-                    else:
-                        nv = get_default_null_value(rs_out.dtype)
-                else:
-                    nv = get_default_null_value(rs_out.dtype)
+            dt, nv = _get_unique_dtype(rs_out.dtype)
+            rs_out._rs = rs_out.xrs.astype(dt)
         elif stype == "mode":
             # Cast back to original dtype. Original null value will work
             rs_out._rs = rs_out.xrs.astype(orig_dtype)

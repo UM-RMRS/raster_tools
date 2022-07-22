@@ -89,6 +89,7 @@ def nan_unique_count_jit(x):
 
 @ngcjit
 def nanmode_jit(x):
+    # Returns NaN if all values are NaN.
     x = _atleast_1d(x)
     c = {}
     x = x.ravel()
