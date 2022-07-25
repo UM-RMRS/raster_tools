@@ -161,10 +161,10 @@ def _coarsen_chunk(x, axis, func, out_dtype, check_nan):
         for j in nb.prange(shape[1]):
             for k in nb.prange(shape[2]):
                 v = func(x[i, j, :, k, :])
-                # if check_nan and np.isnan(v):
-                #     # It doesn't matter what value is swapped with nan values
-                #     # since those cells will be masked out later.
-                #     v = 0
+                if check_nan and np.isnan(v):
+                    # It doesn't matter what value is swapped with nan values
+                    # since those cells will be masked out later.
+                    v = 0
                 out[i, j, k] = v
     return out
 
