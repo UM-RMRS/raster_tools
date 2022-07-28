@@ -2,11 +2,12 @@
    Description: general module used to perform common spatial analyses
    on Raster objects
 
-   ref: https://pro.arcgis.com/en/pro-app/latest/tool-reference/spatial-analyst/an-overview-of-the-generalization-tools.htm
-   ref: https://pro.arcgis.com/en/pro-app/latest/tool-reference/spatial-analyst/an-overview-of-the-local-tools.htm
+   * `ESRI Generalization Tools <https://pro.arcgis.com/en/pro-app/latest/tool-reference/spatial-analyst/an-overview-of-the-generalization-tools.htm>`_
+   * `ESRI Local Tools <https://pro.arcgis.com/en/pro-app/latest/tool-reference/spatial-analyst/an-overview-of-the-local-tools.htm>`_
+
 """  # noqa: E501
 import warnings
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from functools import partial
 
 import dask.array as da
@@ -14,9 +15,16 @@ import numba as nb
 import numpy as np
 import xarray as xr
 from dask_image import ndmeasure as ndm
+from scipy.ndimage import (
+    binary_dilation,
+    binary_erosion,
+    grey_dilation,
+    grey_erosion,
+)
 
 from raster_tools.creation import zeros_like
 from raster_tools.dtypes import (
+    BOOL,
     F16,
     F32,
     F64,
@@ -36,6 +44,7 @@ from raster_tools.dtypes import (
     is_scalar,
     is_str,
 )
+from raster_tools.focal import _get_offsets
 from raster_tools.raster import Raster, get_raster
 from raster_tools.stat_common import (
     nan_unique_count_jit,
@@ -49,6 +58,8 @@ from raster_tools.stat_common import (
 __all__ = [
     "aggregate",
     "band_concat",
+    "dilate",
+    "erode",
     "local_stats",
     "predict_model",
     "regions",
@@ -503,6 +514,188 @@ def local_stats(raster, stype):
     else:
         rs_out._mask = da.zeros_like(rs_out._data, dtype=bool)
     return rs_out
+
+
+def _morph_op_chunk(x, footprint, cval, morph_op, binary=False):
+    if x.ndim > 2:
+        x = x[0]
+    if not binary:
+        if morph_op == "dilation":
+            morph_func = grey_dilation
+        else:
+            morph_func = grey_erosion
+        out = morph_func(x, footprint=footprint, mode="constant", cval=cval)
+    else:
+        if morph_op == "dilation":
+            morph_func = binary_dilation
+        else:
+            morph_func = binary_erosion
+        out = morph_func(x, structure=footprint)
+    return out[None]
+
+
+def _get_footprint(size):
+    if isinstance(size, Iterable):
+        size = tuple(size)
+        if len(size) != 2:
+            raise ValueError("size sequence must have lenght 2.")
+        if not all(is_int(s) for s in size):
+            raise TypeError("size sequence must only contain ints.")
+    elif is_int(size):
+        size = (size, size)
+    else:
+        raise TypeError("size input must be an int or sequence of ints.")
+    if not all(s > 0 for s in size):
+        raise ValueError("size values must be greater than 0.")
+    if all(s == 1 for s in size):
+        raise ValueError("At least one size value must be greater than 1.")
+    footprint = np.ones(size) > 0
+    return footprint
+
+
+def _get_fill(dtype, op):
+    if is_int(dtype):
+        type_info = np.iinfo(dtype)
+    else:
+        type_info = np.finfo(dtype)
+    if op == "erosion":
+        fill = type_info.max
+    else:
+        # dilation
+        fill = type_info.min
+    return fill
+
+
+def _erosion_or_dilation_filter(rs, footprint, op):
+    data = rs._data
+    fill = _get_fill(rs.dtype, op)
+    if rs._masked:
+        data = da.where(rs._mask, fill, data)
+    rpad, cpad = _get_offsets(footprint.shape)
+    # Take max because map_overlap does not support asymmetrical overlaps when
+    # a boundary value is given
+    depth = {0: 0, 1: max(rpad), 2: max(cpad)}
+    data = da.map_overlap(
+        partial(
+            _morph_op_chunk,
+            footprint=footprint,
+            cval=fill,
+            morph_op=op,
+        ),
+        data,
+        depth=depth,
+        boundary=fill,
+        dtype=rs.dtype,
+        meta=np.array((), dtype=rs.dtype),
+    )
+    mask = rs._mask
+    if rs._masked:
+        mask = da.map_overlap(
+            partial(
+                _morph_op_chunk,
+                footprint=footprint,
+                cval=fill,
+                morph_op=op,
+                binary=True,
+            ),
+            ~mask,
+            depth=depth,
+            boundary=False,
+            dtype=BOOL,
+            meta=np.array((), dtype=BOOL),
+        )
+        mask = ~mask
+        data = da.where(mask, rs.null_value, data)
+    else:
+        mask = mask.copy()
+    xrs_out = xr.zeros_like(rs.xrs)
+    xrs_out.data = data
+    rs_out = rs._replace(xrs_out, mask=mask)
+    return rs_out
+
+
+def dilate(raster, size):
+    """Perform dilation on a raster
+
+    Dilation increases the thickness of raster features. Features with higher
+    values will cover features with lower values. At each cell, the miximum
+    value within a window, defined by `size`, is stored in the output location.
+    This is very similar to the max focal filter except that raster features
+    are dilated (expanded) into null regions. Dilation is performed on each
+    band separately.
+
+    Parameters
+    ----------
+    raster : Raster or path str
+        The raster to dilate
+    size : int or 2-tuple of ints
+        The shape of the window to use when dilating. A Single int is
+        interpreted as the size of a square window. A tuple of 2 ints is used
+        as the dimensions of rectangular window. At least one value must be
+        greater than 1. Values cannot be less than 1.
+
+    Returns
+    -------
+    Raster
+        The resulting raster with eroded features. This raster will have the
+        same shape and meta data as the original
+
+    See also
+    --------
+    erode, raster_tools.focal.focal
+
+    References
+    ----------
+    .. [1] https://en.wikipedia.org/wiki/Dilation_%28morphology%29
+    .. [2] https://en.wikipedia.org/wiki/Mathematical_morphology
+
+    """
+    raster = get_raster(raster)
+    footprint = _get_footprint(size)
+
+    return _erosion_or_dilation_filter(raster, footprint, "dilation")
+
+
+def erode(raster, size):
+    """Perform erosion on a raster
+
+    Erosion increases the thickness of raster features. Features with higher
+    values will cover features with lower values. At each cell, the miximum
+    value within a window, defined by `size`, is stored in the output location.
+    This is very similar to the max focal filter except that raster features
+    are eroded (contracted) into null regions. Erosion is performed on each
+    band separately.
+
+    Parameters
+    ----------
+    raster : Raster or path str
+        The raster to erode
+    size : int or 2-tuple of ints
+        The shape of the window to use when eroding. A Single int is
+        interpreted as the size of a square window. A tuple of 2 ints is used
+        as the dimensions of rectangular window. At least one value must be
+        greater than 1. Values cannot be less than 1.
+
+    Returns
+    -------
+    Raster
+        The resulting raster with eroded features. This raster will have the
+        same shape and meta data as the original
+
+    See also
+    --------
+    dilate, raster_tools.focal.focal
+
+    References
+    ----------
+    .. [1] https://en.wikipedia.org/wiki/Erosion_%28morphology%29
+    .. [2] https://en.wikipedia.org/wiki/Mathematical_morphology
+
+    """
+    raster = get_raster(raster)
+    footprint = _get_footprint(size)
+
+    return _erosion_or_dilation_filter(raster, footprint, "erosion")
 
 
 def band_concat(rasters, null_value=None):

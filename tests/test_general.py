@@ -1,9 +1,16 @@
 import unittest
 from functools import partial
 
+import dask.array as da
 import numpy as np
 import pytest
 import xarray as xr
+from scipy.ndimage import (
+    binary_dilation,
+    binary_erosion,
+    grey_dilation,
+    grey_erosion,
+)
 
 from raster_tools import creation, general
 from raster_tools.dtypes import (
@@ -274,6 +281,83 @@ def test_aggregate_errors(window, stat, error_type):
     rs = Raster("tests/data/elevation.tif")
     with pytest.raises(error_type):
         general.aggregate(rs, window, stat)
+
+
+@pytest.mark.parametrize("chunk", [False, True])
+@pytest.mark.parametrize("null_value", [-99, 100, np.nan])
+@pytest.mark.parametrize(
+    "size", [2, 3, 4, 5, (3, 1), (1, 4), (2, 3), (3, 3), (3, 5), (4, 6)]
+)
+@pytest.mark.parametrize("name", ["erode", "dilate"])
+def test_erode_dilate(name, size, null_value, chunk):
+    erode_or_dilate = getattr(general, name)
+    grey_erode_or_dilate = grey_erosion if name == "erode" else grey_dilation
+    binary_erode_or_dilate = (
+        binary_erosion if name == "erode" else binary_dilation
+    )
+
+    nan_null = np.isnan(null_value)
+    x = np.full((15, 15), null_value)
+    x[4:10, 4:11] = 2
+    x[5:8, 6:10] = 3
+    x[:, 3] = 1
+    x[5] = 4
+    x[12, 12] = 3
+    x = np.stack((x, x))
+    if nan_null:
+        mask = np.isnan(x)
+    else:
+        mask = x == null_value
+    x[1] += 1
+    if not nan_null:
+        x[mask] = null_value
+    rs = Raster(x).set_null_value(null_value)
+    if chunk:
+        rs._rs.data = rs._data.rechunk((1, 4, 4))
+        rs._mask = rs._mask.rechunk((1, 4, 4))
+    rs._rs = rs._rs.rio.write_crs("EPSG:3857")
+    tup_size = size if isinstance(size, tuple) else (size, size)
+
+    ntruth = x.copy()
+    mask_truth = mask.copy()
+    fill = 0
+    ntruth[mask] = fill
+    for bnd in range(len(ntruth)):
+        ntruth[bnd] = grey_erode_or_dilate(
+            ntruth[bnd], size=size, mode="constant", cval=fill
+        )
+        mask_truth[bnd] = ~binary_erode_or_dilate(
+            ~mask_truth[bnd], structure=np.ones(tup_size, dtype=bool)
+        )
+    ntruth[mask_truth] = null_value
+    xtruth = xr.zeros_like(rs.xrs)
+    xtruth.data = ntruth
+    truth = rs._replace(xtruth, mask=da.from_array(mask_truth))
+
+    result = erode_or_dilate(rs, size)
+
+    assert result.dtype == rs.dtype
+    assert xtruth.equals(result.xrs)
+    assert np.allclose(result, truth, equal_nan=True)
+    assert np.allclose(result._mask.compute(), mask_truth)
+    assert rs.crs == result.crs
+    if not nan_null:
+        assert rs.null_value == result.null_value
+    else:
+        assert np.isnan(result.null_value)
+
+
+@pytest.mark.parametrize("name", ["erode", "dilate"])
+def test_erode_dilate_errors(name):
+    func = getattr(general, name)
+    rs = Raster("tests/data/elevation_small.tif")
+
+    for size in [3.0, None]:
+        with pytest.raises(TypeError):
+            func(rs, size)
+    for size in [0, 1, -1, (3,), (1, 1), (3, 3, 3), (-3, 3), ()]:
+        with pytest.raises(ValueError):
+            func(rs, size)
 
 
 # TODO: fully test module
