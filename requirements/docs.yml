@@ -15,6 +15,6 @@ dependencies:
   - pyogrio
   - rioxarray
   - scipy
-  - sphinx
+  - sphinx=4
   - sphinx-book-theme
   - xarray
