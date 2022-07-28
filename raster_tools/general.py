@@ -76,7 +76,7 @@ def _create_labels(xarr, wd, uarr=None):
 
 
 def regions(raster, neighbors=4, unique_values=None):
-    """Calculates the unique regions (patches) within a raser band.
+    """Calculates the unique regions (patches) within a raster band.
 
     The approach is based on ESRI's region group calculation.
 
