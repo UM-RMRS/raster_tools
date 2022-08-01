@@ -621,6 +621,36 @@ def test_round():
     assert np.allclose(rs.round(2), truth)
 
 
+def test_rechunk():
+    shape = (5, 500, 500)
+    rs = Raster(np.arange(np.prod(shape)).reshape(shape))
+    assert rs._data.chunksize == (1, 500, 500)
+    assert rs._data.chunks == rs._mask.chunks
+    assert rs._data.npartitions == 5
+
+    new_chunks = (1, 100, 100)
+    rc_rs = rs._rechunk(new_chunks)
+    assert rc_rs._data.chunksize == new_chunks
+    assert rc_rs._mask.chunksize == new_chunks
+    assert rc_rs._data.chunks == rc_rs._mask.chunks
+    assert np.allclose(rc_rs, rs)
+    rc_rs = rs._rechunk(new_chunks[1:])
+    assert rc_rs._data.chunksize == new_chunks
+    assert rc_rs._mask.chunksize == new_chunks
+    assert rc_rs._data.chunks == rc_rs._mask.chunks
+    assert np.allclose(rc_rs, rs)
+
+    new_chunks = (2, 100, 100)
+    rc_rs = rs._rechunk(new_chunks, allow_band_rechunk=True)
+    assert rc_rs._data.chunksize == new_chunks
+    assert rc_rs._mask.chunksize == new_chunks
+    assert rc_rs._data.chunks == rc_rs._mask.chunks
+
+    for chunksize in [(2, 100, 100), (-1, 100, 100), (1, 1, 400, 400)]:
+        with pytest.raises(ValueError):
+            rs._rechunk(chunksize)
+
+
 class TestAstype(unittest.TestCase):
     def test_astype(self):
         rs = Raster("tests/data/elevation_small.tif")
@@ -946,8 +976,7 @@ def test_to_vector():
     rs = Raster("tests/data/elevation_small.tif")
     rs = band_concat((rs, rs + 100))
     data = rs._values
-    rs.xrs.data = dask.array.rechunk(rs.xrs.data, (1, 20, 20))
-    rs._mask = dask.array.rechunk(rs._mask, (1, 20, 20))
+    rs = rs._rechunk((1, 20, 20))
     ddf = rs.to_vector()
     df = ddf.compute()
 
@@ -971,9 +1000,7 @@ def test_to_vector():
         ]
     )
     count = np.sum(data > 0)
-    rs = Raster(data).set_null_value(0)
-    rs.xrs.data = dask.array.rechunk(rs.xrs.data, (1, 2, 2))
-    rs._mask = dask.array.rechunk(rs._mask, (1, 2, 2))
+    rs = Raster(data).set_null_value(0)._rechunk((1, 2, 2))
     ddf = rs.to_vector()
     df = ddf.compute()
 

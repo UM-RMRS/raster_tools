@@ -82,8 +82,7 @@ def test_local_stats(stat, chunk):
         x[:, 2, 2] = 1
         rs = Raster(x.astype(dt)).set_null_value(1)
         if chunk:
-            rs._rs.data = rs._data.rechunk((1, 2, 2))
-            rs._mask = rs._mask.rechunk((1, 2, 2))
+            rs = rs._rechunk((1, 2, 2))
             orig_chunks = rs._data.chunks
         xx = np.where(rs._mask.compute(), np.nan, rs._data.compute())
 
@@ -207,8 +206,7 @@ def test_aggregate(stat, window_y, window_x, chunk):
     rs = Raster(x).set_null_value(null_value)
     rs._rs = rs._rs.rio.write_crs("EPSG:3857")
     if chunk:
-        rs._rs.data = rs._data.rechunk((1, 3, 3))
-        rs._mask = rs._mask.rechunk((1, 3, 3))
+        rs = rs._rechunk((1, 3, 3))
     xmask = xr.DataArray(rs._mask, coords=rs.xrs.coords, dims=rs.xrs.dims)
     xmask_truth = xmask.coarsen(dim=window_map, boundary="trim").all()
 
@@ -313,8 +311,7 @@ def test_erode_dilate(name, size, null_value, chunk):
         x[mask] = null_value
     rs = Raster(x).set_null_value(null_value)
     if chunk:
-        rs._rs.data = rs._data.rechunk((1, 4, 4))
-        rs._mask = rs._mask.rechunk((1, 4, 4))
+        rs = rs._rechunk((1, 4, 4))
     rs._rs = rs._rs.rio.write_crs("EPSG:3857")
     tup_size = size if isinstance(size, tuple) else (size, size)
 

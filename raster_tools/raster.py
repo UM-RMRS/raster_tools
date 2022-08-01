@@ -444,6 +444,22 @@ class Raster(_RasterBase):
             self._null_value = None
         return self
 
+    def _rechunk(self, chunks, allow_band_rechunk=False):
+        """Rechunk raster data and mask."""
+        if len(chunks) == 2:
+            chunks = (1,) + chunks
+        chunks = da.core.normalize_chunks(chunks, self.shape)
+        if not all(c == 1 for c in chunks[0]) and not allow_band_rechunk:
+            raise ValueError(
+                "Can't rechunk band dimension with values other than 1. "
+                "Use allow_band_rechunk to override."
+            )
+
+        xrs = self.xrs.copy()
+        xrs.data = xrs.data.rechunk(chunks)
+        mask = self._mask.rechunk(chunks)
+        return self._replace(xrs, mask=mask)
+
     def _to_presentable_xarray(self):
         """Returns a DataArray with null locations filled by the null value."""
         xrs = self._rs
