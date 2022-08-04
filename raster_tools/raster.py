@@ -646,8 +646,6 @@ class Raster(_RasterBase):
             The new `dtype` raster.
 
         """
-        if isinstance(dtype, str):
-            dtype = dtype.lower()
         if dtype not in DTYPE_INPUT_TO_DTYPE:
             raise ValueError(f"Unsupported type: '{dtype}'")
         dtype = DTYPE_INPUT_TO_DTYPE[dtype]

@@ -4,6 +4,12 @@ from numbers import Integral, Number
 import numpy as np
 from xarray.core.dtypes import maybe_promote as xr_maybe_promote
 
+
+def _add_type(mapping, dt, aliases):
+    for d in [dt] + aliases:
+        mapping[d] = dt
+
+
 U8 = np.dtype(np.uint8)
 U16 = np.dtype(np.uint16)
 U32 = np.dtype(np.uint32)
@@ -19,56 +25,33 @@ F64 = np.dtype(np.float64)
 # aliases f128 on machines that support it and f64 on machines that don't
 F128 = np.dtype(np.longdouble)
 BOOL = np.dtype(bool)
-DTYPE_INPUT_TO_DTYPE = {
-    # Unsigned int
-    U8: U8,
-    "uint8": U8,
-    np.dtype("uint8"): U8,
-    U16: U16,
-    "uint16": U16,
-    np.dtype("uint16"): U16,
-    U32: U32,
-    "uint32": U32,
-    np.dtype("uint32"): U32,
-    U64: U64,
-    "uint64": U64,
-    np.dtype("uint64"): U64,
-    # Signed int
-    I8: I8,
-    "int8": I8,
-    np.dtype("int8"): I8,
-    I16: I16,
-    "int16": I16,
-    np.dtype("int16"): I16,
-    I32: I32,
-    "int32": I32,
-    np.dtype("int32"): I32,
-    I64: I64,
-    "int64": I64,
-    np.dtype("int64"): I64,
-    int: I64,
-    "int": I64,
-    # Float
-    F16: F16,
-    "float16": F16,
-    np.dtype("float16"): F16,
-    F32: F32,
-    "float32": F32,
-    np.dtype("float32"): F32,
-    F64: F64,
-    "float64": F64,
-    np.dtype("float64"): F64,
-    F128: F128,
-    "float128": F128,
-    np.dtype("longdouble"): F128,
-    float: F64,
-    "float": F64,
-    # Boolean
-    BOOL: BOOL,
-    bool: BOOL,
-    "bool": BOOL,
-    np.dtype("bool"): BOOL,
-}
+
+DTYPE_INPUT_TO_DTYPE = {}
+# Unsigned int
+_add_type(DTYPE_INPUT_TO_DTYPE, U8, ["u1", "uint8", "B", np.uint8])
+_add_type(DTYPE_INPUT_TO_DTYPE, U16, ["u2", "uint16", np.uint16])
+_add_type(DTYPE_INPUT_TO_DTYPE, U32, ["u4", "uint32", np.uint32])
+_add_type(DTYPE_INPUT_TO_DTYPE, U64, ["u8", "uint64", np.uint64])
+# Signed int
+_add_type(DTYPE_INPUT_TO_DTYPE, I8, ["i1", "int8", "b", "byte", np.int8])
+_add_type(DTYPE_INPUT_TO_DTYPE, I16, ["i2", "int16", np.int16])
+_add_type(DTYPE_INPUT_TO_DTYPE, I32, ["i4", "int32", "i", np.int32])
+_add_type(DTYPE_INPUT_TO_DTYPE, I64, ["i8", "int64", "int", int, np.int64])
+# Float
+_add_type(DTYPE_INPUT_TO_DTYPE, F16, ["f2", "float16", np.float16])
+_add_type(DTYPE_INPUT_TO_DTYPE, F32, ["f4", "float32", "f", np.float32])
+_add_type(
+    DTYPE_INPUT_TO_DTYPE,
+    F64,
+    ["f8", "float64", "d", "float", float, np.float64],
+)
+_add_type(DTYPE_INPUT_TO_DTYPE, F128, ["f16", "float128", np.longdouble])
+# Boolean
+_add_type(
+    DTYPE_INPUT_TO_DTYPE,
+    BOOL,
+    ["bool", "?", bool, np.bool_, np.dtype("bool"), np.bool8],
+)
 
 
 def is_str(value):

@@ -671,13 +671,6 @@ class TestAstype(unittest.TestCase):
         rs = Raster("tests/data/elevation_small.tif")
         self.assertEqual(rs.dtype, rs.xrs.dtype)
 
-    def test_astype_str_uppercase(self):
-        rs = Raster("tests/data/elevation_small.tif")
-        for type_code, dtype in DTYPE_INPUT_TO_DTYPE.items():
-            if isinstance(type_code, str):
-                type_code = type_code.upper()
-                self.assertEqual(rs.astype(type_code).eval().dtype, dtype)
-
 
 class TestRasterAttrsPropagation(unittest.TestCase):
     def test_ctor_attrs(self):
