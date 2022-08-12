@@ -219,7 +219,9 @@ class TestCostDist(unittest.TestCase):
             # source raster must have null value
             distance.cost_distance_analysis(
                 "tests/data/elevation_small.tif",
-                Raster("tests/data/elevation_small.tif").astype(np.int64),
+                Raster("tests/data/elevation_small.tif")
+                .astype(int)
+                .set_null_value(None),
             )
         with self.assertRaises(ValueError):
             # sources array must have shape (M, 2)
