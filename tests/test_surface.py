@@ -52,10 +52,9 @@ class TestSurface(unittest.TestCase):
         self.assertTrue(curv.null_value == self.dem.null_value)
         # ESRI treats the edges as valid even though they are not.
         # surface.curvature does not so we ignore the edges in the comparison.
+        ss = (..., slice(1, -1, 1), slice(1, -1, 1))
         self.assertTrue(
-            np.allclose(
-                curv._data[..., 1:-1, 1:-1], truth._data[..., 1:-1, 1:-1]
-            )
+            np.allclose(curv._data[ss].compute(), truth._data[ss].compute())
         )
         self.assertTrue(curv.dtype == np.dtype("float64"))
 
