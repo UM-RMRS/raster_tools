@@ -56,12 +56,12 @@ class TestRasterCreation(unittest.TestCase):
         rs = Raster("tests/data/elevation_small.tif")
         x, y = rs.xrs.x.values, rs.xrs.y.values
         self.assertTrue((np.diff(x) > 0).all())
-        self.assertTrue((np.diff(y) > 0).all())
+        self.assertTrue((np.diff(y) < 0).all())
 
         rs = Raster(TEST_ARRAY)
         x, y = rs.xrs.x.values, rs.xrs.y.values
         self.assertTrue((np.diff(x) > 0).all())
-        self.assertTrue((np.diff(y) > 0).all())
+        self.assertTrue((np.diff(y) < 0).all())
 
     def test_creation_from_numpy(self):
         for nprs in [np.ones((6, 6)), np.ones((1, 6, 6)), np.ones((4, 5, 5))]:
@@ -75,9 +75,10 @@ class TestRasterCreation(unittest.TestCase):
         self.assertTrue(rs.shape == (1, 6, 6))
         # Band dim starts at 1
         self.assertTrue((rs.xrs.band == [1]).all())
-        # x/y dims start at 0 and increase
+        # x dim starts at 0 and increase
         self.assertTrue((rs.xrs.x == np.arange(0, 6) + 0.5).all())
-        self.assertTrue((rs.xrs.y == np.arange(0, 6) + 0.5).all())
+        # y dim starts at bottom
+        self.assertTrue((rs.xrs.y == np.arange(5, -1, -1) + 0.5).all())
         # No null value determined for int type
         self.assertIsNone(rs.null_value)
 
@@ -183,15 +184,11 @@ def test_property__data():
 
 def test_property_bounds():
     rs = Raster("tests/data/elevation_small.tif")
+    rds = rio.open("tests/data/elevation_small.tif")
     assert hasattr(rs, "bounds")
     assert isinstance(rs.bounds, tuple)
     assert len(rs.bounds) == 4
-    assert rs.bounds == (
-        -47863.38283538996,
-        65183.938461863494,
-        -44863.38283538996,
-        68183.9384618635,
-    )
+    assert rs.bounds == tuple(rds.bounds)
 
     rs = Raster(
         np.array(
@@ -893,14 +890,8 @@ def test_xy(index, offset):
     if j == -1:
         j = rs.shape[2] - 1
 
-    rio_offset = offset
-    if rio_offset.startswith("u"):
-        rio_offset = "l" + rio_offset[-1]
-    elif rio_offset.startswith("l"):
-        rio_offset = "u" + rio_offset[-1]
     T = rs.affine
-
-    assert rs.xy(i, j, offset) == rio.transform.xy(T, i, j, offset=rio_offset)
+    assert rs.xy(i, j, offset) == rio.transform.xy(T, i, j, offset=offset)
 
 
 @pytest.mark.parametrize(

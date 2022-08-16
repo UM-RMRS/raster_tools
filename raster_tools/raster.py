@@ -299,7 +299,9 @@ def _array_to_xarray(ar):
     # The band dimension needs to start at 1 to match raster conventions
     coords = [np.arange(1, ar.shape[0] + 1)]
     # Add 0.5 offset to move coords to center of cell
-    coords.extend([np.arange(d) + 0.5 for d in ar.shape[1:]])
+    # y
+    coords.append(np.arange(ar.shape[1])[::-1] + 0.5)
+    coords.append(np.arange(ar.shape[2]) + 0.5)
     xrs = xr.DataArray(ar, dims=["band", "y", "x"], coords=coords)
     if is_numpy_masked(ar._meta):
         xrs.attrs["_FillValue"] = ar._meta.fill_value
@@ -566,9 +568,9 @@ class Raster(_RasterBase):
     @property
     def bounds(self):
         """Bounds tuple (minx, miny, maxx, maxy)"""
-        minx, miny = self.xy(0, 0, offset="ll")
         r, c = self.shape[1:]
-        maxx, maxy = self.xy(r - 1, c - 1, "ur")
+        minx, maxy = self.xy(0, 0, offset="ul")
+        maxx, miny = self.xy(r - 1, c - 1, "lr")
         return (minx, miny, maxx, maxy)
 
     def to_dask(self):
@@ -1044,17 +1046,12 @@ class Raster(_RasterBase):
         return dd.concat(results)
 
 
-_XY_OFFSET_REMAP = {"ul": "ll", "ll": "ul", "ur": "lr", "lr": "ur"}
-
-
 def rowcol_to_xy(row, col, affine, offset):
     """
     Convert (row, col) index values to (x, y) coords using the transformation.
     """
     # Invert the north/south dim so that upper always gives north and lower
     # gives south
-    if offset in _XY_OFFSET_REMAP:
-        offset = _XY_OFFSET_REMAP[offset]
     result = rio.transform.xy(affine, row, col, offset=offset)
     if is_scalar(row):
         return result

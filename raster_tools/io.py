@@ -102,7 +102,7 @@ def normalize_xarray_data(xrs):
     if len(xdiff) and (xdiff < 0).all():
         xrs = xrs.isel(x=slice(None, None, -1))
     ydiff = np.diff(xrs.y)
-    if len(ydiff) and (ydiff < 0).all():
+    if len(ydiff) and (ydiff > 0).all():
         xrs = xrs.isel(y=slice(None, None, -1))
     tf = xrs.rio.transform(True)
     xrs = xrs.rio.write_transform(tf)

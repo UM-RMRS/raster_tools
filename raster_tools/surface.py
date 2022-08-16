@@ -61,8 +61,8 @@ def _map_surface_func(
 @nb.jit(nopython=True, nogil=True)
 def _surface_area_3d(xarr, res):
     # TODO: handle non-symmetrical resolutions
-    dd = (res**2) * 2
     sd = res**2
+    dd = sd * 2
     outx = np.empty_like(xarr, dtype=F64)
     rows, cols = xarr.shape
     for rw in range(1, rows - 1):
@@ -180,7 +180,7 @@ def slope(raster, degrees=True):
     raster : Raster or path str
         The raster to perform the calculation on
         (typically an elevation surface).
-    degrees : boolean
+    degrees : bool
         Indicates whether to output as degrees or percent slope values.
         Default is True (degrees).
 
@@ -198,6 +198,7 @@ def slope(raster, degrees=True):
     rs = get_raster(raster, null_to_nan=True).copy()
     data = rs._data
 
+    # Leave resolution sign as is
     ffun = partial(_slope, res=rs.resolution, degrees=bool(degrees))
     out_data = _map_surface_func(data, ffun, F64)
     return _finalize_rs(rs, out_data)
@@ -207,25 +208,23 @@ def slope(raster, degrees=True):
 def _aspect(xarr):
     # ref: https://desktop.arcgis.com/en/arcmap/10.3/tools/spatial-analyst-toolbox/how-aspect-works.htm  # noqa: E501
     # At each grid cell, the neighbors are labeled:
-    #   g  h  i
-    #   d |e| f
     #   a  b  c
-    # Where e is the current cell.  This is reversed along the vertical dim
-    # compared to ESRI's notes because this package orients the data arrays
-    # such that the north/south coordinate increases with the row dim.
+    #   d |e| f
+    #   g  h  i
+    # where e is the current cell.
     outx = np.empty_like(xarr, dtype=F64)
     rows, cols = xarr.shape
     for ri in range(1, rows - 1):
         for ci in range(1, cols - 1):
             # See above for notes on ordering
-            a = xarr[ri + 1, ci - 1]
-            b = xarr[ri + 1, ci]
-            c = xarr[ri + 1, ci + 1]
+            a = xarr[ri - 1, ci - 1]
+            b = xarr[ri - 1, ci]
+            c = xarr[ri - 1, ci + 1]
             d = xarr[ri, ci - 1]
             f = xarr[ri, ci + 1]
-            g = xarr[ri - 1, ci - 1]
-            h = xarr[ri - 1, ci]
-            i = xarr[ri - 1, ci + 1]
+            g = xarr[ri + 1, ci - 1]
+            h = xarr[ri + 1, ci]
+            i = xarr[ri + 1, ci + 1]
             dzdx = ((c + 2 * f + i) - (a + 2 * d + g)) / 8
             dzdy = ((g + 2 * h + i) - (a + 2 * b + c)) / 8
 
@@ -317,7 +316,7 @@ def curvature(raster):
     rs = get_raster(raster, null_to_nan=True).copy()
     data = rs._data
 
-    ffun = partial(_curv, res=rs.resolution)
+    ffun = partial(_curv, res=np.abs(rs.resolution))
     out_data = _map_surface_func(data, ffun, F64)
     return _finalize_rs(rs, out_data)
 
@@ -335,15 +334,15 @@ def _northing_easting(rs, do_northing):
 
 
 def northing(raster, is_aspect=False):
-    """Calculates the nothing component of each raster cell for each raster
-    band.
+    """
+    Calculates the nothing component of each raster cell for each band.
 
     Parameters
     ----------
     raster : Raster or path str
         The raster to perform the calculation on (typically an aspect or
         elevation surface).
-    is_aspect : boolean to determine if a aspect raster is specified.
+    is_aspect : bool, optional
         Indicates if `raster` is an aspect raster or an elevation raster.
         The default is false and assumes that an elevation raster is used.
 
@@ -362,15 +361,15 @@ def northing(raster, is_aspect=False):
 
 
 def easting(raster, is_aspect=False):
-    """Calculates the easting component of each raster cell for each raster
-    band.
+    """
+    Calculates the easting component of each raster cell for each band.
 
     Parameters
     ----------
     raster : Raster or path str
         The raster to perform the calculation on (typically an aspect or
         elevation surface).
-    is_aspect : boolean to determine if a aspect raster is specified.
+    is_aspect : bool
         Indicates if `raster` is an aspect raster or an elevation raster.
         The default is false and assumes that an elevation raster is used.
 
@@ -433,8 +432,8 @@ def _hillshade(xarr, res, azimuth, altitude):
 
 
 def hillshade(raster, azimuth=315, altitude=45):
-    """Calculates the hillshade component of each raster cell for each raster
-    band.
+    """
+    Calculates the hillshade component of each raster cell for each band.
 
     This approach is based on ESRI's hillshade calculation.
 
@@ -462,6 +461,7 @@ def hillshade(raster, azimuth=315, altitude=45):
     """  # noqa: E501
     rs = get_raster(raster, null_to_nan=True).copy()
     data = rs._data
+    # Specifically leave resolution sign as is
     ffun = partial(
         _hillshade, res=rs.resolution, azimuth=azimuth, altitude=altitude
     )
