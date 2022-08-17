@@ -83,7 +83,7 @@ def normalize_xarray_data(xrs):
         )
     if len(xrs.shape) == 2:
         # Add band dim
-        xrs = xrs.expand_dims("band")
+        xrs = xrs.expand_dims({"band": [1]})
     dims = xrs.dims
     if "lon" in dims:
         xrs = xrs.rename({"lon": "x", "lat": "y"})
