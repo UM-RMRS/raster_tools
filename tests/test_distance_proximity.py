@@ -104,22 +104,22 @@ def test_proximity_analysis_esri_example():
     assert np.allclose(dirn._mask.compute(), mask)
 
 
-@nb.jit(nopython=True, nogil=True, cache=True)
+@nb.jit(nopython=True, nogil=True)
 def euclidean(x1, x2):
     return np.sqrt(np.sum((x1 - x2) ** 2))
 
 
-@nb.jit(nopython=True, nogil=True, cache=True)
+@nb.jit(nopython=True, nogil=True)
 def taxi(x1, x2):
     return np.sum(np.abs(x1 - x2))
 
 
-@nb.jit(nopython=True, nogil=True, cache=True)
+@nb.jit(nopython=True, nogil=True)
 def chessboard(x1, x2):
     return np.max(np.abs(x1 - x2))
 
 
-@nb.jit(nopython=True, nogil=True, cache=True)
+@nb.jit(nopython=True, nogil=True)
 def haversine(x1, x2):
     x1 = np.radians(x1)
     x2 = np.radians(x2)
@@ -129,7 +129,7 @@ def haversine(x1, x2):
     return 2 * 6371009.0 * np.arcsin(np.sqrt(h))
 
 
-@nb.jit(nopython=True, nogil=True, cache=True)
+@nb.jit(nopython=True, nogil=True)
 def apply_metric(x, xc, yc, func, max_distance=np.inf, is_cb=False):
     prox = np.full_like(x, np.nan, dtype=F32)
     alloc = np.full_like(x, -99, dtype=x.dtype)
