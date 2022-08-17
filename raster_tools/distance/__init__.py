@@ -5,10 +5,10 @@ from .cost_distance import (
     cost_distance_analysis,
 )
 from .proximity import (
-    proximity,
-    proximity_allocation,
+    pa_allocation,
+    pa_direction,
+    pa_proximity,
     proximity_analysis,
-    proximity_direction,
 )
 
 __all__ = [
@@ -16,8 +16,8 @@ __all__ = [
     "cda_cost_distance",
     "cda_traceback",
     "cost_distance_analysis",
-    "proximity",
-    "proximity_allocation",
+    "pa_allocation",
+    "pa_direction",
+    "pa_proximity",
     "proximity_analysis",
-    "proximity_direction",
 ]

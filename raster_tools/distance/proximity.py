@@ -7,10 +7,10 @@ from raster_tools.dtypes import F32, F64, get_default_null_value
 from raster_tools.raster import Raster, get_raster
 
 __all__ = [
-    "proximity",
-    "proximity_allocation",
+    "pa_allocation",
+    "pa_direction",
+    "pa_proximity",
     "proximity_analysis",
-    "proximity_direction",
 ]
 
 _JIT_KWARGS = {"nopython": True, "nogil": True, "cache": True}
@@ -73,11 +73,11 @@ def _haversine_dist_sqr(x1, y1, x2, y2):
     y1 = np.radians(y1)
     x2 = np.radians(x2)
     y2 = np.radians(y2)
-    # Mean Earth radius for WGS84
-    r = 6371009.0
     sinlat = np.sin((y2 - y1) / 2.0)
     sinlon = np.sin((x2 - x1) / 2.0)
     h = (sinlat * sinlat) + (np.cos(y1) * np.cos(y2) * sinlon * sinlon)
+    # Mean Earth radius for WGS84
+    r = 6371009.0
     hav = 2 * r * np.arcsin(np.sqrt(h))
     return hav * hav
 
@@ -465,6 +465,7 @@ def _proximity_analysis_chunk(
     max_distance,
     dist_sqr_func,
     full_precision,
+    alloc_dtype,
     nodata,
     mode,
     block_info=None,
@@ -481,7 +482,7 @@ def _proximity_analysis_chunk(
     if mode == _MODE_PROXIMITY:
         secondary_dst = np.full((1, 1), nodata, dtype=src.dtype)
     else:
-        out_dtype = src.dtype if mode == _MODE_ALLOCATION else out_dtype
+        out_dtype = alloc_dtype if mode == _MODE_ALLOCATION else out_dtype
         secondary_dst = np.full(src.shape, nodata, dtype=out_dtype)
 
     xc, yc = _get_coords_for_chunk(xc, yc, coords_block_info, block_info)
@@ -509,16 +510,35 @@ def _proximity_analysis_chunk(
 
 
 def _validate_lonlat_coords(lon, lat):
-    if ((lon < -90) | (lon > 90)).any():
+    if ((lat < -90) | (lat > 90)).any():
         raise ValueError(
             "Invalid longitude values for great circle distance calculation."
             " Values must be in [-90, 90]."
         )
-    if ((lat < -180) | (lon > 180)).any():
+    if np.any(lon > 360) or np.any(lon < -180):
         raise ValueError(
             "Invalid latitude values for great circle distance calculation."
-            " Values must be in [-180, 180]."
+            " Values must be in [-180, 180] or [0, 360]."
         )
+    if np.any(lon > 180) and np.any(lon < 0):
+        raise ValueError(
+            "Invalid latitude values for great circle distance calculation."
+            " Values must be in [-180, 180] or [0, 360]."
+        )
+
+
+def _estimate_min_resolution(lon, lat):
+    x1 = lon[0]
+    y1 = lat.max()
+    x2 = lon[1]
+    y2 = y1
+    xmin = np.sqrt(_haversine_dist_sqr(x1, y1, x2, y2))
+    x1 = lon[0]
+    x2 = lon[0]
+    # Get two largest latitudes
+    y1, y2 = np.partition(lat, -2)[-2:]
+    ymin = np.sqrt(_haversine_dist_sqr(x1, y1, x2, y2))
+    return xmin, ymin
 
 
 def _proximity_analysis(
@@ -552,29 +572,31 @@ def _proximity_analysis(
     if max_distance >= np.sqrt(dist_sqr_func(x[0], y[0], x[-1], y[-1])):
         # If max distance encompasses the entire raster, rechunk to entire
         # raster.
-        raster = raster._rechunk({0: 1, 1: -1, 2: -1})
+        _, ny, nx = raster.shape
+        raster = raster._rechunk({0: 1, 1: ny, 2: nx})
         xdepth = 0
         ydepth = 0
     else:
-        xdepth, ydepth = (
-            max_distance / np.array(raster.resolution) + 0.5
-        ).astype(int)
+        if distance_metric not in ("haversine", "great_circle"):
+            resolution = raster.resolution
+        else:
+            # When x/y are lon/lat, the resolution in meters decreases with
+            # increasing latitude. Estimate the minimum resolution (cell size
+            # at highest latitude) and use that for chunk overlap calculation.
+            # Use minimum so that we always overestimate and never
+            # underestimate the depth.
+            resolution = _estimate_min_resolution(x, y)
+        xdepth, ydepth = (max_distance / np.abs(resolution) + 0.5).astype(int)
     coords_block_info = {
         "chunks": raster._data.chunks[1:],
         "depth": (ydepth, xdepth),
     }
     if mode in (_MODE_PROXIMITY, _MODE_DIRECTION):
         out_dtype = F64 if double_precision else F32
-        if raster._masked and raster.dtype == out_dtype:
-            nodata = raster.null_value
-        else:
-            nodata = get_default_null_value(out_dtype)
     else:
         out_dtype = raster.dtype
-        if raster._masked:
-            nodata = raster.null_value
-        else:
-            nodata = get_default_null_value(out_dtype)
+    nodata = get_default_null_value(out_dtype)
+    orig_raster_dtype = raster.dtype
     # If masked, convert to float and replace null values with nan
     raster = get_raster(raster, null_to_nan=True)
 
@@ -592,6 +614,7 @@ def _proximity_analysis(
         max_distance=max_distance,
         dist_sqr_func=dist_sqr_func,
         full_precision=double_precision,
+        alloc_dtype=orig_raster_dtype if mode == _MODE_ALLOCATION else None,
         nodata=nodata,
         mode=mode,
     )
@@ -605,7 +628,7 @@ def _proximity_analysis(
     return rs_out
 
 
-def proximity(
+def pa_proximity(
     raster,
     target_values=None,
     max_distance=np.inf,
@@ -677,7 +700,7 @@ def proximity(
 
     See also
     --------
-    proximity_allocation, proximity_direction, proximity_analysis
+    pa_allocation, pa_direction, proximity_analysis
 
     """  # noqa: E501
     return _proximity_analysis(
@@ -690,7 +713,7 @@ def proximity(
     )
 
 
-def proximity_allocation(
+def pa_allocation(
     raster,
     target_values=None,
     distance_metric="euclidean",
@@ -762,7 +785,7 @@ def proximity_allocation(
 
     See also
     --------
-    proximity, proximity_direction, proximity_analysis
+    pa_proximity, pa_direction, proximity_analysis
 
     """  # noqa: E501
     return _proximity_analysis(
@@ -775,7 +798,7 @@ def proximity_allocation(
     )
 
 
-def proximity_direction(
+def pa_direction(
     raster,
     target_values=None,
     distance_metric="euclidean",
@@ -848,7 +871,7 @@ def proximity_direction(
 
     See also
     --------
-    proximity, proximity_allocation, proximity_analysis
+    pa_proximity, pa_allocation, proximity_analysis
 
     """  # noqa: E501
     return _proximity_analysis(
@@ -875,9 +898,9 @@ def proximity_analysis(
     and direction rasters for a given source raster. See the individual
     functions for more details:
 
-    * :func:`proximity`
-    * :func:`proximity_allocation`
-    * :func:`proximity_direction`
+    * :func:`pa_proximity`
+    * :func:`pa_allocation`
+    * :func:`pa_direction`
 
     This is very similar to ESRI's Proximity Analysis tools.
 
@@ -936,24 +959,24 @@ def proximity_analysis(
 
     See also
     --------
-    proximity, proximity_allocation, proximity_direction
+    pa_proximity, pa_allocation, pa_direction
 
     """  # noqa: E501
-    prox = proximity(
+    prox = pa_proximity(
         raster=raster,
         target_values=target_values,
         distance_metric=distance_metric,
         max_distance=max_distance,
         double_precision=double_precision,
     )
-    alloc = proximity_allocation(
+    alloc = pa_allocation(
         raster=raster,
         target_values=target_values,
         distance_metric=distance_metric,
         max_distance=max_distance,
         double_precision=double_precision,
     )
-    direction = proximity_direction(
+    direction = pa_direction(
         raster=raster,
         target_values=target_values,
         distance_metric=distance_metric,
