@@ -21,3 +21,4 @@ Operations
    northing
    slope
    surface_area_3d
+   tpi
