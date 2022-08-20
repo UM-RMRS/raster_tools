@@ -10,7 +10,15 @@ import dask.array as da
 import numba as nb
 import numpy as np
 
-from raster_tools.dtypes import F32, F64, U8, get_default_null_value
+from raster_tools import focal
+from raster_tools.dtypes import (
+    F32,
+    F64,
+    I32,
+    U8,
+    get_default_null_value,
+    is_int,
+)
 from raster_tools.raster import get_raster
 
 __all__ = [
@@ -21,6 +29,7 @@ __all__ = [
     "northing",
     "slope",
     "surface_area_3d",
+    "tpi",
 ]
 
 RADIANS_TO_DEGREES = 180 / np.pi
@@ -472,3 +481,61 @@ def hillshade(raster, azimuth=315, altitude=45):
     rs = rs.set_null_value(255)
     rs = rs.astype(U8)
     return rs
+
+
+def tpi(dem, annulus_inner, annulus_outer):
+    """Compute the Topographic Position Index of a DEM.
+
+    This function compares each elevation value to the mean of its neighborhood
+    to produce a scale-dependent index that highlights ridges (positive values)
+    and valleys (negative valleys). Values close to zero, indicate areas with
+    constant slope such as plains (slope of zero). The basic function looks
+    like this:
+        ``tpi = int(dem - focalmean(dem, annulus_inner, annulus_outer) + 0.5)``
+    An annulus (donut) is used to select the neighborhood of each pixel. Larger
+    radii values select features at larger scales.
+
+    Parameters
+    ----------
+    dem : Raster or path str
+        The DEM raster to use for TPI analysis.
+    annulus_inner : int
+        The inner radius of the annulus. If ``0``, a circle of radius
+        `annulus_outer` is used to select the neighborhood.
+    annulus_outer : int
+        The outer radius of the annulus. Must be greater than `annulus_inner`.
+
+    Returns
+    -------
+    tpi : Raster
+        The resulting TPI index for `dem` at the scale determined by the
+        annulus radii.
+
+    References
+    ----------
+    * Weiss AD (2001) Topographic position and landforms analysis. Conference
+      poster for ‘21st Annual ESRI International User Conference’, 9–13 July
+      2001, San Diego, CA. Available at
+      http://www.jennessent.com/arcview/TPI_Weiss_poster.htm
+
+    """
+    dem = get_raster(dem)
+    if not is_int(annulus_inner) or not is_int(annulus_outer):
+        raise TypeError(
+            "annulus_inner and annulus_outer must be integer values"
+        )
+    if annulus_inner < 0:
+        raise ValueError("annulus_inner must be greater or equal to zero")
+    if annulus_outer < 1:
+        raise ValueError("annulus_outer must be greater than zero")
+    if annulus_inner >= annulus_outer:
+        raise ValueError("annulus_inner must be less than annulus_outer")
+
+    if annulus_inner == 0:
+        radii = annulus_outer
+    else:
+        radii = (annulus_inner, annulus_outer)
+    rs_tpi = ((dem - focal.focal(dem, "mean", radii)) + 0.5).astype(I32)
+    if dem._masked:
+        rs_tpi = rs_tpi.set_null_value(get_default_null_value(I32))
+    return rs_tpi
