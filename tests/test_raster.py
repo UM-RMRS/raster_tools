@@ -24,6 +24,7 @@ from raster_tools.dtypes import (
     U16,
     U32,
     U64,
+    get_default_null_value,
     is_int,
     is_scalar,
 )
@@ -698,6 +699,7 @@ class TestRasterAttrsPropagation(unittest.TestCase):
     def test_band_concat_attrs(self):
         rs = Raster("tests/data/elevation_small.tif")
         attrs = rs._attrs
+        attrs["_FillValue"] = get_default_null_value(rs.dtype)
         rs2 = Raster("tests/data/elevation2_small.tif")
         self.assertEqual(band_concat([rs, rs2])._attrs, attrs)
 

@@ -6,7 +6,6 @@
    * `ESRI Local Tools <https://pro.arcgis.com/en/pro-app/latest/tool-reference/spatial-analyst/an-overview-of-the-local-tools.htm>`_
 
 """  # noqa: E501
-import warnings
 from collections.abc import Iterable, Sequence
 from functools import partial
 
@@ -39,7 +38,6 @@ from raster_tools.dtypes import (
     get_common_dtype,
     get_default_null_value,
     is_bool,
-    is_float,
     is_int,
     is_scalar,
     is_str,
@@ -707,12 +705,8 @@ def band_concat(rasters, null_value=None):
         The rasters to concatenate. These can be a mix of Rasters and paths.
         All rasters must have the same shape in the x and y dimensions.
     null_value : scalar, optional
-        A new null value for the resulting raster. If not set, a null value
-        will be selected from the input rasters. The logic for selecting a null
-        value is this:
-        * If none of the inputs have null values, no null value is set.
-        * If all of the null values are NaN, NaN is set as the null value.
-        * Finally, the first non-NaN null value is selected.
+        A new null value for the resulting raster. If not set, a default null
+        value will be selected.
 
     Returns
     -------
@@ -720,7 +714,7 @@ def band_concat(rasters, null_value=None):
         The resulting concatenated Raster.
 
     """
-    rasters = [Raster(other) for other in rasters]
+    rasters = [get_raster(raster) for raster in rasters]
     if not rasters:
         raise ValueError("No rasters provided")
     if len(rasters) == 1:
@@ -737,51 +731,15 @@ def band_concat(rasters, null_value=None):
 
     xrs = [r.xrs for r in rasters]
     masks = [r._mask for r in rasters]
+    masked = any([r._masked for r in rasters]) or (null_value is not None)
 
-    # Choose a null value from the supplied rasters
-    # The logic is:
-    #   - Supplied null value arg
-    #   - If all are nan, then nan
-    #   - First non-nan null value
-    new_nv = None
-    if null_value is not None:
-        new_nv = null_value
-    else:
-        nvs = [r._null_value for r in rasters if r._masked]
-        if len(nvs):
-            if np.isnan(nvs).all():
-                new_nv = np.nan
-            else:
-                # Take first non-nan null value
-                for nv in nvs:
-                    if not np.isnan(nv):
-                        new_nv = nv
-                        break
-
-    # TODO: make sure band dim is "band"
     rs = xr.concat(xrs, "band")
     mask = da.concatenate(masks)
+    if null_value is not None:
+        new_nv = null_value
+    elif masked:
+        new_nv = get_default_null_value(rs.dtype)
 
-    # Only mess with null values if result is not boolean or one was explicitly
-    # specified.
-    if not is_bool(rs.dtype) or null_value is not None:
-        # Make sure that null value type is consistent with resulting dtype
-        if new_nv is not None:
-            if is_float(rs.dtype):
-                new_nv = float(new_nv)
-            elif is_int(rs.dtype):
-                if np.isnan(new_nv):
-                    new_nv = get_default_null_value(rs.dtype)
-                    warnings.warn(
-                        f"Null value is NaN but new dtype is {rs.dtype},"
-                        f" using default null value for that dtype: {new_nv}",
-                        RuntimeWarning,
-                    )
-                else:
-                    new_nv = int(new_nv)
-        if new_nv is not None:
-            # TODO: remove this if unnecessary
-            rs.data = da.where(~mask, rs.data, new_nv)
     # Make sure that band is now an increasing list starting at 1 and
     # incrementing by 1. For xrs1 (1, N, M) and xrs2 (1, N, M),
     # concat([xrs1, xrs2]) sets the band dim to [1, 1], which causes errors
@@ -789,6 +747,8 @@ def band_concat(rasters, null_value=None):
     # values in line with what open_rasterio() returns for multiband
     # rasters.
     rs["band"] = list(range(1, rs.shape[0] + 1))
+    if not is_bool(rs.dtype) and masked:
+        rs.data = da.where(mask, new_nv, rs.data)
     return rasters[0]._replace(rs, mask=mask, null_value=new_nv)
 
 

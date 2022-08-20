@@ -416,14 +416,15 @@ class TestBandConcat(unittest.TestCase):
         rs1 = Raster("tests/data/elevation_small.tif") > -100
         rs2 = rs1.copy()
         result = general.band_concat((rs1, rs2))
-        self.assertTrue(rs1.null_value == result.null_value)
+        self.assertTrue(
+            result.null_value == get_default_null_value(result.dtype)
+        )
         self.assertTrue(result.dtype == np.dtype(bool))
         self.assertTrue(np.array(result).all())
 
-        # Force bool to be converted to int to accommodate the null value
         result = general.band_concat((rs1, rs2), -1)
         self.assertTrue(-1 == result.null_value)
-        self.assertTrue(result.dtype.kind == "i")
+        self.assertTrue(result.dtype == np.dtype("?"))
         self.assertTrue(np.all(np.array(result) == 1))
 
     def test_band_concat_errors(self):
