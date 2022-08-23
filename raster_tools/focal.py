@@ -14,11 +14,10 @@ from raster_tools.dtypes import (
     is_bool,
     is_float,
     is_int,
-    is_str,
     promote_data_dtype,
     promote_dtype_to_float,
 )
-from raster_tools.raster import Raster
+from raster_tools.raster import get_raster
 from raster_tools.stat_common import (
     nan_unique_count_jit,
     nanasm_jit,
@@ -372,12 +371,7 @@ def focal(raster, focal_type, width_or_radius, height=None):
         bands will have the same shape as the original Raster.
 
     """
-    if not isinstance(raster, Raster) and not is_str(raster):
-        raise TypeError(
-            "First argument must be a Raster or path string to a raster"
-        )
-    elif is_str(raster):
-        raster = Raster(raster)
+    raster = get_raster(raster)
     if focal_type not in FOCAL_STATS:
         raise ValueError(f"Unknown focal operation: '{focal_type}'")
 
@@ -548,12 +542,7 @@ def correlate(raster, kernel, mode="constant", cval=0.0):
     Raster
         The resulting new Raster.
     """
-    if not isinstance(raster, Raster) and not is_str(raster):
-        raise TypeError(
-            "First argument must be a Raster or path string to a raster"
-        )
-    elif is_str(raster):
-        raster = Raster(raster)
+    raster = get_raster(raster)
     kernel = np.asarray(kernel)
     check_kernel(kernel)
     rs = raster.copy()
