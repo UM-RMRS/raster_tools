@@ -112,13 +112,9 @@ def test_tpi():
 
     # Make sure that it works with multiple bands
     dem2 = dem + 100
-    print(f"{dem2 = }")
     truth2 = ((dem2 - focal.focal(dem2, "mean", (5, 11))) + 0.5).astype(I32)
-    print(f"{truth2 = }")
     truth = band_concat((truth, truth2))
-    print(f"{truth = }")
     dem = band_concat((dem, dem2))
-    print(f"{dem = }")
 
     tpi = surface.tpi(dem, 5, 11)
 
