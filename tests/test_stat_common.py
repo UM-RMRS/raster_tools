@@ -84,7 +84,7 @@ class TestJitStats(TestCase):
             x = x[~np.isnan(x)]
             if x.size == 0:
                 return np.nan
-            m = stats.mode(x, nan_policy="omit")
+            m = stats.mode(x, keepdims=True, nan_policy="omit")
             return m[0][0]
 
         self._test_func(stc.nanmode_jit, mode)

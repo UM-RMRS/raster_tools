@@ -555,7 +555,7 @@ def entropy(x):
 def mode(x):
     if x[~np.isnan(x)].size == 0:
         return np.nan
-    m = stats.mode(x, axis=None, nan_policy="omit")
+    m = stats.mode(x, axis=None, keepdims=True, nan_policy="omit")
     return m.mode[0]
 
 
