@@ -1,3 +1,4 @@
+import sys
 import warnings
 from unittest import TestCase
 
@@ -6,6 +7,8 @@ from scipy import stats
 
 import raster_tools.stat_common as stc
 from raster_tools.dtypes import is_scalar
+
+PY_VER_37 = sys.version_info[0] == 3 and sys.version_info[1] == 7
 
 INPUTS = [
     0,
@@ -84,7 +87,10 @@ class TestJitStats(TestCase):
             x = x[~np.isnan(x)]
             if x.size == 0:
                 return np.nan
-            m = stats.mode(x, keepdims=True, nan_policy="omit")
+            kwargs = {"nan_policy": "omit"}
+            if not PY_VER_37:
+                kwargs["keepdims"] = True
+            m = stats.mode(x, **kwargs)
             return m[0][0]
 
         self._test_func(stc.nanmode_jit, mode)

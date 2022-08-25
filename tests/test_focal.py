@@ -1,3 +1,4 @@
+import sys
 import unittest
 import warnings
 from functools import partial
@@ -7,6 +8,8 @@ import numpy as np
 from scipy import ndimage, stats
 
 from raster_tools import Raster, focal
+
+PY_VER_37 = sys.version_info[0] == 3 and sys.version_info[1] == 7
 
 
 def array_eq_all(ar1, ar2):
@@ -555,7 +558,10 @@ def entropy(x):
 def mode(x):
     if x[~np.isnan(x)].size == 0:
         return np.nan
-    m = stats.mode(x, axis=None, keepdims=True, nan_policy="omit")
+    mode_kwargs = {"axis": None, "nan_policy": "omit"}
+    if not PY_VER_37:
+        mode_kwargs["keepdims"] = True
+    m = stats.mode(x, **mode_kwargs)
     return m.mode[0]
 
 
