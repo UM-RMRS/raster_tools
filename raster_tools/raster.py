@@ -9,6 +9,7 @@ import geopandas as gpd
 import numpy as np
 import rasterio as rio
 import xarray as xr
+from affine import Affine
 from numba import jit
 from shapely.geometry import Point
 
@@ -1010,25 +1011,24 @@ class Raster(_RasterBase):
         data_delayed = data_delayed.ravel()
         mask_delayed = mask.to_delayed().ravel()
 
-        # Mapping from dim name to list of slices for coordinate arrays
-        slices = {}
-        for d, r in xrs.chunksizes.items():
-            r = np.add.accumulate([0, *r])
-            s = []
-            for i in range(len(r) - 1):
-                s.append(slice(*r[i : i + 2]))
-            slices[d] = s
-        x = xrs.x.data
-        y = xrs.y.data
+        xc = da.from_array(xrs.x.data, chunks=xrs.chunks[2])
+        xc_delayed = xc.to_delayed()
+        yc = da.from_array(xrs.y.data, chunks=xrs.chunks[1])
+        yc_delayed = yc.to_delayed()
         # See issue for inspiration: https://github.com/dask/dask/issues/7589
         # Group chunk data with corresponding coordinate data
         chunks = []
         for k, (d, m) in enumerate(zip(data_delayed, mask_delayed)):
             # band index, chunk y index, chunk x index
             b, i, j = np.unravel_index(k, chunks_shape)
-            yslice = y[slices["y"][i]]
-            xslice = x[slices["x"][j]]
-            chunks.append((d, m, xslice, yslice, b + 1, self.crs, self.affine))
+            xck = xc_delayed[j]
+            yck = yc_delayed[i]
+            # Pass affine as tuple because of how dask handles namedtuple
+            # subclasses.
+            # ref: https://github.com/rasterio/affine/issues/79
+            chunks.append(
+                (d, m, xck, yck, b + 1, self.crs, tuple(self.affine))
+            )
 
         meta = gpd.GeoDataFrame(
             {
@@ -1036,7 +1036,7 @@ class Raster(_RasterBase):
                 "band": [1],
                 "row": [0],
                 "col": [0],
-                "geometry": [Point(x[0], y[0])],
+                "geometry": [Point(xrs.x.data[0], xrs.y.data[0])],
             },
             crs=self.crs,
         )
@@ -1069,34 +1069,45 @@ def xy_to_rowcol(x, y, affine):
 
 
 @jit(nopython=True, nogil=True, cache=True)
-def _extract_points(mask, cx, cy):
-    shape = mask.shape
-    rx = []
-    ry = []
-    for i in range(shape[1]):
-        for j in range(shape[2]):
+def _extract_points(mask, xc, yc):
+    n = mask.size - np.sum(mask)
+    rx = np.empty(n, dtype=xc.dtype)
+    ry = np.empty(n, dtype=yc.dtype)
+    if n == 0:
+        return rx, ry
+
+    k = 0
+    for i in range(mask.shape[1]):
+        for j in range(mask.shape[2]):
             if mask[0, i, j]:
                 continue
-            rx.append(cx[j])
-            ry.append(cy[i])
+            rx[k] = xc[j]
+            ry[k] = yc[i]
+            k += 1
     return (rx, ry)
 
 
 @jit(nopython=True, nogil=True, cache=True)
 def _extract_values(data, mask):
-    shape = data.shape
-    results = []
-    for i in range(shape[1]):
-        for j in range(shape[2]):
+    n = mask.size - np.sum(mask)
+    results = np.empty(n, dtype=data.dtype)
+    if n == 0:
+        return results
+
+    k = 0
+    for i in range(data.shape[1]):
+        for j in range(data.shape[2]):
             if mask[0, i, j]:
                 continue
-            results.append(data[0, i, j])
+            results[k] = data[0, i, j]
+            k += 1
     return results
 
 
 @dask.delayed
-def _vectorize(data, mask, cx, cy, band, crs, affine):
-    xpoints, ypoints = _extract_points(mask, cx, cy)
+def _vectorize(data, mask, xc, yc, band, crs, affine_tuple):
+    affine = Affine(*affine_tuple[:6])
+    xpoints, ypoints = _extract_points(mask, xc, yc)
     if len(xpoints):
         values = _extract_values(data, mask)
         points = [Point(x, y) for x, y in zip(xpoints, ypoints)]
