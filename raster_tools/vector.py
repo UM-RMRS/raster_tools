@@ -2,6 +2,7 @@ import os
 import sys
 
 import dask
+import dask.array as da
 import dask.dataframe as dd
 import dask_geopandas as dgpd
 import geopandas as gpd
@@ -288,9 +289,10 @@ def _get_rio_dtype(dtype):
     return dtype
 
 
-def _rasterize_block(block, geometry, values, dtype, fill, all_touched):
-    shape = block.shape[1:]
-    rio_dtype = _get_rio_dtype(dtype)
+def _rio_rasterize_wrapper(
+    shape, transform, geometry, values, out_dtype, fill, all_touched
+):
+    rio_dtype = _get_rio_dtype(out_dtype)
     values_dtype = _get_rio_dtype(values.dtype)
     if values_dtype != values.dtype:
         values = values.astype(values_dtype)
@@ -298,50 +300,42 @@ def _rasterize_block(block, geometry, values, dtype, fill, all_touched):
     rast_array = rio_rasterize(
         zip(geometry.values, values),
         out_shape=shape,
-        transform=block.rio.transform(),
+        transform=transform,
         fill=fill,
         all_touched=all_touched,
         merge_alg=MergeAlg.replace,
         dtype=rio_dtype,
     )
 
-    if rio_dtype != dtype:
-        rast_array = rast_array.astype(dtype)
-    # Add band dimension to array
-    block.data = rast_array[None]
-    return block
+    if rio_dtype != out_dtype:
+        rast_array = rast_array.astype(out_dtype)
+    return rast_array
 
 
-def _rasterize_map_blocks(
-    template, geometry, values, dtype, fill, all_touched
+def _rasterize_block(
+    xc, yc, geometry, values, out_dtype, fill, all_touched, block_info=None
 ):
-    # Force computation here to avoid computing in each block-rasterization
-    # call.
-    geometry, values = dask.compute(geometry, values)
-    # Filter invalid geometries
     valid = ~(geometry.is_empty | geometry.isna())
     geometry = geometry[valid]
     values = values[valid.values]
 
-    result = template.map_blocks(
-        _rasterize_block,
-        args=[
-            geometry,
-            values,
-            dtype,
-            fill,
-            all_touched,
-        ],
-        template=template,
+    xc = xc.ravel()
+    yc = yc.ravel()
+    shape_2d = block_info[None]["chunk-shape"]
+    dummy_data = da.zeros(shape_2d)
+    dummy_xrs = xr.DataArray(dummy_data, coords=(yc, xc), dims=("y", "x"))
+    transform = dummy_xrs.rio.transform()
+    return _rio_rasterize_wrapper(
+        shape_2d, transform, geometry, values, out_dtype, fill, all_touched
     )
-    return result.data
 
 
 def _rasterize_partition(
     df, xlike, field, fill, target_dtype, all_touched=True
 ):
-    if xlike.shape[0] > 1:
-        xlike = xlike[:1]
+    if xlike.ndim > 2:
+        # Trim off band dim since its not needed
+        xlike = xlike[0]
     geometry = df.geometry
     values = df.index if field is None else df[field]
     values = (
@@ -354,23 +348,25 @@ def _rasterize_partition(
         values = values + 1
         # Convert to minimum dtype
         values = values.astype(target_dtype)
-    template = xr.full_like(xlike, fill, dtype=target_dtype)
+    # Chunk up coords to match data. Dask will provide the correct coord chunks
+    # to the rasterizing func in map_blocks
+    xc = da.from_array(xlike.x.data, chunks=xlike.chunks[1]).reshape((1, -1))
+    yc = da.from_array(xlike.y.data, chunks=xlike.chunks[0]).reshape((-1, 1))
 
-    # geometry is likely lazy. It could also potentially wrap a very large
-    # feature collection. It must be computed at some point before mapping
-    # the rasterization function onto the template blocks. To avoid doing this
-    # here and now, we wrap the rasterization operation in a delayed object.
-    lazy_result_data = delayed(_rasterize_map_blocks)(
-        template, geometry, values, target_dtype, fill, all_touched
+    result_data = da.map_blocks(
+        _rasterize_block,
+        xc,
+        yc,
+        chunks=xlike.chunks,
+        meta=np.array((), dtype=target_dtype),
+        # func args
+        geometry=geometry,
+        values=values,
+        out_dtype=target_dtype,
+        fill=fill,
+        all_touched=all_touched,
     )
-    result = template.copy()
-    result.data = dask.array.from_delayed(
-        lazy_result_data,
-        template.shape,
-        dtype=target_dtype,
-        meta=template.data,
-    )
-    return result
+    return result_data
 
 
 def _vector_to_raster_dask(df, size, xlike, field=None, all_touched=True):
@@ -403,10 +399,13 @@ def _vector_to_raster_dask(df, size, xlike, field=None, all_touched=True):
             all_touched=all_touched,
         )
         results.append(res)
-    # Merge along band dim using max
-    result = xr.concat(results, dim="band").max(axis=0, keep_attrs=True)
-    result = result.expand_dims("band")
-    result["band"] = [1]
+    # (n-partitions, yn, xn)
+    result_data = da.stack(results, axis=0)
+    # (1, yn, xn)
+    result_data = result_data.max(axis=0, keepdims=True)
+    x = xlike.x.data
+    y = xlike.y.data
+    result = xr.DataArray(result_data, coords=([1], y, x), dims=xlike.dims)
     result["spatial_ref"] = xlike.spatial_ref
     result.attrs["_FillValue"] = fill
     return result

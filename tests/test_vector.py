@@ -235,6 +235,18 @@ def test_to_raster(key):
         assert all(np.unique(result) == [0, 1])
 
 
+def test_to_raster_chunks():
+    # Make sure that chunking is preserved
+    v = open_vectors("tests/data/vector/pods.shp")
+    like = Raster("tests/data/elevation.tif")._rechunk((1000, 1000))
+    truth = Raster("tests/data/pods_like_elevation.tif")
+    assert like._data.chunksize != like.shape
+
+    result = v.to_raster(like)
+    assert result._data.chunks == like._data.chunks
+    assert np.allclose(result, truth)
+
+
 def test_to_raster_field():
     v = open_vectors("tests/data/vector/pods.shp")
     like = Raster("tests/data/elevation.tif")
