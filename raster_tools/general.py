@@ -755,13 +755,15 @@ def band_concat(rasters, null_value=None):
 
 
 @nb.jit(nopython=True, nogil=True)
-def _remap_values(x, mappings):
+def _remap_values(x, mask, mappings):
     outx = np.zeros_like(x)
     bands, rows, columns = x.shape
     rngs = mappings.shape[0]
     for bnd in range(bands):
         for rw in range(rows):
             for cl in range(columns):
+                if mask[bnd, rw, cl]:
+                    continue
                 vl = int(x[bnd, rw, cl])
                 remapped = False
                 for imap in range(rngs):
@@ -851,7 +853,10 @@ def remap_range(raster, mapping):
     data = outrs._data
     func = partial(_remap_values, mappings=mappings)
     outrs._data = data.map_blocks(
-        func, dtype=data.dtype, meta=np.array((), dtype=data.dtype)
+        func,
+        raster._mask,
+        dtype=data.dtype,
+        meta=np.array((), dtype=data.dtype),
     )
     if f16_workaround:
         outrs = outrs.astype(F16)
