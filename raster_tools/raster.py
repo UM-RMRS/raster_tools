@@ -876,40 +876,9 @@ class Raster(_RasterBase):
             The resulting filtered Raster.
 
         """
-        condition = get_raster(condition)
-        if not is_scalar(other):
-            try:
-                other = get_raster(other)
-            except TypeError:
-                raise TypeError(
-                    f"Could not understand other argument. Got: {other!r}"
-                )
+        from raster_tools.general import where
 
-        if not is_bool(condition.dtype) and not is_int(condition.dtype):
-            raise TypeError(
-                "Condition argument must be a boolean or integer raster"
-            )
-
-        xrs = self.xrs
-        other_arg = other.xrs if isinstance(other, Raster) else other
-        xcondition = condition.xrs.copy()
-        mask = condition._mask
-        if is_int(condition.dtype):
-            # if condition.dtype is not bool then must be an int raster so
-            # assume that condition is raster of 0 and 1 values.
-            # condition > 0 will grab all 1/True values.
-            xcondition = xcondition > 0
-        xrs = xrs.where(xcondition, other_arg)
-        # Drop null cells from both the condition raster and this
-        if condition._masked or self._masked:
-            mask = mask | self._mask
-            nv = self.null_value if self._masked else condition.null_value
-            # Fill null areas
-            xmask = xr.DataArray(mask, dims=xrs.dims, coords=xrs.coords)
-            xrs = xrs.where(~xmask, nv)
-        else:
-            mask = create_null_mask(xrs, None)
-        return self._replace(xrs, mask=mask)
+        return where(condition, self, other)
 
     def remap_range(self, mapping):
         """Remaps values in a range [`min`, `max`) to a `new_value`.

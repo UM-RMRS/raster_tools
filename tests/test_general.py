@@ -22,6 +22,7 @@ from raster_tools.dtypes import (
     U8,
     U16,
     get_default_null_value,
+    is_scalar,
 )
 from raster_tools.raster import Raster, get_raster
 from raster_tools.stat_common import (
@@ -520,3 +521,104 @@ def test_remap_range_errors():
         general.remap_range(rs, [(0, 1, 2), (0, 3)])
     with pytest.raises(ValueError):
         general.remap_range(rs, ())
+
+
+def get_where_truth(cond, x, y):
+    if cond.dtype != np.dtype(bool):
+        cond = cond > 0
+
+    chunks = "auto"
+    if not is_scalar(x):
+        chunks = x._data.chunks
+    elif not is_scalar(y):
+        chunks = y._data.chunks
+    cond = np.array(cond)
+    nx = (
+        np.ma.array(x._data.compute(), mask=x._mask.compute())
+        if not is_scalar(x)
+        else x
+    )
+    ny = (
+        np.ma.array(y._data.compute(), mask=y._mask.compute())
+        if not is_scalar(y)
+        else y
+    )
+    masked = any(r._masked if isinstance(r, Raster) else False for r in (x, y))
+    scalar_and_nan = (
+        all(is_scalar(r) for r in (x, y)) and np.isnan((x, y)).any()
+    )
+    masked |= scalar_and_nan
+
+    xmask = x._mask.compute() if not is_scalar(x) else np.zeros_like(cond)
+    ymask = y._mask.compute() if not is_scalar(y) else np.zeros_like(cond)
+
+    result = np.ma.where(cond, nx, ny)
+    if scalar_and_nan:
+        mask = np.isnan(result)
+    else:
+        mask = np.where(cond, xmask, ymask)
+    result = Raster(np.array(result))
+    if chunks != "auto":
+        result = result._rechunk(chunks)
+    if masked:
+        result._mask = da.from_array(mask, chunks=chunks)
+        result._null_value = get_default_null_value(result.dtype)
+        result = result.burn_mask()
+    return result
+
+
+wshape = (10, 10)
+nwhere = np.prod(wshape)
+
+
+def create_rs(x):
+    x = Raster(x)
+    x._rs = x._rs.rio.write_crs("EPSG:3857")
+    return x
+
+
+@pytest.mark.parametrize(
+    "x,y",
+    [
+        (0, 1),
+        (0, np.nan),
+        (0, create_rs(np.ones(wshape))),
+        (0, create_rs(np.ones(wshape)).set_null_value(1)),
+        (create_rs(np.ones(wshape)), 0),
+        (create_rs(np.zeros(wshape)), create_rs(np.ones(wshape))),
+        (
+            create_rs(np.zeros(wshape)).set_null_value(0),
+            create_rs(np.ones(wshape)).set_null_value(1),
+        ),
+        (
+            create_rs(np.arange(nwhere).reshape(wshape)).set_null_value(10),
+            create_rs(np.arange(nwhere).reshape(wshape) + 20).set_null_value(
+                45
+            ),
+        ),
+    ],
+)
+@pytest.mark.parametrize(
+    "cond",
+    [
+        create_rs(np.zeros(wshape, dtype=bool)),
+        create_rs(np.ones(wshape, dtype=bool)),
+        create_rs(np.arange(nwhere).reshape(wshape) > 40),
+        create_rs(np.arange(nwhere).reshape(wshape) % 10),
+        create_rs((np.arange(nwhere).reshape(wshape) % 10) > 0),
+        create_rs((np.arange(nwhere).reshape(wshape) % 4) > 0),
+    ],
+)
+def test_where(cond, x, y):
+    truth = get_where_truth(cond, x, y)
+    result = general.where(cond, x, y)
+
+    assert np.allclose(result, truth, equal_nan=True)
+    assert result.dtype == result.dtype
+    if result._masked:
+        assert not np.isnan(result.null_value)
+    assert result.null_value == truth.null_value
+    assert np.allclose(result._mask.compute(), truth._mask.compute())
+    assert result._data.chunks == truth._data.chunks
+    assert result.crs is not None
+    assert result.crs == "EPSG:3857"

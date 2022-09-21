@@ -53,6 +53,8 @@ from raster_tools.stat_common import (
     nanmode_jit,
 )
 
+from ._utils import create_null_mask
+
 __all__ = [
     "aggregate",
     "band_concat",
@@ -854,3 +856,85 @@ def remap_range(raster, mapping):
     if f16_workaround:
         outrs = outrs.astype(F16)
     return outrs
+
+
+def where(condition, true_rast, false_rast):
+    """
+    Return elements chosen from `true_rast` or `false_rast` depending on
+    `condition`.
+
+    Parameters
+    ----------
+    condition : str or Raster
+        A boolean or int raster that indicates where elements in the result
+        should be selected from. If the condition is an int raster, it is
+        coerced to bool using `condition > 0`.  ``True`` cells pull values from
+        `true_rast` and ``False`` cells pull from `y`. *str* is treated as a
+        path to a raster.
+    true_rast : scalar, Raster, str
+        Raster or scalar to pull from if the corresponding location in
+        `condition` is ``True``.
+    false_rast : scalar, Raster, str
+        Raster or scalar to pull from if the corresponding location in
+        `condition` is ``False``.
+
+    Returns
+    -------
+    Raster
+        The resulting Raster.
+
+    """
+    condition = get_raster(condition)
+    if not is_bool(condition.dtype) and not is_int(condition.dtype):
+        raise TypeError(
+            "Condition argument must be a boolean or integer raster"
+        )
+    args = []
+    for r, name in [(true_rast, "true_rast"), (false_rast, "false_rast")]:
+        if not is_scalar(r):
+            try:
+                r = get_raster(r)
+            except TypeError:
+                raise TypeError(
+                    f"Could not understand {name} argument. Got: {r!r}"
+                )
+        args.append(r)
+    true_rast, false_rast = args
+
+    xtrue, xfalse = [r.xrs if isinstance(r, Raster) else r for r in args]
+    masked = any(r._masked if isinstance(r, Raster) else False for r in args)
+    scalar_and_nan = all(is_scalar(r) for r in args) and np.isnan(args).any()
+    masked |= scalar_and_nan
+    xcondition = condition.xrs
+    if is_int(condition.dtype):
+        # if condition.dtype is not bool then must be an int raster so
+        # assume that condition is raster of 0 and 1 values.
+        # condition > 0 will grab all 1/True values.
+        xcondition = xcondition > 0
+
+    out_crs = xcondition.rio.crs
+    out_xrs = xr.where(xcondition, xtrue, xfalse)
+    if out_crs is not None:
+        out_xrs = out_xrs.rio.write_crs(out_crs)
+    if masked and not scalar_and_nan:
+        xtrue_mask, xfalse_mask = [
+            r.xmask
+            if isinstance(r, Raster)
+            else xr.DataArray(
+                create_null_mask(condition.xrs, None),
+                dims=condition.xrs.dims,
+                coords=condition.xrs.coords,
+            )
+            for r in args
+        ]
+        mask = xr.where(xcondition, xtrue_mask, xfalse_mask).data
+    elif scalar_and_nan:
+        mask = create_null_mask(out_xrs, np.nan)
+    else:
+        mask = create_null_mask(xcondition, None)
+    out_rs = Raster(out_xrs)
+    if masked:
+        out_rs._null_value = get_default_null_value(out_rs.dtype)
+        out_rs._mask = mask
+        out_rs = out_rs.burn_mask()
+    return out_rs

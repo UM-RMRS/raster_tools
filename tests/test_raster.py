@@ -814,7 +814,6 @@ class TestWhere(unittest.TestCase):
         self.assertTrue(r._masked)
         self.assertTrue(rs.crs is not None)
         self.assertTrue(r.crs == rs.crs)
-        self.assertDictEqual(r._attrs, rs._attrs)
 
         with self.assertRaises(TypeError):
             cf = c.astype(float)
