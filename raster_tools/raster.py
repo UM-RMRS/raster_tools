@@ -508,12 +508,33 @@ class Raster(_RasterBase):
         return xr.where(self._mask, np.nan, self._rs)
 
     @property
+    def mask(self):
+        return self._mask
+
+    @property
+    def xmask(self):
+        mask = xr.DataArray(
+            self.mask, coords=self.xrs.coords, dims=self.xrs.dims
+        )
+        if self.crs is not None:
+            mask = mask.rio.write_crs(self.crs)
+        return mask
+
+    @property
     def _data(self):
         return self.xrs.data
 
     @_data.setter
     def _data(self, data):
         self.xrs.data = data
+
+    @property
+    def x(self):
+        return self._rs.x.data
+
+    @property
+    def y(self):
+        return self._rs.y.data
 
     @property
     def _null_value(self):

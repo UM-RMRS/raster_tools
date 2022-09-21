@@ -202,6 +202,37 @@ def test_property_bounds():
     assert rs.bounds == (0, 0, 2, 2)
 
 
+def test_property_mask():
+    rs = Raster(np.arange(100).reshape((10, 10)) % 4).set_null_value(0)
+    assert rs._mask.sum().compute() > 0
+
+    assert hasattr(rs, "mask")
+    assert isinstance(rs.mask, dask.array.Array)
+    assert np.allclose(rs.mask.compute(), rs._mask.compute())
+
+
+def test_property_xmask():
+    rs = Raster(np.arange(100).reshape((10, 10)) % 4).set_null_value(0)
+    rs._rs = rs._rs.rio.write_crs("EPSG:3857")
+    assert rs._mask.sum().compute() > 0
+
+    assert hasattr(rs, "xmask")
+    assert isinstance(rs.xmask, xr.DataArray)
+    assert np.allclose(rs.xmask.data.compute(), rs._mask.compute())
+    assert rs.xmask.rio.crs == rs.crs
+    assert np.allclose(rs.xmask.x.data, rs.xrs.x.data)
+    assert np.allclose(rs.xmask.y.data, rs.xrs.y.data)
+
+
+@pytest.mark.parametrize("name", ["x", "y"])
+def test_properties_x_and_y(name):
+    rs = Raster("tests/data/elevation_small.tif")
+
+    assert hasattr(rs, name)
+    assert isinstance(getattr(rs, name), np.ndarray)
+    assert np.allclose(getattr(rs, name), rs.xrs[name].data)
+
+
 _BINARY_ARITHMETIC_OPS = [
     operator.add,
     operator.sub,
