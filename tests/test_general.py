@@ -472,6 +472,39 @@ def test_remap_range():
     assert np.allclose(result.xrs.values, truth)
 
 
+@pytest.mark.parametrize(
+    "rast,mapping",
+    [
+        (Raster(np.arange(16).reshape((4, 4))), [(0, 4, -1), (8, 12, 0)]),
+        (
+            Raster(np.arange(32).reshape((2, 4, 4))),
+            [(0, 4, -1), (8, 12, 0), (15, 20, 0)],
+        ),
+    ],
+)
+@pytest.mark.parametrize("inc", ["left", "right", "both", "none"])
+def test_remap_range_inclusivity(rast, mapping, inc):
+    data = rast._values.copy()
+    hist = np.zeros(data.shape, dtype=bool)
+    for (left, right, new) in mapping:
+        if inc == "left":
+            mask = (left <= data) & (data < right)
+        elif inc == "right":
+            mask = (left < data) & (data <= right)
+        elif inc == "both":
+            mask = (left <= data) & (data <= right)
+        else:
+            mask = (left < data) & (data < right)
+        mask[hist] = 0
+        if mask.any():
+            data[mask] = new
+        hist |= mask
+
+    result = general.remap_range(rast, mapping, inc)
+
+    assert np.allclose(result, data)
+
+
 def test_remap_range_f16():
     rs = Raster(np.arange(25).reshape((5, 5))).astype("float16")
     rsnp = rs._values

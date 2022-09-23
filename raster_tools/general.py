@@ -755,7 +755,7 @@ def band_concat(rasters, null_value=None):
 
 
 @nb.jit(nopython=True, nogil=True)
-def _remap_values(x, mask, mappings):
+def _remap_values(x, mask, mappings, inclusivity):
     outx = np.zeros_like(x)
     bands, rows, columns = x.shape
     rngs = mappings.shape[0]
@@ -765,13 +765,21 @@ def _remap_values(x, mask, mappings):
                 if mask[bnd, rw, cl]:
                     continue
                 vl = int(x[bnd, rw, cl])
-                remapped = False
+                remap = False
                 for imap in range(rngs):
-                    if mappings[imap, 0] <= vl < mappings[imap, 1]:
-                        outx[bnd, rw, cl] = mappings[imap, 2]
-                        remapped = True
+                    left, right, new = mappings[imap]
+                    if inclusivity == 0:
+                        remap = left <= vl < right
+                    elif inclusivity == 1:
+                        remap = left < vl <= right
+                    elif inclusivity == 2:
+                        remap = left <= vl <= right
+                    elif inclusivity == 3:
+                        remap = left < vl < right
+                    if remap:
+                        outx[bnd, rw, cl] = new
                         break
-                if not remapped:
+                if not remap:
                     outx[bnd, rw, cl] = x[bnd, rw, cl]
     return outx
 
@@ -811,8 +819,8 @@ def _normalize_mappings(mappings):
     return mappings
 
 
-def remap_range(raster, mapping):
-    """Remaps values in a range [`min`, `max`) to a `new_value`.
+def remap_range(raster, mapping, inclusivity="left"):
+    """Remaps values based on a mapping or list of mappings.
 
     Mappings are applied all at once with earlier mappings taking
     precedence.
@@ -823,10 +831,22 @@ def remap_range(raster, mapping):
         Path string or Raster to perform remap on.
     mapping : 3-tuple of scalars or list of 3-tuples of scalars
         A tuple or list of tuples containing ``(min, max, new_value)``
-        scalars. The mappiing(s) map values between the min (inclusive) and
-        max (exclusive) to the ``new_value``. If `mapping` is a list and
-        there are mappings that conflict or overlap, earlier mappings take
-        precedence.
+        scalars. The mappiing(s) map values between the min and max to the
+        ``new_value``. If `mapping` is a list and there are mappings that
+        conflict or overlap, earlier mappings take precedence. `inclusivity`
+        determines which sides of the range are inclusive and exclusive.
+    inclusivity : str, optional
+        Determines whether to be inclusive or exclusive on either end of the
+        range. Default is `'left'`.
+
+        'left' [min, max)
+            Left (min) side is inclusive and right (max) side is exclusive.
+        'right' (min, max]
+            Left (min) side is exclusive and right (max) side is inclusive.
+        'both' [min, max]
+            Both sides are inclusive.
+        'none' (min, max)
+            Both sides are exclusive.
 
     Returns
     -------
@@ -836,6 +856,16 @@ def remap_range(raster, mapping):
     """
     raster = get_raster(raster)
     mappings = _normalize_mappings(mapping)
+    if not is_str(inclusivity):
+        raise TypeError(
+            f"inclusivity must be a str. Got type: {type(inclusivity)}"
+        )
+    inc_map = {
+        name: value
+        for name, value in zip(("left", "right", "both", "none"), range(4))
+    }
+    if inclusivity not in inc_map:
+        raise ValueError(f"Invalid inclusivity value. Got: {inclusivity!r}")
     mappings_common_dtype = get_common_dtype([m[-1] for m in mappings])
     out_dtype = np.promote_types(raster.dtype, mappings_common_dtype)
     # numba doesn't understand f16 so use f32 and then downcast
@@ -851,7 +881,9 @@ def remap_range(raster, mapping):
     elif f16_workaround:
         outrs = outrs.astype(F32)
     data = outrs._data
-    func = partial(_remap_values, mappings=mappings)
+    func = partial(
+        _remap_values, mappings=mappings, inclusivity=inc_map[inclusivity]
+    )
     outrs._data = data.map_blocks(
         func,
         raster._mask,
