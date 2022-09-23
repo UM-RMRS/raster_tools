@@ -128,4 +128,5 @@ DTYPE_TO_DEFAULT_NULL = {
 
 def get_default_null_value(dtype):
     """Get the default null value for a given dtype."""
+    dtype = DTYPE_INPUT_TO_DTYPE[dtype]
     return DTYPE_TO_DEFAULT_NULL[dtype]
