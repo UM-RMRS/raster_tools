@@ -586,7 +586,7 @@ def _proximity_analysis(
             # Use minimum so that we always overestimate and never
             # underestimate the depth.
             resolution = _estimate_min_resolution(x, y)
-        xdepth, ydepth = (max_distance / np.abs(resolution) + 0.5).astype(int)
+        xdepth, ydepth = np.ceil(max_distance / np.abs(resolution)).astype(int)
     coords_block_info = {
         "chunks": raster._data.chunks[1:],
         "depth": (ydepth, xdepth),
