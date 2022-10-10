@@ -58,10 +58,6 @@ def is_str(value):
     return isinstance(value, str)
 
 
-def is_scalar(value):
-    return isinstance(value, Number)
-
-
 def is_int(value_or_dtype):
     if isinstance(value_or_dtype, np.dtype):
         return value_or_dtype.kind in ("u", "i")
@@ -78,6 +74,12 @@ def is_bool(value_or_dtype):
     if isinstance(value_or_dtype, np.dtype):
         return value_or_dtype.kind == "b"
     return isinstance(value_or_dtype, (bool, np.bool_))
+
+
+def is_scalar(value_or_dtype):
+    if not isinstance(value_or_dtype, np.dtype):
+        return isinstance(value_or_dtype, Number)
+    return is_int(value_or_dtype) or is_float(value_or_dtype)
 
 
 def get_common_dtype(values):
