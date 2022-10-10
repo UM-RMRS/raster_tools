@@ -595,6 +595,16 @@ class Raster(_RasterBase):
         maxx, miny = self.xy(r - 1, c - 1, "lr")
         return (minx, miny, maxx, maxy)
 
+    def get_chunked_coords(self):
+        """Get lazy coordinate arrays, in x-y order, chunked to match data."""
+        xc = da.from_array(self.x, chunks=self._data.chunks[2]).reshape(
+            (1, 1, -1)
+        )
+        yc = da.from_array(self.y, chunks=self._data.chunks[1]).reshape(
+            (1, -1, 1)
+        )
+        return xc, yc
+
     def to_dask(self):
         """Returns the underlying data as a dask array."""
         rs = self

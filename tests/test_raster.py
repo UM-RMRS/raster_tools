@@ -3,6 +3,7 @@ import unittest
 
 import affine
 import dask
+import dask.array as da
 import numpy as np
 import pytest
 import rasterio as rio
@@ -231,6 +232,34 @@ def test_properties_x_and_y(name):
     assert hasattr(rs, name)
     assert isinstance(getattr(rs, name), np.ndarray)
     assert np.allclose(getattr(rs, name), rs.xrs[name].data)
+
+
+@pytest.mark.parametrize(
+    "rs",
+    [
+        Raster(da.ones((4, 100, 100), chunks=(1, 5, 5))),
+        Raster(da.ones((100, 100), chunks=(5, 5))),
+        Raster(np.ones((100, 100))),
+        Raster("tests/data/elevation.tif"),
+    ],
+)
+def test_get_chunked_coords(rs):
+    xc, yc = rs.get_chunked_coords()
+
+    assert isinstance(xc, da.Array)
+    assert isinstance(yc, da.Array)
+    assert xc.dtype == rs._rs.x.dtype
+    assert yc.dtype == rs._rs.y.dtype
+    assert xc.ndim == 3
+    assert yc.ndim == 3
+    assert xc.shape == (1, 1, rs._rs.x.size)
+    assert yc.shape == (1, rs._rs.y.size, 1)
+    assert xc.chunks[:2] == ((1,), (1,))
+    assert xc.chunks[2] == rs._data.chunks[2]
+    assert yc.chunks[::2] == ((1,), (1,))
+    assert yc.chunks[1] == rs._data.chunks[1]
+    assert np.allclose(xc.ravel().compute(), rs._rs.x.data)
+    assert np.allclose(yc.ravel().compute(), rs._rs.y.data)
 
 
 _BINARY_ARITHMETIC_OPS = [
