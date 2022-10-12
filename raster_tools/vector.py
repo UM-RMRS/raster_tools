@@ -31,7 +31,14 @@ from raster_tools.raster import Raster, get_raster
 
 PYOGRIO_SUPPORTED = sys.version_info >= (3, 8)
 if PYOGRIO_SUPPORTED:
+    import warnings
+
     import pyogrio as ogr
+
+    warnings.filterwarnings(
+        "ignore",
+        message=".*Measured \\(M\\) geometry types are not supported.*",
+    )
 else:
     import fiona
 
