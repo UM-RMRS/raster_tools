@@ -1,4 +1,4 @@
-from raster_tools import clipping, distance, focal, surface
+from raster_tools import clipping, distance, focal, line_stats, surface
 from raster_tools._version import __version__  # noqa
 from raster_tools.creation import (
     constant_raster,
@@ -24,6 +24,7 @@ __all__ = [
     "empty_like",
     "focal",
     "full_like",
+    "line_stats",
     "ones_like",
     "open_vectors",
     "random_raster",
