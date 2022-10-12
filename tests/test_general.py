@@ -449,11 +449,13 @@ def test_remap_range():
     truth = rsnp.copy()
     truth[(rsnp >= mapping[0]) & (rsnp < mapping[1])] = mapping[2]
     assert np.allclose(result, truth)
+    assert np.allclose(rs.remap_range(mapping), truth)
 
     mappings = [mapping, (5, 15, -1)]
     result = general.remap_range(rs, mappings)
     truth[(rsnp >= mappings[1][0]) & (rsnp < mappings[1][1])] = mappings[1][2]
     assert np.allclose(result, truth)
+    assert np.allclose(rs.remap_range(mappings), truth)
 
     # Test multiple with potential conflict in last 2
     mappings = [(0, 1, 0), (1, 2, 1), (2, 3, 8), (8, 9, 2)]
@@ -462,6 +464,7 @@ def test_remap_range():
     for m in mappings:
         truth[(rsnp >= m[0]) & (rsnp < m[1])] = m[2]
     assert np.allclose(result.xrs.values, truth)
+    assert np.allclose(rs.remap_range(mappings), truth)
 
     # Test precedence
     mappings = [(0, 2, 0), (1, 2, 1)]
@@ -470,6 +473,7 @@ def test_remap_range():
     m = mappings[0]
     truth[(rsnp >= m[0]) & (rsnp < m[1])] = m[2]
     assert np.allclose(result.xrs.values, truth)
+    assert np.allclose(rs.remap_range(mappings), truth)
 
 
 @pytest.mark.parametrize(
@@ -503,6 +507,7 @@ def test_remap_range_inclusivity(rast, mapping, inc):
     result = general.remap_range(rast, mapping, inc)
 
     assert np.allclose(result, data)
+    assert np.allclose(rast.remap_range(mapping, inc), data)
 
 
 def test_remap_range_f16():

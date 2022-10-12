@@ -890,8 +890,8 @@ class Raster(_RasterBase):
 
         return where(condition, self, other)
 
-    def remap_range(self, mapping):
-        """Remaps values in a range [`min`, `max`) to a `new_value`.
+    def remap_range(self, mapping, inclusivity="left"):
+        """Remaps values based on a mapping or list of mappings.
 
         Mappings are applied all at once with earlier mappings taking
         precedence.
@@ -900,10 +900,23 @@ class Raster(_RasterBase):
         ----------
         mapping : 3-tuple of scalars or list of 3-tuples of scalars
             A tuple or list of tuples containing ``(min, max, new_value)``
-            scalars. The mappiing(s) map values between the min (inclusive) and
-            max (exclusive) to the ``new_value``. If `mapping` is a list and
-            there are mappings that conflict or overlap, earlier mappings take
-            precedence.
+            scalars. The mappiing(s) map values between the min and max to the
+            ``new_value``. If `mapping` is a list and there are mappings that
+            conflict or overlap, earlier mappings take precedence.
+            `inclusivity` determines which sides of the range are inclusive and
+            exclusive.
+        inclusivity : str, optional
+            Determines whether to be inclusive or exclusive on either end of
+            the range. Default is `'left'`.
+
+            'left' [min, max)
+                Left (min) side is inclusive and right (max) side is exclusive.
+            'right' (min, max]
+                Left (min) side is exclusive and right (max) side is inclusive.
+            'both' [min, max]
+                Both sides are inclusive.
+            'none' (min, max)
+                Both sides are exclusive.
 
         Returns
         -------
@@ -918,7 +931,7 @@ class Raster(_RasterBase):
         # local import to avoid circular import
         from raster_tools.general import remap_range
 
-        return remap_range(self, mapping)
+        return remap_range(self, mapping, inclusivity=inclusivity)
 
     def round(self, decimals=0):
         """Evenly round to the given number of decimals
