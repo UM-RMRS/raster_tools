@@ -29,6 +29,7 @@ from raster_tools.dtypes import (
     is_int,
     is_scalar,
 )
+from raster_tools.raster import rowcol_to_xy, xy_to_rowcol
 
 TEST_ARRAY = np.array(
     [
@@ -972,6 +973,32 @@ def test_index(x, y):
     T = rs.affine
 
     assert rs.index(x, y) == rio.transform.rowcol(T, x, y)
+
+
+@pytest.mark.parametrize("offset_name", ["center", "ul", "ur", "ll", "lr"])
+def test_rowcol_to_xy(offset_name):
+    rs = Raster("tests/data/elevation_small.tif")
+    affine = rs.affine
+    _, ny, nx = rs.shape
+    R, C = np.mgrid[:ny, :nx]
+    r = R.ravel()
+    c = C.ravel()
+    xy_rio = rio.transform.xy(affine, r, c, offset=offset_name)
+    result = rowcol_to_xy(r, c, affine, offset_name)
+    assert np.allclose(xy_rio, result)
+
+
+def test_xy_to_rowcol():
+    rs = Raster("tests/data/elevation_small.tif")
+    affine = rs.affine
+    X, Y = np.meshgrid(rs.x, rs.y)
+    x = X.ravel()
+    y = Y.ravel()
+    rc_rio = rio.transform.rowcol(affine, x, y)
+    result = xy_to_rowcol(x, y, affine)
+    assert np.allclose(rc_rio, result)
+    assert result[0].dtype == np.dtype(int)
+    assert result[1].dtype == np.dtype(int)
 
 
 def _compare_raster_to_vectorized(rs, df):

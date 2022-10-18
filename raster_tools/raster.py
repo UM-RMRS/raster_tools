@@ -7,7 +7,6 @@ import dask.array as da
 import dask.dataframe as dd
 import geopandas as gpd
 import numpy as np
-import rasterio as rio
 import xarray as xr
 from affine import Affine
 from numba import jit
@@ -1059,26 +1058,32 @@ class Raster(_RasterBase):
         return dd.concat(results)
 
 
+_offset_name_to_rc_offset = {
+    "center": (0.5, 0.5),
+    "ul": (0, 0),
+    "ur": (0, 1),
+    "ll": (1, 0),
+    "lr": (1, 1),
+}
+
+
 def rowcol_to_xy(row, col, affine, offset):
     """
     Convert (row, col) index values to (x, y) coords using the transformation.
     """
-    # Invert the north/south dim so that upper always gives north and lower
-    # gives south
-    result = rio.transform.xy(affine, row, col, offset=offset)
-    if is_scalar(row):
-        return result
-    return tuple(np.array(v) for v in result)
+    roffset, coffset = _offset_name_to_rc_offset[offset]
+    T = Affine.identity().translation(coffset, roffset)
+    return affine * T * (col, row)
 
 
 def xy_to_rowcol(x, y, affine):
     """
     Convert (x, y) coords to (row, col) index values using the transformation.
     """
-    result = rio.transform.rowcol(affine, x, y)
-    if is_scalar(x):
-        return result
-    return tuple(np.array(v) for v in result)
+    col, row = (~affine) * (x, y)
+    row = np.floor(row).astype(int)
+    col = np.floor(col).astype(int)
+    return row, col
 
 
 @jit(nopython=True, nogil=True, cache=True)
@@ -1123,12 +1128,12 @@ def _vectorize(data, mask, xc, yc, band, crs, affine_tuple):
     xpoints, ypoints = _extract_points(mask, xc, yc)
     if len(xpoints):
         values = _extract_values(data, mask)
-        points = [Point(x, y) for x, y in zip(xpoints, ypoints)]
+        points = gpd.GeoSeries.from_xy(xpoints, ypoints, crs=crs)
         rows, cols = xy_to_rowcol(xpoints, ypoints, affine)
         bands = [band] * len(values)
     else:
         values = []
-        points = []
+        points = gpd.GeoSeries([], crs=crs)
         bands = []
         rows = []
         cols = []
