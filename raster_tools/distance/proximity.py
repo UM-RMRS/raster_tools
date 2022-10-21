@@ -13,7 +13,7 @@ __all__ = [
     "proximity_analysis",
 ]
 
-_JIT_KWARGS = {"nopython": True, "nogil": True, "cache": True}
+_JIT_KWARGS = {"nopython": True, "nogil": True}
 ngjit = nb.jit(**_JIT_KWARGS)
 
 

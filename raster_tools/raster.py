@@ -1086,7 +1086,7 @@ def xy_to_rowcol(x, y, affine):
     return row, col
 
 
-@jit(nopython=True, nogil=True, cache=True)
+@jit(nopython=True, nogil=True)
 def _extract_points(mask, xc, yc):
     n = mask.size - np.sum(mask)
     rx = np.empty(n, dtype=xc.dtype)
@@ -1105,7 +1105,7 @@ def _extract_points(mask, xc, yc):
     return (rx, ry)
 
 
-@jit(nopython=True, nogil=True, cache=True)
+@jit(nopython=True, nogil=True)
 def _extract_values(data, mask):
     n = mask.size - np.sum(mask)
     results = np.empty(n, dtype=data.dtype)

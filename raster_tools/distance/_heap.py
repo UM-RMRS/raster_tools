@@ -6,7 +6,7 @@ from raster_tools.dtypes import F64, I64
 
 __all__ = ["HEAP_TYPE", "init_heap_data", "pop", "push", "push_if_lower"]
 
-JIT_KWARGS = {"nopython": True, "nogil": True, "cache": True}
+JIT_KWARGS = {"nopython": True, "nogil": True}
 
 HEAP_SPEC = [
     ("max_value", np.int64),

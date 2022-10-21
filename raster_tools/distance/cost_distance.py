@@ -22,7 +22,7 @@ from raster_tools.dtypes import (
 )
 from raster_tools.raster import Raster
 
-JIT_KWARGS = {"nopython": True, "nogil": True, "cache": True}
+JIT_KWARGS = {"nopython": True, "nogil": True}
 ngjit = nb.jit(**JIT_KWARGS)
 
 
