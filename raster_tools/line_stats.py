@@ -5,14 +5,8 @@ import geopandas as gpd
 import numpy as np
 import xarray as xr
 
-from raster_tools.dtypes import (
-    F32,
-    I8,
-    get_default_null_value,
-    is_bool,
-    is_scalar,
-    is_str,
-)
+from raster_tools.dtypes import F32, I8, is_bool, is_scalar, is_str
+from raster_tools.masking import get_default_null_value
 from raster_tools.raster import Raster, get_raster
 from raster_tools.vector import _rasterize_block, get_vector
 

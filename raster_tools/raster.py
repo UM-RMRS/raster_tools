@@ -1,5 +1,4 @@
 import numbers
-import warnings
 from collections import abc
 
 import dask
@@ -12,10 +11,10 @@ from affine import Affine
 from numba import jit
 from shapely.geometry import Point
 
+from raster_tools._utils import is_dask, is_numpy, is_numpy_masked, is_xarray
 from raster_tools.dask_utils import dask_nanmax, dask_nanmin
 from raster_tools.dtypes import (
     DTYPE_INPUT_TO_DTYPE,
-    get_default_null_value,
     is_bool,
     is_float,
     is_int,
@@ -24,14 +23,12 @@ from raster_tools.dtypes import (
     promote_dtype_to_float,
     should_promote_to_fit,
 )
-
-from ._utils import (
+from raster_tools.masking import (
     create_null_mask,
-    is_dask,
-    is_numpy,
-    is_numpy_masked,
-    is_xarray,
+    get_default_null_value,
+    reconcile_nullvalue_with_dtype,
 )
+
 from .io import (
     IO_UNDERSTOOD_TYPES,
     RasterDataError,
@@ -200,6 +197,10 @@ def _apply_ufunc(ufunc, *args, kwargs=None, out=None):
             )
     mask = xmask.data
     nv = _merge_null_values([r.null_value for r in raster_args])
+    if isinstance(xr_out, xr.DataArray):
+        nv = reconcile_nullvalue_with_dtype(nv, xr_out.dtype)
+    else:
+        nv = reconcile_nullvalue_with_dtype(nv, xr_out[0].dtype)
 
     if out is not None:
         # Inplace
@@ -295,7 +296,10 @@ def _array_to_xarray(ar):
         # Add band dim
         ar = ar[None]
     if not is_dask(ar):
+        has_nan = is_float(ar.dtype) and np.isnan(ar).any()
         ar = da.from_array(ar)
+    else:
+        has_nan = is_float(ar.dtype)
     # The band dimension needs to start at 1 to match raster conventions
     coords = [np.arange(1, ar.shape[0] + 1)]
     # Add 0.5 offset to move coords to center of cell
@@ -306,7 +310,7 @@ def _array_to_xarray(ar):
     if is_numpy_masked(ar._meta):
         xrs.attrs["_FillValue"] = ar._meta.fill_value
     else:
-        if is_float(ar.dtype):
+        if has_nan:
             xrs.attrs["_FillValue"] = np.nan
         else:
             # No way to know null value
@@ -323,7 +327,10 @@ def _try_to_get_null_value_xarray(xrs):
     # All are None, return nan for float and None otherwise
     if all(nv is None for nv in [nv1, nv2]):
         if is_float(xrs.dtype):
-            return np.nan
+            if dask.is_dask_collection(xrs) or np.isnan(xrs.data).any():
+                return np.nan
+            else:
+                return None
         else:
             return None
     # All are not None, return nv1
@@ -365,23 +372,27 @@ class Raster(_RasterBase):
         if isinstance(raster, Raster):
             self._rs = raster._rs.copy()
             self._mask = raster._mask.copy()
-            self._null_value = raster._null_value
+            self._null_value = reconcile_nullvalue_with_dtype(
+                raster._null_value, raster.dtype, True
+            )
         elif is_xarray(raster):
             if isinstance(raster, xr.Dataset):
                 raise TypeError("Unable to handle xarray.Dataset objects")
             raster = normalize_xarray_data(raster.copy())
+            null = _try_to_get_null_value_xarray(raster)
             if not dask.is_dask_collection(raster):
                 raster = chunk(raster)
             self._rs = raster
-            null = _try_to_get_null_value_xarray(raster)
+            null = reconcile_nullvalue_with_dtype(null, self._rs.dtype)
             self._mask = create_null_mask(self._rs, null)
             self._null_value = null
         elif is_numpy(raster) or is_dask(raster):
             raster = chunk(_array_to_xarray(raster.copy()))
             self._rs = normalize_xarray_data(raster)
-            nv = raster.attrs.get("_FillValue", None)
-            self._mask = create_null_mask(self._rs, nv)
-            self._null_value = nv
+            null = raster.attrs.get("_FillValue", None)
+            null = reconcile_nullvalue_with_dtype(null, self._rs.dtype)
+            self._mask = create_null_mask(self._rs, null)
+            self._null_value = null
         elif type(raster) in IO_UNDERSTOOD_TYPES:
             if is_batch_file(raster):
                 # Import here to avoid circular import errors
@@ -395,7 +406,9 @@ class Raster(_RasterBase):
                 rs, mask, nv = open_raster_from_path(raster)
                 self._rs = rs
                 self._mask = mask
-                self._null_value = nv
+                self._null_value = reconcile_nullvalue_with_dtype(
+                    nv, rs.dtype, True
+                )
         else:
             raise TypeError(f"Could not resolve input to a raster: {raster!r}")
 
@@ -541,9 +554,23 @@ class Raster(_RasterBase):
 
     @_null_value.setter
     def _null_value(self, value):
-        if value is not None and not is_scalar(value):
+        if value is not None and not (is_scalar(value) or is_bool(value)):
             raise TypeError("Null value must be a scalar or None")
-        self._rs.attrs["_FillValue"] = value
+        if value is not None and np.isnan(value) and is_float(self.dtype):
+            # Allow nan null value for float dtype
+            pass
+        else:
+            test_value = reconcile_nullvalue_with_dtype(value, self.dtype)
+            if test_value != value:
+                raise ValueError(
+                    f"Given null value {value!r} is not consistent with raster"
+                    f" type {self.dtype!r}."
+                )
+            value = test_value
+
+        self._rs.rio.write_nodata(value, inplace=True)
+        if "_FillValue" not in self._rs.attrs:
+            self._rs.attrs["_FillValue"] = value
 
     @property
     def null_value(self):
@@ -638,6 +665,11 @@ class Raster(_RasterBase):
         rs = self
         if no_data_value is not None:
             rs = self.set_null_value(no_data_value)
+        if rs._masked and is_bool(rs.dtype):
+            # Cast to uint and burn in mask
+            rs = rs.astype("uint8").set_null_value(
+                get_default_null_value("uint8")
+            )
         xrs = rs._rs
         write_raster(
             xrs,
@@ -664,14 +696,20 @@ class Raster(_RasterBase):
         """Returns a copy of this Raster."""
         return Raster(self)
 
-    def astype(self, dtype):
+    def astype(self, dtype, warn_about_null_change=True):
         """Return a copy of the Raster cast to the specified type.
 
         Parameters
         ----------
         dtype : str, type, numpy.dtype
             The new type to cast the raster to. The null value will also be
-            cast to this type.
+            cast to this type. If the null value cannot be safely cast to the
+            new type, a default null value for the given `dtype` is used. This
+            will produce a warning unless `warn_about_null_change` is set to
+            ``False``.
+        warn_about_null_change : bool, optional
+            Can be used to silence warnings. The default is to always warn
+            about null value changes.
 
         Returns
         -------
@@ -689,18 +727,11 @@ class Raster(_RasterBase):
         xrs = self.xrs
         nv = self.null_value
         mask = self._mask
+
         if self._masked:
-            if is_float(xrs.dtype) and is_int(dtype):
-                if np.isnan(nv):
-                    nv = get_default_null_value(dtype)
-                    warnings.warn(
-                        f"Null value is NaN but new dtype is {dtype},"
-                        f" using default null value for that dtype: {nv}",
-                        RuntimeWarning,
-                    )
-                    # Reset mask just to be safe
-                    mask = np.isnan(xrs)
-                    xrs = xrs.fillna(nv)
+            nv = reconcile_nullvalue_with_dtype(
+                nv, dtype, warn_about_null_change
+            )
         xrs = xrs.astype(dtype)
         return self._replace(xrs, mask=mask, null_value=nv)
 
@@ -741,7 +772,7 @@ class Raster(_RasterBase):
         rs = self.xrs[bands]
         rs["band"] = list(range(1, len(rs) + 1))
         mask = self._mask[bands]
-        # TODO: look into making attrs consistant with bands
+        # TODO: look into making attrs consistent with bands
         return self._replace(rs, mask=mask)
 
     def set_crs(self, crs):
@@ -784,7 +815,7 @@ class Raster(_RasterBase):
             The new resulting Raster.
 
         """
-        if value is not None and not is_scalar(value):
+        if value is not None and not (is_scalar(value) or is_bool(value)):
             raise TypeError(f"Value must be a scalar or None: {value}")
 
         xrs = self.xrs.copy()
@@ -794,7 +825,10 @@ class Raster(_RasterBase):
 
         if value is None:
             mask = create_null_mask(xrs, value)
-            return self._replace(xrs, mask=mask, null_value_none=True)
+            # Burn in current mask values and then clear null value
+            return self.burn_mask()._replace(
+                xrs, mask=mask, null_value_none=True
+            )
 
         # Update mask
         mask = self._mask
@@ -811,14 +845,14 @@ class Raster(_RasterBase):
         """Fill null-masked cells with null value.
 
         Use this as a way to return the underlying data to a known state. If
-        dtype is boolean, the null cells are set to ``False`` instead of
+        dtype is boolean, the null cells are set to ``True`` instead of
         promoting to fit the null value.
         """
         if not self._masked:
             return self
         nv = self.null_value
         if is_bool(self.dtype):
-            nv = False
+            nv = get_default_null_value(self.dtype)
         xrs = xr.where(self._mask, nv, self._rs)
         return self._replace(xrs)
 

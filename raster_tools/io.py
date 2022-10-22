@@ -8,8 +8,9 @@ import rioxarray as rxr
 import xarray as xr
 from dask.array.core import normalize_chunks as dask_chunks
 
-from raster_tools._utils import create_null_mask, validate_path
+from raster_tools._utils import validate_path
 from raster_tools.dtypes import F32, F64, I64, U8, is_bool, is_float, is_int
+from raster_tools.masking import create_null_mask
 
 
 class RasterIOError(BaseException):

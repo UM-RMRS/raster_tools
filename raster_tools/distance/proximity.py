@@ -3,7 +3,8 @@ import numba as nb
 import numpy as np
 import xarray as xr
 
-from raster_tools.dtypes import F32, F64, get_default_null_value
+from raster_tools.dtypes import F32, F64
+from raster_tools.masking import get_default_null_value
 from raster_tools.raster import Raster, get_raster
 
 __all__ = [

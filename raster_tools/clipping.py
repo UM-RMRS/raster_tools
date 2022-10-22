@@ -4,7 +4,7 @@ import numpy as np
 import rioxarray as rxr
 import xarray as xr
 
-from raster_tools.dtypes import get_default_null_value
+from raster_tools.masking import get_default_null_value
 from raster_tools.raster import RasterNoDataError, get_raster
 from raster_tools.vector import get_vector
 
@@ -213,8 +213,7 @@ def clip_box(raster, bounds):
     except rxr.exceptions.NoDataInBounds:
         raise RasterNoDataError("No data found within provided bounds")
     if rs._masked:
-        xmask = xr.DataArray(rs._mask, dims=rs.xrs.dims, coords=rs.xrs.coords)
-        mask = xmask.rio.clip_box(*bounds, auto_expand=True).data
+        mask = rs.xmask.rio.clip_box(*bounds, auto_expand=True).data
     else:
         mask = da.zeros_like(xrs.data, dtype=bool)
     # TODO: This will throw a rioxarray.exceptions.MissingCRS exception if

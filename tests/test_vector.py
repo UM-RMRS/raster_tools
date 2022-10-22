@@ -8,7 +8,8 @@ import pytest
 import rasterio as rio
 
 from raster_tools import Raster
-from raster_tools.dtypes import I32, U16, get_default_null_value
+from raster_tools.dtypes import I32, U16
+from raster_tools.masking import get_default_null_value
 from raster_tools.vector import Vector, open_vectors
 
 

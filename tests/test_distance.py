@@ -220,7 +220,7 @@ class TestCostDist(unittest.TestCase):
             distance.cost_distance_analysis(
                 "tests/data/elevation_small.tif",
                 Raster("tests/data/elevation_small.tif")
-                .astype(int)
+                .astype(int, False)
                 .set_null_value(None),
             )
         with self.assertRaises(ValueError):

@@ -25,10 +25,11 @@ from raster_tools.dtypes import (
     U16,
     U32,
     U64,
-    get_default_null_value,
+    is_bool,
     is_int,
     is_scalar,
 )
+from raster_tools.masking import get_default_null_value
 from raster_tools.raster import rowcol_to_xy, xy_to_rowcol
 
 TEST_ARRAY = np.array(
@@ -86,7 +87,10 @@ class TestRasterCreation(unittest.TestCase):
         self.assertIsNone(rs.null_value)
 
         rs = Raster(TEST_ARRAY.astype(float))
-        self.assertTrue(np.isnan(rs.null_value))
+        assert rs.null_value is None
+
+        rs = Raster(np.where(TEST_ARRAY, np.nan, TEST_ARRAY))
+        assert rs.null_value == get_default_null_value(rs.dtype)
 
 
 class TestProperties(unittest.TestCase):
@@ -98,14 +102,37 @@ class TestProperties(unittest.TestCase):
 
     def test__masked(self):
         rs = Raster("tests/data/elevation_small.tif")
-        self.assertTrue(rs._masked)
+        assert rs._masked
         rs = Raster("tests/data/null_values.tiff")
-        self.assertTrue(rs._masked)
+        assert rs._masked
         x = np.ones((1, 3, 3))
         rs = Raster(x)
-        self.assertTrue(rs._masked)
-        rs = Raster(x.astype(int))
-        self.assertFalse(rs._masked)
+        assert not rs._masked
+
+        data = np.arange(100).reshape((10, 10))
+        data = np.where(data < 10, np.nan, data)
+        rs = Raster(data)
+        assert rs._masked
+
+        xdata = xr.DataArray(
+            data, coords=(np.arange(10), np.arange(10)), dims=("y", "x")
+        )
+        rs = Raster(xdata)
+        assert rs._masked
+
+        xdata = xr.DataArray(
+            da.from_array(data),
+            coords=(np.arange(10), np.arange(10)),
+            dims=("y", "x"),
+        )
+        rs = Raster(xdata)
+        assert rs._masked
+
+        data = np.arange(100).reshape((10, 10))
+        rs = Raster(da.from_array(data))
+        assert not rs._masked
+        rs = Raster(da.from_array(data.astype(float)))
+        assert rs._masked
 
     def test__values(self):
         rs = Raster("tests/data/elevation_small.tif")
@@ -121,6 +148,11 @@ class TestProperties(unittest.TestCase):
     def test_null_value(self):
         rs = Raster("tests/data/elevation_small.tif")
         self.assertEqual(rs.null_value, rs.xrs.attrs["_FillValue"])
+
+        rs = Raster(np.arange(100).reshape((10, 10)))
+        rs = rs.set_null_value(1)
+        assert rs.null_value == 1
+        assert rs._rs.rio.nodata == 1
 
     def test_dtype(self):
         rs = Raster("tests/data/elevation_small.tif")
@@ -297,6 +329,9 @@ def test_binary_ops_arithmetic_against_scalar(op, operand, rs_type):
 
     result = op(operand, rs)
     truth = op(operand, x)
+    attrs = rs._attrs
+    if is_bool(result.dtype):
+        attrs["_FillValue"] = False
     assert np.allclose(result, truth, equal_nan=True)
     assert result.dtype == truth.dtype
     assert result._attrs == rs._attrs
@@ -599,8 +634,10 @@ def test_ufuncs_multiple_input_against_raster(ufunc):
     result = ufunc(*args)
     if ufunc.nout == 1:
         assert np.allclose(result, truth, equal_nan=True)
-        assert np.allclose(result._mask, mask, equal_nan=True)
-        assert result._attrs == other._attrs
+        assert np.allclose(result._mask, mask)
+        attrs = other._attrs
+        attrs["_FillValue"] = result.null_value
+        assert result._attrs == attrs
     else:
         for (r, t) in zip(result, truth):
             assert np.allclose(r, t, equal_nan=True)
@@ -710,25 +747,35 @@ def test_rechunk():
             rs._rechunk(chunksize)
 
 
-class TestAstype(unittest.TestCase):
-    def test_astype(self):
-        rs = Raster("tests/data/elevation_small.tif")
-        for type_code, dtype in DTYPE_INPUT_TO_DTYPE.items():
-            self.assertEqual(rs.astype(type_code).dtype, dtype)
-            self.assertEqual(rs.astype(type_code).eval().dtype, dtype)
-            self.assertEqual(rs.astype(dtype).dtype, dtype)
-            self.assertEqual(rs.astype(dtype).eval().dtype, dtype)
+@pytest.mark.filterwarnings("ignore:The null value ")
+@pytest.mark.parametrize("type_code,dtype", list(DTYPE_INPUT_TO_DTYPE.items()))
+@pytest.mark.parametrize(
+    "rs",
+    [
+        Raster("tests/data/elevation_small.tif"),
+        Raster(np.arange(100).reshape((10, 10))).set_null_value(99),
+    ],
+)
+def test_astype(rs, type_code, dtype):
+    assert rs.astype(type_code).dtype == dtype
+    assert rs.astype(type_code).eval().dtype == dtype
+    assert rs.astype(dtype).dtype == dtype
+    assert rs.astype(dtype).eval().dtype == dtype
 
-    def test_wrong_type_codes(self):
-        rs = Raster("tests/data/elevation_small.tif")
-        with self.assertRaises(ValueError):
-            rs.astype("not float32")
-        with self.assertRaises(ValueError):
-            rs.astype("other")
 
-    def test_dtype_property(self):
-        rs = Raster("tests/data/elevation_small.tif")
-        self.assertEqual(rs.dtype, rs.xrs.dtype)
+@pytest.mark.filterwarnings("ignore:The null value ")
+def test_astype_wrong_type_codes():
+    rs = Raster("tests/data/elevation_small.tif")
+    with pytest.raises(ValueError):
+        rs.astype("not float32")
+    with pytest.raises(ValueError):
+        rs.astype("other")
+
+
+@pytest.mark.filterwarnings("ignore:The null value ")
+def test_astype_dtype_property():
+    rs = Raster("tests/data/elevation_small.tif")
+    assert rs.dtype == rs.xrs.dtype
 
 
 class TestRasterAttrsPropagation(unittest.TestCase):
@@ -742,10 +789,15 @@ class TestRasterAttrsPropagation(unittest.TestCase):
         self.assertEqual(r2._attrs, true_attrs)
         self.assertEqual(r3._attrs, test_attrs)
 
+    @pytest.mark.filterwarnings("ignore:The null value ")
     def test_astype_attrs(self):
         rs = Raster("tests/data/elevation_small.tif")
         attrs = rs._attrs
-        self.assertEqual(rs.astype(int)._attrs, attrs)
+        rs = rs.astype(int)
+        new_attrs = rs._attrs
+        assert attrs is not new_attrs
+        attrs["_FillValue"] = rs.null_value
+        assert new_attrs == attrs
 
     def test_convolve_attrs(self):
         rs = Raster("tests/data/elevation_small.tif")
@@ -792,17 +844,26 @@ class TestSetNullValue(unittest.TestCase):
         rs = Raster("tests/data/null_values.tiff")
         ndv = rs.null_value
         rs2 = rs.set_null_value(0)
-        self.assertEqual(rs.null_value, ndv)
-        self.assertEqual(rs._attrs["_FillValue"], ndv)
-        self.assertEqual(rs2._attrs["_FillValue"], 0)
+        assert rs.null_value == ndv
+        assert rs._attrs["_FillValue"] == ndv
+        assert rs.xrs.rio.nodata == ndv
+        assert rs2._attrs["_FillValue"] == 0
+        assert rs2.xrs.rio.nodata == 0
+
+        rs = Raster(np.arange(100).reshape((10, 10)))
+        assert rs.null_value is None
+        assert rs.xrs.rio.nodata is None
+        rs = rs.set_null_value(99)
+        assert rs.null_value == 99
+        assert rs.xrs.rio.nodata == 99
 
         rs = Raster("tests/data/elevation_small.tif")
         nv = rs.null_value
         rs2 = rs.set_null_value(None)
-        self.assertEqual(rs.null_value, nv)
-        self.assertEqual(rs._attrs["_FillValue"], nv)
-        self.assertIsNone(rs2.null_value)
-        self.assertIsNone(rs2._attrs["_FillValue"])
+        assert rs.null_value == nv
+        assert rs._attrs["_FillValue"] == nv
+        assert rs2.null_value is None
+        assert rs2._attrs["_FillValue"] is None
 
 
 class TestReplaceNull(unittest.TestCase):
@@ -820,6 +881,7 @@ class TestReplaceNull(unittest.TestCase):
 
 
 class TestWhere(unittest.TestCase):
+    @pytest.mark.filterwarnings("ignore:The null value")
     def test_where(self):
         rs = Raster("tests/data/elevation_small.tif")
         c = rs > 1100
@@ -936,9 +998,10 @@ def test_burn_mask():
     rs = Raster(data).remap_range((20, 26, 999)).set_null_value(999)
     rs = rs > 15
     assert rs.dtype == np.dtype(bool)
-    assert rs.null_value == 999
+    nv = get_default_null_value(bool)
+    assert rs.null_value == nv
     true_state = data > 15
-    true_state = np.where(data >= 20, False, true_state)
+    true_state = np.where(data >= 20, nv, true_state)
     assert np.allclose(rs.burn_mask(), true_state)
 
 
