@@ -22,11 +22,11 @@ from raster_tools.dtypes import (
     I16,
     I64,
     U64,
-    get_default_null_value,
     is_float,
     is_int,
     is_str,
 )
+from raster_tools.masking import get_default_null_value
 from raster_tools.raster import Raster, get_raster
 
 PYOGRIO_SUPPORTED = sys.version_info >= (3, 8)

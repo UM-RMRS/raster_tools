@@ -110,25 +110,3 @@ def promote_data_dtype(xrs):
     if dtype == xrs.dtype:
         return xrs
     return xrs.astype(dtype)
-
-
-DTYPE_TO_DEFAULT_NULL = {
-    BOOL: True,
-    U8: U8.type(99),
-    U16: U16.type(9_999),
-    U32: U32.type(999_999_999),
-    U64: U64.type(999_999_999_999),
-    I8: I8.type(-99),
-    I16: I16.type(-9_999),
-    I32: I32.type(-999_999),
-    I64: I64.type(-999_999),
-    F16: F16.type(-999_999.0),
-    F32: F32.type(-999_999.0),
-    F64: F64.type(-999_999.0),
-}
-
-
-def get_default_null_value(dtype):
-    """Get the default null value for a given dtype."""
-    dtype = DTYPE_INPUT_TO_DTYPE[dtype]
-    return DTYPE_TO_DEFAULT_NULL[dtype]

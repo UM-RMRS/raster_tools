@@ -5,7 +5,8 @@ import pytest
 import xarray as xr
 
 from raster_tools.distance import proximity as prx
-from raster_tools.dtypes import F32, get_default_null_value
+from raster_tools.dtypes import F32
+from raster_tools.masking import get_default_null_value
 from raster_tools.raster import Raster
 
 

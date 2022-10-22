@@ -13,17 +13,8 @@ from scipy.ndimage import (
 )
 
 from raster_tools import creation, general
-from raster_tools.dtypes import (
-    F32,
-    F64,
-    I16,
-    I32,
-    I64,
-    U8,
-    U16,
-    get_default_null_value,
-    is_scalar,
-)
+from raster_tools.dtypes import F32, F64, I16, I32, I64, U8, U16, is_scalar
+from raster_tools.masking import get_default_null_value
 from raster_tools.raster import Raster, get_raster
 from raster_tools.stat_common import (
     nan_unique_count_jit,
@@ -413,6 +404,7 @@ class TestBandConcat(unittest.TestCase):
         self.assertEqual(test.shape, truth.shape)
         self.assertTrue(np.allclose(test, truth))
 
+    @pytest.mark.filterwarnings("ignore:The null value")
     def test_band_concat_bool_rasters(self):
         rs1 = Raster("tests/data/elevation_small.tif") > -100
         rs2 = rs1.copy()
@@ -424,7 +416,8 @@ class TestBandConcat(unittest.TestCase):
         self.assertTrue(np.array(result).all())
 
         result = general.band_concat((rs1, rs2), -1)
-        self.assertTrue(-1 == result.null_value)
+        # The null value will be changed to match type
+        self.assertTrue(result.null_value == get_default_null_value(bool))
         self.assertTrue(result.dtype == np.dtype("?"))
         self.assertTrue(np.all(np.array(result) == 1))
 

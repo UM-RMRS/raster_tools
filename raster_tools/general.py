@@ -36,13 +36,17 @@ from raster_tools.dtypes import (
     U32,
     U64,
     get_common_dtype,
-    get_default_null_value,
     is_bool,
     is_int,
     is_scalar,
     is_str,
 )
 from raster_tools.focal import _get_offsets
+from raster_tools.masking import (
+    create_null_mask,
+    get_default_null_value,
+    reconcile_nullvalue_with_dtype,
+)
 from raster_tools.raster import Raster, get_raster
 from raster_tools.stat_common import (
     nan_unique_count_jit,
@@ -52,8 +56,6 @@ from raster_tools.stat_common import (
     nanentropy_jit,
     nanmode_jit,
 )
-
-from ._utils import create_null_mask
 
 __all__ = [
     "aggregate",
@@ -151,14 +153,8 @@ def regions(raster, neighbors=4, unique_values=None):
         dout[bnd] = _create_labels(data[bnd], wd, unique_values)
 
     if raster._masked:
-        nv = raster.null_value
-        if raster.dtype == rs_out.dtype or np.can_cast(
-            raster.dtype, rs_out.dtype
-        ):
-            dout = da.where(raster._mask, raster.null_value, dout)
-        else:
-            nv = get_default_null_value(rs_out.dtype)
-            dout = da.where(raster._mask, nv, dout)
+        nv = reconcile_nullvalue_with_dtype(raster.null_value, rs_out.dtype)
+        dout = da.where(raster._mask, nv, dout)
     rs_out._data = dout
     return rs_out
 
@@ -308,8 +304,7 @@ def aggregate(raster, expand_cells, stype):
         )
     # Coarsen mask as well
     if rs._masked:
-        xmask = xr.DataArray(rs._mask, dims=rs.xrs.dims, coords=rs.xrs.coords)
-        mask = xmask.coarsen(dim=dim_map, boundary="trim").all().data
+        mask = rs.xmask.coarsen(dim=dim_map, boundary="trim").all().data
 
     rs_out = rs.copy()
     rs_out._rs = xda
@@ -489,8 +484,7 @@ def local_stats(raster, stype):
         xndata = rs.get_bands(1).xrs
         xndata.data = _local(data, stype)
     if rs._masked:
-        xmask = xr.DataArray(mask, dims=rs.xrs.dims, coords=rs.xrs.coords)
-        mask = xmask.reduce(
+        mask = rs.xmask.reduce(
             np.all,
             dim="band",
             keepdims=True,
@@ -738,7 +732,7 @@ def band_concat(rasters, null_value=None):
     rs = xr.concat(xrs, "band")
     mask = da.concatenate(masks)
     if null_value is not None:
-        new_nv = null_value
+        new_nv = reconcile_nullvalue_with_dtype(null_value, bool, True)
     elif masked:
         new_nv = get_default_null_value(rs.dtype)
 
@@ -969,7 +963,8 @@ def where(condition, true_rast, false_rast):
         mask = create_null_mask(out_xrs, np.nan)
     else:
         mask = create_null_mask(xcondition, None)
-    out_rs = Raster(out_xrs)
+    # Clear null value that is automatically set for float DataArrays
+    out_rs = Raster(out_xrs).set_null_value(None)
     if masked:
         out_rs._null_value = get_default_null_value(out_rs.dtype)
         out_rs._mask = mask

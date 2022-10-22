@@ -11,14 +11,8 @@ import numba as nb
 import numpy as np
 
 from raster_tools import focal
-from raster_tools.dtypes import (
-    F32,
-    F64,
-    I32,
-    U8,
-    get_default_null_value,
-    is_int,
-)
+from raster_tools.dtypes import F32, F64, I32, U8, is_int
+from raster_tools.masking import get_default_null_value
 from raster_tools.raster import get_raster
 
 __all__ = [
@@ -535,7 +529,7 @@ def tpi(dem, annulus_inner, annulus_outer):
         radii = annulus_outer
     else:
         radii = (annulus_inner, annulus_outer)
-    rs_tpi = ((dem - focal.focal(dem, "mean", radii)) + 0.5).astype(I32)
+    rs_tpi = ((dem - focal.focal(dem, "mean", radii)) + 0.5).astype(I32, False)
     if dem._masked:
         rs_tpi = rs_tpi.set_null_value(get_default_null_value(I32))
     return rs_tpi

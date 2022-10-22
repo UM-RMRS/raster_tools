@@ -3,8 +3,9 @@ import unittest
 import numpy as np
 
 from raster_tools import focal, surface
-from raster_tools.dtypes import I32, get_default_null_value
+from raster_tools.dtypes import I32
 from raster_tools.general import band_concat
+from raster_tools.masking import get_default_null_value
 from raster_tools.raster import Raster
 
 
@@ -103,7 +104,9 @@ class TestSurface(unittest.TestCase):
 
 def test_tpi():
     dem = Raster("tests/data/elevation_small.tif")
-    truth = ((dem - focal.focal(dem, "mean", (5, 11))) + 0.5).astype(I32)
+    truth = ((dem - focal.focal(dem, "mean", (5, 11))) + 0.5).astype(
+        I32, False
+    )
     tpi = surface.tpi(dem, 5, 11)
 
     assert tpi.dtype == I32
@@ -112,7 +115,9 @@ def test_tpi():
 
     # Make sure that it works with multiple bands
     dem2 = dem + 100
-    truth2 = ((dem2 - focal.focal(dem2, "mean", (5, 11))) + 0.5).astype(I32)
+    truth2 = ((dem2 - focal.focal(dem2, "mean", (5, 11))) + 0.5).astype(
+        I32, False
+    )
     truth = band_concat((truth, truth2))
     dem = band_concat((dem, dem2))
 
