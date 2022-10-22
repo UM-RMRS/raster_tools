@@ -37,7 +37,6 @@ def _compute_lengths(geometry, targets, weights=None):
         for row in overlay.itertuples():
             lengths[row.target_idx] += row.len
     else:
-        print("weighting lengths")
         # Multiply lenths by weights taken from weight column
         for row in overlay.itertuples():
             lengths[row.target_idx] += row.len * row.weight

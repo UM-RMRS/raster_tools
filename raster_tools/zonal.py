@@ -479,7 +479,6 @@ def _xy_to_rowcol_wrapper(x, y, affine):
 
 
 def _extract_points(data, r, c, valid_mask):
-    print(data)
     r, c, valid_mask = dask.compute(r, c, valid_mask)
     extracted = np.full((len(valid_mask),), np.nan, dtype=F64)
     extracted[valid_mask] = data[r[valid_mask], c[valid_mask]]
