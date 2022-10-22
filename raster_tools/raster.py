@@ -1,4 +1,5 @@
 import numbers
+import sys
 from collections import abc
 
 import dask
@@ -39,6 +40,8 @@ from .io import (
     open_raster_from_path,
     write_raster,
 )
+
+PY_38_PLUS = sys.version_info >= (3, 8)
 
 
 class RasterDeviceMismatchError(BaseException):
@@ -1162,7 +1165,12 @@ def _vectorize(data, mask, xc, yc, band, crs, affine_tuple):
     xpoints, ypoints = _extract_points(mask, xc, yc)
     if len(xpoints):
         values = _extract_values(data, mask)
-        points = gpd.GeoSeries.from_xy(xpoints, ypoints, crs=crs)
+        if PY_38_PLUS:
+            points = gpd.GeoSeries.from_xy(xpoints, ypoints, crs=crs)
+        else:
+            points = gpd.GeoSeries(
+                gpd.points_from_xy(xpoints, ypoints, crs=crs)
+            )
         rows, cols = xy_to_rowcol(xpoints, ypoints, affine)
         bands = [band] * len(values)
     else:
