@@ -172,7 +172,7 @@ def open_raster_from_path(path):
 def write_raster(xrs, path, no_data_value, **rio_gdal_kwargs):
     ext = _get_extension(path)
     rio_is_bool = False
-    if ext in TIFF_EXTS:
+    if ext in TIFF_EXTS or len(ext) == 0:
         if xrs.dtype == I64:
             # GDAL, and thus rioxarray and rasterio, doesn't support I64 so
             # cast up to float. This avoids to_raster throwing a TypeError.
