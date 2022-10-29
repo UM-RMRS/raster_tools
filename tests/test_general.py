@@ -653,3 +653,35 @@ def test_where(cond, x, y):
     assert result._data.chunks == truth._data.chunks
     assert result.crs is not None
     assert result.crs == "EPSG:3857"
+
+
+def test_reclassify():
+    data = np.arange(100).reshape((10, 10))
+    rast = Raster(Raster(data).xrs.rio.write_crs("EPSG:3857"))
+    mapping = {k: v for k, v in zip(np.arange(40), np.arange(20, 60))}
+    included_mask = np.array([v in mapping for v in data.ravel()]).reshape(
+        (10, 10)
+    )
+
+    truth = data.copy()
+    truth[included_mask] = np.arange(20, 60)
+    result = general.reclassify(rast, mapping)
+    assert np.allclose(result, truth)
+    assert result.crs == rast.crs
+
+    truth = data.copy()
+    truth[included_mask] = np.arange(20, 60)
+    truth[~included_mask] = get_default_null_value(int)
+    result = general.reclassify(rast, mapping, True)
+    assert np.allclose(general.reclassify(rast, mapping, True), truth)
+    assert result.null_value == get_default_null_value(int)
+    assert result.crs == rast.crs
+
+    rast = rast.set_null_value(-1)
+    truth = data.copy()
+    truth[included_mask] = np.arange(20, 60)
+    truth[~included_mask] = -1
+    result = general.reclassify(rast, mapping, True)
+    assert np.allclose(result, truth)
+    assert result.null_value == -1
+    assert result.crs == rast.crs

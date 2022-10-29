@@ -6,6 +6,8 @@
    * `ESRI Local Tools <https://pro.arcgis.com/en/pro-app/latest/tool-reference/spatial-analyst/an-overview-of-the-local-tools.htm>`_
 
 """  # noqa: E501
+import os
+import re
 from collections.abc import Iterable, Sequence
 from functools import partial
 
@@ -970,3 +972,129 @@ def where(condition, true_rast, false_rast):
         out_rs._mask = mask
         out_rs = out_rs.burn_mask()
     return out_rs
+
+
+@nb.jit(nopython=True, nogil=True)
+def _reclassify_chunk(x, mask, mapping_array, unmapped_to_null, null):
+    mapping = dict()
+    for i in range(mapping_array.shape[0]):
+        mapping[mapping_array[i, 0]] = mapping_array[i, 1]
+
+    out = np.empty_like(x)
+    nb, ny, nx = x.shape
+    for b in range(nb):
+        for i in range(ny):
+            for j in range(nx):
+                if mask[b, i, j]:
+                    out[b, i, j] = null
+                    break
+                v = x[b, i, j]
+                reclass = v in mapping
+                if reclass:
+                    out[b, i, j] = mapping[v]
+                elif unmapped_to_null:
+                    out[b, i, j] = null
+                else:
+                    out[b, i, j] = v
+    return out
+
+
+class RemapFileParseError(Exception):
+    pass
+
+
+_REMAPPING_LINE_PATTERN = re.compile(r"^(?P<from>[+-]*\d+):(?P<to>[+-]*\d+)$")
+
+
+def _parse_ascii_remap_file(path):
+    mapping = {}
+    with open(path) as fd:
+        for line in fd:
+            line = line.strip()
+            m = _REMAPPING_LINE_PATTERN.match(line)
+            if m is None:
+                raise RemapFileParseError(f"Invalid remap line: {line!r}")
+            k = int(m.group("from"))
+            v = int(m.group("to"))
+            if k in mapping:
+                raise ValueError("Found duplicate mapping: '{k}:{v}'.")
+            mapping[k] = v
+    return mapping
+
+
+def _get_remapping(mapping):
+    if is_str(mapping) and os.path.exists(mapping):
+        mapping = _parse_ascii_remap_file(mapping)
+    elif not isinstance(mapping, dict):
+        raise TypeError(
+            f"Remapping must be a str or dict. Got: {type(mapping)!r}"
+        )
+    if not all(is_int(k) for k in mapping.keys()) or not all(
+        is_int(v) for v in mapping.values()
+    ):
+        raise TypeError("Remapping values must all be integer types")
+    return mapping
+
+
+def reclassify(raster, remapping, unmapped_to_null=False):
+    """Reclassify the input raster values based on a mapping.
+
+    Parameters
+    ----------
+    raster : str, Raster
+        The input raster to reclassify. Can be a path string or Raster object.
+        The raster dtype must be integer.
+    remapping : str, dict
+        Can be either a ``dict`` or a path string. If a ``dict`` is provided,
+        the keys will be reclassified to the corresponding values. If a path
+        string, it is treated as an ASCII remap file where each line is looks
+        like ``a:b`` and ``a`` and ``b`` are integers. All remap values (both
+        from and to) must be integers.
+    unmapped_to_null : bool, optional
+        If ``True``, values not included in the mapping are instead mapped to
+        the null value. Default is ``False``.
+
+    Returns
+    -------
+    Raster
+        The remapped raster.
+
+    """
+    raster = get_raster(raster)
+    remapping = _get_remapping(remapping)
+    if not is_int(raster.dtype):
+        raise TypeError(
+            f"Input raster must be an integer type. Got {raster.dtype!r}"
+        )
+
+    out_dtype = raster.dtype
+    to_values = list(remapping.values())
+    if any(not np.can_cast(v, out_dtype) for v in to_values):
+        extra_min = raster.dtype.type(np.iinfo(raster.dtype).min)
+        extra_max = raster.dtype.type(np.iinfo(raster.dtype).max)
+        out_dtype = get_common_dtype(to_values + [extra_min, extra_max, -1])
+    if unmapped_to_null:
+        if raster._masked:
+            nv = raster.null_value
+        else:
+            nv = get_default_null_value(out_dtype)
+    else:
+        nv = 0
+
+    mapping = np.array(list(remapping.items()))
+    data = da.map_blocks(
+        _reclassify_chunk,
+        raster._data.copy().astype(out_dtype),
+        raster._mask,
+        mapping_array=mapping,
+        unmapped_to_null=unmapped_to_null,
+        null=nv,
+        dtype=out_dtype,
+        meta=np.array((), dtype=out_dtype),
+    )
+    xdata = xr.DataArray(
+        data, coords=raster.xrs.coords, dims=raster.xrs.dims
+    ).rio.write_nodata(nv)
+    if raster.crs is not None:
+        xdata = xdata.rio.write_crs(raster.crs)
+    return Raster(xdata)
