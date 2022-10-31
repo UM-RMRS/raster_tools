@@ -66,6 +66,7 @@ __all__ = [
     "erode",
     "local_stats",
     "predict_model",
+    "reclassify",
     "regions",
     "remap_range",
 ]
