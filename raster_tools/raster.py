@@ -969,6 +969,33 @@ class Raster(_RasterBase):
 
         return remap_range(self, mapping, inclusivity=inclusivity)
 
+    def reclassify(self, remapping, unmapped_to_null=False):
+        """Reclassify raster values based on a mapping.
+
+        The raster must have an integer type.
+
+        Parameters
+        ----------
+        remapping : str, dict
+            Can be either a ``dict`` or a path string. If a ``dict`` is
+            provided, the keys will be reclassified to the corresponding
+            values. If a path string, it is treated as an ASCII remap file
+            where each line looks like ``a:b`` and ``a`` and ``b`` are
+            integers. All remap values (both from and to) must be integers.
+        unmapped_to_null : bool, optional
+            If ``True``, values not included in the mapping are instead mapped
+            to the null value. Default is ``False``.
+
+        Returns
+        -------
+        Raster
+            The remapped raster.
+
+        """
+        from raster_tools.general import reclassify
+
+        return reclassify(self, remapping, unmapped_to_null=unmapped_to_null)
+
     def round(self, decimals=0):
         """Evenly round to the given number of decimals
 

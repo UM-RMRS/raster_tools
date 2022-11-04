@@ -1040,6 +1040,8 @@ def _get_remapping(mapping):
 def reclassify(raster, remapping, unmapped_to_null=False):
     """Reclassify the input raster values based on a mapping.
 
+    This function only works with integer type rasters.
+
     Parameters
     ----------
     raster : str, Raster
