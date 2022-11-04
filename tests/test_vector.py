@@ -166,7 +166,6 @@ class TestEval(unittest.TestCase):
     def test_eval(self):
         v = open_vectors("tests/data/vector/Zones.gdb", 0)
         self.assertTrue(dask.is_dask_collection(v.data))
-        self.assertTrue(v.data.npartitions > 1)
         ve = v.eval()
         self.assertTrue(dask.is_dask_collection(ve.data))
         self.assertTrue(ve.data.npartitions == 1)

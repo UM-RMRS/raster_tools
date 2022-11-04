@@ -151,7 +151,7 @@ def _normalize_layers_arg(layers):
         raise TypeError(f"Could not understand layers argument: {layers!r}")
 
 
-_TARGET_CHUNK_SIZE = 1_000
+_TARGET_CHUNK_SIZE = 50_000
 
 
 def open_vectors(path, layers=None):
