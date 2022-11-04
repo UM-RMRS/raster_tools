@@ -7,7 +7,6 @@ import numpy as np
 import xarray as xr
 
 from raster_tools.dtypes import F32, I8, is_bool, is_scalar, is_str
-from raster_tools.masking import get_default_null_value
 from raster_tools.raster import Raster, get_raster
 from raster_tools.vector import _rasterize_block, get_vector
 
@@ -220,6 +219,4 @@ def length(features, like_rast, radius, weighting_field=None):
     xrs = xr.DataArray(
         data, dims=("band", "y", "x"), coords=([1], like_rast.y, like_rast.x)
     ).rio.write_crs(like_rast.crs)
-    xrs.attrs["_FillValue"] = 0
-    rs_out = Raster(xrs).set_null_value(get_default_null_value(F32))
-    return rs_out
+    return Raster(xrs)
