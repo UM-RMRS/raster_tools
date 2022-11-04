@@ -10,6 +10,7 @@
  numpy>=1.22
  pandas
  pre-commit
+ pyarrow
  pygeos
  pyogrio
  pyproj
