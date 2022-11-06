@@ -322,14 +322,15 @@ def _create_dask_range_index(start, stop):
     return dd.from_pandas(dummy, 1).index
 
 
-def _build_zonal_stats_dataframe(zonal_data):
+def _build_zonal_stats_dataframe(zonal_data, nparts=None):
     bands = list(zonal_data)
     snames = list(zonal_data[bands[0]])
     n = zonal_data[bands[0]][snames[0]].size
-    # Get the number of partitions that dask thinks is reasonable. The data
-    # arrays have chunks of size 1 so we need to rechunk later and then
-    # repartition everything else in the dataframe to match.
-    nparts = zonal_data[bands[0]][snames[0]].rechunk().npartitions
+    if nparts is None:
+        # Get the number of partitions that dask thinks is reasonable. The data
+        # arrays have chunks of size 1 so we need to rechunk later and then
+        # repartition everything else in the dataframe to match.
+        nparts = zonal_data[bands[0]][snames[0]].rechunk().npartitions
 
     df = None
     for bnd in bands:
@@ -562,6 +563,6 @@ def point_extraction(points, raster, skip_validation=False):
         data_raster._data, data_raster._mask, x, y, data_raster.affine
     )
     n = len(data[1]["extracted"])
-    df = _build_zonal_stats_dataframe(data).reset_index(drop=True)
+    df = _build_zonal_stats_dataframe(data, nparts=1).reset_index(drop=True)
     df.divisions = (0, n - 1)
     return df
