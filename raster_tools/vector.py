@@ -425,7 +425,7 @@ def _normalize_geo_data(geo):
             f" GeoSeries. Got {type(geo)}."
         )
     if _is_series(geo):
-        geo = geo.to_frame()
+        geo = geo.to_frame("geometry")
     if dask.is_dask_collection(geo) and not geo.known_divisions:
         raise ValueError(
             "Unknown divisions set on input data. Divisions must be set."
