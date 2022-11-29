@@ -1024,8 +1024,11 @@ def _parse_ascii_remap_file(path):
 
 
 def _get_remapping(mapping):
-    if is_str(mapping) and os.path.exists(mapping):
-        mapping = _parse_ascii_remap_file(mapping)
+    if is_str(mapping):
+        if os.path.exists(mapping):
+            mapping = _parse_ascii_remap_file(mapping)
+        else:
+            raise IOError(f"No such file: {mapping!r}")
     elif not isinstance(mapping, dict):
         raise TypeError(
             f"Remapping must be a str or dict. Got: {type(mapping)!r}"
