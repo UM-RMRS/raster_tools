@@ -9,7 +9,7 @@ from raster_tools.creation import (
     zeros_like,
 )
 from raster_tools.general import band_concat, reclassify, remap_range
-from raster_tools.raster import Raster
+from raster_tools.raster import Raster, get_raster
 from raster_tools.vector import (
     Vector,
     count_layer_features,
@@ -28,6 +28,7 @@ __all__ = [
     "empty_like",
     "focal",
     "full_like",
+    "get_raster",
     "line_stats",
     "list_layers",
     "ones_like",

@@ -81,11 +81,11 @@ def test_proximity_analysis_esri_example():
     assert np.allclose(alloc, esri_euc_alloc)
     assert np.allclose(dirn, esri_euc_dir)
     assert prox.dtype == F32
-    assert prox.xrs.compute().dtype == F32
+    assert prox.xdata.compute().dtype == F32
     assert alloc.dtype == src.dtype
-    assert alloc.xrs.compute().dtype == src.dtype
+    assert alloc.xdata.compute().dtype == src.dtype
     assert dirn.dtype == F32
-    assert dirn.xrs.compute().dtype == F32
+    assert dirn.xdata.compute().dtype == F32
 
     mask = esri_euc_prox > 3
     prox_truth = esri_euc_prox.copy()
@@ -98,11 +98,11 @@ def test_proximity_analysis_esri_example():
     prox, alloc, dirn = prx.proximity_analysis(src, max_distance=3)
 
     assert np.allclose(prox, prox_truth)
-    assert np.allclose(prox._mask.compute(), mask)
+    assert np.allclose(prox.mask.compute(), mask)
     assert np.allclose(alloc, alloc_truth)
-    assert np.allclose(alloc._mask.compute(), mask)
+    assert np.allclose(alloc.mask.compute(), mask)
     assert np.allclose(dirn, dir_truth)
-    assert np.allclose(dirn._mask.compute(), mask)
+    assert np.allclose(dirn.mask.compute(), mask)
 
 
 @nb.jit(nopython=True, nogil=True)
@@ -221,9 +221,9 @@ srcs = [build_raster(s) for s in srcs]
 )
 @pytest.mark.parametrize("src", srcs)
 def test_proximity_metric(src, metric, truth_func, max_distance):
-    data = src._data.compute()[0]
-    x = src.xrs.x.data
-    y = src.xrs.y.data
+    data = src.values[0]
+    x = src.x
+    y = src.y
 
     rprox, ralloc, rdirn = prx.proximity_analysis(
         src, distance_metric=metric, max_distance=max_distance
@@ -264,10 +264,10 @@ def test_proximity_great_circle():
     assert np.allclose(rdirn, tdirn)
 
     max_dist = 1.5e6
-    mask = tprox._data.compute() > max_dist
-    tprox._data = da.where(mask, tprox.null_value, tprox._data)
-    talloc._data = da.where(mask, talloc.null_value, talloc._data)
-    tdirn._data = da.where(mask, tdirn.null_value, tdirn._data)
+    mask = tprox.values > max_dist
+    tprox.xdata.data = da.where(mask, tprox.null_value, tprox.data)
+    talloc.xdata.data = da.where(mask, talloc.null_value, talloc.data)
+    tdirn.xdata.data = da.where(mask, tdirn.null_value, tdirn.data)
 
     rprox, ralloc, rdirn = prx.proximity_analysis(
         src, distance_metric="haversine", max_distance=max_dist

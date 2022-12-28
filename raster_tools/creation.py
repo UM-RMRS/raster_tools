@@ -2,9 +2,11 @@ from collections.abc import Sequence
 
 import dask.array as da
 import numpy as np
+import xarray as xr
 
 from raster_tools.dtypes import is_int, is_scalar
-from raster_tools.raster import get_raster
+from raster_tools.raster import Raster, get_raster
+from raster_tools.utils import make_raster_ds
 
 __all__ = [
     "constant_raster",
@@ -96,12 +98,8 @@ def random_raster(
     else:
         params = list(params)
 
-    band_list = [1] * bands
-    *_, rows, columns = rst.shape
-    shape = (bands, rows, columns)
-    # Use get_bands to get data with the right chunks
-    outrs = rst.get_bands(band_list)
-    chunks = outrs._data.chunks
+    shape = (bands,) + rst.shape[1:]
+    chunks = ((1,) * bands,) + rst.data.chunks[1:]
 
     dist = distribution.lower()
     if dist not in _VALID_RANDOM_DISTRIBUTIONS:
@@ -135,10 +133,14 @@ def random_raster(
         ndata = da.random.random(size=shape, chunks=chunks)
     # TODO: add more distributions
 
-    outrs._data = ndata
-    outrs._null_value = None
-    outrs._mask = da.zeros_like(ndata, dtype=bool)
-    return outrs
+    cband = np.arange(bands) + 1
+    xdata = xr.DataArray(
+        ndata, coords=(cband, rst.y, rst.x), dims=("band", "y", "x")
+    )
+    if rst.crs is not None:
+        xdata = xdata.rio.write_crs(rst.crs)
+    xmask = xr.zeros_like(xdata, dtype=bool)
+    return Raster(make_raster_ds(xdata, xmask), _fast_path=True)
 
 
 def empty_like(raster_template, bands=1, dtype=None):
@@ -178,13 +180,18 @@ def empty_like(raster_template, bands=1, dtype=None):
                 f"Could not understand dtype argument: {repr(dtype)}"
             )
 
-    band_list = [1] * bands
-    outrs = rst.get_bands(band_list)
-    ndata = da.empty_like(outrs._data, dtype=dtype)
-    outrs._data = ndata
-    outrs._null_value = None
-    outrs._mask = da.zeros_like(ndata, dtype=bool)
-    return outrs
+    shape = (bands,) + rst.shape[1:]
+    chunks = ((1,) * bands,) + rst.data.chunks[1:]
+    ndata = da.empty(shape, chunks=chunks, dtype=dtype)
+    xdata = xr.DataArray(
+        ndata,
+        coords=(np.arange(bands) + 1, rst.y, rst.x),
+        dims=("band", "y", "x"),
+    )
+    if rst.crs is not None:
+        xdata = xdata.rio.write_crs(rst.crs)
+    xmask = xr.zeros_like(xdata, dtype=bool)
+    return Raster(make_raster_ds(xdata, xmask), _fast_path=True)
 
 
 def full_like(raster_template, value, bands=1, dtype=None):
@@ -233,13 +240,18 @@ def full_like(raster_template, value, bands=1, dtype=None):
                 f"Could not understand dtype argument: {repr(dtype)}"
             )
 
-    band_list = [1] * bands
-    outrs = rst.get_bands(band_list)
-    ndata = da.full_like(outrs._data, value, dtype=dtype)
-    outrs._data = ndata
-    outrs._null_value = None
-    outrs._mask = da.zeros_like(ndata, dtype=bool)
-    return outrs
+    shape = (bands,) + rst.shape[1:]
+    chunks = ((1,) * bands,) + rst.data.chunks[1:]
+    ndata = da.full(shape, value, chunks=chunks, dtype=dtype)
+    xdata = xr.DataArray(
+        ndata,
+        coords=(np.arange(bands) + 1, rst.y, rst.x),
+        dims=("band", "y", "x"),
+    )
+    if rst.crs is not None:
+        xdata = xdata.rio.write_crs(rst.crs)
+    xmask = xr.zeros_like(xdata, dtype=bool)
+    return Raster(make_raster_ds(xdata, xmask), _fast_path=True)
 
 
 def constant_raster(raster_template, value=1, bands=1):
@@ -272,8 +284,6 @@ def zeros_like(raster_template, bands=1, dtype=None):
     ----------
     raster_template : Raster, str
         Template raster used to define rows, columns, crs, resolution, etc
-    value : scalar
-        Value to fill result with.
     bands : int, optional
         Number of bands desired for output. Default is 1.
     dtype : data-type, optional
@@ -295,8 +305,6 @@ def ones_like(raster_template, bands=1, dtype=None):
     ----------
     raster_template : Raster, str
         Template raster used to define rows, columns, crs, resolution, etc
-    value : scalar
-        Value to fill result with.
     bands : int, optional
         Number of bands desired for output. Default is 1.
     dtype : data-type, optional

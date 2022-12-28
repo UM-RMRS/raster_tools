@@ -21,6 +21,7 @@ from raster_tools.dtypes import (
     is_str,
 )
 from raster_tools.raster import Raster
+from raster_tools.utils import make_raster_ds
 
 JIT_KWARGS = {"nopython": True, "nogil": True}
 ngjit = nb.jit(**JIT_KWARGS)
@@ -408,17 +409,17 @@ def cost_distance_analysis_numpy(
 
 
 def _normalize_raster_data(rs, missing=-1):
-    data = rs._data
+    data = rs.data
     # Make sure that null values are skipped
-    nv = rs._null_value
+    nv = rs.null_value
     if rs._masked:
         if is_float(rs.dtype):
             if not np.isnan(nv):
-                data = da.where(rs._mask, missing, data)
+                data = da.where(rs.mask, missing, data)
             elif not np.isnan(missing):
                 data = da.where(np.isnan(data), missing, data)
         else:
-            data = da.where(rs._mask, missing, data)
+            data = da.where(rs.mask, missing, data)
     # Trim off band dim
     data = data[0]
     return data
@@ -525,8 +526,8 @@ def cost_distance_analysis(costs, sources, elevation=None):
             raise TypeError("Sources raster must be an integer type")
         if not sources._masked:
             raise ValueError("Sources raster must have a null value set")
-        sources_null_value = sources._null_value
-        srcs = sources.to_dask()[0].astype(I64)
+        sources_null_value = sources.null_value
+        srcs = sources.data[0].astype(I64)
     else:
         try:
             sources = np.asarray(sources).astype(int)
@@ -563,7 +564,7 @@ def cost_distance_analysis(costs, sources, elevation=None):
     # Make lazy and add band dim
     cd, tr, al = [da.from_array(r[None]) for r in results]
     # Convert to DataArrays using same coordinate system as costs
-    xcosts = costs.xrs
+    xcosts = costs.xdata
     xcd, xtr, xal = [
         xr.DataArray(
             r, coords=xcosts.coords, dims=xcosts.dims, attrs=xcosts.attrs
@@ -574,9 +575,22 @@ def cost_distance_analysis(costs, sources, elevation=None):
     # Add 1 to match ESRI 0-8 scale
     xtr += 1
 
-    cd = costs._replace(xcd, null_value=costs.null_value)
-    tr = costs._replace(xtr, null_value=_TRACEBACK_NOT_REACHED + 1)
-    al = costs._replace(xal, null_value=sources_null_value)
+    cd_ds = make_raster_ds(
+        xcd.rio.write_nodata(costs.null_value), costs.xmask.copy()
+    )
+    tr_ds = make_raster_ds(
+        xtr.rio.write_nodata(_TRACEBACK_NOT_REACHED + 1), costs.xmask.copy()
+    )
+    al_ds = make_raster_ds(
+        xal.rio.write_nodata(sources_null_value), costs.xmask.copy()
+    )
+    if costs.crs is not None:
+        cd_ds = cd_ds.rio.write_crs(costs.crs)
+        tr_ds = tr_ds.rio.write_crs(costs.crs)
+        al_ds = al_ds.rio.write_crs(costs.crs)
+    cd = Raster(cd_ds, _fast_path=True)
+    tr = Raster(tr_ds, _fast_path=True)
+    al = Raster(al_ds, _fast_path=True)
     return cd, tr, al
 
 

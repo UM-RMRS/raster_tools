@@ -1,11 +1,11 @@
 import os
 import re
 
-from raster_tools._utils import validate_file
 from raster_tools.dtypes import is_int, is_scalar
 from raster_tools.general import band_concat
 from raster_tools.masking import get_default_null_value
 from raster_tools.raster import Raster
+from raster_tools.utils import validate_file
 
 
 class BatchScriptParseError(BaseException):
