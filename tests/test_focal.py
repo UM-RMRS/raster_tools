@@ -1,5 +1,4 @@
 import sys
-import unittest
 from functools import partial
 
 import dask
@@ -8,310 +7,301 @@ import pytest
 from scipy import ndimage, stats
 
 from raster_tools import Raster, focal
+from tests.utils import assert_valid_raster
 
 PY_VER_37 = sys.version_info[0] == 3 and sys.version_info[1] == 7
 
 
-def array_eq_all(ar1, ar2):
-    return (ar1 == ar2).all()
+def test_get_focal_window_circle_rect():
+    truths = [
+        np.array([[1.0]]),
+        np.array([[0.0, 1.0, 0.0], [1.0, 1.0, 1.0], [0.0, 1.0, 0.0]]),
+        np.array(
+            [
+                [0.0, 0.0, 1.0, 0.0, 0.0],
+                [0.0, 1.0, 1.0, 1.0, 0.0],
+                [1.0, 1.0, 1.0, 1.0, 1.0],
+                [0.0, 1.0, 1.0, 1.0, 0.0],
+                [0.0, 0.0, 1.0, 0.0, 0.0],
+            ],
+        ),
+        np.array(
+            [
+                [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
+                [0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0],
+                [0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0],
+                [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+                [0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0],
+                [0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0],
+                [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
+            ],
+        ),
+        np.array(
+            [
+                [0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0],
+                [0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0],
+                [0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0],
+                [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+                [0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0],
+                [0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0],
+                [0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0],
+            ],
+        ),
+        np.array(
+            [
+                [0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0],
+                [0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0],
+                [0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0],
+                [0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0],
+                [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+                [0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0],
+                [0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0],
+                [0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0],
+                [0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            ],
+        ),
+    ]
+    truths = [t.astype(bool) for t in truths]
+    for r, truth in zip(range(1, len(truths) + 1), truths):
+        window = focal.get_focal_window(r)
+        assert np.allclose(window, truth)
+        assert window.dtype == bool
+    for w in range(1, 6):
+        for h in range(1, 6):
+            window = focal.get_focal_window(w, h)
+            assert np.allclose(window, np.ones((w, h)))
+            assert window.dtype == bool
 
 
-class TestFocalWindow(unittest.TestCase):
-    def test_get_focal_window_circle_rect(self):
-        truths = [
-            np.array([[1.0]]),
-            np.array([[0.0, 1.0, 0.0], [1.0, 1.0, 1.0], [0.0, 1.0, 0.0]]),
-            np.array(
-                [
-                    [0.0, 0.0, 1.0, 0.0, 0.0],
-                    [0.0, 1.0, 1.0, 1.0, 0.0],
-                    [1.0, 1.0, 1.0, 1.0, 1.0],
-                    [0.0, 1.0, 1.0, 1.0, 0.0],
-                    [0.0, 0.0, 1.0, 0.0, 0.0],
-                ],
-            ),
-            np.array(
-                [
-                    [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
-                    [0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0],
-                    [0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0],
-                    [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
-                    [0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0],
-                    [0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0],
-                    [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
-                ],
-            ),
-            np.array(
-                [
-                    [0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0],
-                    [0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0],
-                    [0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0],
-                    [0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0],
-                    [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
-                    [0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0],
-                    [0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0],
-                    [0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0],
-                    [0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0],
-                ],
-            ),
-            np.array(
-                [
-                    [0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                    [0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0],
-                    [0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0],
-                    [0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0],
-                    [0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0],
-                    [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
-                    [0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0],
-                    [0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0],
-                    [0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0],
-                    [0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0],
-                    [0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                ],
-            ),
-        ]
-        truths = [t.astype(bool) for t in truths]
-        for r, truth in zip(range(1, len(truths) + 1), truths):
-            window = focal.get_focal_window(r)
-            self.assertTrue(array_eq_all(window, truth))
-            self.assertEqual(window.dtype, bool)
-        for w in range(1, 6):
-            for h in range(1, 6):
-                window = focal.get_focal_window(w, h)
-                self.assertTrue(array_eq_all(window, np.ones((w, h))))
-                self.assertEqual(window.dtype, bool)
+def test_get_focal_window_annulus():
+    truths = [
+        np.array([[0, 1, 0], [1, 0, 1], [0, 1, 0]]),
+        np.array(
+            [
+                [0, 0, 1, 0, 0],
+                [0, 1, 1, 1, 0],
+                [1, 1, 0, 1, 1],
+                [0, 1, 1, 1, 0],
+                [0, 0, 1, 0, 0],
+            ]
+        ),
+        np.array(
+            [
+                [0, 0, 1, 0, 0],
+                [0, 1, 0, 1, 0],
+                [1, 0, 0, 0, 1],
+                [0, 1, 0, 1, 0],
+                [0, 0, 1, 0, 0],
+            ]
+        ),
+        np.array(
+            [
+                [0, 0, 0, 1, 0, 0, 0],
+                [0, 1, 1, 1, 1, 1, 0],
+                [0, 1, 1, 1, 1, 1, 0],
+                [1, 1, 1, 0, 1, 1, 1],
+                [0, 1, 1, 1, 1, 1, 0],
+                [0, 1, 1, 1, 1, 1, 0],
+                [0, 0, 0, 1, 0, 0, 0],
+            ]
+        ),
+        np.array(
+            [
+                [0, 0, 0, 1, 0, 0, 0],
+                [0, 1, 1, 1, 1, 1, 0],
+                [0, 1, 1, 0, 1, 1, 0],
+                [1, 1, 0, 0, 0, 1, 1],
+                [0, 1, 1, 0, 1, 1, 0],
+                [0, 1, 1, 1, 1, 1, 0],
+                [0, 0, 0, 1, 0, 0, 0],
+            ]
+        ),
+        np.array(
+            [
+                [0, 0, 0, 1, 0, 0, 0],
+                [0, 1, 1, 0, 1, 1, 0],
+                [0, 1, 0, 0, 0, 1, 0],
+                [1, 0, 0, 0, 0, 0, 1],
+                [0, 1, 0, 0, 0, 1, 0],
+                [0, 1, 1, 0, 1, 1, 0],
+                [0, 0, 0, 1, 0, 0, 0],
+            ]
+        ),
+        np.array(
+            [
+                [0, 0, 0, 0, 1, 0, 0, 0, 0],
+                [0, 0, 1, 1, 1, 1, 1, 0, 0],
+                [0, 1, 1, 1, 1, 1, 1, 1, 0],
+                [0, 1, 1, 1, 1, 1, 1, 1, 0],
+                [1, 1, 1, 1, 0, 1, 1, 1, 1],
+                [0, 1, 1, 1, 1, 1, 1, 1, 0],
+                [0, 1, 1, 1, 1, 1, 1, 1, 0],
+                [0, 0, 1, 1, 1, 1, 1, 0, 0],
+                [0, 0, 0, 0, 1, 0, 0, 0, 0],
+            ]
+        ),
+        np.array(
+            [
+                [0, 0, 0, 0, 1, 0, 0, 0, 0],
+                [0, 0, 1, 1, 1, 1, 1, 0, 0],
+                [0, 1, 1, 1, 1, 1, 1, 1, 0],
+                [0, 1, 1, 1, 0, 1, 1, 1, 0],
+                [1, 1, 1, 0, 0, 0, 1, 1, 1],
+                [0, 1, 1, 1, 0, 1, 1, 1, 0],
+                [0, 1, 1, 1, 1, 1, 1, 1, 0],
+                [0, 0, 1, 1, 1, 1, 1, 0, 0],
+                [0, 0, 0, 0, 1, 0, 0, 0, 0],
+            ]
+        ),
+        np.array(
+            [
+                [0, 0, 0, 0, 1, 0, 0, 0, 0],
+                [0, 0, 1, 1, 1, 1, 1, 0, 0],
+                [0, 1, 1, 1, 0, 1, 1, 1, 0],
+                [0, 1, 1, 0, 0, 0, 1, 1, 0],
+                [1, 1, 0, 0, 0, 0, 0, 1, 1],
+                [0, 1, 1, 0, 0, 0, 1, 1, 0],
+                [0, 1, 1, 1, 0, 1, 1, 1, 0],
+                [0, 0, 1, 1, 1, 1, 1, 0, 0],
+                [0, 0, 0, 0, 1, 0, 0, 0, 0],
+            ]
+        ),
+        np.array(
+            [
+                [0, 0, 0, 0, 1, 0, 0, 0, 0],
+                [0, 0, 1, 1, 0, 1, 1, 0, 0],
+                [0, 1, 0, 0, 0, 0, 0, 1, 0],
+                [0, 1, 0, 0, 0, 0, 0, 1, 0],
+                [1, 0, 0, 0, 0, 0, 0, 0, 1],
+                [0, 1, 0, 0, 0, 0, 0, 1, 0],
+                [0, 1, 0, 0, 0, 0, 0, 1, 0],
+                [0, 0, 1, 1, 0, 1, 1, 0, 0],
+                [0, 0, 0, 0, 1, 0, 0, 0, 0],
+            ]
+        ),
+        np.array(
+            [
+                [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0],
+                [0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0],
+                [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
+                [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
+                [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
+                [1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1],
+                [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
+                [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
+                [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
+                [0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0],
+                [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0],
+            ]
+        ),
+        np.array(
+            [
+                [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0],
+                [0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0],
+                [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
+                [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
+                [0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0],
+                [1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1],
+                [0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0],
+                [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
+                [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
+                [0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0],
+                [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0],
+            ]
+        ),
+        np.array(
+            [
+                [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0],
+                [0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0],
+                [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
+                [0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0],
+                [0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0],
+                [1, 1, 1, 0, 0, 0, 0, 0, 1, 1, 1],
+                [0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0],
+                [0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0],
+                [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
+                [0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0],
+                [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0],
+            ]
+        ),
+        np.array(
+            [
+                [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0],
+                [0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0],
+                [0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0],
+                [0, 1, 1, 0, 0, 0, 0, 0, 1, 1, 0],
+                [0, 1, 1, 0, 0, 0, 0, 0, 1, 1, 0],
+                [1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1],
+                [0, 1, 1, 0, 0, 0, 0, 0, 1, 1, 0],
+                [0, 1, 1, 0, 0, 0, 0, 0, 1, 1, 0],
+                [0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0],
+                [0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0],
+                [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0],
+            ]
+        ),
+        np.array(
+            [
+                [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0],
+                [0, 0, 1, 1, 1, 0, 1, 1, 1, 0, 0],
+                [0, 1, 1, 0, 0, 0, 0, 0, 1, 1, 0],
+                [0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0],
+                [0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0],
+                [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+                [0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0],
+                [0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0],
+                [0, 1, 1, 0, 0, 0, 0, 0, 1, 1, 0],
+                [0, 0, 1, 1, 1, 0, 1, 1, 1, 0, 0],
+                [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0],
+            ]
+        ),
+    ]
+    truths = [t.astype(bool) for t in truths]
+    i = 0
+    for r2 in range(1, 7):
+        for r1 in range(1, r2):
+            if r1 >= r2:
+                continue
+            w = focal.get_focal_window((r1, r2))
+            t = truths[i]
+            assert np.allclose(w, t)
+            i += 1
 
-    def test_get_focal_window_annulus(self):
-        truths = [
-            np.array([[0, 1, 0], [1, 0, 1], [0, 1, 0]]),
-            np.array(
-                [
-                    [0, 0, 1, 0, 0],
-                    [0, 1, 1, 1, 0],
-                    [1, 1, 0, 1, 1],
-                    [0, 1, 1, 1, 0],
-                    [0, 0, 1, 0, 0],
-                ]
-            ),
-            np.array(
-                [
-                    [0, 0, 1, 0, 0],
-                    [0, 1, 0, 1, 0],
-                    [1, 0, 0, 0, 1],
-                    [0, 1, 0, 1, 0],
-                    [0, 0, 1, 0, 0],
-                ]
-            ),
-            np.array(
-                [
-                    [0, 0, 0, 1, 0, 0, 0],
-                    [0, 1, 1, 1, 1, 1, 0],
-                    [0, 1, 1, 1, 1, 1, 0],
-                    [1, 1, 1, 0, 1, 1, 1],
-                    [0, 1, 1, 1, 1, 1, 0],
-                    [0, 1, 1, 1, 1, 1, 0],
-                    [0, 0, 0, 1, 0, 0, 0],
-                ]
-            ),
-            np.array(
-                [
-                    [0, 0, 0, 1, 0, 0, 0],
-                    [0, 1, 1, 1, 1, 1, 0],
-                    [0, 1, 1, 0, 1, 1, 0],
-                    [1, 1, 0, 0, 0, 1, 1],
-                    [0, 1, 1, 0, 1, 1, 0],
-                    [0, 1, 1, 1, 1, 1, 0],
-                    [0, 0, 0, 1, 0, 0, 0],
-                ]
-            ),
-            np.array(
-                [
-                    [0, 0, 0, 1, 0, 0, 0],
-                    [0, 1, 1, 0, 1, 1, 0],
-                    [0, 1, 0, 0, 0, 1, 0],
-                    [1, 0, 0, 0, 0, 0, 1],
-                    [0, 1, 0, 0, 0, 1, 0],
-                    [0, 1, 1, 0, 1, 1, 0],
-                    [0, 0, 0, 1, 0, 0, 0],
-                ]
-            ),
-            np.array(
-                [
-                    [0, 0, 0, 0, 1, 0, 0, 0, 0],
-                    [0, 0, 1, 1, 1, 1, 1, 0, 0],
-                    [0, 1, 1, 1, 1, 1, 1, 1, 0],
-                    [0, 1, 1, 1, 1, 1, 1, 1, 0],
-                    [1, 1, 1, 1, 0, 1, 1, 1, 1],
-                    [0, 1, 1, 1, 1, 1, 1, 1, 0],
-                    [0, 1, 1, 1, 1, 1, 1, 1, 0],
-                    [0, 0, 1, 1, 1, 1, 1, 0, 0],
-                    [0, 0, 0, 0, 1, 0, 0, 0, 0],
-                ]
-            ),
-            np.array(
-                [
-                    [0, 0, 0, 0, 1, 0, 0, 0, 0],
-                    [0, 0, 1, 1, 1, 1, 1, 0, 0],
-                    [0, 1, 1, 1, 1, 1, 1, 1, 0],
-                    [0, 1, 1, 1, 0, 1, 1, 1, 0],
-                    [1, 1, 1, 0, 0, 0, 1, 1, 1],
-                    [0, 1, 1, 1, 0, 1, 1, 1, 0],
-                    [0, 1, 1, 1, 1, 1, 1, 1, 0],
-                    [0, 0, 1, 1, 1, 1, 1, 0, 0],
-                    [0, 0, 0, 0, 1, 0, 0, 0, 0],
-                ]
-            ),
-            np.array(
-                [
-                    [0, 0, 0, 0, 1, 0, 0, 0, 0],
-                    [0, 0, 1, 1, 1, 1, 1, 0, 0],
-                    [0, 1, 1, 1, 0, 1, 1, 1, 0],
-                    [0, 1, 1, 0, 0, 0, 1, 1, 0],
-                    [1, 1, 0, 0, 0, 0, 0, 1, 1],
-                    [0, 1, 1, 0, 0, 0, 1, 1, 0],
-                    [0, 1, 1, 1, 0, 1, 1, 1, 0],
-                    [0, 0, 1, 1, 1, 1, 1, 0, 0],
-                    [0, 0, 0, 0, 1, 0, 0, 0, 0],
-                ]
-            ),
-            np.array(
-                [
-                    [0, 0, 0, 0, 1, 0, 0, 0, 0],
-                    [0, 0, 1, 1, 0, 1, 1, 0, 0],
-                    [0, 1, 0, 0, 0, 0, 0, 1, 0],
-                    [0, 1, 0, 0, 0, 0, 0, 1, 0],
-                    [1, 0, 0, 0, 0, 0, 0, 0, 1],
-                    [0, 1, 0, 0, 0, 0, 0, 1, 0],
-                    [0, 1, 0, 0, 0, 0, 0, 1, 0],
-                    [0, 0, 1, 1, 0, 1, 1, 0, 0],
-                    [0, 0, 0, 0, 1, 0, 0, 0, 0],
-                ]
-            ),
-            np.array(
-                [
-                    [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0],
-                    [0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0],
-                    [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
-                    [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
-                    [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
-                    [1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1],
-                    [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
-                    [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
-                    [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
-                    [0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0],
-                    [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0],
-                ]
-            ),
-            np.array(
-                [
-                    [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0],
-                    [0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0],
-                    [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
-                    [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
-                    [0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0],
-                    [1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1],
-                    [0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0],
-                    [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
-                    [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
-                    [0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0],
-                    [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0],
-                ]
-            ),
-            np.array(
-                [
-                    [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0],
-                    [0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0],
-                    [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
-                    [0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0],
-                    [0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0],
-                    [1, 1, 1, 0, 0, 0, 0, 0, 1, 1, 1],
-                    [0, 1, 1, 1, 0, 0, 0, 1, 1, 1, 0],
-                    [0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0],
-                    [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
-                    [0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0],
-                    [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0],
-                ]
-            ),
-            np.array(
-                [
-                    [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0],
-                    [0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0],
-                    [0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0],
-                    [0, 1, 1, 0, 0, 0, 0, 0, 1, 1, 0],
-                    [0, 1, 1, 0, 0, 0, 0, 0, 1, 1, 0],
-                    [1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1],
-                    [0, 1, 1, 0, 0, 0, 0, 0, 1, 1, 0],
-                    [0, 1, 1, 0, 0, 0, 0, 0, 1, 1, 0],
-                    [0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0],
-                    [0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0],
-                    [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0],
-                ]
-            ),
-            np.array(
-                [
-                    [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0],
-                    [0, 0, 1, 1, 1, 0, 1, 1, 1, 0, 0],
-                    [0, 1, 1, 0, 0, 0, 0, 0, 1, 1, 0],
-                    [0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0],
-                    [0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0],
-                    [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-                    [0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0],
-                    [0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0],
-                    [0, 1, 1, 0, 0, 0, 0, 0, 1, 1, 0],
-                    [0, 0, 1, 1, 1, 0, 1, 1, 1, 0, 0],
-                    [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0],
-                ]
-            ),
-        ]
-        truths = [t.astype(bool) for t in truths]
-        i = 0
-        for r2 in range(1, 7):
-            for r1 in range(1, r2):
-                if r1 >= r2:
-                    continue
-                w = focal.get_focal_window((r1, r2))
-                t = truths[i]
-                self.assertTrue(array_eq_all(w, t))
-                i += 1
 
-    def test_get_focal_window_errors(self):
-        for r in [-2, -1, 0]:
-            with self.assertRaises(ValueError):
-                focal.get_focal_window(r)
-        for r in [2.3, 4.999, 3.0, None, "4"]:
-            with self.assertRaises(TypeError):
-                focal.get_focal_window(r)
-        for rvalues in [(0, 3), (3, 3), (3, 1), (-1, 3), (-3, -1)]:
-            with self.assertRaises(ValueError):
-                focal.get_focal_window(rvalues)
-        for rvalues in [(3.0, 4), (2.1, 3.0), (3, 5.0)]:
-            with self.assertRaises(TypeError):
-                focal.get_focal_window(rvalues)
-        for args in [(-1, 4), (0, 3), (3, -3)]:
-            with self.assertRaises(ValueError):
-                focal.get_focal_window(*args)
-        for args in [(3.0, 3.0), (4, 3.0)]:
-            with self.assertRaises(TypeError):
-                focal.get_focal_window(*args)
-        with self.assertRaises(ValueError):
-            focal.get_focal_window((2, 4), 5)
+def test_get_focal_window_errors():
+    for r in [-2, -1, 0]:
+        with pytest.raises(ValueError):
+            focal.get_focal_window(r)
+    for r in [2.3, 4.999, 3.0, None, "4"]:
+        with pytest.raises(TypeError):
+            focal.get_focal_window(r)
+    for rvalues in [(0, 3), (3, 3), (3, 1), (-1, 3), (-3, -1)]:
+        with pytest.raises(ValueError):
+            focal.get_focal_window(rvalues)
+    for rvalues in [(3.0, 4), (2.1, 3.0), (3, 5.0)]:
+        with pytest.raises(TypeError):
+            focal.get_focal_window(rvalues)
+    for args in [(-1, 4), (0, 3), (3, -3)]:
+        with pytest.raises(ValueError):
+            focal.get_focal_window(*args)
+    for args in [(3.0, 3.0), (4, 3.0)]:
+        with pytest.raises(TypeError):
+            focal.get_focal_window(*args)
+    with pytest.raises(ValueError):
+        focal.get_focal_window((2, 4), 5)
 
-    def test_focal_return_dask(self):
-        x = np.arange(16.0).reshape(4, 4)
-        kern = focal.get_focal_window(2)
-        self.assertTrue(
-            dask.is_dask_collection(focal._focal(x, kern, "max", True))
-        )
-        self.assertTrue(
-            dask.is_dask_collection(focal._focal(x, kern, "max", False))
-        )
-        xd = dask.array.from_array(x)
-        self.assertTrue(
-            dask.is_dask_collection(focal._focal(xd, kern, "max", True))
-        )
-        self.assertTrue(
-            dask.is_dask_collection(focal._focal(xd, kern, "max", False))
-        )
+
+def test_focal_return_dask():
+    x = np.arange(16.0).reshape(4, 4)
+    kern = focal.get_focal_window(2)
+    assert dask.is_dask_collection(focal._focal(x, kern, "max", True))
+    assert dask.is_dask_collection(focal._focal(x, kern, "max", False))
+    xd = dask.array.from_array(x)
+    assert dask.is_dask_collection(focal._focal(xd, kern, "max", True))
+    assert dask.is_dask_collection(focal._focal(xd, kern, "max", False))
 
 
 def asm(x):
@@ -399,7 +389,7 @@ def test_focal(filter_name, filter_func, kernel, kernel_params):
     mask = np.isnan(x)
     rx = Raster(x).set_null_value(np.nan)
     truth = ndimage.generic_filter(
-        rx._data[0].compute(),
+        rx.xdata.data[0].compute(),
         filter_func,
         footprint=kernel,
         mode="constant",
@@ -409,7 +399,8 @@ def test_focal(filter_name, filter_func, kernel, kernel_params):
     assert np.allclose(truth, res, equal_nan=True)
 
     result_raster = focal.focal(rx, filter_name, *kernel_params)
-    res_full = result_raster._values[0]
+    assert_valid_raster(result_raster)
+    res_full = result_raster.values[0]
     # Fill with null value
     assert np.allclose(
         np.where(mask, result_raster.null_value, truth),
@@ -418,164 +409,197 @@ def test_focal(filter_name, filter_func, kernel, kernel_params):
     )
 
 
-class TestCorrelate(unittest.TestCase):
-    def test_correlate_return_dask(self):
-        x = np.arange(16.0).reshape(4, 4)
-        kern = focal.get_focal_window(2)
-        self.assertTrue(dask.is_dask_collection(focal._correlate(x, kern)))
-
-    def test_focal_correlate(self):
-        for kern in [np.ones((5, 5)), np.ones((4, 4))]:
-            func = partial(correlate, kern=kern)
-            for nan_aware in [False, True]:
-                data = np.arange(64.0).reshape(8, 8)
-                if nan_aware:
-                    data[:3, :3] = np.nan
-                for mode in ["reflect", "nearest", "wrap", "constant"]:
-                    origin = [-1 if d % 2 == 0 else 0 for d in kern.shape]
-                    truth = ndimage.generic_filter(
-                        data, func, size=kern.shape, mode=mode, origin=origin
-                    )
-                    test = focal._correlate(
-                        data, kern, mode=mode, nan_aware=nan_aware
-                    ).compute()
-                    self.assertTrue(
-                        np.allclose(truth, test, equal_nan=nan_aware)
-                    )
+def test_correlate_return_dask():
+    x = np.arange(16.0).reshape(4, 4)
+    kern = focal.get_focal_window(2)
+    assert dask.is_dask_collection(focal._correlate(x, kern))
 
 
-class TestFocalIntegration(unittest.TestCase):
-    def test_focal_integration(self):
-        rs = Raster("tests/data/multiband_small.tif")
-        rsnp = rs.xrs.values
-        truth = rsnp.astype(float)
-        for bnd in range(truth.shape[0]):
-            truth[bnd] = ndimage.generic_filter(
-                truth[bnd], np.nanmean, size=3, mode="constant", cval=np.nan
-            )
-        res = focal.focal(rs, "mean", 3, 3).eval().xrs.values
-        self.assertTrue(np.allclose(truth, res, equal_nan=True))
-        truth = rsnp.astype(float)
-        kern = focal.get_focal_window(3)
-        for bnd in range(truth.shape[0]):
-            truth[bnd] = ndimage.generic_filter(
-                truth[bnd],
-                np.nanmedian,
-                footprint=kern,
-                mode="constant",
-                cval=np.nan,
-            )
-        res = focal.focal(rs, "median", 3).eval().xrs.values
-        self.assertTrue(np.allclose(truth, res, equal_nan=True))
-
-    def test_focal_integration_raster_input(self):
-        rs = Raster("tests/data/multiband_small.tif")
-        rsnp = rs.xrs.values
-        with self.assertRaises(TypeError):
-            focal.focal(rsnp, "median", 3)
-        res = focal.focal(rs, "mean", 1).eval().xrs.values
-        self.assertTrue(np.allclose(rsnp, res, equal_nan=True))
-
-    def test_focal_output_type(self):
-        rs = Raster("tests/data/multiband_small.tif") * 100
-        rs_masked = rs.set_null_value(-1).astype(int)
-        rsi = rs.set_null_value(None).astype(int)
-
-        # Masked
-        self.assertTrue(rs_masked._masked)
-        self.assertTrue(rs_masked.dtype.kind == "i")
-        res = focal.focal(rs_masked, "mode", 3).eval()
-        self.assertTrue(res.dtype.kind == "f")
-        res = focal.focal(rs_masked, "unique", 3).eval()
-        self.assertTrue(res.dtype.kind == "f")
-        res = focal.focal(rs_masked, "mean", 3).eval()
-        self.assertTrue(res.dtype.kind == "f")
-
-        # Unmasked
-        self.assertFalse(rsi._masked)
-        self.assertTrue(rsi.dtype.kind == "i")
-        res = focal.focal(rsi, "mode", 3).eval()
-        self.assertTrue(res.dtype.kind == "i")
-        res = focal.focal(rsi, "unique", 3).eval()
-        self.assertTrue(res.dtype.kind == "u")
-        res = focal.focal(rsi, "mean", 3).eval()
-        self.assertTrue(res.dtype.kind == "f")
+def test_focal_correlate():
+    for kern in [np.ones((5, 5)), np.ones((4, 4))]:
+        func = partial(correlate, kern=kern)
+        for nan_aware in [False, True]:
+            data = np.arange(64.0).reshape(8, 8)
+            if nan_aware:
+                data[:3, :3] = np.nan
+            for mode in ["reflect", "nearest", "wrap", "constant"]:
+                origin = [-1 if d % 2 == 0 else 0 for d in kern.shape]
+                truth = ndimage.generic_filter(
+                    data, func, size=kern.shape, mode=mode, origin=origin
+                )
+                test = focal._correlate(
+                    data, kern, mode=mode, nan_aware=nan_aware
+                ).compute()
+                assert np.allclose(truth, test, equal_nan=nan_aware)
 
 
-class TestCorrelateConvolveIntegration(unittest.TestCase):
-    def test_correlate_integration(self):
-        rs = Raster("tests/data/multiband_small.tif").astype(float)
-        rsnp = rs.xrs.values
-        truth = rsnp.astype(float)
-        kernel = np.array([[1, 1, 1], [1, 1, 0], [1, 0, 0]]).astype(float)
-        for bnd in range(truth.shape[0]):
-            truth[bnd] = ndimage.generic_filter(
-                truth[bnd], np.sum, footprint=kernel, mode="constant"
-            )
-        res = focal.correlate(rs, kernel).eval().xrs.values
-        self.assertTrue(np.allclose(truth, res, equal_nan=False))
+def test_focal_integration():
+    rs = Raster("tests/data/raster/multiband_small.tif")
+    rsnp = rs.values
+    truth = rsnp.astype(float)
+    for bnd in range(truth.shape[0]):
+        truth[bnd] = ndimage.generic_filter(
+            truth[bnd], np.nanmean, size=3, mode="constant", cval=np.nan
+        )
+    res_raster = focal.focal(rs, "mean", 3, 3)
+    assert_valid_raster(res_raster)
+    assert res_raster.crs == rs.crs
+    res = res_raster.values
+    assert np.allclose(truth, res, equal_nan=True)
+    truth = rsnp.astype(float)
+    kern = focal.get_focal_window(3)
+    for bnd in range(truth.shape[0]):
+        truth[bnd] = ndimage.generic_filter(
+            truth[bnd],
+            np.nanmedian,
+            footprint=kern,
+            mode="constant",
+            cval=np.nan,
+        )
+    res_raster = focal.focal(rs, "median", 3)
+    assert_valid_raster(res_raster)
+    assert res_raster.crs == rs.crs
+    res = res_raster.values
+    assert np.allclose(truth, res, equal_nan=True)
 
-        truth = rsnp.astype(float)
-        truth[:, :3, :3] = np.nan
-        kern = focal.get_focal_window(3)
-        for bnd in range(truth.shape[0]):
-            truth[bnd] = ndimage.generic_filter(
-                truth[bnd],
-                np.nansum,
-                footprint=kern,
-                mode="constant",
-            )
-        rs._data[:, :3, :3] = -1
-        rs = rs.set_null_value(-1)
-        res = focal.correlate(rs, kern).eval().xrs.values
-        self.assertTrue(np.allclose(truth, res, equal_nan=True))
 
-    def test_convolve_integration(self):
-        rs = Raster("tests/data/multiband_small.tif").astype(float)
-        rsnp = rs.xrs.values
-        truth = rsnp.astype(float)
-        kernel = np.array([[1, 1, 1], [1, 1, 0], [1, 0, 0]]).astype(float)
-        for bnd in range(truth.shape[0]):
-            truth[bnd] = ndimage.generic_filter(
-                truth[bnd],
-                np.sum,
-                footprint=kernel[::-1, ::-1],
-                mode="constant",
-            )
-        res = focal.convolve(rs, kernel).eval().xrs.values
-        self.assertTrue(np.allclose(truth, res, equal_nan=False))
+def test_focal_integration_raster_input():
+    rs = Raster("tests/data/raster/multiband_small.tif")
+    rsnp = rs.values
+    with pytest.raises(TypeError):
+        focal.focal(rsnp, "median", 3)
+    res_raster = focal.focal(rs, "mean", 1)
+    assert_valid_raster(res_raster)
+    assert res_raster.crs == rs.crs
+    res = res_raster.values
+    assert np.allclose(rsnp, res, equal_nan=True)
 
-        truth = rsnp.astype(float)
-        truth[:, :3, :3] = np.nan
-        for bnd in range(truth.shape[0]):
-            truth[bnd] = ndimage.generic_filter(
-                truth[bnd],
-                np.nansum,
-                footprint=kernel[::-1, ::-1],
-                mode="constant",
-            )
-        rs._data[:, :3, :3] = -1
-        rs = rs.set_null_value(-1)
-        res = focal.convolve(rs, kernel).eval().xrs.values
-        self.assertTrue(np.allclose(truth, res, equal_nan=True))
 
-    def test_correlate_integration_raster_input(self):
-        rs = Raster("tests/data/multiband_small.tif")
-        rsnp = rs.xrs.values
-        with self.assertRaises(TypeError):
-            focal.correlate(rsnp, 3)
-        res = focal.correlate(rs, np.ones((1, 1))).eval().xrs.values
-        self.assertTrue(np.allclose(rsnp, res, equal_nan=True))
+def test_focal_output_type():
+    rs = Raster("tests/data/raster/multiband_small.tif") * 100
+    rs_masked = rs.set_null_value(-1).astype(int)
+    rsi = rs.set_null_value(None).astype(int)
 
-    def test_correlate_output_type(self):
-        rs = Raster("tests/data/multiband_small.tif") * 100
-        rs = rs.set_null_value(-1)
-        rs = rs.astype(int)
+    # Masked
+    assert rs_masked._masked
+    assert rs_masked.dtype.kind == "i"
+    res = focal.focal(rs_masked, "mode", 3)
+    assert_valid_raster(res)
+    res = res.eval()
+    assert res.dtype.kind == "f"
+    res = focal.focal(rs_masked, "unique", 3)
+    assert_valid_raster(res)
+    res = res.eval()
+    assert res.dtype.kind == "f"
+    res = focal.focal(rs_masked, "mean", 3)
+    assert_valid_raster(res)
+    res = res.eval()
+    assert res.dtype.kind == "f"
 
-        self.assertTrue(rs._masked)
-        self.assertTrue(rs.dtype.kind == "i")
-        res = focal.correlate(rs, np.ones((3, 3), dtype=int)).eval()
-        self.assertTrue(res.dtype == rs.dtype)
+    # Unmasked
+    assert not rsi._masked
+    assert rsi.dtype.kind == "i"
+    res = focal.focal(rsi, "mode", 3).eval()
+    assert res.dtype.kind == "i"
+    res = focal.focal(rsi, "unique", 3).eval()
+    assert res.dtype.kind == "u"
+    res = focal.focal(rsi, "mean", 3).eval()
+    assert res.dtype.kind == "f"
 
-        res = focal.correlate(rs, np.ones((3, 3), dtype=float)).eval()
-        self.assertTrue(res.dtype.kind == "f")
+
+def test_correlate_integration():
+    rs = Raster("tests/data/raster/multiband_small.tif").astype(float)
+    rsnp = rs.values
+    truth = rsnp.astype(float)
+    kernel = np.array([[1, 1, 1], [1, 1, 0], [1, 0, 0]]).astype(float)
+    for bnd in range(truth.shape[0]):
+        truth[bnd] = ndimage.generic_filter(
+            truth[bnd], np.sum, footprint=kernel, mode="constant"
+        )
+    res_raster = focal.correlate(rs, kernel)
+    assert_valid_raster(res_raster)
+    assert res_raster.crs == rs.crs
+    res = res_raster.values
+    assert np.allclose(truth, res, equal_nan=False)
+
+    truth = rsnp.astype(float)
+    truth[:, :3, :3] = np.nan
+    kern = focal.get_focal_window(3)
+    for bnd in range(truth.shape[0]):
+        truth[bnd] = ndimage.generic_filter(
+            truth[bnd],
+            np.nansum,
+            footprint=kern,
+            mode="constant",
+        )
+    rs.xdata.data[:, :3, :3] = -1
+    rs = rs.set_null_value(-1)
+    res_raster = focal.correlate(rs, kern)
+    assert_valid_raster(res_raster)
+    assert res_raster.crs == rs.crs
+    res = res_raster.values
+    truth[res_raster.xmask.values] = res_raster.null_value
+    assert np.allclose(truth, res, equal_nan=True)
+
+
+def test_convolve_integration():
+    rs = Raster("tests/data/raster/multiband_small.tif").astype(float)
+    rsnp = rs.values
+    truth = rsnp.astype(float)
+    kernel = np.array([[1, 1, 1], [1, 1, 0], [1, 0, 0]]).astype(float)
+    for bnd in range(truth.shape[0]):
+        truth[bnd] = ndimage.generic_filter(
+            truth[bnd],
+            np.sum,
+            footprint=kernel[::-1, ::-1],
+            mode="constant",
+        )
+    res_raster = focal.convolve(rs, kernel)
+    assert_valid_raster(res_raster)
+    assert res_raster.crs == rs.crs
+    res = res_raster.values
+    assert np.allclose(truth, res, equal_nan=False)
+
+    truth = rsnp.astype(float)
+    truth[:, :3, :3] = np.nan
+    for bnd in range(truth.shape[0]):
+        truth[bnd] = ndimage.generic_filter(
+            truth[bnd],
+            np.nansum,
+            footprint=kernel[::-1, ::-1],
+            mode="constant",
+        )
+    rs.xdata.data[:, :3, :3] = -1
+    rs = rs.set_null_value(-1)
+    res_raster = focal.convolve(rs, kernel)
+    assert_valid_raster(res_raster)
+    assert res_raster.crs == rs.crs
+    res = res_raster.values
+    truth[res_raster.xmask.values] = res_raster.null_value
+    assert np.allclose(truth, res, equal_nan=True)
+
+
+def test_correlate_integration_raster_input():
+    rs = Raster("tests/data/raster/multiband_small.tif")
+    rsnp = rs.values
+    with pytest.raises(TypeError):
+        focal.correlate(rsnp, 3)
+    res_raster = focal.correlate(rs, np.ones((1, 1)))
+    assert_valid_raster(res_raster)
+    assert res_raster.crs == rs.crs
+    res = res_raster
+    assert np.allclose(rsnp, res, equal_nan=True)
+
+
+def test_correlate_output_type():
+    rs = Raster("tests/data/raster/multiband_small.tif") * 100
+    rs = rs.set_null_value(-1)
+    rs = rs.astype(int)
+
+    assert rs._masked
+    assert rs.dtype.kind == "i"
+    res = focal.correlate(rs, np.ones((3, 3), dtype=int)).eval()
+    assert res.dtype == rs.dtype
+
+    res = focal.correlate(rs, np.ones((3, 3), dtype=float)).eval()
+    assert res.dtype.kind == "f"

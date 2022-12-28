@@ -40,7 +40,7 @@ all_stats = {
 
 class TestZonalStats(TestCase):
     def setUp(self):
-        self.dem = Raster("tests/data/elevation.tif")
+        self.dem = Raster("tests/data/raster/elevation.tif")
         self.dem_np = np.array(self.dem)
         self.vc = open_vectors("tests/data/vector/pods_first_10.shp")
         self.vc_rasters = [v.to_raster(self.dem).eval() for v in self.vc]

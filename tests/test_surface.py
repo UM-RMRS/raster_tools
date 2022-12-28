@@ -7,32 +7,41 @@ from raster_tools.dtypes import I32
 from raster_tools.general import band_concat
 from raster_tools.masking import get_default_null_value
 from raster_tools.raster import Raster
+from tests.utils import assert_valid_raster
 
 
 class TestSurface(unittest.TestCase):
     def setUp(self):
-        self.dem = Raster("tests/data/elevation.tif")
+        self.dem = Raster("tests/data/raster/elevation.tif")
 
     # TODO: add test for surface_area_3d
 
     def test_slope(self):
-        slope = surface.slope(self.dem)
         truth = Raster("tests/data/raster/slope.tif")
 
         # Test default degrees
+        slope = surface.slope(self.dem)
+        assert_valid_raster(slope)
+        assert slope.crs == self.dem.crs
         self.assertTrue(slope._masked)
         self.assertTrue(slope.null_value == self.dem.null_value)
-        self.assertTrue(np.allclose(slope, truth))
+        assert np.allclose(slope, truth)
         self.assertTrue(slope.dtype == np.dtype("float64"))
+
         # Test degrees=True
         slope = surface.slope(self.dem, degrees=True)
+        assert_valid_raster(slope)
+        assert slope.crs == self.dem.crs
         self.assertTrue(slope._masked)
         self.assertTrue(slope.null_value == self.dem.null_value)
-        self.assertTrue(np.allclose(slope, truth))
+        assert np.allclose(slope, truth)
         self.assertTrue(slope.dtype == np.dtype("float64"))
+
         # Test degrees=False
         truth = Raster("tests/data/raster/slope_percent.tif")
         slope = surface.slope(self.dem, degrees=False)
+        assert_valid_raster(slope)
+        assert slope.crs == self.dem.crs
         self.assertTrue(slope._masked)
         self.assertTrue(slope.null_value == self.dem.null_value)
         self.assertTrue(np.allclose(slope, truth))
@@ -42,6 +51,7 @@ class TestSurface(unittest.TestCase):
         aspect = surface.aspect(self.dem)
         truth = Raster("tests/data/raster/aspect.tif")
 
+        assert_valid_raster(aspect)
         self.assertTrue(aspect._masked)
         self.assertTrue(aspect.null_value == self.dem.null_value)
         self.assertTrue(np.allclose(aspect, truth, 4e-5))
@@ -57,7 +67,7 @@ class TestSurface(unittest.TestCase):
         # surface.curvature does not so we ignore the edges in the comparison.
         ss = (..., slice(1, -1, 1), slice(1, -1, 1))
         self.assertTrue(
-            np.allclose(curv._data[ss].compute(), truth._data[ss].compute())
+            np.allclose(curv.data[ss].compute(), truth.data[ss].compute())
         )
         self.assertTrue(curv.dtype == np.dtype("float64"))
 
@@ -103,7 +113,7 @@ class TestSurface(unittest.TestCase):
 
 
 def test_tpi():
-    dem = Raster("tests/data/elevation_small.tif")
+    dem = Raster("tests/data/raster/elevation_small.tif")
     truth = ((dem - focal.focal(dem, "mean", (5, 11))) + 0.5).astype(
         I32, False
     )

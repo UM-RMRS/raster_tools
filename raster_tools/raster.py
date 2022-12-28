@@ -1,6 +1,6 @@
 import numbers
 import sys
-from collections import abc
+import warnings
 
 import dask
 import dask.array as da
@@ -12,7 +12,6 @@ from affine import Affine
 from numba import jit
 from shapely.geometry import Point
 
-from raster_tools._utils import is_dask, is_numpy, is_numpy_masked, is_xarray
 from raster_tools.dask_utils import dask_nanmax, dask_nanmin
 from raster_tools.dtypes import (
     DTYPE_INPUT_TO_DTYPE,
@@ -29,6 +28,7 @@ from raster_tools.masking import (
     get_default_null_value,
     reconcile_nullvalue_with_dtype,
 )
+from raster_tools.utils import can_broadcast, make_raster_ds, merge_masks
 
 from .io import (
     IO_UNDERSTOOD_TYPES,
@@ -120,112 +120,117 @@ class _ReductionsMixin:
 
         def method(self, *args, **kwargs):
             # Take args and kwargs to stay compatible with numpy
-            data = self._rs.data
-            values = data[~self._mask]
+            data = self.data
+            values = data[~self._ds.mask.data]
             return func(values)
 
         return method
 
 
-def _normalize_ndarray_for_ufunc(other, target_shape):
-    if isinstance(other, da.Array) and np.isnan(other.size):
-        raise ValueError(
-            "Arithmetic with dask arrays only works for arrays with "
-            "known chunks."
-        )
-    if other.size == 1:
-        return other.ravel()
-    try:
-        if np.broadcast_shapes(target_shape, other.shape) == target_shape:
-            return other
-    except ValueError:
-        if len(other.shape) == 1 and other.size == target_shape[0]:
-            # Map a list/array of values that has same length as # of bands to
-            # each band
-            return other.reshape((other.size, 1, 1))
-    raise ValueError(
-        "Received array with incompatible shape in arithmetic: "
-        f"{other.shape}"
-    )
+def _normalize_ufunc_other(other, this):
+    if other is None or isinstance(other, numbers.Number):
+        return other
 
-
-def _normalize_input_for_ufunc(other, target_shape):
-    from raster_tools.raster import Raster
-
-    if isinstance(other, (np.ndarray, da.Array)):
-        other = _normalize_ndarray_for_ufunc(other, target_shape)
-    elif isinstance(other, (list, tuple, range)):
-        other = _normalize_ndarray_for_ufunc(
-            np.atleast_1d(other), target_shape
-        )
+    if isinstance(other, xr.Dataset):
+        return Raster(other)
+    elif isinstance(other, (list, tuple, range, np.ndarray, da.Array)):
+        # allow only if broadcastable
+        if isinstance(other, da.Array) and np.isnan(other.size):
+            raise ValueError("Dask arrays must have known chunks")
+        other = np.atleast_1d(other)
+        if not can_broadcast(this.shape, other.shape):
+            msg = (
+                "Raster could not broadcast together with array of shape"
+                f" {other.shape}."
+            )
+            if other.squeeze().ndim == 1 and other.size == this.shape[0]:
+                msg += " Did you mean to use Raster.bandwise?"
+            raise ValueError(msg)
+        return other
     elif isinstance(other, xr.DataArray):
-        other = Raster(other)
+        return Raster(other)
+    else:
+        assert isinstance(other, Raster)
     return other
 
 
-def _merge_null_values(values):
-    if all(v is None for v in values):
-        return None
-    values = [v for v in values if v is not None]
-    # Take left most value
-    return values[0]
-
-
-def _apply_ufunc(ufunc, *args, kwargs=None, out=None):
-    raster_args = [a for a in args if isinstance(a, Raster)]
-    xr_args = [getattr(a, "_rs", a) for a in args]
+def _apply_ufunc(ufunc, this, left, right=None, kwargs=None, out=None):
+    args = [left]
+    if right is not None:
+        args.append(right)
+    other = left if left is not this else right
+    types = [getattr(a, "dtype", type(a)) for a in args]
+    masked = any(getattr(r, "_masked", False) for r in args)
+    ufunc_args = [getattr(a, "xdata", a) for a in args]
     kwargs = kwargs or {}
+    out_crs = None
+    if this.crs is not None:
+        out_crs = this.crs
+    elif isinstance(other, Raster) and other.crs is not None:
+        out_crs = other.crs
 
-    with xr.set_options(keep_attrs=True):
-        ufname = ufunc.__name__
-        if ufname.startswith("bitwise") or ufname.startswith("logical"):
-            # Extend bitwise operations to non-boolean dtypes by coercing the
-            # inputs to boolean.
-            tmp = []
-            for arg in xr_args:
-                if not is_bool(getattr(arg, "dtype", arg)):
-                    # TODO: Come to consensus on best coercion operation
-                    arg = arg > 0
-                tmp.append(arg)
-            xr_args = tmp
-        xr_out = ufunc(*xr_args, **kwargs)
-    xmask = None
-    for r in raster_args:
-        # Use xarray to align grids
-        if xmask is None:
-            xmask = xr.DataArray(r._mask, coords=r.xrs.coords, dims=r.xrs.dims)
-        elif r._masked:
-            xmask |= xr.DataArray(
-                r._mask, coords=r.xrs.coords, dims=r.xrs.dims
+    ufname = ufunc.__name__
+    if ufname.startswith("bitwise") and any(is_float(t) for t in types):
+        raise TypeError(
+            "Bitwise operations are not compatible with float dtypes. You may"
+            " want to convert one or more inputs to a boolean or integer dtype"
+            " (e.g. 'raster > 0' or 'raster.astype(int)')."
+        )
+    if ufname.endswith("shift") and any(is_float(t) for t in types):
+        raise TypeError(
+            "right_shift and left_shift operations are not compatible with"
+            " float dtypes. You may want to convert one or more inputs to an"
+            " integer dtype (e.g. 'raster.astype(int)')."
+        )
+
+    xr_out = ufunc(*ufunc_args, **kwargs)
+    multi_out = ufunc.nout > 1
+    if not masked:
+        mask = create_null_mask(xr_out, None)
+        if not multi_out:
+            xmask = xr.DataArray(mask, dims=xr_out.dims, coords=xr_out.coords)
+            xr_out = xr_out.rio.write_nodata(None)
+            ds_out = make_raster_ds(xr_out, xmask)
+        else:
+            xmask = xr.DataArray(
+                mask, dims=xr_out[0].dims, coords=xr_out[0].coords
             )
-    mask = xmask.data
-    nv = _merge_null_values([r.null_value for r in raster_args])
-    if isinstance(xr_out, xr.DataArray):
-        nv = reconcile_nullvalue_with_dtype(nv, xr_out.dtype)
+            xr_out = [x.rio.write_nodata(None) for x in xr_out]
+            ds_out = [make_raster_ds(x, xmask) for x in xr_out]
     else:
-        nv = reconcile_nullvalue_with_dtype(nv, xr_out[0].dtype)
+        xmask = merge_masks([r.xmask for r in args if isinstance(r, Raster)])
+        if not multi_out:
+            nv = get_default_null_value(xr_out.dtype)
+            xr_out = xr.where(xmask, nv, xr_out).rio.write_nodata(nv)
+            ds_out = make_raster_ds(xr_out, xmask)
+        else:
+            nvs = [get_default_null_value(x.dtype) for x in xr_out]
+            xr_out = [
+                xr.where(xmask, nv, x).rio.write_nodata(nv)
+                for x, nv in zip(xr_out, nvs)
+            ]
+            ds_out = [make_raster_ds(x, xmask) for x in xr_out]
+    if out_crs is not None:
+        if multi_out:
+            ds_out = [x.rio.write_crs(out_crs) for x in ds_out]
+        else:
+            ds_out = ds_out.rio.write_crs(out_crs)
 
     if out is not None:
-        # Inplace
-        return out._replace_inplace(
-            xr_out, mask=mask, null_value=nv, null_value_none=nv is None
-        )
+        # "Inplace"
+        out._ds = ds_out
+        return out
 
-    if isinstance(xr_out, xr.DataArray):
-        return Raster(xr_out)._replace(
-            mask=mask, null_value=nv, null_value_none=nv is None
-        )
+    if not multi_out:
+        return Raster(ds_out, _fast_path=True)
 
-    rs_outs = tuple(
-        Raster(o)._replace(
-            mask=mask, null_value=nv, null_value_none=nv is None
-        )
-        for o in xr_out
-    )
+    rs_outs = tuple(Raster(x, _fast_path=True) for x in ds_out)
     return rs_outs
 
 
-_UNARY_UFUNCS = frozenset((np.absolute, np.invert, np.negative, np.positive))
+_UNARY_UFUNCS = frozenset(
+    (np.absolute, np.invert, np.logical_not, np.negative, np.positive)
+)
 _UNSUPPORED_UFUNCS = frozenset((np.isnat, np.matmul))
 
 
@@ -247,7 +252,7 @@ class _RasterBase(np.lib.mixins.NDArrayOperatorsMixin, _ReductionsMixin):
     __array_priority__ = 70
 
     def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
-        out = kwargs.get("out", ())
+        out = kwargs.pop("out", ())
         for x in inputs + out:
             if not isinstance(x, self._HANDLED_TYPES + (_RasterBase,)):
                 return NotImplemented
@@ -266,6 +271,12 @@ class _RasterBase(np.lib.mixins.NDArrayOperatorsMixin, _ReductionsMixin):
                 "objects."
             )
 
+        if len(inputs) > ufunc.nin:
+            raise TypeError(
+                "Too many inputs for ufunc:"
+                f" inputs={len(inputs)}, ufunc={ufunc!r}"
+            )
+
         if len(out):
             if len(out) > 1:
                 raise NotImplementedError(
@@ -280,16 +291,119 @@ class _RasterBase(np.lib.mixins.NDArrayOperatorsMixin, _ReductionsMixin):
         else:
             out = None
 
-        if ufunc in _UNARY_UFUNCS:
-            if ufunc == np.invert and is_float(self.dtype):
-                raise TypeError("ufunc 'invert' not supported for float types")
-            return self._replace(ufunc(self._rs, **kwargs))
-
-        inputs = [_normalize_input_for_ufunc(i, self.shape) for i in inputs]
-        return _apply_ufunc(ufunc, *inputs, out=out)
+        left = inputs[0]
+        right = inputs[1] if ufunc.nin == 2 else None
+        other = left if left is not self else right
+        other = _normalize_ufunc_other(other, self)
+        if self is left:
+            right = other
+        else:
+            left = other
+        return _apply_ufunc(ufunc, self, left, right=right, out=out)
 
     def __array__(self, dtype=None):
-        return self._rs.__array__(dtype)
+        return self._ds.raster.__array__(dtype)
+
+
+def _normalize_bandwise_other(other, target_shape):
+    other = np.atleast_1d(other)
+    if isinstance(other, da.Array) and np.isnan(other.size):
+        raise ValueError("Dask arrays must have known chunks")
+    if other.size == 1:
+        return other.ravel()
+    if can_broadcast(other.shape, target_shape):
+        raise ValueError(
+            "Operands can be broadcast together. A bandwise operation is not"
+            " needed here."
+        )
+    if other.ndim == 1 and other.size == target_shape[0]:
+        # Map a list/array of values that has same length as # of bands to
+        # each band
+        return other.reshape((-1, 1, 1))
+    raise ValueError(
+        "Received array with incompatible shape in bandwise operation: "
+        f"{other.shape}"
+    )
+
+
+class BandwiseOperationAdapter(np.lib.mixins.NDArrayOperatorsMixin):
+    __slots__ = ("_raster",)
+
+    _HANDLED_TYPES = (
+        numbers.Number,
+        np.ndarray,
+        da.Array,
+        list,
+        tuple,
+        range,
+    )
+    # Higher than xarray objects
+    __array_priority__ = 70
+
+    def __init__(self, raster):
+        self._raster = raster
+
+    def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
+        out = kwargs.pop("out", None)
+        for x in inputs:
+            if not isinstance(
+                x,
+                self._HANDLED_TYPES
+                + (
+                    Raster,
+                    BandwiseOperationAdapter,
+                ),
+            ):
+                return NotImplemented
+
+        if len(inputs) < 2:
+            raise ValueError(
+                "Bandwise operations are binary and require 2 inputs. Only"
+                " one given."
+            )
+        if len(inputs) > 2:
+            raise ValueError(
+                "Bandwise operations are binary and require 2 inputs."
+                f" {len(inputs)} given."
+            )
+
+        if ufunc in _UNSUPPORED_UFUNCS:
+            raise TypeError(
+                "The given ufunc is not supported for bandwise operations:"
+                f" {ufunc!r}."
+            )
+
+        if ufunc.signature is not None:
+            raise NotImplementedError("Raster does not support gufuncs")
+
+        if method != "__call__":
+            raise NotImplementedError(
+                f"{method} for ufunc {ufunc} is not implemented for bandwise "
+                " operations."
+            )
+
+        if len(inputs) > ufunc.nin:
+            raise TypeError(
+                "Too many inputs for ufunc:"
+                f" inputs={len(inputs)}, ufunc={ufunc!r}"
+            )
+
+        if out is not None:
+            raise NotImplementedError(
+                "The 'out' keyword is not supported for bandwise operations"
+            )
+
+        left, right = inputs
+        other = left if left is not self else right
+        other = _normalize_bandwise_other(other, self._raster.shape)
+        if self is left:
+            left = self._raster
+            right = other
+        else:
+            left = other
+            right = self._raster
+
+        return ufunc(left, right, **kwargs)
 
 
 def _array_to_xarray(ar):
@@ -298,9 +412,8 @@ def _array_to_xarray(ar):
     if len(ar.shape) == 2:
         # Add band dim
         ar = ar[None]
-    if not is_dask(ar):
+    if not isinstance(ar, da.Array):
         has_nan = is_float(ar.dtype) and np.isnan(ar).any()
-        ar = da.from_array(ar)
     else:
         has_nan = is_float(ar.dtype)
     # The band dimension needs to start at 1 to match raster conventions
@@ -310,18 +423,23 @@ def _array_to_xarray(ar):
     coords.append(np.arange(ar.shape[1])[::-1] + 0.5)
     coords.append(np.arange(ar.shape[2]) + 0.5)
     xrs = xr.DataArray(ar, dims=["band", "y", "x"], coords=coords)
-    if is_numpy_masked(ar._meta):
-        xrs.attrs["_FillValue"] = ar._meta.fill_value
+    if has_nan:
+        xrs.attrs["_FillValue"] = np.nan
     else:
-        if has_nan:
-            xrs.attrs["_FillValue"] = np.nan
-        else:
-            # No way to know null value
-            xrs.attrs["_FillValue"] = None
+        # No way to know null value
+        xrs.attrs["_FillValue"] = None
     return xrs
 
 
 def _try_to_get_null_value_xarray(xrs):
+    if (
+        "_FillValue" in xrs.attrs
+        and xrs.attrs["_FillValue"] is None
+        and xrs.rio.nodata is None
+        and xrs.rio.encoded_nodata is None
+        and not dask.is_dask_collection(xrs)
+    ):
+        return None
     null = xrs.attrs.get("_FillValue", None)
     if null is not None:
         return null
@@ -343,6 +461,113 @@ def _try_to_get_null_value_xarray(xrs):
     return nv1 if nv1 is not None else nv2
 
 
+def _dataarry_to_raster_ds(xin):
+    nv = _try_to_get_null_value_xarray(xin)
+    xin = normalize_xarray_data(xin)
+    if not dask.is_dask_collection(xin) or xin.data.chunksize[0] != 1:
+        xin = chunk(xin)
+
+    if nv is None:
+        mask = create_null_mask(xin, nv)
+        mask = xr.DataArray(
+            create_null_mask(xin, nv), dims=xin.dims, coords=xin.coords
+        )
+        if xin.rio.crs is not None:
+            mask = mask.rio.write_crs(xin.rio.crs)
+    elif np.isnan(nv):
+        mask = np.isnan(xin)
+    else:
+        mask = xin == nv
+
+    orig_nv = nv
+    nv = reconcile_nullvalue_with_dtype(nv, xin.dtype)
+    crs = xin.rio.crs
+    if nv is not None and (np.isnan(orig_nv) or orig_nv != nv):
+        xin = xr.where(mask, nv, xin)
+        if crs is not None:
+            xin = xin.rio.write_crs(crs)
+    xin = xin.rio.write_nodata(nv)
+    return make_raster_ds(xin, mask)
+
+
+def _dataset_to_raster_ds(xin):
+    if (
+        dask.is_dask_collection(xin)
+        and set(xin.data_vars) == set(["raster", "mask"])
+        and dask.is_dask_collection(xin.raster)
+        and dask.is_dask_collection(xin.mask)
+        and is_bool(xin.mask.dtype)
+        and xin.raster.dims == ("band", "y", "x")
+        and xin.mask.dims == ("band", "y", "x")
+        and xin.raster.chunks == xin.mask.chunks
+        and xin.raster.rio.crs == xin.mask.rio.crs
+    ):
+        return xin
+
+    nvars = len(xin.data_vars)
+    if nvars < 2 or nvars > 2 or set(xin.data_vars) != set(["raster", "mask"]):
+        raise ValueError(
+            "Dataset input must have only 'raster' and 'mask' variables"
+        )
+
+    raster = xin.raster
+    mask = xin.mask
+    if not is_bool(mask.dtype):
+        raise TypeError("mask must have boolean dtype")
+
+    raster = normalize_xarray_data(raster)
+    if not dask.is_dask_collection(raster):
+        raster = chunk(raster)
+    mask = normalize_xarray_data(mask)
+    if mask.shape != raster.shape:
+        raise ValueError("raster and mask dimensions do not match")
+    if not dask.is_dask_collection(mask):
+        mask = mask.chunk(chunks=raster.chunks)
+
+    nv = _try_to_get_null_value_xarray(raster)
+    if nv is None:
+        nv = get_default_null_value(raster.dtype)
+    else:
+        nv = reconcile_nullvalue_with_dtype(nv, raster.dtype)
+    if nv is not None:
+        raster.data = xr.where(mask, nv, raster.data)
+    raster.rio.write_nodata(nv, inplace=True)
+    crs = raster.rio.crs
+    if crs != mask.rio.crs:
+        mask.rio.write_crs(crs, inplace=True)
+    return make_raster_ds(raster, mask)
+
+
+def _xarray_to_raster_ds(xin):
+    if isinstance(xin, xr.DataArray):
+        return _dataarry_to_raster_ds(xin)
+    return _dataset_to_raster_ds(xin)
+
+
+def get_raster_ds(raster):
+    # Copy to take ownership
+    if isinstance(raster, Raster):
+        ds = raster._ds.copy(deep=True)
+    elif isinstance(raster, (xr.DataArray, xr.Dataset)):
+        ds = _xarray_to_raster_ds(raster.copy())
+    elif isinstance(raster, (np.ndarray, da.Array)):
+        ds = _xarray_to_raster_ds(_array_to_xarray(raster.copy()))
+    elif type(raster) in IO_UNDERSTOOD_TYPES:
+        if is_batch_file(raster):
+            # Import here to avoid circular import errors
+            from raster_tools.batch import parse_batch_script
+
+            ds = parse_batch_script(raster).final_raster._ds
+        else:
+            rs, mask, nv = open_raster_from_path(raster)
+            xmask = xr.DataArray(mask, dims=rs.dims, coords=rs.coords)
+            ds = make_raster_ds(rs.rio.write_nodata(nv), xmask)
+            ds = _xarray_to_raster_ds(ds)
+    else:
+        raise TypeError(f"Could not resolve input to a raster: {raster!r}")
+    return ds
+
+
 class Raster(_RasterBase):
     """Abstraction of georeferenced raster data with lazy function evaluation.
 
@@ -357,233 +582,79 @@ class Raster(_RasterBase):
 
     Parameters
     ----------
-    raster : str, Raster, xarray.DataArray, numpy.ndarray
+    raster : str, Raster, xarray.DataArray, xarray.Dataset, numpy.ndarray
         The raster source to use for this Raster. If `raster` is a string,
         it is treated like a path. If `raster` is a Raster, a copy is made
-        and its raster source is used. If `raster` is an xarray DataArray or
-        numpy array, it is used as the source.
+        and its raster source is used. If `raster` is an xarray DataArray,
+        Dataset, or numpy array, it is used as the source. Dataset objects must
+        contain 'raster' and 'mask' variables. The dimensions of these
+        variables are assumed to be "band", "y", "x", in that order. The 'mask'
+        variable must have boolean dtype.
 
     """
 
-    __slots__ = ("_rs", "_mask")
+    __slots__ = ("_ds",)
 
-    def __init__(self, raster):
-        self._mask = None
-        self._rs = None
-
-        # Copy to take ownership
-        if isinstance(raster, Raster):
-            self._rs = raster._rs.copy()
-            self._mask = raster._mask.copy()
-            self._null_value = reconcile_nullvalue_with_dtype(
-                raster._null_value, raster.dtype, True
-            )
-        elif is_xarray(raster):
-            if isinstance(raster, xr.Dataset):
-                raise TypeError("Unable to handle xarray.Dataset objects")
-            raster = normalize_xarray_data(raster.copy())
-            null = _try_to_get_null_value_xarray(raster)
-            if not dask.is_dask_collection(raster):
-                raster = chunk(raster)
-            self._rs = raster
-            null = reconcile_nullvalue_with_dtype(null, self._rs.dtype)
-            self._mask = create_null_mask(self._rs, null)
-            self._null_value = null
-        elif is_numpy(raster) or is_dask(raster):
-            raster = chunk(_array_to_xarray(raster.copy()))
-            self._rs = normalize_xarray_data(raster)
-            null = raster.attrs.get("_FillValue", None)
-            null = reconcile_nullvalue_with_dtype(null, self._rs.dtype)
-            self._mask = create_null_mask(self._rs, null)
-            self._null_value = null
-        elif type(raster) in IO_UNDERSTOOD_TYPES:
-            if is_batch_file(raster):
-                # Import here to avoid circular import errors
-                from raster_tools.batch import parse_batch_script
-
-                rs = parse_batch_script(raster).final_raster
-                self._rs = rs._rs
-                self._mask = rs._mask
-                self._null_value = rs._null_value
-            else:
-                rs, mask, nv = open_raster_from_path(raster)
-                self._rs = rs
-                self._mask = mask
-                self._null_value = reconcile_nullvalue_with_dtype(
-                    nv, rs.dtype, True
-                )
+    def __init__(self, raster, _fast_path=False):
+        if _fast_path:
+            self._ds = raster
         else:
-            raise TypeError(f"Could not resolve input to a raster: {raster!r}")
+            self._ds = get_raster_ds(raster)
 
     def __repr__(self):
         # TODO: implement
-        return repr(self._rs)
-
-    def _replace(
-        self,
-        new_xrs=None,
-        attrs=None,
-        mask=None,
-        null_value=None,
-        null_value_none=False,
-    ):
-        if new_xrs is not None:
-            new_rs = Raster(new_xrs)
-        else:
-            new_rs = self.copy()
-        new_rs._attrs = attrs or self._attrs
-        new_rs._mask = mask if mask is not None else self._mask
-        if new_rs._data.chunks != new_rs._mask.chunks:
-            new_rs._mask = da.rechunk(new_rs._mask, new_rs._data.chunks)
-        if not null_value_none:
-            new_rs._null_value = (
-                null_value if null_value is not None else self.null_value
-            )
-        else:
-            new_rs._null_value = None
-        return new_rs
-
-    def _replace_inplace(
-        self,
-        new_xrs,
-        attrs=None,
-        mask=None,
-        null_value=None,
-        null_value_none=False,
-    ):
-        old_attrs = self._attrs
-        old_nv = self.null_value
-        self._rs = new_xrs
-        self._attrs = attrs or old_attrs
-        self._mask = mask if mask is not None else self._mask
-        if not null_value_none:
-            self._null_value = null_value if null_value is not None else old_nv
-        else:
-            self._null_value = None
-        return self
-
-    def _rechunk(self, chunks, allow_band_rechunk=False):
-        """Rechunk raster data and mask."""
-        if len(chunks) == 2:
-            chunks = (1,) + chunks
-        chunks = da.core.normalize_chunks(chunks, self.shape)
-        if not all(c == 1 for c in chunks[0]) and not allow_band_rechunk:
-            raise ValueError(
-                "Can't rechunk band dimension with values other than 1. "
-                "Use allow_band_rechunk to override."
-            )
-
-        xrs = self.xrs.copy()
-        xrs.data = xrs.data.rechunk(chunks)
-        mask = self._mask.rechunk(chunks)
-        return self._replace(xrs, mask=mask)
-
-    def _to_presentable_xarray(self):
-        """Returns a DataArray with null locations filled by the null value."""
-        xrs = self._rs
-        if self._masked:
-            xrs = xrs.where(~self._mask, self.null_value)
-        return xrs
+        return repr(self._ds.raster)
 
     @property
-    def _attrs(self):
-        # Dict containing raster metadata like projection, etc.
-        return self._rs.attrs.copy()
-
-    @_attrs.setter
-    def _attrs(self, attrs):
-        if attrs is not None and isinstance(attrs, abc.Mapping):
-            self._rs.attrs = attrs.copy()
-        else:
-            raise TypeError("attrs cannot be None and must be mapping type")
+    def null_value(self):
+        """The raster's null value used to fill missing or invalid entries."""
+        return self._ds.raster.rio.nodata
 
     @property
     def _masked(self):
         return self.null_value is not None
 
     @property
-    def _values(self):
-        """The raw internal values. Note: this triggers computation."""
-        return self._rs.values
-
-    @property
-    def xrs(self):
+    def xdata(self):
         """The underlying :class:`xarray.DataArray` (read only)"""
-        return self._rs
+        return self._ds.raster
 
     @property
-    def pxrs(self):
-        """Plottable xrs. Same as :attr:`~Raster.xrs` but null cells are filled
-        with NaN.
+    def data(self):
+        """The underlying dask array of data"""
+        return self._ds.raster.data
 
-        This makes for nicer plots when calling :meth:`xarray.DataArray.plot`.
+    @property
+    def values(self):
         """
-        if not self._masked:
-            return self.xrs
-        return xr.where(self._mask, np.nan, self._rs)
+        The raw internal raster as a numpy array. Note: triggers computation.
+        """
+        return self._ds.raster.values
 
     @property
     def mask(self):
-        return self._mask
+        """The null value mask as a dask array."""
+        return self._ds.mask.data
 
     @property
     def xmask(self):
-        mask = xr.DataArray(
-            self.mask, coords=self.xrs.coords, dims=self.xrs.dims
-        )
-        if self.crs is not None:
-            mask = mask.rio.write_crs(self.crs)
-        return mask
-
-    @property
-    def _data(self):
-        return self.xrs.data
-
-    @_data.setter
-    def _data(self, data):
-        self.xrs.data = data
+        """The null value mask as an xarray DataArray."""
+        return self._ds.mask
 
     @property
     def x(self):
-        return self._rs.x.data
+        """The x (horizontal) coordinate values."""
+        return self._ds.x.data
 
     @property
     def y(self):
-        return self._rs.y.data
-
-    @property
-    def _null_value(self):
-        return self._rs.attrs.get("_FillValue", None)
-
-    @_null_value.setter
-    def _null_value(self, value):
-        if value is not None and not (is_scalar(value) or is_bool(value)):
-            raise TypeError("Null value must be a scalar or None")
-        if value is not None and np.isnan(value) and is_float(self.dtype):
-            # Allow nan null value for float dtype
-            pass
-        else:
-            test_value = reconcile_nullvalue_with_dtype(value, self.dtype)
-            if test_value != value:
-                raise ValueError(
-                    f"Given null value {value!r} is not consistent with raster"
-                    f" type {self.dtype!r}."
-                )
-            value = test_value
-
-        self._rs.rio.write_nodata(value, inplace=True)
-        if "_FillValue" not in self._rs.attrs:
-            self._rs.attrs["_FillValue"] = value
-
-    @property
-    def null_value(self):
-        """The raster's null value used to fill missing or invalid entries."""
-        return self._null_value
+        """The y (vertical) coordinate values."""
+        return self._ds.y.data
 
     @property
     def dtype(self):
         """The dtype of the data."""
-        return self._rs.dtype
+        return self._ds.raster.dtype
 
     @property
     def shape(self):
@@ -593,14 +664,19 @@ class Raster(_RasterBase):
         band dimension, ``Y`` is the y dimension, and ``X`` is the x dimension.
 
         """
-        return self._rs.shape
+        return self._ds.raster.shape
+
+    @property
+    def nbands(self):
+        """The number of bands."""
+        return self._ds.band.size
 
     @property
     def crs(self):
         """The raster's CRS.
 
         This is a :obj:`rasterio.crs.CRS` object."""
-        return self._rs.rio.crs
+        return self._ds.rio.crs
 
     @property
     def affine(self):
@@ -609,12 +685,12 @@ class Raster(_RasterBase):
         This is an :obj:`affine.Affine` object.
 
         """
-        return self._rs.rio.transform(True)
+        return self._ds.rio.transform(True)
 
     @property
     def resolution(self):
         """The x and y cell sizes as a tuple. Values are always positive."""
-        return self._rs.rio.resolution(True)
+        return self._ds.rio.resolution(True)
 
     @property
     def bounds(self):
@@ -624,26 +700,127 @@ class Raster(_RasterBase):
         maxx, miny = self.xy(r - 1, c - 1, "lr")
         return (minx, miny, maxx, maxy)
 
+    @property
+    def bandwise(self):
+        """Returns an adapter for band-wise operations on this raster
+
+        The returned adapter allows lists/arrays of values to be mapped to the
+        raster's bands for binary operations.
+
+        """
+        return BandwiseOperationAdapter(self)
+
+    @property
+    def _rs(self):
+        warnings.warn(
+            "'Raster._rs' is deprecated. It will soon be removed. Use xdata.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self._ds.raster
+
+    @property
+    def _data(self):
+        warnings.warn(
+            "'Raster._data' is deprecated. It will soon be removed. Use data.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self._ds.raster.data
+
+    @property
+    def _values(self):
+        warnings.warn(
+            "'Raster._values' is deprecated. It will soon be removed. Use "
+            "values.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self._ds.raster.values
+
+    @property
+    def _mask(self):
+        warnings.warn(
+            "'Raster._mask' is deprecated. It will soon be removed. Use mask.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self._ds.mask.data
+
+    @property
+    def _null_value(self):
+        warnings.warn(
+            "'Raster._null_value' is deprecated. It will soon be removed. Use "
+            "null_value.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.null_value
+
+    @property
+    def xrs(self):
+        warnings.warn(
+            "'Raster.xrs' is deprecated. It will soon be removed. Use xdata.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self._ds.raster
+
+    @property
+    def pxrs(self):
+        warnings.warn(
+            "'Raster.pxrs' is deprecated. It will soon be removed.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return get_raster(self, null_to_nan=True)._ds.raster
+
+    def chunk(self, chunks):
+        """Rechunk the underlying raster
+
+        Parameters
+        ----------
+        chunks : tuple of int
+            The chunk sizes for each dimension ("band", "y", "x", in that
+            order). Must be a 3-tuple.
+
+        Returns
+        -------
+        Raster
+            The rechunked raster
+
+        """
+        assert len(chunks) == 3
+        return Raster(
+            self._ds.chunk(
+                {d: cs for d, cs in zip(["band", "y", "x"], chunks)}
+            ),
+            _fast_path=True,
+        )
+
+    def to_dataset(self):
+        """Returns the underlying `xarray.Dataset`."""
+        return self._ds
+
+    def plot(self, *args, **kwargs):
+        """
+        Plot the raster. Args and kwargs are passed to xarray's plot function.
+        """
+        return get_raster(self, null_to_nan=True).xdata.plot(*args, **kwargs)
+
     def get_chunked_coords(self):
         """Get lazy coordinate arrays, in x-y order, chunked to match data."""
-        xc = da.from_array(self.x, chunks=self._data.chunks[2]).reshape(
+        xc = da.from_array(self.x, chunks=self.data.chunks[2]).reshape(
             (1, 1, -1)
         )
-        yc = da.from_array(self.y, chunks=self._data.chunks[1]).reshape(
+        yc = da.from_array(self.y, chunks=self.data.chunks[1]).reshape(
             (1, -1, 1)
         )
         return xc, yc
 
-    def to_dask(self):
-        """Returns the underlying data as a dask array."""
-        rs = self
-        if not dask.is_dask_collection(self._rs):
-            rs = self._replace(chunk(self._rs))
-        return rs._data
-
     def close(self):
         """Close the underlying source"""
-        self._rs.close()
+        self._ds.close()
 
     def save(self, path, no_data_value=None, **gdal_kwargs):
         """Compute the final raster and save it to the provided location.
@@ -673,7 +850,7 @@ class Raster(_RasterBase):
             rs = rs.astype("uint8").set_null_value(
                 get_default_null_value("uint8")
             )
-        xrs = rs._rs
+        xrs = rs.xdata
         write_raster(
             xrs,
             path,
@@ -690,10 +867,9 @@ class Raster(_RasterBase):
         Raster will be unaltered.
 
         """
-        rs = chunk(self.xrs.compute())
-        mask = da.from_array(self._mask.compute())
+        ds = chunk(self._ds.compute())
         # A new raster is returned to mirror the xarray and dask APIs
-        return self._replace(rs, mask=mask)
+        return Raster(ds)
 
     def copy(self):
         """Returns a copy of this Raster."""
@@ -727,16 +903,21 @@ class Raster(_RasterBase):
         if dtype == self.dtype:
             return self.copy()
 
-        xrs = self.xrs
+        xrs = self._ds.raster
         nv = self.null_value
-        mask = self._mask
+        mask = self._ds.mask
 
+        xrs = xrs.astype(dtype)
         if self._masked:
             nv = reconcile_nullvalue_with_dtype(
                 nv, dtype, warn_about_null_change
             )
-        xrs = xrs.astype(dtype)
-        return self._replace(xrs, mask=mask, null_value=nv)
+            if nv != self.null_value:
+                xrs = xr.where(mask, nv, xrs).rio.write_nodata(nv)
+        ds = make_raster_ds(xrs, mask)
+        if self.crs is not None:
+            ds = ds.rio.write_crs(self.crs)
+        return Raster(ds, _fast_path=True)
 
     def get_bands(self, bands):
         """Retrieve the specified bands as a new Raster. Indexing starts at 1.
@@ -757,7 +938,6 @@ class Raster(_RasterBase):
             given.
 
         """
-        n_bands, *_ = self.shape
         if is_int(bands):
             bands = [bands]
         if not all(is_int(b) for b in bands):
@@ -765,18 +945,20 @@ class Raster(_RasterBase):
         bands = list(bands)
         if len(bands) == 0:
             raise ValueError("No bands provided")
-        if any(b < 1 or b > n_bands for b in bands):
+        if any(b < 1 or b > self.nbands for b in bands):
             raise IndexError(
                 f"One or more band numbers were out of bounds: {bands}"
             )
-        bands = [b - 1 for b in bands]
-        if len(bands) == 1 and n_bands == 1:
+
+        if len(bands) == 1 and self.nbands == 1:
             return self.copy()
-        rs = self.xrs[bands]
-        rs["band"] = list(range(1, len(rs) + 1))
-        mask = self._mask[bands]
-        # TODO: look into making attrs consistent with bands
-        return self._replace(rs, mask=mask)
+        # We have to do sel() followed by concat() in order to get size 1
+        # chunking along the band dim
+        dss = [self._ds.sel(band=b) for b in bands]
+        ds = xr.concat(dss, dim="band")
+        # Reset band numbering
+        ds["band"] = np.arange(len(bands)) + 1
+        return Raster(ds, _fast_path=True)
 
     def set_crs(self, crs):
         """Set the CRS for the underlying data.
@@ -794,8 +976,7 @@ class Raster(_RasterBase):
             A new raster with the specified CRS.
 
         """
-        xrs = self.xrs.rio.write_crs(crs)
-        return self._replace(xrs, attrs=xrs.attrs)
+        return Raster(self._ds.rio.write_crs(crs), _fast_path=True)
 
     def set_null_value(self, value):
         """Sets or replaces the null value for the raster.
@@ -821,28 +1002,28 @@ class Raster(_RasterBase):
         if value is not None and not (is_scalar(value) or is_bool(value)):
             raise TypeError(f"Value must be a scalar or None: {value}")
 
-        xrs = self.xrs.copy()
+        xrs = self._ds.raster.copy()
         # Cast up to float if needed
         if should_promote_to_fit(self.dtype, value):
             xrs = xrs.astype(promote_dtype_to_float(self.dtype))
 
         if value is None:
-            mask = create_null_mask(xrs, value)
             # Burn in current mask values and then clear null value
-            return self.burn_mask()._replace(
-                xrs, mask=mask, null_value_none=True
-            )
+            # TODO: burning should not be needed as the values should already
+            # be set
+            xrs = self.burn_mask().xdata.rio.write_nodata(None)
+            mask = xr.zeros_like(xrs, dtype=bool)
+            return Raster(make_raster_ds(xrs, mask), _fast_path=True)
 
         # Update mask
-        mask = self._mask
-        temp_mask = (
-            np.isnan(xrs.data) if np.isnan(value) else xrs.data == value
-        )
+        mask = self._ds.mask
+        temp_mask = np.isnan(xrs) if np.isnan(value) else xrs == value
         if self._masked:
             mask = mask | temp_mask
         else:
             mask = temp_mask
-        return self._replace(xrs, mask=mask, null_value=value).burn_mask()
+        xrs = xrs.rio.write_nodata(value)
+        return Raster(make_raster_ds(xrs, mask), _fast_path=True).burn_mask()
 
     def burn_mask(self):
         """Fill null-masked cells with null value.
@@ -856,8 +1037,11 @@ class Raster(_RasterBase):
         nv = self.null_value
         if is_bool(self.dtype):
             nv = get_default_null_value(self.dtype)
-        xrs = xr.where(self._mask, nv, self._rs)
-        return self._replace(xrs)
+        # call write_nodata because xr.where drops the nodata info
+        xrs = xr.where(self._ds.mask, nv, self._ds.raster).rio.write_nodata(nv)
+        if self.crs is not None:
+            xrs = xrs.rio.write_crs(self.crs)
+        return Raster(make_raster_ds(xrs, self._ds.mask), _fast_path=True)
 
     def to_null_mask(self):
         """
@@ -870,9 +1054,13 @@ class Raster(_RasterBase):
             null values and False everywhere else.
 
         """
-        xrs = self.xrs.copy()
-        xrs.data = self._mask.copy()
-        return self._replace(xrs, null_value=True)
+        return Raster(
+            make_raster_ds(
+                self._ds.mask.rio.write_nodata(None),
+                xr.zeros_like(self._ds.mask),
+            ),
+            _fast_path=True,
+        )
 
     def replace_null(self, value):
         """Replaces null values with `value`.
@@ -892,13 +1080,7 @@ class Raster(_RasterBase):
         if not is_scalar(value):
             raise TypeError("value must be a scalar")
 
-        xrs = self.xrs
-        if should_promote_to_fit(xrs.dtype, value):
-            xrs = xrs.astype(promote_dtype_to_float(xrs.dtype))
-        if self._masked:
-            xrs = xrs.where(~self._mask, value)
-        mask = da.zeros_like(xrs.data, dtype=bool)
-        return self._replace(xrs, mask=mask)
+        return self.set_null_value(value)
 
     def where(self, condition, other):
         """Filter elements from this raster according to `condition`.
@@ -1012,7 +1194,17 @@ class Raster(_RasterBase):
             Rounded raster.
 
         """
-        return self._replace(self._rs.round(decimals=decimals))
+        rast = self._ds.raster
+        if self._masked:
+            rast = xr.where(
+                self._ds.mask, self.null_value, rast.round(decimals=decimals)
+            ).rio.write_nodata(self.null_value)
+        else:
+            rast = rast.round(decimals=decimals)
+        ds = make_raster_ds(rast, self._ds.mask)
+        if self.crs is not None:
+            ds = ds.rio.write_crs(self.crs)
+        return Raster(ds, _fast_path=True)
 
     def xy(self, row, col, offset="center"):
         """Return the `(x, y)` coordinates of the pixel at `(row, col)`.
@@ -1080,8 +1272,8 @@ class Raster(_RasterBase):
             at the row and column in the raster.
 
         """
-        xrs = self.xrs
-        mask = self._mask
+        xrs = self._ds.raster
+        mask = self._ds.mask.data
         data_delayed = xrs.data.to_delayed()
         chunks_shape = data_delayed.shape
         data_delayed = data_delayed.ravel()
@@ -1243,9 +1435,9 @@ def get_raster(src, strict=True, null_to_nan=False):
 
     if null_to_nan and rs._masked:
         rs = rs.copy()
-        data = rs._data
+        data = rs.data
         new_dtype = promote_dtype_to_float(data.dtype)
         if new_dtype != data.dtype:
             data = data.astype(new_dtype)
-        rs._data = da.where(rs._mask, np.nan, data)
+        rs.xdata.data = da.where(rs.mask, np.nan, data)
     return rs
