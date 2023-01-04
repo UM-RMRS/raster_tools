@@ -8,9 +8,13 @@ import rioxarray as rxr
 import xarray as xr
 from dask.array.core import normalize_chunks as dask_chunks
 
-from raster_tools._utils import validate_path
 from raster_tools.dtypes import F32, F64, I64, U8, is_bool, is_float, is_int
 from raster_tools.masking import create_null_mask
+from raster_tools.utils import (
+    is_strictly_decreasing,
+    is_strictly_increasing,
+    validate_path,
+)
 
 
 class RasterIOError(BaseException):
@@ -56,7 +60,11 @@ def _get_chunks(data=None, src_file=None):
 
 
 def chunk(xrs, src_file=None):
-    return xrs.chunk(_get_chunks(xrs, src_file))
+    if isinstance(xrs, xr.Dataset):
+        chunks = _get_chunks(xrs.raster, src_file)
+        return xrs.chunk({d: c for d, c in zip(xrs.raster.dims, chunks)})
+    else:
+        return xrs.chunk(_get_chunks(xrs, src_file))
 
 
 TIFF_EXTS = frozenset((".tif", ".tiff"))
@@ -80,30 +88,42 @@ def is_batch_file(path):
 def normalize_xarray_data(xrs):
     if len(xrs.shape) > 3 or len(xrs.shape) < 2:
         raise ValueError(
-            "Invalid shape. xarray.DataArray objects must 2D or 3D shapes."
+            "Invalid shape. xarray.DataArray objects must have 2D or 3D "
+            "shapes."
         )
     if len(xrs.shape) == 2:
         # Add band dim
         xrs = xrs.expand_dims({"band": [1]})
     dims = xrs.dims
     if "lon" in dims:
-        xrs = xrs.rename({"lon": "x", "lat": "y"})
+        xrs = xrs.rename({"lon": "x"})
+        dims = xrs.dims
+    if "lat" in dims:
+        xrs = xrs.rename({"lat": "y"})
         dims = xrs.dims
     if not dims == ("band", "y", "x"):
         # No easy way to figure out how best to transpose based on dim names so
         # just assume the order is valid and rename.
         xrs = xrs.rename(
-            {d: new_d for d, new_d in zip(dims, ("band", "y", "x"))}
+            {
+                d: new_d
+                for d, new_d in zip(dims, ("band", "y", "x"))
+                if d != new_d
+            }
+        )
+    if xrs.band.values[0] != 1:
+        xrs["band"] = np.arange(1, len(xrs.band) + 1)
+    if any(dim not in xrs.coords for dim in xrs.dims):
+        raise ValueError(
+            "Invalid coordinates on xarray.DataArray object:\n{xrs!r}"
         )
     # Make sure that x and y are always increasing. xarray will auto align
     # rasters but when a raster is converted to a numpy or dask array, the
     # data may not be aligned. This ensures that rasters converted to
     # non-georeferenecd formats will be oriented the same.
-    xdiff = np.diff(xrs.x)
-    if len(xdiff) and (xdiff < 0).all():
+    if is_strictly_decreasing(xrs.x):
         xrs = xrs.isel(x=slice(None, None, -1))
-    ydiff = np.diff(xrs.y)
-    if len(ydiff) and (ydiff > 0).all():
+    if is_strictly_increasing(xrs.y):
         xrs = xrs.isel(y=slice(None, None, -1))
     tf = xrs.rio.transform(True)
     xrs = xrs.rio.write_transform(tf)
@@ -163,8 +183,6 @@ def open_raster_from_path(path):
 
     nv = xrs.attrs.get("_FillValue", None)
     nv = normalize_null_value(nv, xrs.dtype)
-    xrs.attrs["_FillValue"] = nv
-    mask = None
     mask = create_null_mask(xrs, nv)
     return xrs, mask, nv
 

@@ -11,6 +11,7 @@ from raster_tools import Raster
 from raster_tools.dtypes import I32, U16
 from raster_tools.masking import get_default_null_value
 from raster_tools.vector import Vector, open_vectors
+from tests.utils import assert_valid_raster
 
 
 class TestOpenVectors(unittest.TestCase):
@@ -203,23 +204,24 @@ class TestConversions(unittest.TestCase):
 )
 def test_to_raster(key):
     v = open_vectors("tests/data/vector/pods.shp")
-    like = Raster("tests/data/elevation.tif")
+    like = Raster("tests/data/raster/elevation.tif")
     if key == "many_shapes":
-        truth = Raster("tests/data/pods_like_elevation.tif")
+        truth = Raster("tests/data/raster/pods_like_elevation.tif")
         result = v.to_raster(like)
     elif key == "single_shape":
-        truth = Raster("tests/data/pods0_like_elevation.tif")
+        truth = Raster("tests/data/raster/pods0_like_elevation.tif")
         result = v[0].to_raster(like)
     elif key == "one_part":
-        truth = Raster("tests/data/pods_like_elevation.tif")
+        truth = Raster("tests/data/raster/pods_like_elevation.tif")
         result = v.to_lazy().to_raster(like)
     elif key == "many_part":
-        truth = Raster("tests/data/pods_like_elevation.tif")
+        truth = Raster("tests/data/raster/pods_like_elevation.tif")
         v = Vector(v.to_lazy().data.repartition(10))
         result = v.to_raster(like)
 
     result_eval = result.eval()
 
+    assert_valid_raster(result)
     assert result.null_value == 0
     assert result.dtype == np.dtype("uint8")
     assert result.shape[0] == 1
@@ -228,9 +230,9 @@ def test_to_raster(key):
     assert result_eval.crs == like.crs
     assert result_eval.affine == like.affine
     assert np.allclose(result, truth)
-    assert np.allclose(result.xrs.x, truth.xrs.x)
-    assert np.allclose(result.xrs.y, truth.xrs.y)
-    assert np.allclose(result.xrs.band, truth.xrs.band)
+    assert np.allclose(result.xdata.x, truth.xdata.x)
+    assert np.allclose(result.xdata.y, truth.xdata.y)
+    assert np.allclose(result.xdata.band, truth.xdata.band)
     if key == "single_shape":
         assert all(np.unique(result) == [0, 1])
 
@@ -238,23 +240,24 @@ def test_to_raster(key):
 def test_to_raster_chunks():
     # Make sure that chunking is preserved
     v = open_vectors("tests/data/vector/pods.shp")
-    like = Raster("tests/data/elevation.tif")._rechunk((1000, 1000))
-    truth = Raster("tests/data/pods_like_elevation.tif")
-    assert like._data.chunksize != like.shape
+    like = Raster("tests/data/raster/elevation.tif").chunk((1, 1000, 1000))
+    truth = Raster("tests/data/raster/pods_like_elevation.tif")
+    assert like.data.chunksize != like.shape
 
     result = v.to_raster(like)
-    assert result._data.chunks == like._data.chunks
+    assert result.data.chunks == like.data.chunks
     assert np.allclose(result, truth)
 
 
 def test_to_raster_field():
     v = open_vectors("tests/data/vector/pods.shp")
-    like = Raster("tests/data/elevation.tif")
-    truth = Raster("tests/data/pods_like_elevation_objectid_field.tif")
+    like = Raster("tests/data/raster/elevation.tif")
+    truth = Raster("tests/data/raster/pods_like_elevation_objectid_field.tif")
     result = v.to_raster(like, field="OBJECTID")
 
     result_eval = result.eval()
 
+    assert_valid_raster(result)
     assert result.null_value == get_default_null_value(v.data.OBJECTID.dtype)
     assert result.dtype == v.data.OBJECTID.dtype
     assert result.shape[0] == 1
@@ -264,9 +267,9 @@ def test_to_raster_field():
     assert result_eval.affine == like.affine
     assert result_eval.dtype == v.data.OBJECTID.dtype
     assert np.allclose(result, truth)
-    assert np.allclose(result.xrs.x, truth.xrs.x)
-    assert np.allclose(result.xrs.y, truth.xrs.y)
-    assert np.allclose(result.xrs.band, truth.xrs.band)
+    assert np.allclose(result.xdata.x, truth.xdata.x)
+    assert np.allclose(result.xdata.y, truth.xdata.y)
+    assert np.allclose(result.xdata.band, truth.xdata.band)
 
     v = v.cast_field("OBJECTID", U16)
     result = v.to_raster(like, field="OBJECTID")

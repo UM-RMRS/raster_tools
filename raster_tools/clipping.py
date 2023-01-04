@@ -1,11 +1,12 @@
 import dask
-import dask.array as da
 import numpy as np
 import rioxarray as rxr
 import xarray as xr
 
+from raster_tools.creation import ones_like, zeros_like
 from raster_tools.masking import get_default_null_value
-from raster_tools.raster import RasterNoDataError, get_raster
+from raster_tools.raster import Raster, RasterNoDataError, get_raster
+from raster_tools.utils import make_raster_ds
 from raster_tools.vector import get_vector
 
 
@@ -43,26 +44,31 @@ def _clip(
 
     feat_rs = feat.to_raster(rs)
     if not envelope:
-        clip_mask = feat_rs > 0
+        if invert:
+            clip_mask = feat_rs.to_null_mask()
+        else:
+            clip_mask = ~feat_rs.to_null_mask()
     else:
-        clip_mask = feat_rs >= 0
-        clip_mask._mask[:] = False
+        if invert:
+            clip_mask = zeros_like(feat_rs, dtype=bool)
+        else:
+            clip_mask = ones_like(feat_rs, dtype=bool)
 
     if rs._masked:
         nv = rs.null_value
     else:
         nv = get_default_null_value(rs.dtype)
 
-    if invert:
-        clip_mask = ~clip_mask
-        clip_mask._mask = ~clip_mask._mask
-    xrs_out = xr.where(clip_mask.xrs, rs.xrs, nv)
-    xrs_out = xrs_out.rio.write_crs(rs.crs)
-    mask_out = clip_mask._mask
+    xdata_out = xr.where(clip_mask.xdata, rs.xdata, nv)
+    xmask_out = ~clip_mask.xdata
 
     if rs._masked:
-        mask_out |= rs._mask
-    return rs._replace(xrs_out, mask=mask_out, null_value=nv)
+        xmask_out |= rs.xmask
+        xdata_out = xdata_out.rio.write_nodata(nv)
+    ds_out = make_raster_ds(xdata_out, xmask_out)
+    if rs.crs is not None:
+        ds_out = ds_out.rio.write_crs(rs.crs)
+    return Raster(ds_out, _fast_path=True)
 
 
 def clip(feature, data_raster, bounds=None):
@@ -209,13 +215,14 @@ def clip_box(raster, bounds):
     if len(bounds) != 4:
         raise ValueError("Invalid bounds. Must be a size 4 array or tuple.")
     try:
-        xrs = rs.xrs.rio.clip_box(*bounds, auto_expand=True)
+        xrs = rs.xdata.rio.clip_box(*bounds, auto_expand=True)
     except rxr.exceptions.NoDataInBounds:
         raise RasterNoDataError("No data found within provided bounds")
     if rs._masked:
-        mask = rs.xmask.rio.clip_box(*bounds, auto_expand=True).data
+        xmask = rs.xmask.rio.clip_box(*bounds, auto_expand=True)
     else:
-        mask = da.zeros_like(xrs.data, dtype=bool)
-    # TODO: This will throw a rioxarray.exceptions.MissingCRS exception if
-    # no crs is set. Add code to fall back on
-    return rs._replace(xrs, mask=mask)
+        xmask = xr.zeros_like(xrs, dtype=bool)
+    ds = make_raster_ds(xrs, xmask)
+    if rs.crs is not None:
+        ds = ds.rio.write_crs(rs.crs)
+    return Raster(ds, _fast_path=True)

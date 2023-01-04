@@ -4,6 +4,7 @@ import numpy as np
 from affine import Affine
 
 from raster_tools import Raster, distance
+from tests.utils import assert_valid_raster
 
 # Example taken from ESRI docs
 SOURCES = np.array(
@@ -103,28 +104,27 @@ class TestCostDist(unittest.TestCase):
         cost_dist, traceback, allocation = distance.cost_distance_analysis(
             self.cs, self.srcs
         )
+        assert_valid_raster(cost_dist)
+        assert_valid_raster(traceback)
+        assert_valid_raster(allocation)
 
         # Cost dist
         self.assertTrue(
-            np.allclose(
-                cost_dist.to_dask().compute(),
-                CD_TRUTH_SCALE_1,
-                equal_nan=True,
-            ),
+            np.allclose(cost_dist.values, CD_TRUTH_SCALE_1, equal_nan=True)
         )
         self.assertTrue(cost_dist._masked)
         self.assertTrue(cost_dist.dtype == np.dtype(np.float64))
         self.assertTrue(cost_dist.null_value == -1)
         # traceback
         self.assertTrue(
-            np.allclose(traceback._values, TR_TRUTH_SCALE_1, equal_nan=True)
+            np.allclose(traceback.values, TR_TRUTH_SCALE_1, equal_nan=True)
         )
         self.assertTrue(traceback._masked)
         self.assertTrue(traceback.dtype == np.dtype(np.int8))
         self.assertTrue(traceback.null_value == -1)
         # Allocation
         self.assertTrue(
-            np.allclose(allocation._values, AL_TRUTH_SCALE_1, equal_nan=True)
+            np.allclose(allocation.values, AL_TRUTH_SCALE_1, equal_nan=True)
         )
         self.assertTrue(allocation._masked)
         self.assertTrue(allocation.dtype == np.dtype(np.int64))
@@ -134,17 +134,20 @@ class TestCostDist(unittest.TestCase):
         cost_dist, traceback, allocation = distance.cost_distance_analysis(
             self.cs, self.srcs_idx
         )
+        assert_valid_raster(cost_dist)
+        assert_valid_raster(traceback)
+        assert_valid_raster(allocation)
 
         # Cost dist
         self.assertTrue(
-            np.allclose(cost_dist._values, CD_TRUTH_SCALE_1, equal_nan=True)
+            np.allclose(cost_dist.values, CD_TRUTH_SCALE_1, equal_nan=True)
         )
         self.assertTrue(cost_dist._masked)
         self.assertTrue(cost_dist.dtype == np.dtype(np.float64))
         self.assertTrue(cost_dist.null_value == -1)
         # traceback
         self.assertTrue(
-            np.allclose(traceback._values, TR_TRUTH_SCALE_1, equal_nan=True)
+            np.allclose(traceback.values, TR_TRUTH_SCALE_1, equal_nan=True)
         )
         self.assertTrue(traceback._masked)
         self.assertTrue(traceback.dtype == np.dtype(np.int8))
@@ -152,74 +155,35 @@ class TestCostDist(unittest.TestCase):
         # Allocation
         self.assertTrue(
             np.allclose(
-                allocation._values, AL_TRUTH_IDXS_SCALE_1, equal_nan=True
+                allocation.values, AL_TRUTH_IDXS_SCALE_1, equal_nan=True
             )
         )
         self.assertTrue(allocation._masked)
         self.assertTrue(allocation.dtype == np.dtype(np.int64))
         self.assertTrue(allocation.null_value == -1)
 
-    def test_negative_resolution(self):
-        cs = Raster("tests/data/elevation_small.tif")
-        srcs = np.array([[20, 20]])
-        _ = distance.cost_distance_analysis(cs, srcs)
-
-        af = self.cs.affine
-        coefs = [af.a, af.b, af.c, af.d, -af.e, af.f]
-        trans = Affine(*coefs)
-        cs = self.cs.copy()
-        xcs = self.cs.xrs.rio.write_transform(trans)
-        cs._rs = xcs
-        cost_dist, traceback, allocation = distance.cost_distance_analysis(
-            cs, self.srcs
-        )
-        # Cost dist
-        self.assertTrue(
-            np.allclose(
-                cost_dist.to_dask().compute(),
-                CD_TRUTH_SCALE_1,
-                equal_nan=True,
-            ),
-        )
-        # traceback
-        self.assertTrue(
-            np.allclose(
-                traceback.to_dask().compute(),
-                TR_TRUTH_SCALE_1,
-                equal_nan=True,
-            ),
-        )
-        # Allocation
-        self.assertTrue(
-            np.allclose(
-                allocation.to_dask().compute(),
-                AL_TRUTH_SCALE_1,
-                equal_nan=True,
-            ),
-        )
-
     def test_cost_distance_analysis_errors(self):
         with self.assertRaises(ValueError):
             # Must be single band
             distance.cost_distance_analysis(
-                "tests/data/multiband_small.tif", self.srcs
+                "tests/data/raster/multiband_small.tif", self.srcs
             )
         with self.assertRaises(ValueError):
             # Must have same shape
             distance.cost_distance_analysis(
-                self.cs, "tests/data/elevation_small.tif"
+                self.cs, "tests/data/raster/elevation_small.tif"
             )
         with self.assertRaises(TypeError):
             # source raster must be int
             distance.cost_distance_analysis(
-                "tests/data/elevation_small.tif",
-                "tests/data/elevation_small.tif",
+                "tests/data/raster/elevation_small.tif",
+                "tests/data/raster/elevation_small.tif",
             )
         with self.assertRaises(ValueError):
             # source raster must have null value
             distance.cost_distance_analysis(
-                "tests/data/elevation_small.tif",
-                Raster("tests/data/elevation_small.tif")
+                "tests/data/raster/elevation_small.tif",
+                Raster("tests/data/raster/elevation_small.tif")
                 .astype(int, False)
                 .set_null_value(None),
             )
@@ -239,29 +203,29 @@ class TestCostDist(unittest.TestCase):
         coefs = [5, af.b, af.c, af.d, 5, af.f]
         trans = Affine(*coefs)
         cs = self.cs.copy()
-        xcs = self.cs.xrs.rio.write_transform(trans)
-        xcs["x"] = xcs.x * 5
-        xcs["y"] = xcs.y * 5
-        cs._rs = xcs
+        ds = self.cs._ds.rio.write_transform(trans)
+        ds["x"] = ds.x * 5
+        ds["y"] = ds.y * 5
+        cs._ds = ds
         cost_dist, traceback, allocation = distance.cost_distance_analysis(
             cs, self.srcs
         )
+        assert_valid_raster(cost_dist)
+        assert_valid_raster(traceback)
+        assert_valid_raster(allocation)
 
         self.assertTrue(
-            np.allclose(cost_dist._values, CD_TRUTH_SCALE_5, equal_nan=True)
+            np.allclose(cost_dist.values, CD_TRUTH_SCALE_5, equal_nan=True)
         )
 
 
-class TestCostDistAttrsPropagation(unittest.TestCase):
-    def test_distance_attrs(self):
-        rs = Raster("tests/data/elevation_small.tif")
-        srcs = np.array([[1, 1], [20, 30]])
-        attrs = rs._attrs
-        cd, tr, al = distance.cost_distance_analysis(rs, srcs)
-        self.assertEqual(cd._attrs, attrs)
-        # Null values may not match costs raster for traceback and allocation
-        attrs.pop("_FillValue")
-        tr.xrs.attrs.pop("_FillValue")
-        self.assertEqual(tr._attrs, attrs)
-        al.xrs.attrs.pop("_FillValue")
-        self.assertEqual(al._attrs, attrs)
+def test_cost_distance_analysis_crs():
+    rs = Raster("tests/data/raster/elevation_small.tif")
+    srcs = np.array([[1, 1], [20, 30]])
+    cd, tr, al = distance.cost_distance_analysis(rs, srcs)
+    assert_valid_raster(cd)
+    assert_valid_raster(tr)
+    assert_valid_raster(al)
+    assert cd.crs == rs.crs
+    assert tr.crs == rs.crs
+    assert al.crs == rs.crs

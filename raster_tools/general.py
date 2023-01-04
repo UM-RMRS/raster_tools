@@ -23,7 +23,7 @@ from scipy.ndimage import (
     grey_erosion,
 )
 
-from raster_tools.creation import zeros_like
+from raster_tools.creation import empty_like, zeros_like
 from raster_tools.dtypes import (
     BOOL,
     F16,
@@ -58,6 +58,7 @@ from raster_tools.stat_common import (
     nanentropy_jit,
     nanmode_jit,
 )
+from raster_tools.utils import make_raster_ds
 
 __all__ = [
     "aggregate",
@@ -146,19 +147,19 @@ def regions(raster, neighbors=4, unique_values=None):
         else:
             raise TypeError("Invalid type for unique_values parameter")
 
-    data = raster._data
-    dout = rs_out._data
+    data = raster.data
+    dout = rs_out.data
     if raster._masked:
         # Set null values to 0 to skip them in the labeling phase
-        data = da.where(raster._mask, 0, data)
+        data = da.where(raster._ds.mask.data, 0, data)
 
     for bnd in range(data.shape[0]):
         dout[bnd] = _create_labels(data[bnd], wd, unique_values)
 
     if raster._masked:
         nv = reconcile_nullvalue_with_dtype(raster.null_value, rs_out.dtype)
-        dout = da.where(raster._mask, nv, dout)
-    rs_out._data = dout
+        dout = da.where(raster._ds.mask.data, nv, dout)
+    rs_out._ds.raster.data = dout
     return rs_out
 
 
@@ -227,12 +228,12 @@ _COARSEN_STYPE_TO_CUSTOM_FUNC = {
 
 def _get_unique_dtype(cur_dtype):
     if cur_dtype in (I8, U8):
-        return I16, get_default_null_value(I16)
+        return I16
     if cur_dtype == U16:
-        return I32, get_default_null_value(I32)
+        return I32
     if cur_dtype == U32:
-        return I64, get_default_null_value(I64)
-    return cur_dtype, get_default_null_value(cur_dtype)
+        return I64
+    return cur_dtype
 
 
 def aggregate(raster, expand_cells, stype):
@@ -283,8 +284,8 @@ def aggregate(raster, expand_cells, stype):
     orig_dtype = get_raster(raster).dtype
     rs = get_raster(raster, null_to_nan=True)
 
-    xda = rs.xrs
-    mask = rs._mask
+    xda = rs.xdata
+    xmask = rs.xmask
     dim_map = {"y": expand_cells[0], "x": expand_cells[1]}
     xdac = xda.coarsen(dim=dim_map, boundary="trim")
     if stype in _COARSEN_STYPE_TO_FUNC:
@@ -307,26 +308,27 @@ def aggregate(raster, expand_cells, stype):
         )
     # Coarsen mask as well
     if rs._masked:
-        mask = rs.xmask.coarsen(dim=dim_map, boundary="trim").all().data
+        xmask = rs.xmask.coarsen(dim=dim_map, boundary="trim").all()
 
-    rs_out = rs.copy()
-    rs_out._rs = xda
+    ds_out = make_raster_ds(xda, xmask)
     if rs._masked:
-        rs_out._mask = mask
-        nv = rs.null_value
         if stype == "unique":
-            dt, nv = _get_unique_dtype(rs_out.dtype)
-            rs_out._rs = rs_out.xrs.astype(dt)
+            ds_out["raster"] = ds_out.raster.astype(
+                _get_unique_dtype(ds_out.raster.dtype)
+            )
         elif stype == "mode":
             # Cast back to original dtype. Original null value will work
-            rs_out._rs = rs_out.xrs.astype(orig_dtype)
-        # asm/entropy both result in F64 which should hold any value
-        rs_out._null_value = nv
+            ds_out["raster"] = ds_out.raster.astype(orig_dtype)
         # Replace null cells with null value acording to mask
-        rs_out._data = da.where(rs_out._mask, nv, rs_out._data)
+        nv = get_default_null_value(ds_out.raster.dtype)
+        ds_out["raster"] = xr.where(xmask, nv, ds_out.raster).rio.write_nodata(
+            nv
+        )
     else:
-        rs_out._mask = da.zeros_like(rs_out._data, dtype=bool)
-    return rs_out
+        ds_out["mask"] = xr.zeros_like(rs.get_bands(1).xmask)
+    if rs.crs is not None:
+        ds_out = ds_out.rio.write_crs(rs.crs)
+    return Raster(ds_out, _fast_path=True)
 
 
 def predict_model(raster, model):
@@ -357,7 +359,7 @@ def predict_model(raster, model):
 
     """
     rs = get_raster(raster, null_to_nan=True)
-    xarr = rs.xrs
+    xarr = rs.xdata
     xarrout = model.predict(xarr)
 
     return Raster(xarrout)
@@ -475,42 +477,40 @@ def local_stats(raster, stype):
     orig_dtype = get_raster(raster).dtype
     rs = get_raster(raster, null_to_nan=True)
 
-    xda = rs.xrs
-    mask = rs._mask
+    xda = rs.xdata.copy()
+    xmask = rs.xmask
     if stype in _LOCAL_STYPE_TO_NUMPY_FUNC:
         xndata = xda.reduce(
             _LOCAL_STYPE_TO_NUMPY_FUNC[stype], dim="band", keepdims=True
         )
     else:
         data = xda.data
-        # Destination dataarary with correct dims and copied meta data
-        xndata = rs.get_bands(1).xrs
+        xndata = empty_like(rs.get_bands(1)).xdata
         xndata.data = _local(data, stype)
     if rs._masked:
-        mask = rs.xmask.reduce(
+        xmask = xmask.reduce(
             np.all,
             dim="band",
             keepdims=True,
-        ).data
+        )
+    else:
+        xmask = xr.zeros_like(xmask, dtype=bool)
 
-    rs_out = rs.copy()
-    rs_out._rs = xndata
+    ds_out = make_raster_ds(xndata, xmask)
     if rs._masked:
-        rs_out._mask = mask
-        nv = rs.null_value
         if stype in ("unique", "minband", "maxband"):
-            dt, nv = _get_unique_dtype(rs_out.dtype)
-            rs_out._rs = rs_out.xrs.astype(dt)
+            ds_out["raster"] = ds_out.raster.astype(
+                _get_unique_dtype(ds_out.raster.dtype)
+            )
         elif stype == "mode":
             # Cast back to original dtype. Original null value will work
-            rs_out._rs = rs_out.xrs.astype(orig_dtype)
-        # asm/entropy both result in F64 which should hold any value
-        rs_out._null_value = nv
-        # Replace null cells with null value acording to mask
-        rs_out._data = da.where(rs_out._mask, nv, rs_out._data)
-    else:
-        rs_out._mask = da.zeros_like(rs_out._data, dtype=bool)
-    return rs_out
+            ds_out["raster"] = ds_out.raster.astype(orig_dtype)
+        nv = get_default_null_value(ds_out.raster.dtype)
+        ds_out["raster"] = ds_out.raster.rio.write_nodata(nv)
+        ds_out.raster.data = da.where(ds_out.mask.data, nv, ds_out.raster.data)
+    if rs.crs is not None:
+        ds_out = ds_out.rio.write_crs(rs.crs)
+    return Raster(ds_out, _fast_path=True)
 
 
 def _morph_op_chunk(x, footprint, cval, morph_op, binary=False):
@@ -564,10 +564,10 @@ def _get_fill(dtype, op):
 
 
 def _erosion_or_dilation_filter(rs, footprint, op):
-    data = rs._data
+    data = rs.data
     fill = _get_fill(rs.dtype, op)
     if rs._masked:
-        data = da.where(rs._mask, fill, data)
+        data = da.where(rs.mask, fill, data)
     rpad, cpad = _get_offsets(footprint.shape)
     # Take max because map_overlap does not support asymmetrical overlaps when
     # a boundary value is given
@@ -585,7 +585,7 @@ def _erosion_or_dilation_filter(rs, footprint, op):
         dtype=rs.dtype,
         meta=np.array((), dtype=rs.dtype),
     )
-    mask = rs._mask
+    mask = rs.mask
     if rs._masked:
         mask = da.map_overlap(
             partial(
@@ -605,10 +605,13 @@ def _erosion_or_dilation_filter(rs, footprint, op):
         data = da.where(mask, rs.null_value, data)
     else:
         mask = mask.copy()
-    xrs_out = xr.zeros_like(rs.xrs)
+    xrs_out = xr.zeros_like(rs.xdata).rio.write_nodata(rs.null_value)
     xrs_out.data = data
-    rs_out = rs._replace(xrs_out, mask=mask)
-    return rs_out
+    xmask = xr.DataArray(mask, coords=xrs_out.coords, dims=xrs_out.dims)
+    ds_out = make_raster_ds(xrs_out, xmask)
+    if rs.crs is not None:
+        ds_out = ds_out.rio.write_crs(rs.crs)
+    return Raster(ds_out, _fast_path=True)
 
 
 def dilate(raster, size):
@@ -695,7 +698,7 @@ def erode(raster, size):
     return _erosion_or_dilation_filter(raster, footprint, "erosion")
 
 
-def band_concat(rasters, null_value=None):
+def band_concat(rasters):
     """Join a sequence of rasters along the band dimension.
 
     Parameters
@@ -703,9 +706,6 @@ def band_concat(rasters, null_value=None):
     rasters : sequence of Rasters and/or paths
         The rasters to concatenate. These can be a mix of Rasters and paths.
         All rasters must have the same shape in the x and y dimensions.
-    null_value : scalar, optional
-        A new null value for the resulting raster. If not set, a default null
-        value will be selected.
 
     Returns
     -------
@@ -718,37 +718,18 @@ def band_concat(rasters, null_value=None):
         raise ValueError("No rasters provided")
     if len(rasters) == 1:
         return rasters[0]
-    if null_value is not None and not is_scalar(null_value):
-        raise TypeError("Null value must be a scalar")
-    shapes = [r.shape for r in rasters]
-    # NOTE: xarray.concat allows for arrays to be missing the first
-    # dimension, e.g. concat([(2, 3, 3), (3, 3)]) works. This
-    # differs from numpy.
-    shapes = set([s[-2:] for s in shapes])
-    if len(shapes) != 1:
-        raise ValueError("X and Y dimensions must match for input rasters")
 
-    xrs = [r.xrs for r in rasters]
-    masks = [r._mask for r in rasters]
-    masked = any([r._masked for r in rasters]) or (null_value is not None)
+    # TODO: make join a user option or set join="exact"?
+    ds = xr.concat([r._ds for r in rasters], dim="band", join="inner")
+    ds["band"] = np.arange(np.sum([r.nbands for r in rasters])) + 1
+    if any(r._masked for r in rasters):
+        nv = get_default_null_value(ds.raster.dtype)
+        ds["raster"] = xr.where(ds.mask, nv, ds.raster).rio.write_nodata(nv)
+    crs = ([None] + [r.crs for r in rasters if r.crs is not None]).pop()
+    if ds.rio.crs is None and crs is not None:
+        ds = ds.rio.write_crs(crs)
 
-    rs = xr.concat(xrs, "band")
-    mask = da.concatenate(masks)
-    if null_value is not None:
-        new_nv = reconcile_nullvalue_with_dtype(null_value, bool, True)
-    elif masked:
-        new_nv = get_default_null_value(rs.dtype)
-
-    # Make sure that band is now an increasing list starting at 1 and
-    # incrementing by 1. For xrs1 (1, N, M) and xrs2 (1, N, M),
-    # concat([xrs1, xrs2]) sets the band dim to [1, 1], which causes errors
-    # in other operations, so this fixes that. It also keeps the band dim
-    # values in line with what open_rasterio() returns for multiband
-    # rasters.
-    rs["band"] = list(range(1, rs.shape[0] + 1))
-    if not is_bool(rs.dtype) and masked:
-        rs.data = da.where(mask, new_nv, rs.data)
-    return rasters[0]._replace(rs, mask=mask, null_value=new_nv)
+    return Raster(ds, _fast_path=True)
 
 
 @nb.jit(nopython=True, nogil=True)
@@ -877,13 +858,13 @@ def remap_range(raster, mapping, inclusivity="left"):
             outrs = outrs.astype(F32)
     elif f16_workaround:
         outrs = outrs.astype(F32)
-    data = outrs._data
+    data = outrs.data
     func = partial(
         _remap_values, mappings=mappings, inclusivity=inc_map[inclusivity]
     )
-    outrs._data = data.map_blocks(
+    outrs.xdata.data = data.map_blocks(
         func,
-        raster._mask,
+        raster.mask,
         dtype=data.dtype,
         meta=np.array((), dtype=data.dtype),
     )
@@ -934,45 +915,52 @@ def where(condition, true_rast, false_rast):
                 )
         args.append(r)
     true_rast, false_rast = args
+    out_crs = None
+    for r in [condition, true_rast, false_rast]:
+        crs = getattr(r, "crs", None)
+        if crs is not None:
+            out_crs = crs
+            break
 
-    xtrue, xfalse = [r.xrs if isinstance(r, Raster) else r for r in args]
+    xtrue, xfalse = [r.xdata if isinstance(r, Raster) else r for r in args]
     masked = any(r._masked if isinstance(r, Raster) else False for r in args)
     scalar_and_nan = all(is_scalar(r) for r in args) and np.isnan(args).any()
     masked |= scalar_and_nan
-    xcondition = condition.xrs
+    xcondition = condition.xdata
     if is_int(condition.dtype):
         # if condition.dtype is not bool then must be an int raster so
         # assume that condition is raster of 0 and 1 values.
         # condition > 0 will grab all 1/True values.
         xcondition = xcondition > 0
 
-    out_crs = xcondition.rio.crs
     out_xrs = xr.where(xcondition, xtrue, xfalse)
-    if out_crs is not None:
-        out_xrs = out_xrs.rio.write_crs(out_crs)
     if masked and not scalar_and_nan:
         xtrue_mask, xfalse_mask = [
             r.xmask
             if isinstance(r, Raster)
             else xr.DataArray(
-                create_null_mask(condition.xrs, None),
-                dims=condition.xrs.dims,
-                coords=condition.xrs.coords,
+                create_null_mask(condition.xdata, None),
+                dims=condition.xdata.dims,
+                coords=condition.xdata.coords,
             )
             for r in args
         ]
-        mask = xr.where(xcondition, xtrue_mask, xfalse_mask).data
+        xmask = xr.where(xcondition, xtrue_mask, xfalse_mask)
     elif scalar_and_nan:
-        mask = create_null_mask(out_xrs, np.nan)
+        xmask = np.isnan(out_xrs)
     else:
-        mask = create_null_mask(xcondition, None)
-    # Clear null value that is automatically set for float DataArrays
-    out_rs = Raster(out_xrs).set_null_value(None)
-    if masked:
-        out_rs._null_value = get_default_null_value(out_rs.dtype)
-        out_rs._mask = mask
-        out_rs = out_rs.burn_mask()
-    return out_rs
+        xmask = xr.DataArray(
+            create_null_mask(condition.xdata, None),
+            dims=condition.xdata.dims,
+            coords=condition.xdata.coords,
+        )
+    if masked or scalar_and_nan:
+        nv = get_default_null_value(out_xrs.dtype)
+        out_xrs = xr.where(xmask, nv, out_xrs).rio.write_nodata(nv)
+    out_ds = make_raster_ds(out_xrs, xmask)
+    if out_crs is not None:
+        out_ds = out_ds.rio.write_crs(out_crs)
+    return Raster(out_ds, _fast_path=True)
 
 
 @nb.jit(nopython=True, nogil=True)
@@ -1024,8 +1012,11 @@ def _parse_ascii_remap_file(path):
 
 
 def _get_remapping(mapping):
-    if is_str(mapping) and os.path.exists(mapping):
-        mapping = _parse_ascii_remap_file(mapping)
+    if is_str(mapping):
+        if os.path.exists(mapping):
+            mapping = _parse_ascii_remap_file(mapping)
+        else:
+            raise IOError(f"No such file: {mapping!r}")
     elif not isinstance(mapping, dict):
         raise TypeError(
             f"Remapping must be a str or dict. Got: {type(mapping)!r}"
@@ -1087,8 +1078,8 @@ def reclassify(raster, remapping, unmapped_to_null=False):
     mapping = np.array(list(remapping.items()))
     data = da.map_blocks(
         _reclassify_chunk,
-        raster._data.copy().astype(out_dtype),
-        raster._mask,
+        raster.data.copy().astype(out_dtype),
+        raster.mask,
         mapping_array=mapping,
         unmapped_to_null=unmapped_to_null,
         null=nv,
@@ -1096,7 +1087,7 @@ def reclassify(raster, remapping, unmapped_to_null=False):
         meta=np.array((), dtype=out_dtype),
     )
     xdata = xr.DataArray(
-        data, coords=raster.xrs.coords, dims=raster.xrs.dims
+        data, coords=raster.xdata.coords, dims=raster.xdata.dims
     ).rio.write_nodata(nv)
     if raster.crs is not None:
         xdata = xdata.rio.write_crs(raster.crs)

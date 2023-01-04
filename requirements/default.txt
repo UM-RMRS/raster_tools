@@ -1,15 +1,16 @@
- affine
- dask
- dask-geopandas
- dask-image
- fiona
- geopandas
- numba
- numpy>=1.22
- pandas
- pygeos
- pyogrio
- pyproj
- rioxarray
- scipy
- xarray
+affine
+dask
+dask-geopandas
+dask-image
+fiona
+geopandas
+numba
+numpy>=1.22
+pandas
+pygeos
+pyogrio
+pyproj
+rioxarray
+rasterio<1.3
+scipy
+xarray

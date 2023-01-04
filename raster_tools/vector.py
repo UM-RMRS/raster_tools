@@ -322,13 +322,15 @@ def _rio_rasterize_wrapper(
 def _rasterize_block(
     xc, yc, geometry, values, out_dtype, fill, all_touched, block_info=None
 ):
+    shape_2d = block_info[None]["chunk-shape"]
     valid = ~(geometry.is_empty | geometry.isna())
     geometry = geometry[valid]
     values = values[valid.values]
+    if len(geometry) == 0:
+        return np.full(shape_2d, fill, dtype=out_dtype)
 
     xc = xc.ravel()
     yc = yc.ravel()
-    shape_2d = block_info[None]["chunk-shape"]
     dummy_data = da.zeros(shape_2d)
     dummy_xrs = xr.DataArray(dummy_data, coords=(yc, xc), dims=("y", "x"))
     transform = dummy_xrs.rio.transform()
@@ -425,7 +427,7 @@ def _normalize_geo_data(geo):
             f" GeoSeries. Got {type(geo)}."
         )
     if _is_series(geo):
-        geo = geo.to_frame()
+        geo = geo.to_frame("geometry")
     if dask.is_dask_collection(geo) and not geo.known_divisions:
         raise ValueError(
             "Unknown divisions set on input data. Divisions must be set."
@@ -646,7 +648,7 @@ class Vector:
         xrs = _vector_to_raster_dask(
             self.to_crs(like.crs)._geo,
             self.size,
-            xlike=like.xrs,
+            xlike=like.xdata,
             field=field,
             all_touched=all_touched,
         )

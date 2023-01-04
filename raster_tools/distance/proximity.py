@@ -566,15 +566,17 @@ def _proximity_analysis(
             f"max_distance must be greater than 0: {max_distance!r}"
         )
 
-    x = raster.xrs.x.data
-    y = raster.xrs.y.data
+    x = raster.x
+    y = raster.y
     if distance_metric in ("haversine", "great_circle"):
         _validate_lonlat_coords(x, y)
     if max_distance >= np.sqrt(dist_sqr_func(x[0], y[0], x[-1], y[-1])):
         # If max distance encompasses the entire raster, rechunk to entire
         # raster.
         _, ny, nx = raster.shape
-        raster = raster._rechunk({0: 1, 1: ny, 2: nx})
+        raster = Raster(
+            raster._ds.chunk({"band": 1, "y": ny, "x": nx}), _fast_path=True
+        )
         xdepth = 0
         ydepth = 0
     else:
@@ -589,7 +591,7 @@ def _proximity_analysis(
             resolution = _estimate_min_resolution(x, y)
         xdepth, ydepth = np.ceil(max_distance / np.abs(resolution)).astype(int)
     coords_block_info = {
-        "chunks": raster._data.chunks[1:],
+        "chunks": raster.data.chunks[1:],
         "depth": (ydepth, xdepth),
     }
     if mode in (_MODE_PROXIMITY, _MODE_DIRECTION):
@@ -603,7 +605,7 @@ def _proximity_analysis(
 
     out_data = da.map_overlap(
         _proximity_analysis_chunk,
-        raster._data,
+        raster.data,
         depth=(0, ydepth, xdepth),
         boundary=np.nan,
         meta=np.array((), dtype=out_dtype),
@@ -621,9 +623,9 @@ def _proximity_analysis(
     )
     xout = xr.DataArray(
         out_data,
-        coords=raster.xrs.coords,
-        dims=raster.xrs.dims,
-        attrs=raster.xrs.attrs,
+        coords=raster.xdata.coords,
+        dims=raster.xdata.dims,
+        attrs=raster.xdata.attrs,
     ).rio.write_nodata(nodata)
     rs_out = Raster(xout)
     return rs_out

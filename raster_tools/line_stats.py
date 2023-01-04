@@ -1,4 +1,3 @@
-import sys
 from functools import partial
 
 import dask.array as da
@@ -10,20 +9,13 @@ from raster_tools.dtypes import F32, I8, is_bool, is_scalar, is_str
 from raster_tools.raster import Raster, get_raster
 from raster_tools.vector import _rasterize_block, get_vector
 
-PY_38_PLUS = sys.version_info >= (3, 8)
-
 
 def _trim(x, slices):
     return x[tuple(slices)]
 
 
 def _build_cell_shapes(indices, xc, yc, radius, crs):
-    if PY_38_PLUS:
-        geom = gpd.GeoSeries.from_xy(xc[indices[1]], yc[indices[0]], crs=crs)
-    else:
-        geom = gpd.GeoSeries(
-            gpd.points_from_xy(xc[indices[1]], yc[indices[0]], crs=crs)
-        )
+    geom = gpd.GeoSeries.from_xy(xc[indices[1]], yc[indices[0]], crs=crs)
     return geom.buffer(radius)
 
 

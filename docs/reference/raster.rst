@@ -12,20 +12,36 @@ Constructing Rasters
 
    Raster
 
-Attributes
+Properties
 ==========
 
 .. autosummary::
    :toctree: generated/
 
-   Raster.affine
-   Raster.bounds
-   Raster.crs
    Raster.dtype
-   Raster.null_value
-   Raster.pxrs
-   Raster.resolution
    Raster.shape
+   Raster.nbands
+   Raster.null_value
+   Raster.values
+   Raster.data
+   Raster.xdata
+   Raster.mask
+   Raster.xmask
+   Raster.x
+   Raster.y
+   Raster.crs
+   Raster.affine
+   Raster.resolution
+   Raster.bounds
+   Raster.bandwise
+
+Deprecated Properties
+---------------------
+
+.. autosummary::
+   :toctree: generated/
+
+   Raster.pxrs
    Raster.xrs
 
 Operations
@@ -36,9 +52,9 @@ Arithmetic and Comparison Operations
 
 Raster objects support all arithmetic (``+``, ``-``, ``*``,
 ``/``, ``//``, ``%``, ``divmod()``, ``**``, ``<<``, ``>>``, ``&``, ``^``,
-``|``, ``~``) and comparison operations (``==``, ``<``, ``>``, ``<=``,
-``>=``, ``!=``). Because of this, they can be used like regular scalar
-variables. Some examples:
+``|``, ``~``), bitwise/logical operators (``&``, ``|``, ``^``, ``~``), and
+comparison operations (``==``, ``<``, ``>``, ``<=``, ``>=``, ``!=``). Because
+of this, they can be used like regular scalar variables. Some examples:
 
 * Addition and subtraction: ``rs4 = rs1 + rs2 - rs3``
 * Floor division: ``rs3 = rs1 // rs2``
@@ -48,11 +64,6 @@ variables. Some examples:
 * Bitwise and: ``rs3 = rs1 & rs2``
 * Bitwise complement: ``rs2 = ~rs1``
 * Comparison: ``rs_bool = rs1 >= rs2``
-
-The bitwise/logical operators (``&``, ``|``, ``^``, ``~``) have been overloaded
-so that they behave differently from python's (or numpy's). Non-boolean
-operands are coerced to the boolean type such that values greater than zero
-become ``True`` and values less than or equal to zero become ``False``.
 
 General
 -------
@@ -78,12 +89,17 @@ Reductions
    Raster.sum
    Raster.var
 
+
+Methods
+=======
+
 Reshaping and Reorganizing
 --------------------------
 
 .. autosummary::
    :toctree: generated/
 
+   Raster.chunk
    Raster.get_bands
 
 Null Data and Remapping
@@ -93,6 +109,7 @@ Null Data and Remapping
    :toctree: generated/
 
    Raster.burn_mask
+   Raster.reclassify
    Raster.replace_null
    Raster.remap_range
    Raster.set_null_value
@@ -107,7 +124,7 @@ Contents / Conversion
 
    Raster.astype
    Raster.copy
-   Raster.to_dask
+   Raster.to_dataset
    Raster.to_vector
 
 Georeferencing
@@ -129,3 +146,19 @@ Raster IO
    Raster.close
    Raster.eval
    Raster.save
+
+Plotting
+========
+
+.. autosummary::
+   :toctree: generated/
+
+   Raster.plot
+
+Miscellaneous
+=============
+
+.. autosummary::
+   :toctree: generated/
+
+   Raster.get_chunked_coords

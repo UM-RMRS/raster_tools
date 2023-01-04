@@ -1,0 +1,23 @@
+name: test-310
+channels:
+  - conda-forge
+dependencies:
+  - python=3.10
+  - affine
+  - dask
+  - dask-geopandas
+  - dask-image
+  - fiona
+  - geopandas
+  - numba
+  - numpy
+  - pandas
+  - pygeos
+  - pyogrio
+  - pyproj
+  - pytest
+  - pytest-xdist
+  - rasterio<1.3
+  - rioxarray
+  - scipy
+  - xarray

@@ -377,14 +377,14 @@ def focal(raster, focal_type, width_or_radius, height=None):
 
     window = get_focal_window(width_or_radius, height)
     rs = raster.copy()
-    data = rs._data
+    data = rs.data
 
     # Convert to float and fill nulls with nan, if needed
     if raster._masked:
         new_dtype = promote_dtype_to_float(raster.dtype)
         if new_dtype != data.dtype:
             data = data.astype(new_dtype)
-        data = da.where(raster._mask, np.nan, data)
+        data = da.where(raster.mask, np.nan, data)
 
     result = [
         _focal(data[bnd], window, focal_type, raster._masked)
@@ -413,9 +413,9 @@ def focal(raster, focal_type, width_or_radius, height=None):
     # present in the input. Thus we only need to worry about updating the mask
     # if the input was masked.
     if raster._masked:
-        rs._mask = raster._mask | np.isnan(data)
-        data = da.where(rs._mask, rs.null_value, data)
-    rs._data = data
+        rs.xmask.data = raster.mask | np.isnan(data)
+        data = da.where(rs.mask, rs.null_value, data)
+    rs.xdata.data = data
     return rs
 
 
@@ -547,8 +547,8 @@ def correlate(raster, kernel, mode="constant", cval=0.0):
     check_kernel(kernel)
     rs = raster.copy()
     if is_float(kernel.dtype) and is_int(rs.dtype):
-        rs._data = rs._data.astype(F64)
-    data = rs._data
+        rs.xdata.data = rs.data.astype(F64)
+    data = rs.data
     final_dtype = data.dtype
 
     # Convert to float and fill nulls with nan, if needed
@@ -558,7 +558,7 @@ def correlate(raster, kernel, mode="constant", cval=0.0):
         upcast = new_dtype != data.dtype
         if upcast:
             data = data.astype(new_dtype)
-        data = da.where(raster._mask, np.nan, data)
+        data = da.where(raster.mask, np.nan, data)
 
     for bnd in range(data.shape[0]):
         data[bnd] = _correlate(
@@ -569,8 +569,8 @@ def correlate(raster, kernel, mode="constant", cval=0.0):
     if upcast:
         data = data.astype(final_dtype)
 
-    rs._data = data
-    return rs
+    rs.xdata.data = data
+    return rs.burn_mask()
 
 
 def convolve(raster, kernel, mode="constant", cval=0.0):

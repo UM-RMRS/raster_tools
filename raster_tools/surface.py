@@ -32,7 +32,7 @@ DEGREES_TO_RADIANS = np.pi / 180
 
 def _finalize_rs(rs, data):
     # Invalidate edges
-    mask = rs._mask
+    mask = rs.mask
     mask[:, 0, :] = True
     mask[:, -1, :] = True
     mask[:, :, 0] = True
@@ -41,8 +41,8 @@ def _finalize_rs(rs, data):
     if not rs._masked:
         nv = get_default_null_value(data.dtype)
     data = da.where(mask, nv, data)
-    rs._data = data
-    rs._mask = mask
+    rs.xdata.data = data
+    rs.xmask.data = mask
     return rs
 
 
@@ -139,7 +139,7 @@ def surface_area_3d(raster):
 
     """
     rs = get_raster(raster, null_to_nan=True).copy()
-    data = rs._data
+    data = rs.data
     ffun = partial(_surface_area_3d, res=rs.resolution[0])
     out_data = _map_surface_func(data, ffun, F64)
     return _finalize_rs(rs, out_data)
@@ -199,7 +199,7 @@ def slope(raster, degrees=True):
 
     """  # noqa: E501
     rs = get_raster(raster, null_to_nan=True).copy()
-    data = rs._data
+    data = rs.data
 
     # Leave resolution sign as is
     ffun = partial(_slope, res=rs.resolution, degrees=bool(degrees))
@@ -265,7 +265,7 @@ def aspect(raster):
 
     """  # noqa: E501
     rs = get_raster(raster, null_to_nan=True).copy()
-    data = rs._data
+    data = rs.data
 
     out_data = _map_surface_func(data, _aspect, F64)
     return _finalize_rs(rs, out_data)
@@ -317,7 +317,7 @@ def curvature(raster):
 
     """  # noqa: E501
     rs = get_raster(raster, null_to_nan=True).copy()
-    data = rs._data
+    data = rs.data
 
     ffun = partial(_curv, res=np.abs(rs.resolution))
     out_data = _map_surface_func(data, ffun, F64)
@@ -326,13 +326,13 @@ def curvature(raster):
 
 def _northing_easting(rs, do_northing):
     trig = np.cos if do_northing else np.sin
-    data = rs._data
-    # Operate on rs._data rather than rs.xrs to avoid xarray's annoying
+    data = rs.data
+    # Operate on rs.data rather than rs.xdata to avoid xarray's annoying
     # habit of dropping meta data.
     data = trig(np.radians(data))
     if rs._masked:
-        data = da.where(rs._mask, rs.null_value, data)
-    rs._data = data
+        data = da.where(rs.mask, rs.null_value, data)
+    rs.xdata.data = data
     return rs
 
 
@@ -463,7 +463,7 @@ def hillshade(raster, azimuth=315, altitude=45):
 
     """  # noqa: E501
     rs = get_raster(raster, null_to_nan=True).copy()
-    data = rs._data
+    data = rs.data
     # Specifically leave resolution sign as is
     ffun = partial(
         _hillshade, res=rs.resolution, azimuth=azimuth, altitude=altitude
