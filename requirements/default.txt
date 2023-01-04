@@ -11,5 +11,6 @@
  pyogrio
  pyproj
  rioxarray
+ rasterio<1.3
  scipy
  xarray
