@@ -214,7 +214,6 @@ class TestCostDist(unittest.TestCase):
         assert_valid_raster(traceback)
         assert_valid_raster(allocation)
 
-        np.set_printoptions(linewidth=200)
         self.assertTrue(
             np.allclose(cost_dist.values, CD_TRUTH_SCALE_5, equal_nan=True)
         )
