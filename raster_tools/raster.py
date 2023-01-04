@@ -627,7 +627,10 @@ class Raster(_RasterBase):
     @property
     def values(self):
         """
-        The raw internal raster as a numpy array. Note: triggers computation.
+        The raw internal raster as a numpy array.
+
+        .. note::
+           This triggers computation and loads the raster data into memory.
         """
         return self._ds.raster.values
 
