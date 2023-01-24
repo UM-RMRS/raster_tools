@@ -13,4 +13,5 @@ pyproj
 rioxarray
 rasterio<1.3
 scipy
+shapely>=2
 xarray
