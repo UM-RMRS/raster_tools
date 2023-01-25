@@ -5,7 +5,8 @@ os.environ["USE_PYGEOS"] = "0"  # noqa: E402
 
 import geopandas as gpd  # noqa: E402
 
-# Check if geopandas has already been imported before raster_tools and set the
-# use_pygeos option accordingly
+# Check if geopandas has already been imported before raster_tools and turn off
+# use of pygeos if it is turned on. shapely is required as the geopandas
+# backend for line_stats.
 if gpd.options.use_pygeos:
     gpd.options.use_pygeos = False
