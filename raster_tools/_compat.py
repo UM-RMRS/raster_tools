@@ -1,7 +1,7 @@
 import os
 
 # Force the use of shapely 2 instead of pygeos in geopandas
-os.environ["USE_PYGEOS"] = "0"  # noqa: E402
+os.environ["USE_PYGEOS"] = "0"
 
 import geopandas as gpd  # noqa: E402
 
