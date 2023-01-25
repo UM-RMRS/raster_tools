@@ -16,7 +16,7 @@ dependencies:
   - pyproj
   - pytest
   - pytest-xdist
-  - rasterio<1.3
+  - rasterio
   - rioxarray
   - scipy
   - shapely>=2.0

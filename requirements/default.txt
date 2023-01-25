@@ -10,7 +10,7 @@ pandas
 pyogrio
 pyproj
 rioxarray
-rasterio<1.3
+rasterio
 scipy
 shapely>=2.0
 xarray
