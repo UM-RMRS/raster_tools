@@ -36,6 +36,14 @@ raster\_tools.creation module
    :undoc-members:
    :show-inheritance:
 
+raster\_tools.dask\_utils module
+--------------------------------
+
+.. automodule:: raster_tools.dask_utils
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 raster\_tools.dtypes module
 ---------------------------
 
@@ -68,6 +76,22 @@ raster\_tools.io module
    :undoc-members:
    :show-inheritance:
 
+raster\_tools.line\_stats module
+--------------------------------
+
+.. automodule:: raster_tools.line_stats
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+raster\_tools.masking module
+----------------------------
+
+.. automodule:: raster_tools.masking
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 raster\_tools.raster module
 ---------------------------
 
@@ -88,6 +112,14 @@ raster\_tools.surface module
 ----------------------------
 
 .. automodule:: raster_tools.surface
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+raster\_tools.utils module
+--------------------------
+
+.. automodule:: raster_tools.utils
    :members:
    :undoc-members:
    :show-inheritance:

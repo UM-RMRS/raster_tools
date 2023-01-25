@@ -8,6 +8,7 @@ numpy
 pandas
 rioxarray
 scipy
+shapely
 sphinx
 sphinx-book-theme
 xarray

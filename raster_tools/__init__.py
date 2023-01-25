@@ -1,3 +1,4 @@
+import raster_tools._compat  # noqa: F401
 from raster_tools import clipping, distance, focal, line_stats, surface, zonal
 from raster_tools._version import __version__  # noqa
 from raster_tools.creation import (
