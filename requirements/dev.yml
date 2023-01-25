@@ -16,7 +16,6 @@ dependencies:
   - pandas
   - pre-commit
   - pyarrow
-  - pygeos
   - pyogrio
   - pyproj
   - pytest

@@ -7,11 +7,10 @@ geopandas
 numba
 numpy>=1.22
 pandas
-pygeos
 pyogrio
 pyproj
 rioxarray
 rasterio<1.3
 scipy
-shapely>=2
+shapely>=2.0
 xarray

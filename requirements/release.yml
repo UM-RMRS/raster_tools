@@ -21,5 +21,6 @@ dependencies:
   - rasterio<1.3
   - rioxarray
   - scipy
+  - shapely>=2.0
   - twine
   - xarray
