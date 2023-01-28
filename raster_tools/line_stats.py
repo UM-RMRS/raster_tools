@@ -48,7 +48,7 @@ def _length_sum(out, lengths, idxs):
         out[idxs[i]] += lengths[i]
 
 
-def _compute_lengths(geometry, targets, weights=None):
+def _compute_lengths(geom_df, targets):
     """
     Overlay the targets circles on the geometries in `geometry`. This produces
     a clip of `geometry` for each target. The output is the computed length of
@@ -57,18 +57,15 @@ def _compute_lengths(geometry, targets, weights=None):
 
     See geopandas.overlay for more details about the overlay operation.
     """
-    geom_df = geometry.to_frame()
-    if weights is not None:
-        geom_df["weight"] = weights
-    targets_df = targets.to_frame()
+    targets_df = targets.to_frame("geometry")
     # Add column of index values so that clipped geoms can be mapped back to
     # the target that clipped them after the overlay operation. Column values
     # are preserved in overlay.
     targets_df["target_idx"] = np.arange(len(targets))
-    overlay = geom_df.overlay(targets_df)
+    overlay = geom_df.overlay(targets_df, keep_geom_type=True)
     overlay["len"] = overlay.length
-    if weights is not None:
-        overlay["len"] *= overlay.weight
+    if "weights" in geom_df:
+        overlay["len"] *= overlay.weights
     lengths = np.zeros(len(targets), dtype=F32)
     _length_sum(lengths, overlay.len.values, overlay.target_idx.values)
     return lengths
@@ -93,10 +90,15 @@ def _len_coords(geom):
     return len(geom.coords)
 
 
+def _len_interior_coords(geoms):
+    return sum(map(_len_coords, geoms))
+
+
 def _calculate_number_vertices(geoms):
+    # Assume all geoms are valid
     has_exterior = geoms.geom_type == "Polygon"
     has_interior = ~geoms[has_exterior].interiors.isin([[]])
-    nverts = 0
+    nverts = (geoms.geom_type == "Point").sum()
     if has_exterior.any():
         nverts += (
             geoms[has_exterior].exterior.apply(_len_coords).astype(int).sum()
@@ -104,7 +106,7 @@ def _calculate_number_vertices(geoms):
         if has_interior.any():
             nverts += (
                 geoms[has_exterior][has_interior]
-                .interior.apply(_len_coords)
+                .interiors.apply(_len_interior_coords)
                 .astype(int)
                 .sum()
             )
@@ -145,24 +147,24 @@ VERTS_PER_GEOM_CUTOFF = 15
 GEOM_BATCH_SIZE = 700
 
 
-def _get_indices_and_lengths_core(geoms, xc, yc, radius, weight_values=None):
+def _get_indices_and_lengths_core(geoms_df, xc, yc, radius):
     # Rasterize to create mask of cells-of-interest and extract the locations
     indices = _rasterize_geoms(
-        geoms.buffer(radius, BUFFER_RES), xc, yc
+        geoms_df.geometry.buffer(radius, BUFFER_RES), xc, yc
     ).nonzero()
     # Convert to points and buffer them out by the radius
     buffered_cells = gpd.GeoSeries.from_xy(
-        xc[indices[1]], yc[indices[0]], crs=geoms.crs
+        xc[indices[1]], yc[indices[0]], crs=geoms_df.crs
     ).buffer(radius, BUFFER_RES)
     # Get length of all lines that fall within each buffered area.
-    lengths = _compute_lengths(geoms, buffered_cells, weight_values)
+    lengths = _compute_lengths(geoms_df, buffered_cells)
     return indices, lengths
 
 
-def _get_indices_and_lengths(geoms, xc, yc, radius, weight_values=None):
+def _get_indices_and_lengths(geoms_df, xc, yc, radius, weight_values=None):
     """
     Finds the indices of cells where geoms fall within the given radius and
-    computes the lengths of those geoms for each on of the cells.
+    computes the lengths of those geoms for each one of the cells.
 
     If the number of geoms is too large or the geoms are too complex, the data
     is broken into batches. Batches are used because this process is memory
@@ -173,9 +175,9 @@ def _get_indices_and_lengths(geoms, xc, yc, radius, weight_values=None):
     """
     # Explode to turn multi-geometries into single geometries for vertex
     # counting
-    geoms = geoms.explode(ignore_index=True)
-    nverts = _calculate_number_vertices(geoms)
-    n = len(geoms)
+    geoms_df = geoms_df.explode(ignore_index=True)
+    nverts = _calculate_number_vertices(geoms_df.geometry)
+    n = len(geoms_df)
     ratio = nverts / n
     if (ratio > VERTS_PER_GEOM_CUTOFF and n > 1) or n > GEOM_BATCH_SIZE:
         n_batches = max(1, int(ratio / VERTS_PER_GEOM_CUTOFF))
@@ -184,14 +186,9 @@ def _get_indices_and_lengths(geoms, xc, yc, radius, weight_values=None):
         dfs = []
         # Process the batches
         for i in range(0, n, batch_size):
-            batch = geoms.iloc[i : i + batch_size]
-            batch_weights = (
-                None
-                if weight_values is None
-                else weight_values.iloc[i : i + batch_size]
-            )
+            batch_df = geoms_df.iloc[i : i + batch_size]
             idxs, lens = _get_indices_and_lengths_core(
-                batch, xc, yc, radius, batch_weights
+                batch_df, xc, yc, radius
             )
             df = pd.DataFrame(
                 {"idx0": idxs[0], "idx1": idxs[1], "length": lens}
@@ -204,7 +201,7 @@ def _get_indices_and_lengths(geoms, xc, yc, radius, weight_values=None):
         lengths = dfs["length"].to_numpy()
     else:
         indices, lengths = _get_indices_and_lengths_core(
-            geoms, xc, yc, radius, weight_values
+            geoms_df, xc, yc, radius
         )
     return indices, lengths
 
@@ -240,13 +237,18 @@ def _length_chunk(xc, yc, gdf, radius, field=None, block_info=None):
     )
 
     if len(gdf):
-        geometry = gdf.geometry
-        # Use field as weights
-        weight_values = gdf[field] if field is not None else None
-        if field is not None and is_bool(weight_values.dtype):
-            weight_values = weight_values.astype(I8)
+        cols = ["geometry"]
+        if field is not None:
+            cols.append(field)
+        gdf = gdf[cols]
+        if field is not None:
+            # Use field as weights
+            gdf = gdf.rename({field: "weights"})
+            if is_bool(gdf.weights.dtype):
+                gdf = gdf.astype({"weights": I8})
+
         indices, lengths = _get_indices_and_lengths(
-            geometry, xc_valid, yc_valid, radius, weight_values
+            gdf, xc_valid, yc_valid, radius
         )
         output = np.zeros(out_shape, dtype=F32)
         output[yslice, xslice][indices] = lengths
@@ -319,9 +321,11 @@ def length(features, like_rast, radius, weighting_field=None):
 
     features = features.to_crs(like_rast.crs)
     gdf = features.data
-    out_chunks = ((1,), *like_rast.xrs.chunks[1:])
+    out_chunks = ((1,), *like_rast.xdata.chunks[1:])
 
-    xc, yc = like_rast.get_chunked_coords()
+    # Cast to float in case coordinates are int. This allows for nan values in
+    # overlap.
+    xc, yc = [c.astype(float) for c in like_rast.get_chunked_coords()]
     xdepth, ydepth = np.ceil(radius / np.abs(like_rast.resolution)).astype(int)
 
     oxc = da.overlap.overlap(
