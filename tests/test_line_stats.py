@@ -13,7 +13,7 @@ from shapely.geometry import LinearRing, LineString, Point, Polygon, box
 
 from raster_tools import line_stats
 from raster_tools.raster import Raster
-from tests.utils import assert_valid_raster, asssert_rasters_similar
+from tests.utils import assert_rasters_similar, assert_valid_raster
 
 
 @pytest.mark.parametrize(
@@ -243,5 +243,5 @@ def test_length(geoms, like, radius, truth, weight):
 
     assert_valid_raster(result)
     assert np.allclose(result, truth)
-    asssert_rasters_similar(result, like)
+    assert_rasters_similar(result, like)
     assert result.mask.compute().sum() == 0

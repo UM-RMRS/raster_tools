@@ -88,7 +88,7 @@ def assert_valid_raster(raster):
     assert raster.crs == raster._ds.mask.rio.crs
 
 
-def asssert_rasters_similar(left, right, check_nbands=True, check_chunks=True):
+def assert_rasters_similar(left, right, check_nbands=True, check_chunks=True):
     assert isinstance(left, Raster) and isinstance(right, Raster)
     if left is right:
         return
