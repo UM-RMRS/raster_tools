@@ -18,8 +18,9 @@ dependencies:
   - pygeos
   - pyogrio
   - pyproj
-  - rasterio<1.3
+  - rasterio
   - rioxarray
   - scipy
+  - shapely>=2.0
   - twine
   - xarray

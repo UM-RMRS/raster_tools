@@ -86,3 +86,19 @@ def assert_valid_raster(raster):
     assert raster.crs == raster._ds.rio.crs
     assert raster.crs == raster._ds.raster.rio.crs
     assert raster.crs == raster._ds.mask.rio.crs
+
+
+def assert_rasters_similar(left, right, check_nbands=True, check_chunks=True):
+    assert isinstance(left, Raster) and isinstance(right, Raster)
+    if left is right:
+        return
+
+    assert left._ds.dims == right._ds.dims
+    assert np.allclose(left.x, right.x)
+    assert np.allclose(left.y, right.y)
+    assert left.crs == right.crs
+    assert left.affine == right.affine
+    if check_nbands:
+        assert left.nbands == right.nbands
+    if check_chunks:
+        assert left.data.chunks == right.data.chunks
