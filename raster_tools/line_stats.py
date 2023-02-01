@@ -5,40 +5,16 @@ import geopandas as gpd
 import numba as nb
 import numpy as np
 import pandas as pd
-import rasterio as rio
 import shapely
 import xarray as xr
 
 from raster_tools.dtypes import F32, I8, is_bool, is_scalar, is_str
 from raster_tools.raster import Raster, get_raster
-from raster_tools.vector import get_vector
+from raster_tools.vector import _geoms_to_raster_mask, get_vector
 
 
 def _trim(x, slices):
     return x[tuple(slices)]
-
-
-def _rasterize_geoms(geoms, xc, yc):
-    # Convert geoms into a boolean (0/1) array using xc and yc for gridding.
-    shape = (yc.size, xc.size)
-    transform = xr.DataArray(
-        da.zeros(shape), coords=(yc, xc), dims=("y", "x")
-    ).rio.transform()
-    # Use a MemoryFile to avoid writing to disk
-    with rio.io.MemoryFile() as memfile, rio.open(
-        memfile,
-        mode="w+",
-        driver="GTiff",
-        width=xc.size,
-        height=yc.size,
-        count=1,
-        crs=geoms.crs,
-        transform=transform,
-        dtype="uint8",
-    ) as ds:
-        ds.write(np.ones(shape, dtype="uint8"), 1)
-        mask, _ = rio.mask.mask(ds, geoms.values, all_touched=True)
-        return mask.squeeze()
 
 
 @nb.jit(nopython=True, nogil=True)
@@ -149,8 +125,8 @@ GEOM_BATCH_SIZE = 700
 
 def _get_indices_and_lengths_core(geoms_df, xc, yc, radius):
     # Rasterize to create mask of cells-of-interest and extract the locations
-    indices = _rasterize_geoms(
-        geoms_df.geometry.buffer(radius, BUFFER_RES), xc, yc
+    indices = _geoms_to_raster_mask(
+        xc, yc, geoms_df.geometry.buffer(radius, BUFFER_RES)
     ).nonzero()
     # Convert to points and buffer them out by the radius
     buffered_cells = gpd.GeoSeries.from_xy(
