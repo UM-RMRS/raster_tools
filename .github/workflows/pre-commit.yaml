@@ -9,15 +9,8 @@ jobs:
     name: Run pre-commit
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-python@v2
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v3
         with:
-          python-version: "3.8"
-      - name: Install deps
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install pre-commit
-          pre-commit install
-      - name: pre-commit
-        run: |
-          pre-commit run --all --show-diff-on-failure
+          python-version: "3.9"
+      - uses: pre-commit/action@v3.0.0

@@ -9,6 +9,7 @@ RMRS Raster Utility Project
 * [numba](https://numba.pydata.org/)
 * [rasterio](https://rasterio.readthedocs.io/en/latest/)
 * [rioxarray](https://corteva.github.io/rioxarray/stable/)
+* [shapely 2](https://shapely.readthedocs.io/en/stable/)
 * [xarray](https://xarray.pydata.org/en/stable/)
 
 ## Contributing

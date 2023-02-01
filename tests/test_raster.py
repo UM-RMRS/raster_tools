@@ -928,7 +928,7 @@ def test_ufuncs_single_input(ufunc):
         assert np.allclose(result, truth, equal_nan=True)
         assert np.allclose(result._ds.mask, rs._ds.mask, equal_nan=True)
     else:
-        for (r, t) in zip(result, truth):
+        for r, t in zip(result, truth):
             assert_valid_raster(r)
             t[mask] = get_default_null_value(t.dtype)
             assert r._masked
@@ -978,7 +978,7 @@ def test_ufuncs_multiple_input_against_scalar(ufunc, dtype):
             assert np.allclose(result, truth, equal_nan=True)
             assert np.allclose(result._ds.mask, rs._ds.mask, equal_nan=True)
         else:
-            for (r, t) in zip(result, truth):
+            for r, t in zip(result, truth):
                 assert_valid_raster(r)
                 t[mask] = get_default_null_value(t.dtype)
                 assert r._masked
@@ -1011,7 +1011,7 @@ def test_ufuncs_multiple_input_against_scalar(ufunc, dtype):
             assert np.allclose(result, truth, equal_nan=True)
             assert np.allclose(result._ds.mask, rs._ds.mask, equal_nan=True)
         else:
-            for (r, t) in zip(result, truth):
+            for r, t in zip(result, truth):
                 assert_valid_raster(r)
                 t[mask] = get_default_null_value(t.dtype)
                 assert r._masked
@@ -1063,7 +1063,7 @@ def test_ufuncs_multiple_input_against_raster(ufunc):
             assert np.allclose(result, truth, equal_nan=True)
             assert np.allclose(result._ds.mask, mask, equal_nan=True)
         else:
-            for (r, t) in zip(result, truth):
+            for r, t in zip(result, truth):
                 assert_valid_raster(r)
                 t[mask] = get_default_null_value(t.dtype)
                 assert r._masked
@@ -1089,7 +1089,7 @@ def test_ufuncs_multiple_input_against_raster(ufunc):
             assert np.allclose(result, truth, equal_nan=True)
             assert np.allclose(result._ds.mask, mask)
         else:
-            for (r, t) in zip(result, truth):
+            for r, t in zip(result, truth):
                 assert_valid_raster(r)
                 t[mask] = get_default_null_value(t.dtype)
                 assert r.crs == rs.crs

@@ -470,7 +470,7 @@ def test_remap_range():
 def test_remap_range_inclusivity(rast, mapping, inc):
     data = rast.values.copy()
     hist = np.zeros(data.shape, dtype=bool)
-    for (left, right, new) in mapping:
+    for left, right, new in mapping:
         if inc == "left":
             mask = (left <= data) & (data < right)
         elif inc == "right":

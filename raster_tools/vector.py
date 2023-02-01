@@ -415,9 +415,61 @@ def _vector_to_raster_dask(df, size, xlike, field=None, all_touched=True):
     x = xlike.x.data
     y = xlike.y.data
     result = xr.DataArray(result_data, coords=([1], y, x), dims=xlike.dims)
-    result["spatial_ref"] = xlike.spatial_ref
-    result.attrs["_FillValue"] = fill
+    if xlike.rio.crs is not None:
+        result = result.rio.write_crs(xlike.rio.crs)
+    result = result.rio.write_nodata(fill)
     return result
+
+
+def _geoms_to_raster_mask(xc, yc, geoms, all_touched=True, block_info=None):
+    xc = xc.ravel()
+    yc = yc.ravel()
+    # Convert geoms into a boolean (0/1) array using xc and yc for gridding.
+    shape = (yc.size, xc.size)
+    transform = xr.DataArray(
+        da.zeros(shape), coords=(yc, xc), dims=("y", "x")
+    ).rio.transform()
+    # Use a MemoryFile to avoid writing to disk
+    with rio.io.MemoryFile() as memfile, rio.open(
+        memfile,
+        mode="w+",
+        driver="GTiff",
+        width=xc.size,
+        height=yc.size,
+        count=1,
+        crs=geoms.crs,
+        transform=transform,
+        dtype="uint8",
+    ) as ds:
+        ds.write(np.ones(shape, dtype="uint8"), 1)
+        mask, _ = rio.mask.mask(ds, geoms.values, all_touched=all_touched)
+        return mask.squeeze()
+
+
+def _vector_to_raster_mask(geoms, like, all_touched=True):
+    xc, yc = like.get_chunked_coords()
+    xc = xc[0]
+    yc = yc[0]
+    parts = []
+    for part in geoms.partitions:
+        data = da.map_blocks(
+            _geoms_to_raster_mask,
+            xc,
+            yc,
+            geoms=part,
+            all_touched=all_touched,
+            chunks=like.data.chunks[1:],
+            meta=np.array((), dtype=I8),
+        )
+        parts.append(data)
+    data = da.stack(parts, axis=0).max(axis=0, keepdims=True)
+    x = like.x
+    y = like.y
+    xrs = xr.DataArray(data, coords=([1], y, x), dims=like.xdata.dims)
+    if like.crs is not None:
+        xrs = xrs.rio.write_crs(like.crs)
+    xrs = xrs.rio.write_nodata(0)
+    return xrs
 
 
 def _normalize_geo_data(geo):
@@ -651,6 +703,34 @@ class Vector:
             xlike=like.xdata,
             field=field,
             all_touched=all_touched,
+        )
+        return Raster(xrs)
+
+    def to_raster_mask(self, like, all_touched=True):
+        """Convert vector data to a raster mask.
+
+        Parameters
+        ----------
+        like : Raster
+            A to use for grid and CRS information. The resulting raster will be
+            on the same grid as `like`.
+        all_touched : bool, optional
+            If ``True``, grid cells that the vector touches will be burned in.
+            If False, only cells with a center point inside of the vector
+            perimeter will be burned in.
+
+        Returns
+        -------
+        Raster
+            The resulting raster. The result will have a single band. All cells
+            that fall under the vector data are masked with ``1``. The null
+            value is 0.
+
+        """
+        like = get_raster(like)
+
+        xrs = _vector_to_raster_mask(
+            self.to_crs(like.crs).geometry, like, all_touched=all_touched
         )
         return Raster(xrs)
 
