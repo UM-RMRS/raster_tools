@@ -415,8 +415,9 @@ def _vector_to_raster_dask(df, size, xlike, field=None, all_touched=True):
     x = xlike.x.data
     y = xlike.y.data
     result = xr.DataArray(result_data, coords=([1], y, x), dims=xlike.dims)
-    result["spatial_ref"] = xlike.spatial_ref
-    result.attrs["_FillValue"] = fill
+    if xlike.rio.crs is not None:
+        result = result.rio.write_crs(xlike.rio.crs)
+    result = result.rio.write_nodata(fill)
     return result
 
 
