@@ -1,115 +1,143 @@
-import unittest
-
 import numpy as np
+import pytest
 
 from raster_tools import focal, surface
 from raster_tools.dtypes import I32
 from raster_tools.general import band_concat
 from raster_tools.masking import get_default_null_value
 from raster_tools.raster import Raster
-from tests.utils import assert_valid_raster
+from tests.utils import assert_rasters_similar, assert_valid_raster
 
 
-class TestSurface(unittest.TestCase):
-    def setUp(self):
-        self.dem = Raster("tests/data/raster/elevation.tif")
+@pytest.fixture
+def dem():
+    return Raster("tests/data/raster/elevation.tif")
 
-    # TODO: add test for surface_area_3d
 
-    def test_slope(self):
-        truth = Raster("tests/data/raster/slope.tif")
+# TODO: add test for surface_area_3d
 
-        # Test default degrees
-        slope = surface.slope(self.dem)
-        assert_valid_raster(slope)
-        assert slope.crs == self.dem.crs
-        self.assertTrue(slope._masked)
-        self.assertTrue(slope.null_value == self.dem.null_value)
-        assert np.allclose(slope, truth)
-        self.assertTrue(slope.dtype == np.dtype("float64"))
 
-        # Test degrees=True
-        slope = surface.slope(self.dem, degrees=True)
-        assert_valid_raster(slope)
-        assert slope.crs == self.dem.crs
-        self.assertTrue(slope._masked)
-        self.assertTrue(slope.null_value == self.dem.null_value)
-        assert np.allclose(slope, truth)
-        self.assertTrue(slope.dtype == np.dtype("float64"))
+@pytest.mark.parametrize(
+    "degrees,truth",
+    [
+        (None, Raster("tests/data/raster/slope.tif")),
+        (True, Raster("tests/data/raster/slope.tif")),
+        (False, Raster("tests/data/raster/slope_percent.tif")),
+    ],
+)
+def test_slope(dem, degrees, truth):
+    if degrees is None:
+        slope = surface.slope(dem)
+    else:
+        slope = surface.slope(dem, degrees=degrees)
+    assert_valid_raster(slope)
+    assert_rasters_similar(slope, dem)
+    assert_rasters_similar(slope, truth)
+    assert slope._masked
+    assert slope.null_value == get_default_null_value(slope.dtype)
+    assert np.allclose(slope, truth.set_null_value(slope.null_value))
+    assert slope.dtype == np.dtype("float64")
 
-        # Test degrees=False
-        truth = Raster("tests/data/raster/slope_percent.tif")
-        slope = surface.slope(self.dem, degrees=False)
-        assert_valid_raster(slope)
-        assert slope.crs == self.dem.crs
-        self.assertTrue(slope._masked)
-        self.assertTrue(slope.null_value == self.dem.null_value)
-        self.assertTrue(np.allclose(slope, truth))
-        self.assertTrue(slope.dtype == np.dtype("float64"))
 
-    def test_aspect(self):
-        aspect = surface.aspect(self.dem)
-        truth = Raster("tests/data/raster/aspect.tif")
+def test_aspect(dem):
+    aspect = surface.aspect(dem)
+    truth = Raster("tests/data/raster/aspect.tif")
 
-        assert_valid_raster(aspect)
-        self.assertTrue(aspect._masked)
-        self.assertTrue(aspect.null_value == self.dem.null_value)
-        self.assertTrue(np.allclose(aspect, truth, 4e-5))
-        self.assertTrue(aspect.dtype == np.dtype("float64"))
+    assert_valid_raster(aspect)
+    assert_rasters_similar(aspect, dem)
+    assert_rasters_similar(aspect, truth)
+    assert aspect._masked
+    assert aspect.null_value == get_default_null_value(aspect.dtype)
+    assert np.allclose(aspect, truth.set_null_value(aspect.null_value), 4e-5)
+    assert aspect.dtype == np.dtype("float64")
 
-    def test_curvature(self):
-        curv = surface.curvature(self.dem)
-        truth = Raster("tests/data/raster/curv.tif")
 
-        self.assertTrue(curv._masked)
-        self.assertTrue(curv.null_value == self.dem.null_value)
-        # ESRI treats the edges as valid even though they are not.
-        # surface.curvature does not so we ignore the edges in the comparison.
-        ss = (..., slice(1, -1, 1), slice(1, -1, 1))
-        self.assertTrue(
-            np.allclose(curv.data[ss].compute(), truth.data[ss].compute())
-        )
-        self.assertTrue(curv.dtype == np.dtype("float64"))
+def test_curvature(dem):
+    curv = surface.curvature(dem)
+    truth = Raster("tests/data/raster/curv.tif")
 
-    def test_northing(self):
-        northing = surface.northing(self.dem)
-        truth = Raster("tests/data/raster/northing.tif")
+    assert_valid_raster(curv)
+    assert_rasters_similar(curv, dem)
+    assert_rasters_similar(curv, truth)
+    assert curv._masked
+    assert curv.null_value == get_default_null_value(curv.dtype)
+    # ESRI treats the edges as valid even though they are not.
+    # surface.curvature does not so we ignore the edges in the comparison.
+    mask = truth._ds.mask
+    mask[:, 0, :] = True
+    mask[:, -1, :] = True
+    mask[:, :, 0] = True
+    mask[:, :, -1] = True
+    truth._ds["mask"] = mask
+    assert np.allclose(curv, truth.set_null_value(curv.null_value))
+    assert curv.dtype == np.dtype("float64")
 
-        self.assertTrue(self.dem._masked)
-        self.assertTrue(northing._masked)
-        self.assertTrue(northing.null_value == self.dem.null_value)
-        self.assertTrue(np.allclose(northing, truth, 1e-6, 1e-6))
-        self.assertTrue(northing.dtype.kind == "f")
 
-        northing = surface.northing(surface.aspect(self.dem), is_aspect=True)
-        self.assertTrue(northing._masked)
-        self.assertTrue(northing.null_value == self.dem.null_value)
-        self.assertTrue(np.allclose(northing, truth, 1e-6, 1e-6))
-        self.assertTrue(northing.dtype.kind == "f")
+def test_northing(dem):
+    northing = surface.northing(dem)
+    truth = Raster("tests/data/raster/northing.tif")
 
-    def test_easting(self):
-        easting = surface.easting(self.dem)
-        truth = Raster("tests/data/raster/easting.tif")
+    assert_valid_raster(northing)
+    assert_rasters_similar(northing, dem)
+    assert_rasters_similar(northing, truth)
+    assert dem._masked
+    assert northing._masked
+    assert northing.null_value == get_default_null_value(northing.dtype)
+    assert np.allclose(
+        northing, truth.set_null_value(northing.null_value), 1e-6, 1e-6
+    )
+    assert northing.dtype.kind == "f"
 
-        self.assertTrue(easting._masked)
-        self.assertTrue(easting.null_value == self.dem.null_value)
-        self.assertTrue(np.allclose(easting, truth, 1e-6, 1e-6))
-        self.assertTrue(easting.dtype.kind == "f")
+    northing = surface.northing(surface.aspect(dem), is_aspect=True)
+    assert_valid_raster(northing)
+    assert_rasters_similar(northing, dem)
+    assert_rasters_similar(northing, truth)
+    assert northing._masked
+    assert northing.null_value == get_default_null_value(northing.dtype)
+    assert np.allclose(
+        northing, truth.set_null_value(northing.null_value), 1e-6, 1e-6
+    )
+    assert northing.dtype.kind == "f"
 
-        easting = surface.easting(surface.aspect(self.dem), is_aspect=True)
-        self.assertTrue(easting._masked)
-        self.assertTrue(easting.null_value == self.dem.null_value)
-        self.assertTrue(np.allclose(easting, truth, 1e-6, 1e-6))
-        self.assertTrue(easting.dtype.kind == "f")
 
-    def test_hillshade(self):
-        hill = surface.hillshade(self.dem)
-        truth = Raster("tests/data/raster/hillshade.tif")
+def test_easting(dem):
+    easting = surface.easting(dem)
+    truth = Raster("tests/data/raster/easting.tif")
 
-        self.assertTrue(hill._masked)
-        self.assertTrue(hill.null_value == 255)
-        self.assertTrue(np.allclose(hill, truth))
-        self.assertTrue(hill.dtype == np.dtype("uint8"))
+    assert_valid_raster(easting)
+    assert_rasters_similar(easting, dem)
+    assert_rasters_similar(easting, truth)
+    assert dem._masked
+    assert easting._masked
+    assert easting.null_value == get_default_null_value(easting.dtype)
+    assert np.allclose(
+        easting, truth.set_null_value(easting.null_value), 1e-6, 1e-6
+    )
+    assert easting.dtype.kind == "f"
+
+    easting = surface.easting(surface.aspect(dem), is_aspect=True)
+    assert_valid_raster(easting)
+    assert_rasters_similar(easting, dem)
+    assert_rasters_similar(easting, truth)
+    assert easting._masked
+    assert easting.null_value == get_default_null_value(easting.dtype)
+    assert np.allclose(
+        easting, truth.set_null_value(easting.null_value), 1e-6, 1e-6
+    )
+    assert easting.dtype.kind == "f"
+
+
+def test_hillshade(dem):
+    hill = surface.hillshade(dem)
+    truth = Raster("tests/data/raster/hillshade.tif")
+
+    assert_valid_raster(hill)
+    assert_rasters_similar(hill, dem)
+    assert_rasters_similar(hill, truth)
+    assert hill._masked
+    assert hill.null_value == 255
+    assert np.allclose(hill, truth)
+    assert hill.dtype == np.dtype("uint8")
 
 
 def test_tpi():

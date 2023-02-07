@@ -4,16 +4,16 @@ Surface module used to perform common surface analyses on Raster objects.
 ref: https://pro.arcgis.com/en/pro-app/latest/tool-reference/spatial-analyst/an-overview-of-the-surface-tools.htm
 ref: https://github.com/makepath/xarray-spatial
 """  # noqa: E501
-from functools import partial
-
 import dask.array as da
 import numba as nb
 import numpy as np
+import xarray as xr
 
 from raster_tools import focal
 from raster_tools.dtypes import F32, F64, I32, U8, is_int
 from raster_tools.masking import get_default_null_value
-from raster_tools.raster import get_raster
+from raster_tools.raster import Raster, get_raster
+from raster_tools.utils import make_raster_ds, single_band_mappable
 
 __all__ = [
     "aspect",
@@ -32,35 +32,24 @@ DEGREES_TO_RADIANS = np.pi / 180
 
 def _finalize_rs(rs, data):
     # Invalidate edges
-    mask = rs.mask
+    mask = rs.mask.copy()
     mask[:, 0, :] = True
     mask[:, -1, :] = True
     mask[:, :, 0] = True
     mask[:, :, -1] = True
-    nv = rs.null_value
-    if not rs._masked:
-        nv = get_default_null_value(data.dtype)
-    data = da.where(mask, nv, data)
-    rs.xdata.data = data
-    rs.xmask.data = mask
-    return rs
+    coords = rs.xdata.coords
+    dims = rs.xdata.dims
+    xdata = xr.DataArray(data, coords=coords, dims=dims)
+    xmask = xr.DataArray(mask, coords=coords, dims=dims)
+    nv = get_default_null_value(data.dtype)
+    xdata = xr.where(xmask, nv, xdata).rio.write_nodata(nv)
+    ds = make_raster_ds(xdata, xmask)
+    if rs.crs is not None:
+        ds = ds.rio.write_crs(rs.crs)
+    return Raster(ds, _fast_path=True)
 
 
-def _map_surface_func(
-    data, func, out_dtype, depth={0: 1, 1: 1}, boundary=np.nan
-):
-    out_data = da.empty_like(data, dtype=out_dtype)
-    for bnd in range(data.shape[0]):
-        out_data[bnd] = data[bnd].map_overlap(
-            func,
-            depth=depth,
-            boundary=boundary,
-            dtype=out_dtype,
-            meta=np.array((), dtype=out_dtype),
-        )
-    return out_data
-
-
+@single_band_mappable
 @nb.jit(nopython=True, nogil=True)
 def _surface_area_3d(xarr, res):
     # TODO: handle non-symmetrical resolutions
@@ -138,13 +127,19 @@ def surface_area_3d(raster):
     * `Jense, 2004 <https://www.fs.usda.gov/treesearch/pubs/20437>`_
 
     """
-    rs = get_raster(raster, null_to_nan=True).copy()
-    data = rs.data
-    ffun = partial(_surface_area_3d, res=rs.resolution[0])
-    out_data = _map_surface_func(data, ffun, F64)
+    rs = get_raster(raster, null_to_nan=True)
+    out_data = rs.data.map_overlap(
+        _surface_area_3d,
+        depth={0: 0, 1: 1, 1: 1},
+        boundary=np.nan,
+        dtype=F64,
+        meta=np.array((), dtype=F64),
+        res=rs.resolution[0],
+    )
     return _finalize_rs(rs, out_data)
 
 
+@single_band_mappable
 @nb.jit(nopython=True, nogil=True)
 def _slope(xarr, res, degrees):
     # ref: https://pro.arcgis.com/en/pro-app/latest/tool-reference/3d-analyst/how-slope-works.htm  # noqa: E501
@@ -198,15 +193,22 @@ def slope(raster, degrees=True):
     * `ESRI slope <https://pro.arcgis.com/en/pro-app/latest/tool-reference/3d-analyst/how-slope-works.htm>`_
 
     """  # noqa: E501
-    rs = get_raster(raster, null_to_nan=True).copy()
-    data = rs.data
+    rs = get_raster(raster, null_to_nan=True)
 
     # Leave resolution sign as is
-    ffun = partial(_slope, res=rs.resolution, degrees=bool(degrees))
-    out_data = _map_surface_func(data, ffun, F64)
+    out_data = rs.data.map_overlap(
+        _slope,
+        depth={0: 0, 1: 1, 1: 1},
+        boundary=np.nan,
+        dtype=F64,
+        meta=np.array((), dtype=F64),
+        res=rs.resolution,
+        degrees=bool(degrees),
+    )
     return _finalize_rs(rs, out_data)
 
 
+@single_band_mappable
 @nb.jit(nopython=True, nogil=True)
 def _aspect(xarr):
     # ref: https://desktop.arcgis.com/en/arcmap/10.3/tools/spatial-analyst-toolbox/how-aspect-works.htm  # noqa: E501
@@ -264,13 +266,19 @@ def aspect(raster):
     * `ESRI aspect <https://pro.arcgis.com/en/pro-app/latest/tool-reference/3d-analyst/how-aspect-works.htm>`_
 
     """  # noqa: E501
-    rs = get_raster(raster, null_to_nan=True).copy()
-    data = rs.data
+    rs = get_raster(raster, null_to_nan=True)
 
-    out_data = _map_surface_func(data, _aspect, F64)
+    out_data = rs.data.map_overlap(
+        _aspect,
+        depth={0: 0, 1: 1, 1: 1},
+        boundary=np.nan,
+        dtype=F64,
+        meta=np.array((), dtype=F64),
+    )
     return _finalize_rs(rs, out_data)
 
 
+@single_band_mappable
 @nb.jit(nopython=True, nogil=True)
 def _curv(xarr, res):
     # ref: https://desktop.arcgis.com/en/arcmap/10.3/tools/spatial-analyst-toolbox/how-curvature-works.htm  # noqa: E501
@@ -316,11 +324,16 @@ def curvature(raster):
     * `ESRI curvature <https://pro.arcgis.com/en/pro-app/latest/tool-reference/3d-analyst/how-curvature-works.htm>`_
 
     """  # noqa: E501
-    rs = get_raster(raster, null_to_nan=True).copy()
-    data = rs.data
+    rs = get_raster(raster, null_to_nan=True)
 
-    ffun = partial(_curv, res=np.abs(rs.resolution))
-    out_data = _map_surface_func(data, ffun, F64)
+    out_data = rs.data.map_overlap(
+        _curv,
+        depth={0: 0, 1: 1, 1: 1},
+        boundary=np.nan,
+        dtype=F64,
+        meta=np.array((), dtype=F64),
+        res=np.abs(rs.resolution),
+    )
     return _finalize_rs(rs, out_data)
 
 
@@ -390,6 +403,7 @@ def easting(raster, is_aspect=False):
     return _northing_easting(rs, False)
 
 
+@single_band_mappable
 @nb.jit(nopython=True, nogil=True)
 def _hillshade(xarr, res, azimuth, altitude):
     # ref: https://pro.arcgis.com/en/pro-app/latest/tool-reference/spatial-analyst/how-hillshade-works.htm  # noqa: E501
@@ -462,18 +476,25 @@ def hillshade(raster, azimuth=315, altitude=45):
     * `ESRI hillshade <https://pro.arcgis.com/en/pro-app/latest/tool-reference/spatial-analyst/how-hillshade-works.htm>`_
 
     """  # noqa: E501
-    rs = get_raster(raster, null_to_nan=True).copy()
-    data = rs.data
+    rs = get_raster(raster, null_to_nan=True)
     # Specifically leave resolution sign as is
-    ffun = partial(
-        _hillshade, res=rs.resolution, azimuth=azimuth, altitude=altitude
+    out_data = rs.data.map_overlap(
+        _hillshade,
+        depth={0: 0, 1: 1, 1: 1},
+        boundary=np.nan,
+        dtype=F32,
+        meta=np.array((), dtype=F32),
+        res=rs.resolution,
+        azimuth=azimuth,
+        altitude=altitude,
     )
-    out_data = _map_surface_func(data, ffun, F32)
 
-    rs = _finalize_rs(rs, out_data)
-    rs = rs.replace_null(255)
-    rs = rs.set_null_value(255)
-    rs = rs.astype(U8)
+    rs = (
+        _finalize_rs(rs, out_data)
+        .replace_null(255)
+        .set_null_value(255)
+        .astype(U8)
+    )
     return rs
 
 

@@ -6,6 +6,7 @@ import xarray as xr
 from raster_tools.dtypes import F32, F64
 from raster_tools.masking import get_default_null_value
 from raster_tools.raster import Raster, get_raster
+from raster_tools.utils import single_band_mappable
 
 __all__ = [
     "pa_allocation",
@@ -457,6 +458,7 @@ def _get_coords_for_chunk(xc, yc, coords_block_info, block_info):
     return xc, yc
 
 
+@single_band_mappable(pass_block_info=True)
 def _proximity_analysis_chunk(
     src,
     target_values,
@@ -473,9 +475,6 @@ def _proximity_analysis_chunk(
 ):
     assert mode in {_MODE_PROXIMITY, _MODE_ALLOCATION, _MODE_DIRECTION}
 
-    has_band_dim = src.ndim == 3
-    if has_band_dim:
-        src = src[0]
     # Output arrays
     out_dtype = F64 if full_precision else F32
     prox_dst = np.empty(src.shape, dtype=out_dtype)
@@ -501,9 +500,6 @@ def _proximity_analysis_chunk(
         mode,
     )
 
-    if has_band_dim:
-        prox_dst = np.expand_dims(prox_dst, axis=0)
-        secondary_dst = np.expand_dims(secondary_dst, axis=0)
     if mode == _MODE_PROXIMITY:
         return prox_dst
     else:

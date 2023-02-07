@@ -10,6 +10,7 @@ import xarray as xr
 
 from raster_tools.dtypes import F32, I8, is_bool, is_scalar, is_str
 from raster_tools.raster import Raster, get_raster
+from raster_tools.utils import single_band_mappable
 from raster_tools.vector import _geoms_to_raster_mask, get_vector
 
 
@@ -182,6 +183,7 @@ def _get_indices_and_lengths(geoms_df, xc, yc, radius, weight_values=None):
     return indices, lengths
 
 
+@single_band_mappable(no_input_chunk=True)
 def _length_chunk(xc, yc, gdf, radius, field=None, block_info=None):
     xc = xc.ravel()
     yc = yc.ravel()
@@ -192,10 +194,7 @@ def _length_chunk(xc, yc, gdf, radius, field=None, block_info=None):
     yslice = _get_valid_slice(yc)
     xc_valid = xc[xslice]
     yc_valid = yc[yslice]
-    out_shape = block_info[None]["chunk-shape"]
-    is_3d = len(out_shape) == 3
-    if is_3d:
-        out_shape = out_shape[1:]
+    out_shape = block_info[None]["chunk-shape"][-2:]
 
     # Filter out any geoms that could be problematic
     # TODO: throw error if bad geoms detected?
@@ -230,9 +229,6 @@ def _length_chunk(xc, yc, gdf, radius, field=None, block_info=None):
         output[yslice, xslice][indices] = lengths
     else:
         output = np.zeros(out_shape, dtype=F32)
-
-    if is_3d:
-        output = np.expand_dims(output, axis=0)
     return output
 
 
