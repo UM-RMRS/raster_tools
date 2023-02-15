@@ -102,3 +102,12 @@ def assert_rasters_similar(left, right, check_nbands=True, check_chunks=True):
         assert left.nbands == right.nbands
     if check_chunks:
         assert left.data.chunks == right.data.chunks
+
+
+def arange_nd(shape, dtype=None, mod=np):
+    return mod.arange(np.prod(shape), dtype=dtype).reshape(shape)
+
+
+def arange_raster(shape, dtype=None):
+    assert len(shape) in (2, 3)
+    return Raster(arange_nd(shape, dtype=dtype))

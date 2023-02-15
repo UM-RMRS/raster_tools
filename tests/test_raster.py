@@ -34,9 +34,13 @@ from raster_tools.masking import (
     get_default_null_value,
     reconcile_nullvalue_with_dtype,
 )
-from raster_tools.raster import rowcol_to_xy, xy_to_rowcol
+from raster_tools.raster import (
+    RasterQuadrantsResult,
+    rowcol_to_xy,
+    xy_to_rowcol,
+)
 from raster_tools.utils import is_strictly_decreasing, is_strictly_increasing
-from tests.utils import assert_valid_raster
+from tests.utils import arange_nd, arange_raster, assert_valid_raster
 
 TEST_ARRAY = np.array(
     [
@@ -50,20 +54,16 @@ TEST_ARRAY = np.array(
 )
 
 
-def _arange2d(shape, dtype=None, mod=np):
-    return mod.arange(np.prod(shape), dtype=dtype).reshape(shape)
-
-
 @pytest.mark.parametrize(
     "data",
     [
         np.ones((4, 4)),
         np.ones((1, 4, 4)),
         np.ones((1, 1)),
-        _arange2d((100, 100)),
-        _arange2d((10, 10, 10)),
-        _arange2d((2, 10)),
-        *[_arange2d((10, 10), dtype=t) for t in [I8, I32, U16, F16, F32]],
+        arange_nd((100, 100)),
+        arange_nd((10, 10, 10)),
+        arange_nd((2, 10)),
+        *[arange_nd((10, 10), dtype=t) for t in [I8, I32, U16, F16, F32]],
         np.where(TEST_ARRAY == -1, np.nan, TEST_ARRAY),
     ],
 )
@@ -106,11 +106,11 @@ def test_raster_from_array(data):
         da.ones((4, 4)),
         da.ones((1, 4, 4)),
         da.ones((1, 1)),
-        _arange2d((100, 100), mod=da),
-        _arange2d((10, 10, 10), mod=da),
-        _arange2d((2, 10), mod=da),
+        arange_nd((100, 100), mod=da),
+        arange_nd((10, 10, 10), mod=da),
+        arange_nd((2, 10), mod=da),
         *[
-            _arange2d((10, 10), dtype=t, mod=da)
+            arange_nd((10, 10), dtype=t, mod=da)
             for t in [I8, I32, U16, F16, F32]
         ],
         da.from_array(np.where(TEST_ARRAY == -1, np.nan, TEST_ARRAY)),
@@ -261,7 +261,7 @@ def test_raster_from_dataarray(xdata):
         # Vanilla
         xr.Dataset(
             {
-                "raster": (("y", "x"), _arange2d((10, 10))),
+                "raster": (("y", "x"), arange_nd((10, 10))),
                 "mask": (("y", "x"), np.zeros((10, 10), dtype=bool)),
             },
             coords={"y": np.arange(10)[::-1], "x": np.arange(10)},
@@ -281,7 +281,7 @@ def test_raster_from_dataarray(xdata):
         ),
         xr.Dataset(
             {
-                "raster": (("band", "y", "x"), _arange2d((1, 10, 10))),
+                "raster": (("band", "y", "x"), arange_nd((1, 10, 10))),
                 "mask": (
                     ("y", "x"),
                     np.zeros((10, 10), dtype=bool),
@@ -296,7 +296,7 @@ def test_raster_from_dataarray(xdata):
         ),
         xr.Dataset(
             {
-                "raster": (("y", "x"), _arange2d((10, 10))),
+                "raster": (("y", "x"), arange_nd((10, 10))),
                 "mask": (
                     ("band", "y", "x"),
                     np.zeros((1, 10, 10), dtype=bool),
@@ -310,7 +310,7 @@ def test_raster_from_dataarray(xdata):
         ),
         xr.Dataset(
             {
-                "raster": (("lat", "lon"), _arange2d((10, 10))),
+                "raster": (("lat", "lon"), arange_nd((10, 10))),
                 "mask": (
                     ("lat", "lon"),
                     np.zeros((10, 10), dtype=bool),
@@ -323,7 +323,7 @@ def test_raster_from_dataarray(xdata):
         ),
         xr.Dataset(
             {
-                "raster": (("band", "lat", "lon"), _arange2d((2, 10, 10))),
+                "raster": (("band", "lat", "lon"), arange_nd((2, 10, 10))),
                 "mask": (
                     ("band", "lat", "lon"),
                     np.zeros((2, 10, 10), dtype=bool),
@@ -338,21 +338,21 @@ def test_raster_from_dataarray(xdata):
         # Lazy
         xr.Dataset(
             {
-                "raster": (("y", "x"), _arange2d((10, 10))),
+                "raster": (("y", "x"), arange_nd((10, 10))),
                 "mask": (("y", "x"), np.zeros((10, 10), dtype=bool)),
             },
             coords={"y": np.arange(10)[::-1], "x": np.arange(10)},
         ).chunk(),
         xr.Dataset(
             {
-                "raster": (("y", "x"), _arange2d((10, 10), mod=da)),
+                "raster": (("y", "x"), arange_nd((10, 10), mod=da)),
                 "mask": (("y", "x"), np.zeros((10, 10), dtype=bool)),
             },
             coords={"y": np.arange(10)[::-1], "x": np.arange(10)},
         ),
         xr.Dataset(
             {
-                "raster": (("y", "x"), _arange2d((10, 10))),
+                "raster": (("y", "x"), arange_nd((10, 10))),
                 "mask": (("y", "x"), da.zeros((10, 10), dtype=bool)),
             },
             coords={"y": np.arange(10)[::-1], "x": np.arange(10)},
@@ -360,7 +360,7 @@ def test_raster_from_dataarray(xdata):
         # flipped y dim
         xr.Dataset(
             {
-                "raster": (("band", "y", "x"), _arange2d((1, 10, 10))),
+                "raster": (("band", "y", "x"), arange_nd((1, 10, 10))),
                 "mask": (
                     ("band", "y", "x"),
                     np.zeros((1, 10, 10), dtype=bool),
@@ -375,7 +375,7 @@ def test_raster_from_dataarray(xdata):
         # CRS
         xr.Dataset(
             {
-                "raster": (("band", "lat", "lon"), _arange2d((2, 10, 10))),
+                "raster": (("band", "lat", "lon"), arange_nd((2, 10, 10))),
                 "mask": (
                     ("band", "lat", "lon"),
                     np.zeros((2, 10, 10), dtype=bool),
@@ -599,8 +599,8 @@ def test_property_xmask():
     assert np.allclose(rs.xmask.y.data, rs.xdata.y.data)
 
 
-@pytest.mark.parametrize("name", ["x", "y"])
-def test_properties_x_and_y(name):
+@pytest.mark.parametrize("name", ["band", "x", "y"])
+def test_properties_coords(name):
     rs = Raster("tests/data/raster/elevation_small.tif")
 
     assert hasattr(rs, name)
@@ -664,7 +664,7 @@ _BINARY_COMPARISON_OPS = [
 @pytest.mark.filterwarnings("ignore:invalid value encountered")
 @pytest.mark.filterwarnings("ignore:overflow")
 def test_binary_ops_arithmetic_against_scalar(op, operand, rs_type):
-    x = _arange2d((4, 5, 5)).astype(rs_type)
+    x = arange_nd((4, 5, 5), dtype=rs_type)
     rs = Raster(x)
     rs._ds["raster"] = xr.where(
         (0 <= rs._ds.raster) & (rs._ds.raster < 10), 0, rs._ds.raster
@@ -737,7 +737,7 @@ unknown_chunk_array = unknown_chunk_array[unknown_chunk_array > 0]
 @pytest.mark.filterwarnings("ignore:overflow")
 @pytest.mark.filterwarnings("ignore:elementwise comparison failed")
 def test_binary_ops_arithmetic_against_array(op, other, error):
-    x = _arange2d((4, 5, 5)).astype(float)
+    x = arange_nd((4, 5, 5), dtype=float)
     rs = Raster(x)
     rs._ds["raster"] = xr.where(
         (0 <= rs._ds.raster) & (rs._ds.raster < 10), 0, rs._ds.raster
@@ -780,7 +780,7 @@ def test_binary_ops_arithmetic_against_array(op, other, error):
 @pytest.mark.filterwarnings("ignore:invalid value encountered")
 @pytest.mark.filterwarnings("ignore:overflow")
 def test_binary_ops_arithmetic_against_raster(op):
-    x = _arange2d((4, 5, 5)).astype(float)
+    x = arange_nd((4, 5, 5), dtype=float)
     rs = Raster(x)
     rs._ds["raster"] = xr.where(
         (0 <= rs._ds.raster) & (rs._ds.raster < 10), 0, rs._ds.raster
@@ -901,7 +901,7 @@ def test_ufuncs_unsupported(ufunc):
 @pytest.mark.filterwarnings("ignore:divide by zero")
 @pytest.mark.filterwarnings("ignore:invalid value encountered")
 def test_ufuncs_single_input(ufunc):
-    x = _arange2d((4, 5, 5)).astype(float)
+    x = arange_nd((4, 5, 5), dtype=float)
     rs = Raster(x)
     rs._ds["raster"] = xr.where(
         (0 <= rs._ds.raster) & (rs._ds.raster < 10), 0, rs._ds.raster
@@ -944,7 +944,7 @@ def test_ufuncs_single_input(ufunc):
 @pytest.mark.filterwarnings("ignore:invalid value encountered")
 @pytest.mark.filterwarnings("ignore:overflow")
 def test_ufuncs_multiple_input_against_scalar(ufunc, dtype):
-    x = _arange2d((4, 5, 5)).astype(dtype)
+    x = arange_nd((4, 5, 5), dtype=dtype)
     rs = Raster(x)
     rs._ds["raster"] = xr.where(
         (0 <= rs._ds.raster) & (rs._ds.raster < 10), 0, rs._ds.raster
@@ -1026,7 +1026,7 @@ def test_ufuncs_multiple_input_against_scalar(ufunc, dtype):
 @pytest.mark.filterwarnings("ignore:invalid value encountered")
 @pytest.mark.filterwarnings("ignore:overflow")
 def test_ufuncs_multiple_input_against_raster(ufunc):
-    x = _arange2d((4, 5, 5))
+    x = arange_nd((4, 5, 5))
     rs = Raster(x)
     rs._ds["raster"] = xr.where(
         (0 <= rs._ds.raster) & (rs._ds.raster < 10), 0, rs._ds.raster
@@ -1098,7 +1098,7 @@ def test_ufuncs_multiple_input_against_raster(ufunc):
 
 
 def test_invert():
-    x = _arange2d((4, 5, 5))
+    x = arange_nd((4, 5, 5))
     rs = Raster(x)
     rs._ds["raster"] = xr.where(
         (0 <= rs._ds.raster) & (rs._ds.raster < 10), 0, rs._ds.raster
@@ -1187,7 +1187,7 @@ def test_reductions(func):
 @pytest.mark.parametrize("ufunc", _NP_UFUNCS_NIN_MULT)
 @pytest.mark.filterwarnings("ignore:divide by zero")
 def test_bandwise(ufunc, other):
-    x = _arange2d((4, 5, 5))
+    x = arange_nd((4, 5, 5))
     rs = Raster(x)
     rs._ds["raster"] = xr.where(
         (0 <= rs._ds.raster) & (rs._ds.raster < 10), 0, rs._ds.raster
@@ -1255,7 +1255,7 @@ def test_bandwise(ufunc, other):
     ],
 )
 def test_bandwise_errors(other):
-    rs = Raster(_arange2d((4, 5, 5)))
+    rs = Raster(arange_nd((4, 5, 5)))
 
     with pytest.raises(ValueError):
         rs.bandwise * other
@@ -1512,7 +1512,7 @@ def test_get_bands():
 
 
 def test_burn_mask():
-    x = _arange2d((1, 5, 5))
+    x = arange_nd((1, 5, 5))
     rs = Raster(x)
     rs._ds["raster"] = xr.where(
         (0 <= rs._ds.raster) & (rs._ds.raster < 10), -999, rs._ds.raster
@@ -1534,7 +1534,7 @@ def test_burn_mask():
     assert np.allclose(rs.burn_mask(), true_state)
     assert rs.burn_mask().crs == rs.crs
 
-    data = _arange2d((1, 5, 5))
+    data = arange_nd((1, 5, 5))
     rs = Raster(data)
     rs._ds["raster"] = xr.where(
         (20 <= rs._ds.raster) & (rs._ds.raster < 26), 999, rs._ds.raster
@@ -1689,6 +1689,50 @@ def test_to_vector():
     assert df["row"].dtype == np.dtype(int)
     assert df["col"].dtype == np.dtype(int)
     _compare_raster_to_vectorized(rs, df)
+
+
+@pytest.mark.parametrize(
+    "raster",
+    [
+        Raster("tests/data/raster/elevation.tif"),
+        arange_raster((3, 35, 50)),
+        arange_raster((3, 1, 1)),
+    ],
+)
+def test_to_quadrants(raster):
+    nb, ny, nx = raster.shape
+    assert hasattr(raster, "to_quadrants")
+    quads = raster.to_quadrants()
+    assert isinstance(quads, RasterQuadrantsResult)
+    assert len(quads) == 4
+    assert hasattr(quads, "nw")
+    assert hasattr(quads, "ne")
+    assert hasattr(quads, "sw")
+    assert hasattr(quads, "se")
+    for q in quads:
+        assert_valid_raster(q)
+        assert len(q.band) == nb
+        assert np.allclose(q.band, raster.band)
+    assert quads.nw == quads[0]
+    assert quads.ne == quads[1]
+    assert quads.sw == quads[2]
+    assert quads.se == quads[3]
+    assert quads.nw.x.size + quads.ne.x.size == nx
+    assert quads.sw.x.size + quads.se.x.size == nx
+    assert quads.nw.y.size + quads.sw.y.size == ny
+    assert quads.ne.y.size + quads.se.y.size == ny
+    assert np.allclose(np.concatenate([quads.nw.x, quads.ne.x]), raster.x)
+    assert np.allclose(np.concatenate([quads.sw.x, quads.se.x]), raster.x)
+    assert np.allclose(np.concatenate([quads.nw.y, quads.sw.y]), raster.y)
+    assert np.allclose(np.concatenate([quads.ne.y, quads.se.y]), raster.y)
+    xreconstructed = xr.concat(
+        [
+            xr.concat([quads.nw.xdata, quads.ne.xdata], dim="x"),
+            xr.concat([quads.sw.xdata, quads.se.xdata], dim="x"),
+        ],
+        dim="y",
+    )
+    assert np.allclose(xreconstructed, raster.xdata)
 
 
 if __name__ == "__main__":

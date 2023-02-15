@@ -1,5 +1,6 @@
 import numbers
 import warnings
+from collections import namedtuple
 
 import dask
 import dask.array as da
@@ -565,6 +566,11 @@ def get_raster_ds(raster):
     return ds
 
 
+RasterQuadrantsResult = namedtuple(
+    "RasterQuadrantsResult", ("nw", "ne", "sw", "se")
+)
+
+
 class Raster(_RasterBase):
     """Abstraction of georeferenced raster data with lazy function evaluation.
 
@@ -640,6 +646,11 @@ class Raster(_RasterBase):
     def xmask(self):
         """The null value mask as an xarray DataArray."""
         return self._ds.mask
+
+    @property
+    def band(self):
+        """The band coordinate values."""
+        return self._ds.band.data
 
     @property
     def x(self):
@@ -1312,6 +1323,48 @@ class Raster(_RasterBase):
             dd.from_delayed(_vectorize(*chunk), meta=meta) for chunk in chunks
         ]
         return dd.concat(results)
+
+    def to_quadrants(self):
+        """Split the raster into quadrants
+
+        This returns the quadrants of the raster in the order northwest,
+        northeast, southwest, southeast.
+
+        Returns
+        -------
+        result : RasterQuadrantsResult
+            The returned result is a `namedtuple` with attributes: `nw`, `ne`,
+            `sw`, and `se`. Unpacking or indexing the object provides the
+            quadrants in the stated order.
+
+        """
+        _, ny, nx = self.shape
+        slice_nw = np.s_[:, : ny // 2, : nx // 2]
+        slice_ne = np.s_[:, : ny // 2, nx // 2 :]
+        slice_sw = np.s_[:, ny // 2 :, : nx // 2]
+        slice_se = np.s_[:, ny // 2 :, nx // 2 :]
+        slices = [slice_nw, slice_ne, slice_sw, slice_se]
+        data = self.data.copy()
+        mask = self.mask.copy()
+        results = []
+        for s in slices:
+            data_quad = data[s]
+            mask_quad = mask[s]
+            x_quad = self.x[s[2]]
+            y_quad = self.y[s[1]]
+            xdata_quad = xr.DataArray(
+                data_quad,
+                coords=(self.band, y_quad, x_quad),
+                dims=("band", "y", "x"),
+            )
+            xmask_quad = xr.DataArray(
+                mask_quad,
+                coords=(self.band, y_quad, x_quad),
+                dims=("band", "y", "x"),
+            )
+            ds = make_raster_ds(xdata_quad, xmask_quad)
+            results.append(Raster(ds, _fast_path=True))
+        return RasterQuadrantsResult(*results)
 
 
 _offset_name_to_rc_offset = {
