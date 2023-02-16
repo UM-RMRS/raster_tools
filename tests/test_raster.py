@@ -1695,7 +1695,10 @@ def test_to_vector():
     "raster",
     [
         Raster("tests/data/raster/elevation.tif"),
-        arange_raster((3, 35, 50)),
+        arange_raster((3, 35, 50))
+        .set_crs("EPSG:3857")
+        .remap_range([(0, 10, 0), (3490, 3500, 0), (5200, 5210, 0)])
+        .set_null_value(0),
         arange_raster((3, 1, 1)),
     ],
 )
@@ -1711,6 +1714,8 @@ def test_to_quadrants(raster):
     assert hasattr(quads, "se")
     for q in quads:
         assert_valid_raster(q)
+        assert q.crs == raster.crs
+        assert q.null_value == raster.null_value
         assert len(q.band) == nb
         assert np.allclose(q.band, raster.band)
     assert quads.nw == quads[0]
@@ -1733,6 +1738,14 @@ def test_to_quadrants(raster):
         dim="y",
     )
     assert np.allclose(xreconstructed, raster.xdata)
+    xmask_reconstructed = xr.concat(
+        [
+            xr.concat([quads.nw.xmask, quads.ne.xmask], dim="x"),
+            xr.concat([quads.sw.xmask, quads.se.xmask], dim="x"),
+        ],
+        dim="y",
+    )
+    assert np.allclose(xmask_reconstructed, raster.xmask)
 
 
 if __name__ == "__main__":

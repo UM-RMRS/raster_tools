@@ -1356,13 +1356,15 @@ class Raster(_RasterBase):
                 data_quad,
                 coords=(self.band, y_quad, x_quad),
                 dims=("band", "y", "x"),
-            )
+            ).rio.write_nodata(self.null_value)
             xmask_quad = xr.DataArray(
                 mask_quad,
                 coords=(self.band, y_quad, x_quad),
                 dims=("band", "y", "x"),
             )
             ds = make_raster_ds(xdata_quad, xmask_quad)
+            if self.crs is not None:
+                ds = ds.rio.write_crs(self.crs)
             results.append(Raster(ds, _fast_path=True))
         return RasterQuadrantsResult(*results)
 
