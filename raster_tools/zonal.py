@@ -516,17 +516,20 @@ def _build_zonal_stats_data_from_points(data, mask, x, y, affine):
     return out
 
 
-def point_extraction(points, raster, skip_validation=False):
+def extract_points_eager(
+    points, raster, column_name="extracted", skip_validation=True
+):
     """Extract the raster cell values using point features
+
+    Note
+    ----
+    This function is partially eager. The x and y values for the target points
+    are computed. The result is still a lazy dask DataFrame.
 
     This finds the grid cells that the points fall into and extracts the value
     at each point. The input feature will be partially computed to make sure
     that all of the geometries are points, unless `skip_validation` is set to
     `True`.
-
-    Note
-    ----
-    This is experimental.
 
     Parameters
     ----------
@@ -534,35 +537,58 @@ def point_extraction(points, raster, skip_validation=False):
         The points to use for extracting data.
     raster : str, Raster
         The raster to pull data from.
+    column_name : str, optional
+        The column name to use for the extracted data points. Default is
+        `"extracted"`.
     skip_validation : bool, optional
         If `True`, the input `points` is not validated to make sure that all
         features are points. This prevents partially computing the data.
-        Default is `False`.
+        Default is `True`.
 
     Returns
     -------
     dask.dataframe.DataFrame
-        The columns are "band" and "extracted". These are the band data was
+        The columns are "band" and `column_name. These are the band data was
         pulled from and the extracted value, respectively. NaN values in the
-        "extracted" column are where there was missing data in the raster or
+        extracted column are where there was missing data in the raster or
         the point was outside the raster's domain.
 
     """
-    # TODO: properly test
     points = get_vector(points)
+    raster = get_raster(raster)
+
+    if not len(column_name):
+        raise ValueError("column_name must not be empty")
     if (
         not skip_validation
         and not (points.geometry.geom_type == "Point").all().compute()
     ):
         raise TypeError("All geometries must be points.")
-    data_raster = get_raster(raster, null_to_nan=True)
-    points = points.to_crs(data_raster.crs)
-    x = points.geometry.x.to_dask_array(True)
-    y = points.geometry.y.to_dask_array(True)
-    data = _build_zonal_stats_data_from_points(
-        data_raster.data, data_raster.mask, x, y, data_raster.affine
-    )
-    n = len(data[1]["extracted"])
-    df = _build_zonal_stats_dataframe(data, nparts=1).reset_index(drop=True)
-    df.divisions = (0, n - 1)
+
+    gdf = points.to_crs(raster.crs).data
+    x = gdf.geometry.x.to_dask_array()
+    y = gdf.geometry.y.to_dask_array()
+    r, c = raster.index(*dask.compute(x, y))
+    nb, nr, nc = raster.shape
+    valid = (r >= 0) & (r < nr) & (c >= 0) & (c < nc)
+    n = len(valid)
+    dfs = []
+    for i in range(nb):
+        bnd = i + 1
+        index = _create_dask_range_index(n * i, n * bnd)
+        df = (
+            da.full(n, bnd, dtype=np.min_scalar_type(nb + 1))
+            .to_dask_dataframe(index=index)
+            .to_frame("band")
+        )
+        extracted = da.full(n, np.nan, dtype=F64)
+        extracted[valid] = raster.data.vindex[i, r[valid], c[valid]]
+        # Mask out missing points within the valid zones
+        exmask = da.zeros(n, dtype=bool)
+        exmask[valid] = raster.mask.vindex[i, r[valid], c[valid]]
+        extracted[exmask] = np.nan
+        df[column_name] = extracted.to_dask_dataframe(index=index)
+        assert df.known_divisions
+        dfs.append(df)
+    df = dd.concat(dfs)
     return df
