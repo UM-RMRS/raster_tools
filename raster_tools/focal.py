@@ -3,6 +3,7 @@ from functools import partial
 import dask.array as da
 import numba as nb
 import numpy as np
+import xarray as xr
 from dask_image import ndfilters
 
 from raster_tools.dtypes import (
@@ -17,7 +18,7 @@ from raster_tools.dtypes import (
     promote_data_dtype,
     promote_dtype_to_float,
 )
-from raster_tools.raster import get_raster
+from raster_tools.raster import Raster, get_raster
 from raster_tools.stat_common import (
     nan_unique_count_jit,
     nanasm_jit,
@@ -31,6 +32,7 @@ from raster_tools.stat_common import (
     nansum_jit,
     nanvar_jit,
 )
+from raster_tools.utils import make_raster_ds, single_band_mappable
 
 __all__ = [
     "check_kernel",
@@ -44,8 +46,9 @@ __all__ = [
 ngjit = nb.jit(nopython=True, nogil=True)
 
 
+@single_band_mappable
 @ngjit
-def _focal_chunk(chunk, kernel, func):
+def _focal_chunk(chunk, kernel, kernel_func):
     out = np.empty_like(chunk)
     rows, cols = chunk.shape
     krows, kcols = kernel.shape
@@ -72,10 +75,11 @@ def _focal_chunk(chunk, kernel, func):
                     if kernel[ki]:
                         kernel_values[ki] = chunk[kr, kc]
                     ki += 1
-            out[r, c] = func(kernel_values)
+            out[r, c] = kernel_func(kernel_values)
     return out
 
 
+@single_band_mappable
 @nb.jit(nopython=True, nogil=True, parallel=True)
 def _correlate2d_chunk(chunk, kernel):
     out = np.empty_like(chunk)
@@ -108,7 +112,11 @@ def _correlate2d_chunk(chunk, kernel):
     return out
 
 
-@ngjit
+@nb.jit(
+    "UniTuple(UniTuple(int64, 2), 2)(UniTuple(int64, 2))",
+    nopython=True,
+    nogil=True,
+)
 def _get_offsets(kernel_shape):
     """
     Returns the number of cells on either side of kernel center in both
@@ -120,32 +128,6 @@ def _get_offsets(kernel_shape):
     kc_left = (kcols - 1) // 2
     kc_right = kcols // 2
     return ((kr_top, kr_bot), (kc_left, kc_right))
-
-
-def _focal_dask_map(data, chunk_func, kernel, boundary=np.nan):
-    offsets = _get_offsets(kernel.shape)
-    # map_overlap does not support asymmetrical padding so take max. This adds
-    # at most one extra pixel to each dim.
-    rpad = max(offsets[0])
-    cpad = max(offsets[1])
-    return data.map_overlap(
-        chunk_func,
-        depth={0: rpad, 1: cpad},
-        boundary=boundary,
-        dtype=data.dtype,
-        meta=np.array((), dtype=data.dtype),
-    )
-
-
-def _focal_dispatch(
-    operation, data, kernel, kernel_func=None, boundary=np.nan
-):
-    # TODO: check for cupy eventually
-    if operation == "correlate":
-        chunk_func = partial(_correlate2d_chunk, kernel=kernel)
-    else:
-        chunk_func = partial(_focal_chunk, kernel=kernel, func=kernel_func)
-    return _focal_dask_map(data, chunk_func, kernel, boundary=boundary)
 
 
 def check_kernel(kernel):
@@ -215,10 +197,6 @@ def _correlate(data, kernel, mode="constant", cval=0.0, nan_aware=False):
         The cross-correlation result as a lazy dask array.
 
     """
-    _check_data(data)
-    check_kernel(kernel)
-    if mode not in _VALID_CORRELATE_MODES:
-        raise ValueError(f"Invalid mode: '{mode}'")
     if isinstance(data, np.ndarray):
         data = da.from_array(data)
     if nan_aware:
@@ -234,13 +212,32 @@ def _correlate(data, kernel, mode="constant", cval=0.0, nan_aware=False):
         boundary = _MODE_TO_DASK_BOUNDARY[mode]
         if boundary == "constant":
             boundary = cval
-        return _focal_dispatch("correlate", data, kernel, boundary=boundary)
-    # Shift pixel origins to match ESRI behavior for even shaped kernels
-    shift_origin = [d % 2 == 0 for d in kernel.shape]
-    origin = [-1 if shift else 0 for shift in shift_origin]
-    return ndfilters.correlate(
-        data, kernel, mode=mode, cval=cval, origin=origin
-    )
+
+        offsets = _get_offsets(kernel.shape)
+        # map_overlap does not support asymmetrical padding so take max. This
+        # adds at most one extra pixel to each dim.
+        rpad, cpad = [max(o) for o in offsets]
+        data = data.map_overlap(
+            _correlate2d_chunk,
+            kernel=kernel,
+            depth={0: 0, 1: rpad, 2: cpad},
+            boundary=boundary,
+            dtype=data.dtype,
+            meta=np.array((), dtype=data.dtype),
+        )
+    else:
+        # Shift pixel origins to match ESRI behavior for even shaped kernels
+        shift_origin = [d % 2 == 0 for d in kernel.shape]
+        origin = [-1 if shift else 0 for shift in shift_origin]
+        data = da.stack(
+            [
+                ndfilters.correlate(
+                    band, kernel, mode=mode, cval=cval, origin=origin
+                )
+                for band in data
+            ]
+        )
+    return data
 
 
 FOCAL_STATS = frozenset(
@@ -282,11 +279,6 @@ def _focal(data, kernel, stat, nan_aware=False):
     made.
 
     """
-    if stat not in FOCAL_STATS:
-        raise ValueError(f"Unknown focal stat: '{stat}'")
-    _check_data(data)
-    check_kernel(kernel)
-
     if isinstance(data, np.ndarray):
         data = da.from_array(data)
 
@@ -305,13 +297,30 @@ def _focal(data, kernel, stat, nan_aware=False):
             func = partial(
                 ndfilters.correlate, weights=kernel, mode="constant"
             )
-        return func(data)
-    # Use _focal_dispatch which is slower but handles nan values.
-    # Promote to allow for nan boundary fill values.
-    new_dtype = promote_dtype_to_float(data.dtype)
-    if new_dtype != data.dtype:
-        data = data.astype(new_dtype)
-    return _focal_dispatch("focal", data, kernel, _STAT_TO_FUNC[stat])
+        data = da.stack([func(d) for d in data])
+    else:
+        # Use _focal_chunk which is slower but handles nan values.
+        # Promote to allow for nan boundary fill values.
+        new_dtype = promote_dtype_to_float(data.dtype)
+        if new_dtype != data.dtype:
+            data = data.astype(new_dtype)
+
+        offsets = _get_offsets(kernel.shape)
+        # map_overlap does not support asymmetrical padding so take max. This
+        # adds at most one extra pixel to each dim.
+        rpad = max(offsets[0])
+        cpad = max(offsets[1])
+        data = data.map_overlap(
+            _focal_chunk,
+            kernel=kernel,
+            kernel_func=_STAT_TO_FUNC[stat],
+            # dask
+            depth={0: 0, 1: rpad, 2: cpad},
+            boundary=np.nan,
+            dtype=data.dtype,
+            meta=np.array((), dtype=data.dtype),
+        )
+    return data
 
 
 def focal(raster, focal_type, width_or_radius, height=None):
@@ -376,8 +385,7 @@ def focal(raster, focal_type, width_or_radius, height=None):
         raise ValueError(f"Unknown focal operation: '{focal_type}'")
 
     window = get_focal_window(width_or_radius, height)
-    rs = raster.copy()
-    data = rs.data
+    data = raster.data
 
     # Convert to float and fill nulls with nan, if needed
     if raster._masked:
@@ -386,11 +394,7 @@ def focal(raster, focal_type, width_or_radius, height=None):
             data = data.astype(new_dtype)
         data = da.where(raster.mask, np.nan, data)
 
-    result = [
-        _focal(data[bnd], window, focal_type, raster._masked)
-        for bnd in range(data.shape[0])
-    ]
-    data = da.stack(result)
+    data = _focal(data, window, focal_type, raster._masked)
 
     if raster._masked:
         if focal_type == "unique":
@@ -409,14 +413,20 @@ def focal(raster, focal_type, width_or_radius, height=None):
                     break
             data = data.astype(unq_dtype)
 
+    xdata = xr.DataArray(
+        data, coords=raster.xdata.coords, dims=raster.xdata.dims
+    )
+    xmask = raster.xmask.copy()
     # Nan values will only appear in the result data if there were null values
     # present in the input. Thus we only need to worry about updating the mask
     # if the input was masked.
     if raster._masked:
-        rs.xmask.data = raster.mask | np.isnan(data)
-        data = da.where(rs.mask, rs.null_value, data)
-    rs.xdata.data = data
-    return rs
+        xmask |= np.isnan(xdata)
+        xdata = xdata.rio.write_nodata(raster.null_value)
+    ds = make_raster_ds(xdata, xmask)
+    if raster.crs is not None:
+        ds = ds.rio.write_crs(raster.crs)
+    return Raster(ds, _fast_path=True).burn_mask()
 
 
 def get_focal_window(width_or_radius, height=None):
@@ -545,10 +555,11 @@ def correlate(raster, kernel, mode="constant", cval=0.0):
     raster = get_raster(raster)
     kernel = np.asarray(kernel)
     check_kernel(kernel)
-    rs = raster.copy()
-    if is_float(kernel.dtype) and is_int(rs.dtype):
-        rs.xdata.data = rs.data.astype(F64)
-    data = rs.data
+    if mode not in _VALID_CORRELATE_MODES:
+        raise ValueError(f"Invalid mode: '{mode}'")
+    if is_float(kernel.dtype) and is_int(raster.dtype):
+        raster = raster.astype(F64)
+    data = raster.data
     final_dtype = data.dtype
 
     # Convert to float and fill nulls with nan, if needed
@@ -560,17 +571,22 @@ def correlate(raster, kernel, mode="constant", cval=0.0):
             data = data.astype(new_dtype)
         data = da.where(raster.mask, np.nan, data)
 
-    for bnd in range(data.shape[0]):
-        data[bnd] = _correlate(
-            data[bnd], kernel, mode=mode, cval=cval, nan_aware=rs._masked
-        )
+    data = _correlate(
+        data, kernel, mode=mode, cval=cval, nan_aware=raster._masked
+    )
 
     # Cast back to int, if needed
     if upcast:
         data = data.astype(final_dtype)
 
-    rs.xdata.data = data
-    return rs.burn_mask()
+    xdata = xr.DataArray(
+        data, coords=raster.xdata.coords, dims=raster.xdata.dims
+    ).rio.write_nodata(raster.null_value)
+    xmask = raster.xmask.copy()
+    ds = make_raster_ds(xdata, xmask)
+    if raster.crs is not None:
+        ds = ds.rio.write_crs(raster.crs)
+    return Raster(ds, _fast_path=True).burn_mask()
 
 
 def convolve(raster, kernel, mode="constant", cval=0.0):

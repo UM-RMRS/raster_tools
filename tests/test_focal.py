@@ -295,7 +295,7 @@ def test_get_focal_window_errors():
 
 
 def test_focal_return_dask():
-    x = np.arange(16.0).reshape(4, 4)
+    x = np.arange(16.0).reshape(1, 4, 4)
     kern = focal.get_focal_window(2)
     assert dask.is_dask_collection(focal._focal(x, kern, "max", True))
     assert dask.is_dask_collection(focal._focal(x, kern, "max", False))
@@ -384,7 +384,7 @@ def correlate(x, kern):
 @pytest.mark.filterwarnings("ignore:Mean of empty slice")
 @pytest.mark.filterwarnings("ignore:Degrees of freedom <= 0 for slice")
 def test_focal(filter_name, filter_func, kernel, kernel_params):
-    x = np.arange(64.0).reshape(8, 8)
+    x = np.arange(64.0).reshape(1, 8, 8)
     x[:3, :3] = np.nan
     mask = np.isnan(x)
     rx = Raster(x).set_null_value(np.nan)
@@ -410,7 +410,7 @@ def test_focal(filter_name, filter_func, kernel, kernel_params):
 
 
 def test_correlate_return_dask():
-    x = np.arange(16.0).reshape(4, 4)
+    x = np.arange(16.0).reshape(1, 4, 4)
     kern = focal.get_focal_window(2)
     assert dask.is_dask_collection(focal._correlate(x, kern))
 
@@ -428,7 +428,7 @@ def test_focal_correlate():
                     data, func, size=kern.shape, mode=mode, origin=origin
                 )
                 test = focal._correlate(
-                    data, kern, mode=mode, nan_aware=nan_aware
+                    data[None], kern, mode=mode, nan_aware=nan_aware
                 ).compute()
                 assert np.allclose(truth, test, equal_nan=nan_aware)
 
