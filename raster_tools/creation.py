@@ -195,7 +195,7 @@ def empty_like(raster_template, bands=1, dtype=None):
 
 
 def full_like(raster_template, value, bands=1, dtype=None):
-    """Create a Raster filled with a contant value like a template raster.
+    """Create a Raster filled with a constant value like a template raster.
 
     Parameters
     ----------
@@ -255,7 +255,7 @@ def full_like(raster_template, value, bands=1, dtype=None):
 
 
 def constant_raster(raster_template, value=1, bands=1):
-    """Create a Raster filled with a contant value like a template raster.
+    """Create a Raster filled with a constant value like a template raster.
 
     This is a convenience function that wraps :func:`full_like`.
 
