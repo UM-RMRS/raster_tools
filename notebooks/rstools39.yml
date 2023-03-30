@@ -1,0 +1,32 @@
+name: rstools39
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.9
+  - pip
+  - affine
+  - build
+  - dask
+  - dask-geopandas
+  - dask-image
+  - pyogrio
+  - geopandas
+  - numba
+  - numpy
+  - pandas
+  - pygeos
+  - pyproj
+  - rioxarray
+  - scipy
+  - twine
+  - xarray
+  - jupyterlab
+  - gdown
+  - schedule
+  - pyodbc
+  - nodejs
+  - ipywidgets
+  - folium
+  - pip:
+    - raster_tools
