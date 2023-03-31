@@ -510,15 +510,19 @@ def tpi(dem, annulus_inner, annulus_outer):
     An annulus (donut) is used to select the neighborhood of each pixel. Larger
     radii values select features at larger scales.
 
+    The annulus radii values are in grid cell units or pixels so
+    `annulus_inner=10` for a 30m resoution raster, specifies a radius of 300m.
+
     Parameters
     ----------
     dem : Raster or path str
         The DEM raster to use for TPI analysis.
     annulus_inner : int
-        The inner radius of the annulus. If ``0``, a circle of radius
+        The inner radius of the annulus in pixels. If ``0``, a circle of radius
         `annulus_outer` is used to select the neighborhood.
     annulus_outer : int
-        The outer radius of the annulus. Must be greater than `annulus_inner`.
+        The outer radius of the annulus in pixels. Must be greater than
+        `annulus_inner`.
 
     Returns
     -------
