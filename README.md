@@ -1,5 +1,5 @@
 # Raster Tools
-### Raster Tools is a python package that facilitates a wide range of spatial, statistical, machine learning analyses using delayed and automated parallel processing. Our library focuses on significantly reducing processing time and storage space associated with analyzing large spatial datasets while also introducing new spatial, statistical, machine learning concepts into an easy-to-use python based API.
+Raster Tools is a python package that facilitates a wide range of spatial, statistical, machine learning analyses using delayed and automated parallel processing. Our library focuses on significantly reducing processing time and storage space associated with analyzing large spatial datasets while also introducing new spatial, statistical, machine learning concepts into an easy-to-use python based API.
 
 ![image.gif](./notebooks/images/animatedRMRS2.gif)
 
