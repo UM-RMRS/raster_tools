@@ -1,6 +1,6 @@
 # How to Contribute
 
-## Contributing
+## Features or Bug Fixes
 1. Fork the _raster_tools_ repo.
 2. Clone your fork.
 3. Move to the _raster_tools_ project root:
@@ -68,14 +68,3 @@
     ```
 
 11. Submit a pull request through GitHub.
-
-## Dependencies
-* [dask](https://dask.org/)
-* [dask_image](https://image.dask.org/en/latest/)
-* [dask-geopandas](https://github.com/geopandas/dask-geopandas)
-* [geopandas](https://geopandas.org/en/stable/)
-* [numba](https://numba.pydata.org/)
-* [rasterio](https://rasterio.readthedocs.io/en/latest/)
-* [rioxarray](https://corteva.github.io/rioxarray/stable/)
-* [shapely 2](https://shapely.readthedocs.io/en/stable/)
-* [xarray](https://xarray.pydata.org/en/stable/)
