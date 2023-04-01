@@ -1,10 +1,18 @@
 # Spatial Modeling Tutorials
 ## Overview
-SpatialModelingTutorials was developed to demonstrate function modeling, batch processing, and raster_tools functionality, along with various other coding and modelling strategies.
+SpatialModelingTutorials was developed to demonstrate function modeling, batch
+processing, and raster_tools functionality, along with various other coding and
+modelling strategies.
 
-This collection of Notebooks is meant to demonstrate spatial modeling techniques that use parallel processing and the newly developed [Raster Tools](https://github.com/UM-RMRS/raster_tools) package. Most notebooks are designed to run within Google's Colab. However, they can also be used locally if [Raster Tools](https://github.com/UM-RMRS/raster_tools) is properly installed [link](./install_raster_tools.md).
+This collection of Notebooks is meant to demonstrate spatial modeling
+techniques that use parallel processing and the newly developed [Raster
+Tools](https://github.com/UM-RMRS/raster_tools) package. Most notebooks are
+designed to run within Google's Colab. However, they can also be used locally
+if [Raster Tools](https://github.com/UM-RMRS/raster_tools) is properly
+installed [link](./install_raster_tools.md).
 
-To open a notebook within Colab, open a notebook and click on the “Open in Colab” link (top left). Once in Colab you can step through each notebook cell.
+To open a notebook within Colab, open a notebook and click on the “Open in
+Colab” link (top left). Once in Colab you can step through each notebook cell.
 
 
 ## Check back regularly for new notebooks!
