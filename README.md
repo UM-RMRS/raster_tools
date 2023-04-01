@@ -9,9 +9,9 @@ easy-to-use python based API.
 ![image.gif](./notebooks/images/animatedRMRS2.gif)
 
 ## Helpful Links
-- [How to Contribute](./contribute.md)
+- [How to Contribute](./CONTRIBUTING.md)
 - [Documentation](./docs/README.md)
-- [Notebooks & Tutorials](./notebooks/tutorials.md)
+- [Notebooks & Tutorials](./notebooks/README.md)
 - [PyPi link](https://pypi.org/project/raster-tools/)
 - [Installation](./notebooks/install_raster_tools.md)
 
