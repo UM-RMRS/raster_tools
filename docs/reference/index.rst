@@ -11,5 +11,7 @@ API Reference
    raster
    vector
    distance
+   clipping
    focal
+   general
    surface
