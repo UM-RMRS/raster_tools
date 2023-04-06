@@ -166,6 +166,7 @@ def dem_clipped_small():
             4,
             None,
         ),
+        (arange_raster((700, 6, 6)), 10, 1, None),
         (arange_raster((700, 6, 6)).set_crs("EPSG:3857"), 10, 1, None),
     ],
 )

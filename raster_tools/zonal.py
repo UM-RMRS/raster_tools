@@ -566,7 +566,10 @@ def extract_points_eager(
     ):
         raise TypeError("All geometries must be points.")
 
-    gdf = points.to_crs(raster.crs).data
+    if raster.crs is not None and raster.crs != points.crs:
+        gdf = points.to_crs(raster.crs).data
+    else:
+        gdf = points.data
     x = gdf.geometry.x.to_dask_array()
     y = gdf.geometry.y.to_dask_array()
     r, c = raster.index(*dask.compute(x, y))
