@@ -15,3 +15,4 @@ API Reference
    focal
    general
    surface
+   zonal
