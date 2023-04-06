@@ -14,7 +14,7 @@ from raster_tools.dtypes import F64, I64, is_int, is_str
 from raster_tools.raster import Raster, get_raster, xy_to_rowcol
 from raster_tools.vector import Vector, get_vector
 
-__all__ = ["ZONAL_STAT_FUNCS", "zonal_stats"]
+__all__ = ["ZONAL_STAT_FUNCS", "extract_points_eager", "zonal_stats"]
 
 
 def _nan_count(x):
@@ -525,6 +525,7 @@ def extract_points_eager(
     ----
     This function is partially eager. The x and y values for the target points
     are computed. The result is still a lazy dask DataFrame.
+
 
     This finds the grid cells that the points fall into and extracts the value
     at each point. The input feature will be partially computed to make sure
