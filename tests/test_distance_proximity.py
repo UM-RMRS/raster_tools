@@ -72,8 +72,9 @@ esri_euc_dir = np.array(
 )
 
 
-def test_proximity_analysis_esri_example():
-    src = Raster(esri_src).set_null_value(0)
+@pytest.mark.parametrize("src", [esri_src, esri_src.astype("uint8")])
+def test_proximity_analysis_esri_example(src):
+    src = Raster(src).set_null_value(0)
 
     prox, alloc, dirn = prx.proximity_analysis(src)
 

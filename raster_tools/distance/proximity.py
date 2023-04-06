@@ -3,7 +3,7 @@ import numba as nb
 import numpy as np
 import xarray as xr
 
-from raster_tools.dtypes import F32, F64
+from raster_tools.dtypes import F16, F32, F64
 from raster_tools.masking import get_default_null_value
 from raster_tools.raster import Raster, get_raster
 from raster_tools.utils import single_band_mappable
@@ -598,6 +598,9 @@ def _proximity_analysis(
     orig_raster_dtype = raster.dtype
     # If masked, convert to float and replace null values with nan
     raster = get_raster(raster, null_to_nan=True)
+    if raster.dtype == F16:
+        # Numba doesn't support float16
+        raster = raster.astype(F32)
 
     out_data = da.map_overlap(
         _proximity_analysis_chunk,
