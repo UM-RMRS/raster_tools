@@ -4,7 +4,7 @@
 Focal Operations
 ****************
 
-The focal module contains funtions for performing focal and convolution
+The focal module contains functions for performing focal and convolution
 operations on rasters.
 
 
