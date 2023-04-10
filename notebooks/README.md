@@ -19,6 +19,7 @@ Colab” link (top left). Once in Colab you can step through each notebook cell.
 
 ### List of current notebooks
 
+- **[Surface Module](./surface_module.ipynb)** – A short notebook that demonstrates surface module functionality.
 - **[ANF_ML](./ANF_ML.ipynb)** – A short course notebook that demonstrates various vector, machine learning, and visualization techniques using the Raster_Tools package.
 - **[PODs_Integration](./PODs_Integration.ipynb)** – A notebook demonstrating [21st Century Planning Techniques for Creating Fire-Resilient Forests in the American West](https://www.mdpi.com/1999-4907/12/8/1084).
 - **[Python_Automation_ANFS](./Python_Automation_ANFS.ipynb)** – A short course notebook that demonstrates python automation strategies and basic vector processing using Raster_Tools.
