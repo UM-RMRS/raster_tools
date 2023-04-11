@@ -946,7 +946,11 @@ def proximity_analysis(
 
     Returns
     -------
-    Raster
+    proximity : Raster
+        The proximity raster.
+    allocation : Raster
+        The allocation raster.
+    direction : Raster
         The direction raster.
 
     References
