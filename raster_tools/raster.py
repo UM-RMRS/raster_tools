@@ -606,7 +606,12 @@ class Raster(_RasterBase):
 
     def __repr__(self):
         # TODO: implement
-        return repr(self._ds.raster)
+        crs = self.crs
+        masked = self._masked
+        return (
+            f"<raster_tools.Raster (crs='{crs}', masked={masked})>\n"
+            f"{repr(self._ds.raster)}"
+        )
 
     @property
     def null_value(self):
