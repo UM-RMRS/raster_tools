@@ -901,8 +901,8 @@ def proximity_analysis(
     functions for more details:
 
     * :func:`pa_proximity`
-    * :func:`pa_allocation`
     * :func:`pa_direction`
+    * :func:`pa_allocation`
 
     This is very similar to ESRI's Proximity Analysis tools.
 
@@ -948,10 +948,10 @@ def proximity_analysis(
     -------
     proximity : Raster
         The proximity raster.
-    allocation : Raster
-        The allocation raster.
     direction : Raster
         The direction raster.
+    allocation : Raster
+        The allocation raster.
 
     References
     ----------
@@ -965,17 +965,10 @@ def proximity_analysis(
 
     See also
     --------
-    pa_proximity, pa_allocation, pa_direction
+    pa_proximity, pa_direction, pa_allocation
 
     """  # noqa: E501
     prox = pa_proximity(
-        raster=raster,
-        target_values=target_values,
-        distance_metric=distance_metric,
-        max_distance=max_distance,
-        double_precision=double_precision,
-    )
-    alloc = pa_allocation(
         raster=raster,
         target_values=target_values,
         distance_metric=distance_metric,
@@ -989,4 +982,11 @@ def proximity_analysis(
         max_distance=max_distance,
         double_precision=double_precision,
     )
-    return prox, alloc, direction
+    alloc = pa_allocation(
+        raster=raster,
+        target_values=target_values,
+        distance_metric=distance_metric,
+        max_distance=max_distance,
+        double_precision=double_precision,
+    )
+    return prox, direction, alloc
