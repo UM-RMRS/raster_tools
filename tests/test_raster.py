@@ -1,3 +1,10 @@
+# isort: off
+# TODO(pygeos): remove this once shapely is the default backend for geopandas.
+# Force raster_tools._compat to be loaded before geopandas when running tests
+import raster_tools  # noqa: F401
+
+# isort: on
+
 import operator
 import unittest
 
