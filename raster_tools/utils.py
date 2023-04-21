@@ -49,7 +49,7 @@ def merge_masks(masks):
     mask = None
     for m in masks:
         if mask is None:
-            mask = m
+            mask = m.copy()
         else:
             mask |= m
     return mask

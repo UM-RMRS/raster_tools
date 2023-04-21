@@ -76,7 +76,7 @@ esri_euc_dir = np.array(
 def test_proximity_analysis_esri_example(src):
     src = Raster(src).set_null_value(0)
 
-    prox, alloc, dirn = prx.proximity_analysis(src)
+    prox, dirn, alloc = prx.proximity_analysis(src)
 
     assert np.allclose(prox, esri_euc_prox)
     assert np.allclose(alloc, esri_euc_alloc)
@@ -96,7 +96,7 @@ def test_proximity_analysis_esri_example(src):
     dir_truth = esri_euc_dir.copy()
     dir_truth[mask] = dirn.null_value
 
-    prox, alloc, dirn = prx.proximity_analysis(src, max_distance=3)
+    prox, dirn, alloc = prx.proximity_analysis(src, max_distance=3)
 
     assert np.allclose(prox, prox_truth)
     assert np.allclose(prox.mask.compute(), mask)
@@ -226,7 +226,7 @@ def test_proximity_metric(src, metric, truth_func, max_distance):
     x = src.x
     y = src.y
 
-    rprox, ralloc, rdirn = prx.proximity_analysis(
+    rprox, rdirn, ralloc = prx.proximity_analysis(
         src, distance_metric=metric, max_distance=max_distance
     )
     tprox, talloc, tdirn = apply_metric(
@@ -257,7 +257,7 @@ def test_proximity_great_circle():
 
     src = Raster("tests/data/raster/prox_src.tif")
 
-    rprox, ralloc, rdirn = prx.proximity_analysis(
+    rprox, rdirn, ralloc = prx.proximity_analysis(
         src, distance_metric="haversine"
     )
     assert np.allclose(rprox, tprox)
@@ -270,7 +270,7 @@ def test_proximity_great_circle():
     talloc.xdata.data = da.where(mask, talloc.null_value, talloc.data)
     tdirn.xdata.data = da.where(mask, tdirn.null_value, tdirn.data)
 
-    rprox, ralloc, rdirn = prx.proximity_analysis(
+    rprox, rdirn, ralloc = prx.proximity_analysis(
         src, distance_metric="haversine", max_distance=max_dist
     )
     assert np.allclose(rprox, tprox)

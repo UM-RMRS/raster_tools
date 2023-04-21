@@ -1,3 +1,10 @@
+# isort: off
+# TODO(pygeos): remove this once shapely is the default backend for geopandas.
+# Force raster_tools._compat to be loaded before geopandas when running tests
+import raster_tools  # noqa: F401
+
+# isort: on
+
 import operator
 import unittest
 
@@ -1095,6 +1102,44 @@ def test_ufuncs_multiple_input_against_raster(ufunc):
                 assert r.crs == rs.crs
                 assert np.allclose(r, t, equal_nan=True)
                 assert np.allclose(r._ds.mask, mask, equal_nan=True)
+
+
+def test_ufunc_different_masks():
+    r1 = arange_raster((3, 3)).set_null_value(0)
+    r1.mask[..., :2, :] = True
+    r2 = arange_raster((3, 3)).set_null_value(0)
+    r2.mask[..., :, :2] = True
+    r1_mask = np.array(
+        [
+            [
+                [1, 1, 1],
+                [1, 1, 1],
+                [0, 0, 0],
+            ]
+        ]
+    )
+    r2_mask = np.array(
+        [
+            [
+                [1, 1, 0],
+                [1, 1, 0],
+                [1, 1, 0],
+            ]
+        ]
+    )
+    result_mask = r1_mask | r2_mask
+    assert np.allclose(r1.mask.compute(), r1_mask)
+    assert np.allclose(r2.mask.compute(), r2_mask)
+    assert np.allclose(
+        result_mask, np.array([[1, 1, 1], [1, 1, 1], [1, 1, 0]])
+    )
+
+    result = r1 * r2
+    # Make sure that there where no side effects on the input raster masks
+    assert np.allclose(r1.mask.compute(), r1_mask)
+    assert np.allclose(r2.mask.compute(), r2_mask)
+    result_data = np.where(result_mask, result.null_value, 64)
+    assert np.allclose(result, result_data)
 
 
 def test_invert():

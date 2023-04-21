@@ -453,7 +453,7 @@ def local_stats(raster, stype):
     raster : Raster or path str
         Input Raster object or path string
     stype : str
-        Summarization type. Valid opition are mean, std, var, max, min,
+        Summarization type. Valid opitions are mean, std, var, max, min,
         maxband, minband, prod, sum, mode, median, unique, entropy, asm
 
     Returns
