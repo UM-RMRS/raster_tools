@@ -24,7 +24,7 @@ from raster_tools.stat_common import (
     nanentropy_jit,
     nanmode_jit,
 )
-from tests.utils import assert_valid_raster
+from tests.utils import arange_nd, assert_valid_raster
 
 stat_funcs = {
     "max": partial(np.nanmax, axis=0),
@@ -643,6 +643,81 @@ def test_where(cond, x, y):
     assert result.data.chunks == truth.data.chunks
     assert result.crs is not None
     assert result.crs == "EPSG:3857"
+
+
+@pytest.mark.parametrize("unmapped_to_null", [False, True])
+@pytest.mark.parametrize(
+    "mapping",
+    [{0: -1, 1: -2, 2: -3, 5: 1, 10: 20, 14: 2}, {k: 20 for k in range(10)}],
+)
+@pytest.mark.parametrize(
+    "mask",
+    [
+        np.array(
+            [
+                [
+                    [1, 1, 1, 1],
+                    [1, 1, 1, 0],
+                    [1, 1, 0, 0],
+                    [1, 0, 0, 0],
+                ]
+            ]
+        ).astype(bool),
+        np.array(
+            [
+                [
+                    [1, 1, 0, 0],
+                    [1, 1, 0, 0],
+                    [1, 1, 0, 0],
+                    [1, 1, 0, 0],
+                ]
+            ]
+        ).astype(bool),
+        np.array(
+            [
+                [
+                    [1, 0, 0, 0],
+                    [0, 1, 0, 0],
+                    [0, 0, 1, 0],
+                    [0, 0, 0, 1],
+                ]
+            ]
+        ).astype(bool),
+    ],
+)
+@pytest.mark.parametrize(
+    "data",
+    [
+        arange_nd((1, 4, 4)),
+        arange_nd((1, 4, 4)).astype(float),
+        arange_nd((1, 4, 4)).astype("int16"),
+        arange_nd((1, 4, 4))[..., ::-1, ::-1],
+    ],
+)
+def test__reclassify_chunk(data, mask, mapping, unmapped_to_null):
+    nv = -99
+    map_array = np.array([(k, v) for k, v in mapping.items()]).astype(
+        data.dtype
+    )
+    all_values = set(np.unique(data))
+    mapped = set(mapping)
+    unmapped = set(all_values) - mapped
+    truth = data.copy()
+    tmask = mask.copy()
+    if unmapped_to_null:
+        for v in unmapped:
+            tmask |= data == v
+    for k, v in map_array[::-1]:
+        truth[data == k] = v
+    truth = np.where(tmask, nv, truth)
+
+    result = general._reclassify_chunk(
+        data, mask, map_array, unmapped_to_null, nv
+    )
+    assert result.ndim == 3
+    assert result.shape == truth.shape
+    assert result.dtype == truth.dtype
+    assert np.allclose(truth, result)
 
 
 @pytest.mark.parametrize("method", [False, True])

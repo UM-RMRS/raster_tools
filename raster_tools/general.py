@@ -976,7 +976,7 @@ def _reclassify_chunk(x, mask, mapping_array, unmapped_to_null, null):
             for j in range(nx):
                 if mask[b, i, j]:
                     out[b, i, j] = null
-                    break
+                    continue
                 v = x[b, i, j]
                 reclass = v in mapping
                 if reclass:
