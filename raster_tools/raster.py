@@ -1167,6 +1167,35 @@ class Raster(_RasterBase):
 
         return remap_range(self, mapping, inclusivity=inclusivity)
 
+    def predict_model(self, model, n_outputs=1):
+        """
+        Predict cell estimates from a model using the raster's band values as predictors.
+
+        Predictor bands correspond to the order of the predictor variables within
+        the model. Outputs are raster surfaces with bands cell values depending on
+        the type of model.
+
+        The function uses a class' with a predict function to estimate a new
+        raster surface.
+
+        Parameters
+        ----------
+        model : object
+            The model used to estimate new values. Must have a `predict` method
+            that takes array like object of shape (n_samples, n_features).
+            
+        n_outputs : int specifying number of output bands from the model
+
+        Returns
+        -------
+        Raster
+            The resulting raster of estimated values.):
+            return
+        """
+        from raster_tools.general import predict_model_raster
+        
+        return predict_model_raster(self,model,n_outputs)
+    
     def reclassify(self, remapping, unmapped_to_null=False):
         """Reclassify raster values based on a mapping.
 
