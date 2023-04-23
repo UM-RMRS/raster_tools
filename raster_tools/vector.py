@@ -859,3 +859,29 @@ class Vector:
         (geo,) = dask.compute(self._geo)
         geo.to_file(path, **fiona_kwargs)
         return open_vectors(path)
+    
+    def predict_model(self, model, fields, out_prefix='pred'):
+        """
+        Predict row estimates from a model using columns as predictors.
+
+        Predictor column names should match model column names. Outputs are appended to a new Vector object.
+
+        The function uses a class' with a predict function to estimate a new
+        raster surface.
+
+        Parameters
+        ----------
+        model : object
+            The model used to estimate new values. Must have a `predict` method
+            that takes array like object of shape (n_samples, n_features).
+        fields : list of strings that identify the names of columns used in the model
+            
+
+        Returns
+        -------
+        Vector
+            The resulting vector with estimated values appended as a columns (pred1, pred2, pred3 ...).
+
+        """
+        from raster_tools.general import predict_model_dataframe
+        return predict_model_dataframe(self,model,fields,out_prefix)
