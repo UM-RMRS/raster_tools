@@ -323,7 +323,7 @@ def _focal(data, kernel, stat, nan_aware=False):
     return data
 
 
-def focal(raster, focal_type, width_or_radius, height=None):
+def focal(raster, focal_type, width_or_radius, height=None, ignore_null=False):
     """Applies a focal filter to raster bands individually.
 
     The filter uses a window/footprint that is created using the
@@ -372,6 +372,10 @@ def focal(raster, focal_type, width_or_radius, height=None):
         If `None` (default), `width_or_radius` will be used to construct a
         circle or annulus window. If an int, specifies the height of a
         rectangle window.
+    ignore_null : bool
+        If `False`, cells marked as null remain null. If `True`, cells marked
+        as null may receive a data value, provided there are valid cells in the
+        neighborhood. The default is `False`.
 
     Returns
     -------
@@ -421,7 +425,11 @@ def focal(raster, focal_type, width_or_radius, height=None):
     # present in the input. Thus we only need to worry about updating the mask
     # if the input was masked.
     if raster._masked:
-        xmask |= np.isnan(xdata)
+        nan_mask = np.isnan(xdata)
+        if ignore_null:
+            xmask = nan_mask
+        else:
+            xmask |= nan_mask
         xdata = xdata.rio.write_nodata(raster.null_value)
     ds = make_raster_ds(xdata, xmask)
     if raster.crs is not None:
