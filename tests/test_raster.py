@@ -524,6 +524,19 @@ def test_property_shape():
     assert raster.shape == xdata.shape
 
 
+@pytest.mark.parametrize(
+    "raster",
+    [
+        band_concat(["tests/data/raster/elevation_small.tif"] * 3),
+        arange_raster((4, 20, 25)),
+    ],
+)
+def test_property_size(raster):
+    data = raster.data.compute()
+
+    assert raster.size == data.size
+
+
 def test_property_crs():
     path = "tests/data/raster/elevation_clipped_small.tif"
     raster = Raster(path)

@@ -683,6 +683,13 @@ class Raster(_RasterBase):
         return self._ds.raster.shape
 
     @property
+    def size(self):
+        """
+        The number of grid cells across all bands.
+        """
+        return self.data.size
+
+    @property
     def nbands(self):
         """The number of bands."""
         return self._ds.band.size
