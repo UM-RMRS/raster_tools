@@ -517,7 +517,7 @@ def _build_zonal_stats_data_from_points(data, mask, x, y, affine):
 
 
 def extract_points_eager(
-    points, raster, column_name="extracted", skip_validation=True, axis=0
+    points, raster, column_name="extracted", skip_validation=True
 ):
     """Extract the raster cell values using point features
 
@@ -545,7 +545,6 @@ def extract_points_eager(
         If `True`, the input `points` is not validated to make sure that all
         features are points. This prevents partially computing the data.
         Default is `True`.
-    axis : int identifying the axis to concatenate along
 
     Returns
     -------
@@ -594,9 +593,6 @@ def extract_points_eager(
         extracted[exmask] = np.nan
         df[column_name] = extracted.to_dask_dataframe(index=index)
         assert df.known_divisions
-        if(axis>0):
-            df=df[column_name].rename({column_name:column_name + '_' + str(bnd)})
         dfs.append(df)
-
-    df = dd.concat(dfs,axis=axis)
+    df = dd.concat(dfs)
     return df

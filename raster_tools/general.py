@@ -10,7 +10,7 @@ import os
 import re
 from collections.abc import Iterable, Sequence
 from functools import partial
-import pandas as pd
+
 import dask.array as da
 import numba as nb
 import numpy as np
@@ -66,8 +66,7 @@ __all__ = [
     "dilate",
     "erode",
     "local_stats",
-    "predict_model_raster",
-    "predict_model_dataframe",
+    "predict_model",
     "reclassify",
     "regions",
     "remap_range",
@@ -331,13 +330,8 @@ def aggregate(raster, expand_cells, stype):
         ds_out = ds_out.rio.write_crs(rs.crs)
     return Raster(ds_out, _fast_path=True)
 
-def _pred_raster(xarr, mdl, bnds):
-    b, y, x = xarr.shape
-    vl_arr = np.moveaxis(xarr, 0, -1).reshape(y * x, b)
-    prd = mdl.predict(np.nan_to_num(vl_arr))
-    return np.moveaxis(prd,-1,0).reshape(bnds, y, x)
 
-def predict_model_raster(raster, model, n_outputs=1):
+def predict_model(raster, model):
     """
     Predict cell estimates from a model using raster band values as predictors.
 
@@ -345,7 +339,7 @@ def predict_model_raster(raster, model, n_outputs=1):
     the model. Outputs are raster surfaces with bands cell values depending on
     the type of model.
 
-    The function uses a class' with a predict function to estimate a new
+    The function uses the `model` class' predict method to estimate a new
     raster surface.
 
     Parameters
@@ -355,95 +349,20 @@ def predict_model_raster(raster, model, n_outputs=1):
         in the model (one band for each variable in the model).
     model : object
         The model used to estimate new values. Must have a `predict` method
-        that takes array like object of shape (n_samples, n_features).
-        
-    n_outputs : int specifying number of output bands from the model
+        that takes an `xarray.DataArray` object. The provided DataArray will
+        have null cells marked with ``NaN``.
 
     Returns
     -------
     Raster
-        The resulting raster of estimated values.
+        The resulting raster of estmated values.
 
     """
-    trs = get_raster(raster, null_to_nan=True)
-    crds = trs.xdata.coords
-    chk = trs.xdata.chunksizes #need to check the chunks and set them 
-    nbnds=trs.nbands
-    
-    ds_arr = trs.xdata.data.rechunk(chunks=(nbnds, "auto", "auto"))
-    nchk=ds_arr.chunks
-    
-    ds_arr_out = da.map_blocks(
-        _pred_raster,
-        xarr=ds_arr,
-        mdl=model,
-        bnds=n_outputs,
-        chunks=(n_outputs, nchk[1], nchk[2]),
-        meta=np.array((), dtype=float),
-        dtype=float,
-    )
-    ds_arr_out = ds_arr_out.rechunk((1,chk["y"],chk["x"]))
-    xrs = xr.DataArray(
-        ds_arr_out, coords={"band": list(np.arange(1,n_outputs+1)), "y": crds["y"], "x": crds["x"]}
-    )
-    rs = Raster(xrs)
-    if trs.crs is not None:
-        rs = rs.set_crs(trs.crs)
-        
-    msk=trs._ds.mask.reduce(
-            np.all,
-            dim="band",
-            keepdims=True,
-    )
-        
-    rs._ds.mask.data = msk.data.repeat(n_outputs,0)
-    return rs
+    rs = get_raster(raster, null_to_nan=True)
+    xarr = rs.xdata
+    xarrout = model.predict(xarr)
 
-def _pred_df(df,mdl,fn,prefix='pred'):
-    X=df[fn]
-    vls= mdl.predict(X)
-    dic={}
-    if(len(vls.shape)>1):
-        for p in range(vls.shape[1]):
-            dic[prefix+'_'+str(p)]=vls[p]
-    else:
-        dic[prefix+'_1']=vls
-        
-    df2=pd.DataFrame(dic)
-    
-    return pd.concat([df,df2],axis=1)
-
-def predict_model_dataframe(layer, model, fields, out_prefix='pred'):
-    """
-    Predict row estimates from a model using columns as predictors.
-
-    Predictor column names must match model column names. Outputs are appended to a new Vector object.
-
-    The function uses a class' with a predict function to estimate a new
-    raster surface.
-
-    Parameters
-    ----------
-    layer : vector or path str
-        Vector with columns named the same as used
-        in the model.
-    model : object
-        The model used to estimate new values. Must have a `predict` method
-        that takes array like object of shape (n_samples, n_features).
-    fields : list of strings that identify the names of columns used in the model
-        
-
-    Returns
-    -------
-    Vector
-        The resulting vector with estimated values appended as a columns (pred1, pred2, pred3 ...).
-
-    """
-    from raster_tools import vector
-    vc=vector.get_vector(layer)
-    dt = vc.data
-    vc._geo=dt.map_partitions(_pred_df,model,fields,out_prefix)
-    return vc
+    return Raster(xarrout)
 
 
 @nb.jit(nopython=True, nogil=True)
