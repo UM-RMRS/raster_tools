@@ -517,7 +517,7 @@ def _build_zonal_stats_data_from_points(data, mask, x, y, affine):
 
 
 def extract_points_eager(
-    points, raster, column_name="extracted", skip_validation=True
+    points, raster, column_name="extracted", skip_validation=True, axis=0
 ):
     """Extract the raster cell values using point features
 
@@ -579,20 +579,23 @@ def extract_points_eager(
     dfs = []
     for i in range(nb):
         bnd = i + 1
-        index = _create_dask_range_index(n * i, n * bnd)
-        df = (
-            da.full(n, bnd, dtype=np.min_scalar_type(nb + 1))
-            .to_dask_dataframe(index=index)
-            .to_frame("band")
-        )
         extracted = da.full(n, np.nan, dtype=F64)
         extracted[valid] = raster.data.vindex[i, r[valid], c[valid]]
         # Mask out missing points within the valid zones
         exmask = da.zeros(n, dtype=bool)
         exmask[valid] = raster.mask.vindex[i, r[valid], c[valid]]
         extracted[exmask] = np.nan
-        df[column_name] = extracted.to_dask_dataframe(index=index)
+        if(axis==0):
+            index = _create_dask_range_index(n * i, n * bnd)
+            df = (
+                da.full(n, bnd, dtype=np.min_scalar_type(nb + 1))
+                .to_dask_dataframe(index=index)
+                .to_frame("band")
+            )
+            df[column_name] = extracted.to_dask_dataframe(index=index)
+        else:
+            df=extracted.to_dask_dataframe(columns=column_name+'_'+str(bnd))   
         assert df.known_divisions
         dfs.append(df)
-    df = dd.concat(dfs)
+    df = dd.concat(dfs,axis=axis)
     return df
