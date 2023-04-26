@@ -5,6 +5,7 @@ import numpy as np
 import xarray as xr
 
 from raster_tools.dtypes import is_int, is_scalar
+from raster_tools.masking import get_default_null_value
 from raster_tools.raster import Raster, get_raster
 from raster_tools.utils import make_raster_ds
 
@@ -28,13 +29,43 @@ _VALID_RANDOM_DISTRIBUTIONS = frozenset(
         "u",
         "uniform",
         "w",
-        "webull",
+        "weibull",
     )
 )
 
 
+def _copy_mask(template, out_bands):
+    if out_bands == template.nbands:
+        return template.xmask.copy()
+    mask = template.get_bands(1).xmask
+    mask = xr.concat([mask] * out_bands, "band")
+    mask["band"] = np.arange(out_bands) + 1
+    return mask
+
+
+def _build_result(template, xdata, nbands, copy_mask, copy_nv):
+    if template._masked and copy_mask:
+        xmask = _copy_mask(template, nbands)
+        nv = (
+            template.null_value
+            if copy_nv
+            else get_default_null_value(xdata.dtype)
+        )
+        xdata = xdata.rio.write_nodata(nv)
+    else:
+        xmask = xr.zeros_like(xdata, dtype=bool)
+    ds = make_raster_ds(xdata, xmask)
+    if template.crs is not None:
+        ds = ds.rio.write_crs(template.crs)
+    return Raster(ds, _fast_path=True).burn_mask()
+
+
 def random_raster(
-    raster_template, distribution="normal", bands=1, params=(1, 0.5)
+    raster_template,
+    distribution="normal",
+    bands=1,
+    params=(1, 0.5),
+    copy_mask=False,
 ):
     """Creates a Raster of random values based on the desired distribution.
 
@@ -70,6 +101,10 @@ def random_raster(
         `distribution='normal'` and `params=(1, 0.5)` would result in a normal
         distribution with mean of 1 and standard deviation of 0.5. Default is
         ``(1, 0.5)``.
+    copy_mask : bool
+        If `True`, the template raster's mask is copied to the result raster.
+        If `bands` differs from `raster_template`, the first band's mask is
+        copied `bands` times.
 
     Returns
     -------
@@ -137,13 +172,10 @@ def random_raster(
     xdata = xr.DataArray(
         ndata, coords=(cband, rst.y, rst.x), dims=("band", "y", "x")
     )
-    if rst.crs is not None:
-        xdata = xdata.rio.write_crs(rst.crs)
-    xmask = xr.zeros_like(xdata, dtype=bool)
-    return Raster(make_raster_ds(xdata, xmask), _fast_path=True)
+    return _build_result(rst, xdata, bands, copy_mask, False)
 
 
-def empty_like(raster_template, bands=1, dtype=None):
+def empty_like(raster_template, bands=1, dtype=None, copy_mask=False):
     """Create a Raster filled with uninitialized data like a template raster.
 
     Parameters
@@ -154,6 +186,10 @@ def empty_like(raster_template, bands=1, dtype=None):
         Number of bands desired for output. Default is 1.
     dtype : data-type, optional
         Overrides the result dtype.
+    copy_mask : bool
+        If `True`, the template raster's mask is copied to the result raster.
+        If `bands` differs from `raster_template`, the first band's mask is
+        copied `bands` times.
 
     Returns
     -------
@@ -188,13 +224,11 @@ def empty_like(raster_template, bands=1, dtype=None):
         coords=(np.arange(bands) + 1, rst.y, rst.x),
         dims=("band", "y", "x"),
     )
-    if rst.crs is not None:
-        xdata = xdata.rio.write_crs(rst.crs)
-    xmask = xr.zeros_like(xdata, dtype=bool)
-    return Raster(make_raster_ds(xdata, xmask), _fast_path=True)
+    copy_null = dtype is None or np.dtype(dtype) == rst.dtype
+    return _build_result(rst, xdata, bands, copy_mask, copy_null)
 
 
-def full_like(raster_template, value, bands=1, dtype=None):
+def full_like(raster_template, value, bands=1, dtype=None, copy_mask=False):
     """Create a Raster filled with a constant value like a template raster.
 
     Parameters
@@ -207,6 +241,10 @@ def full_like(raster_template, value, bands=1, dtype=None):
         Number of bands desired for output. Default is 1.
     dtype : data-type, optional
         Overrides the result dtype.
+    copy_mask : bool
+        If `True`, the template raster's mask is copied to the result raster.
+        If `bands` differs from `raster_template`, the first band's mask is
+        copied `bands` times.
 
     Returns
     -------
@@ -248,13 +286,11 @@ def full_like(raster_template, value, bands=1, dtype=None):
         coords=(np.arange(bands) + 1, rst.y, rst.x),
         dims=("band", "y", "x"),
     )
-    if rst.crs is not None:
-        xdata = xdata.rio.write_crs(rst.crs)
-    xmask = xr.zeros_like(xdata, dtype=bool)
-    return Raster(make_raster_ds(xdata, xmask), _fast_path=True)
+    copy_null = dtype is None or np.dtype(dtype) == rst.dtype
+    return _build_result(rst, xdata, bands, copy_mask, copy_null)
 
 
-def constant_raster(raster_template, value=1, bands=1):
+def constant_raster(raster_template, value=1, bands=1, copy_mask=False):
     """Create a Raster filled with a constant value like a template raster.
 
     This is a convenience function that wraps :func:`full_like`.
@@ -267,6 +303,10 @@ def constant_raster(raster_template, value=1, bands=1):
         Value to fill result with. Default is 1.
     bands : int, optional
         Number of bands desired for output. Default is 1.
+    copy_mask : bool
+        If `True`, the template raster's mask is copied to the result raster.
+        If `bands` differs from `raster_template`, the first band's mask is
+        copied `bands` times.
 
     Returns
     -------
@@ -274,10 +314,10 @@ def constant_raster(raster_template, value=1, bands=1):
         The resulting raster of constant values.
 
     """
-    return full_like(raster_template, value, bands=bands)
+    return full_like(raster_template, value, bands=bands, copy_mask=copy_mask)
 
 
-def zeros_like(raster_template, bands=1, dtype=None):
+def zeros_like(raster_template, bands=1, dtype=None, copy_mask=False):
     """Create a Raster filled with zeros like a template raster.
 
     Parameters
@@ -288,6 +328,10 @@ def zeros_like(raster_template, bands=1, dtype=None):
         Number of bands desired for output. Default is 1.
     dtype : data-type, optional
         Overrides the result dtype.
+    copy_mask : bool
+        If `True`, the template raster's mask is copied to the result raster.
+        If `bands` differs from `raster_template`, the first band's mask is
+        copied `bands` times.
 
     Returns
     -------
@@ -295,10 +339,12 @@ def zeros_like(raster_template, bands=1, dtype=None):
         The resulting raster of zreos.
 
     """
-    return full_like(raster_template, 0, bands=bands, dtype=dtype)
+    return full_like(
+        raster_template, 0, bands=bands, dtype=dtype, copy_mask=copy_mask
+    )
 
 
-def ones_like(raster_template, bands=1, dtype=None):
+def ones_like(raster_template, bands=1, dtype=None, copy_mask=False):
     """Create a Raster filled with ones like a template raster.
 
     Parameters
@@ -309,6 +355,10 @@ def ones_like(raster_template, bands=1, dtype=None):
         Number of bands desired for output. Default is 1.
     dtype : data-type, optional
         Overrides the result dtype.
+    copy_mask : bool
+        If `True`, the template raster's mask is copied to the result raster.
+        If `bands` differs from `raster_template`, the first band's mask is
+        copied `bands` times.
 
     Returns
     -------
@@ -316,4 +366,6 @@ def ones_like(raster_template, bands=1, dtype=None):
         The resulting raster of ones.
 
     """
-    return full_like(raster_template, 1, bands=bands, dtype=dtype)
+    return full_like(
+        raster_template, 1, bands=bands, dtype=dtype, copy_mask=copy_mask
+    )

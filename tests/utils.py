@@ -93,7 +93,7 @@ def assert_rasters_similar(left, right, check_nbands=True, check_chunks=True):
     if left is right:
         return
 
-    assert left._ds.dims == right._ds.dims
+    assert left._ds.dims.keys() == right._ds.dims.keys()
     assert np.allclose(left.x, right.x)
     assert np.allclose(left.y, right.y)
     assert left.crs == right.crs
@@ -101,7 +101,7 @@ def assert_rasters_similar(left, right, check_nbands=True, check_chunks=True):
     if check_nbands:
         assert left.nbands == right.nbands
     if check_chunks:
-        assert left.data.chunks == right.data.chunks
+        assert left.data.chunks[1:] == right.data.chunks[1:]
 
 
 def arange_nd(shape, dtype=None, mod=np):
