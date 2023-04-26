@@ -332,11 +332,13 @@ def aggregate(raster, expand_cells, stype):
         ds_out = ds_out.rio.write_crs(rs.crs)
     return Raster(ds_out, _fast_path=True)
 
+
 def _pred_raster(xarr, mdl, bnds):
     b, y, x = xarr.shape
     vl_arr = np.moveaxis(xarr, 0, -1).reshape(y * x, b)
     prd = mdl.predict(np.nan_to_num(vl_arr))
-    return np.moveaxis(prd,-1,0).reshape(bnds, y, x)
+    return np.moveaxis(prd, -1, 0).reshape(bnds, y, x)
+
 
 def predict_model_raster(raster, model, n_outputs=1):
     """
@@ -357,7 +359,7 @@ def predict_model_raster(raster, model, n_outputs=1):
     model : object
         The model used to estimate new values. Must have a `predict` method
         that takes array like object of shape (n_samples, n_features).
-        
+
     n_outputs : int specifying number of output bands from the model
 
     Returns
@@ -368,12 +370,12 @@ def predict_model_raster(raster, model, n_outputs=1):
     """
     trs = get_raster(raster, null_to_nan=True)
     crds = trs.xdata.coords
-    chk = trs.xdata.chunksizes #need to check the chunks and set them 
-    nbnds=trs.nbands
-    
+    chk = trs.xdata.chunksizes  # need to check the chunks and set them
+    nbnds = trs.nbands
+
     ds_arr = trs.xdata.data.rechunk(chunks=(nbnds, "auto", "auto"))
-    nchk=ds_arr.chunks
-    
+    nchk = ds_arr.chunks
+
     ds_arr_out = da.map_blocks(
         _pred_raster,
         xarr=ds_arr,
@@ -383,47 +385,53 @@ def predict_model_raster(raster, model, n_outputs=1):
         meta=np.array((), dtype=float),
         dtype=float,
     )
-    ds_arr_out = ds_arr_out.rechunk((1,chk["y"],chk["x"]))
+    ds_arr_out = ds_arr_out.rechunk((1, chk["y"], chk["x"]))
     xrs = xr.DataArray(
-        ds_arr_out, coords={"band": list(np.arange(1,n_outputs+1)),
-                            "y": crds["y"], "x": crds["x"]}
+        ds_arr_out,
+        coords={
+            "band": list(np.arange(1, n_outputs + 1)),
+            "y": crds["y"],
+            "x": crds["x"],
+        },
     )
     rs = Raster(xrs)
     if trs.crs is not None:
         rs = rs.set_crs(trs.crs)
-        
-    msk=trs._ds.mask.reduce(
-            np.all,
-            dim="band",
-            keepdims=True,
+
+    msk = trs._ds.mask.reduce(
+        np.all,
+        dim="band",
+        keepdims=True,
     )
-        
-    rs._ds.mask.data = msk.data.repeat(n_outputs,0)
+
+    rs._ds.mask.data = msk.data.repeat(n_outputs, 0)
     return rs
 
-def _pred_df(df,mdl,fn,prefix='pred'):
-    X=df[fn].values
-    vls= mdl.predict(X)
-    dic={}
-    if(len(vls.shape)>1):
-        for p in range(vls.shape[1]):
-            dic[prefix+'_'+str(p)]=vls[p]
-    else:
-        dic[prefix]=vls
-        
-    df2=pd.DataFrame(dic)
-    
-    return pd.concat([df,df2],axis=1,)
 
-def predict_model_dataframe(layer, model, fields, out_prefix='pred'):
+def _pred_df(df, mdl, fn, prefix="pred"):
+    X = df[fn].values
+    vls = mdl.predict(X)
+    dic = {}
+    if len(vls.shape) > 1:
+        for p in range(vls.shape[1]):
+            dic[prefix + "_" + str(p)] = vls[p]
+    else:
+        dic[prefix] = vls
+
+    df2 = pd.DataFrame(dic)
+
+    return pd.concat(
+        [df, df2],
+        axis=1,
+    )
+
+
+def predict_model_dataframe(layer, model, fields, out_prefix="pred"):
     """
     Predict row estimates from a model using columns as predictors.
 
-    Predictor column names must match model column names. 
-        Outputs are appended to a new Vector object.
-
-    The function uses a class' with a predict function to estimate 
-        a new raster surface.
+    The function uses a class' with a predict function to estimate
+        a new raster surface. The predict function must take an array of values shaped as follows (n_observations,n_features(predictor values))
 
     Parameters
     ----------
@@ -431,26 +439,26 @@ def predict_model_dataframe(layer, model, fields, out_prefix='pred'):
         Vector with columns named the same as used
         in the model. Na will be removed and index
         will be set.
-    model : object The model used to estimate new values. 
+    model : object The model used to estimate new values.
         Must have a `predict` method
-        that takes array like object of shape (n_samples, n_features).
-    fields : list of strings that identify the names of columns used in 
+        that takes array like object of shape (n_observations, n_features (predictor values)).
+    fields : list of strings that identify the names of columns used in
         the model
-        
+
 
     Returns
     -------
     Vector
-        The resulting vector with estimated values appended as a columns 
+        The resulting vector with estimated values appended as a columns
             (pred1, pred2, pred3 ...).
 
     """
     from raster_tools.vector import get_vector
-    
-    vc=get_vector(layer)
+
+    vc = get_vector(layer)
     dt = vc.data
     dt = dt.dropna().reset_index(drop=True)
-    vc._geo=dt.map_partitions(_pred_df,model,fields,out_prefix)
+    vc._geo = dt.map_partitions(_pred_df, model, fields, out_prefix)
     return vc
 
 

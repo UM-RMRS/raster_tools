@@ -1183,7 +1183,7 @@ class Raster(_RasterBase):
         model : object
             The model used to estimate new values. Must have a `predict` method
             that takes array like object of shape (n_samples, n_features).
-            
+
         n_outputs : int specifying number of output bands from the model
 
         Returns
@@ -1193,9 +1193,9 @@ class Raster(_RasterBase):
             return
         """
         from raster_tools.general import predict_model_raster
-        
-        return predict_model_raster(self,model,n_outputs)
-    
+
+        return predict_model_raster(self, model, n_outputs)
+
     def reclassify(self, remapping, unmapped_to_null=False):
         """Reclassify raster values based on a mapping.
 
