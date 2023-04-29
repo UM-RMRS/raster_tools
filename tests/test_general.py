@@ -1,8 +1,17 @@
+# isort: off
+# TODO(pygeos): remove this once shapely is the default backend for geopandas.
+# Force raster_tools._compat to be loaded before geopandas when running tests
+import raster_tools  # noqa: F401
+
+# isort: on
+
 import unittest
 from functools import partial
 
 import dask.array as da
+import dask_geopandas as dgpd
 import numpy as np
+import pandas as pd
 import pytest
 import xarray as xr
 from scipy.ndimage import (
@@ -24,7 +33,13 @@ from raster_tools.stat_common import (
     nanentropy_jit,
     nanmode_jit,
 )
-from tests.utils import arange_nd, assert_valid_raster
+from raster_tools.vector import Vector
+from tests.utils import (
+    arange_nd,
+    arange_raster,
+    assert_rasters_similar,
+    assert_valid_raster,
+)
 
 stat_funcs = {
     "max": partial(np.nanmax, axis=0),
@@ -275,6 +290,174 @@ def test_aggregate_errors(window, stat, error_type):
     rs = Raster("tests/data/raster/elevation.tif")
     with pytest.raises(error_type):
         general.aggregate(rs, window, stat)
+
+
+def mock_model_function(x):
+    return x @ np.array([1] * x.shape[-1])
+
+
+class MockModelClass:
+    def __init__(self, func):
+        self.func = func
+
+    def apply(self, x):
+        return self.func(x)
+
+
+class ModelAdaptor:
+    def __init__(self, func):
+        self.func = func
+
+    def predict(self, x):
+        return self.func(x)
+
+
+@pytest.mark.parametrize(
+    "raster,model,nout",
+    [
+        (
+            arange_raster((3, 4, 4)),
+            ModelAdaptor(lambda x: np.sum(x, axis=-1, keepdims=True)),
+            1,
+        ),
+        (
+            arange_raster((3, 4, 4)).set_null_value(0).set_crs("5070"),
+            ModelAdaptor(lambda x: np.sum(x, axis=-1, keepdims=True)),
+            1,
+        ),
+        (
+            arange_raster((3, 4, 4), dtype="int8"),
+            ModelAdaptor(np.sin),
+            3,
+        ),
+        (
+            arange_raster((2, 4, 4)).chunk((1, 2, 2)),
+            ModelAdaptor(lambda x: np.concatenate([x, x], axis=1)),
+            4,
+        ),
+        # Params to test ModelPredictAdaptor
+        (
+            arange_raster((3, 4, 4)).chunk((1, 2, 2)),
+            general.ModelPredictAdaptor(mock_model_function),
+            1,
+        ),
+        (
+            arange_raster((3, 4, 4)),
+            general.ModelPredictAdaptor(
+                MockModelClass(mock_model_function), "apply"
+            ),
+            1,
+        ),
+    ],
+)
+def test_model_predict_raster(raster, model, nout):
+    data = np.nan_to_num(raster.data.compute())
+    mask = raster.mask.any(axis=0).compute()
+    test_input = np.zeros((1, raster.nbands), dtype=data.dtype)
+    r = model.predict(test_input)
+    assert r.size == nout
+    assert r.shape == (1, nout) or r.shape == (nout,)
+    truth = np.empty((nout, *raster.shape[1:]), dtype=r.dtype)
+    for i in range(data.shape[1]):
+        for j in range(data.shape[2]):
+            truth[:, i, j] = model.predict(data[:, i, j][None])
+    if raster._masked:
+        truth[:, mask] = get_default_null_value(F64)
+
+    for result in [
+        general.model_predict_raster(raster, model, nout),
+        raster.model_predict(model, nout),
+    ]:
+        assert_valid_raster(result)
+        assert_rasters_similar(
+            raster, result, check_chunks=True, check_nbands=False
+        )
+        assert result.nbands == nout
+        assert np.allclose(result, truth)
+        assert result.dtype == F64
+        if raster._masked:
+            assert result.null_value == get_default_null_value(F64)
+        assert np.allclose(result.mask, np.stack(mask, axis=0))
+
+
+@pytest.mark.parametrize(
+    "features,model,columns,nout,prefix",
+    [
+        (
+            dgpd.read_file("tests/data/vector/pods.shp", chunksize=20),
+            ModelAdaptor(lambda x: np.sum(x, axis=-1, keepdims=True)),
+            ["Shape_Leng", "Shape_Area"],
+            1,
+            "pred_",
+        ),
+        (
+            dgpd.read_file("tests/data/vector/pods.shp", chunksize=20).where(
+                dgpd.read_file(
+                    "tests/data/vector/pods.shp", chunksize=20
+                ).Shape_Leng
+                > 7e4,
+                np.nan,
+            ),
+            ModelAdaptor(lambda x: np.sum(x, axis=-1, keepdims=True)),
+            ["Shape_Leng", "Shape_Area"],
+            1,
+            "result",
+        ),
+        (
+            dgpd.read_file("tests/data/vector/pods.shp", chunksize=20),
+            ModelAdaptor(np.sin),
+            ["Shape_Leng", "POD_Acres", "Shape_Area"],
+            3,
+            "pred_",
+        ),
+        (
+            dgpd.read_file("tests/data/vector/pods.shp", chunksize=20),
+            ModelAdaptor(lambda x: np.concatenate([x, x], axis=1)),
+            ["Shape_Leng", "Shape_Area"],
+            4,
+            "others",
+        ),
+        # Params to test ModelPredictAdaptor
+        (
+            dgpd.read_file("tests/data/vector/pods.shp", chunksize=20),
+            general.ModelPredictAdaptor(mock_model_function),
+            ["Shape_Leng", "Shape_Area"],
+            1,
+            "p",
+        ),
+        (
+            dgpd.read_file("tests/data/vector/pods.shp", chunksize=20),
+            general.ModelPredictAdaptor(
+                MockModelClass(mock_model_function), "apply"
+            ),
+            ["Shape_Leng", "Shape_Area"],
+            1,
+            "p",
+        ),
+    ],
+)
+def test_model_predict_vector(features, model, columns, nout, prefix):
+    df = features.compute()
+    new_columns = [f"{prefix}{i + 1}" for i in range(nout)]
+    data = df[columns].values
+    valid = ~np.isnan(data).any(axis=1)
+    truth = np.full((len(df), nout), np.nan, dtype=F64)
+    r = model.predict(data[valid])
+    if r.ndim == 1:
+        r = r[:, None]
+    truth[valid] = r
+    new_df = pd.DataFrame({c: t for c, t in zip(new_columns, truth.T)})
+    truth_df = pd.concat([df, new_df], axis=1)
+
+    for result in [
+        general.model_predict_vector(features, model, columns, nout, prefix),
+        Vector(features).model_predict(model, columns, nout, prefix),
+    ]:
+        assert isinstance(result, Vector)
+        for c in new_columns:
+            assert c in result._geo
+        rdf = result._geo.compute()
+        assert truth_df.equals(rdf)
 
 
 @pytest.mark.parametrize("chunk", [False, True])

@@ -1174,6 +1174,44 @@ class Raster(_RasterBase):
 
         return remap_range(self, mapping, inclusivity=inclusivity)
 
+    def model_predict(self, model, n_outputs=1):
+        """
+        Generate a new raster using the provided model to predict new values.
+
+        The raster's values are used as the predictor inputs for `model`.
+        Each band in the input raster is used as a separate input variable.
+        Outputs are raster surfaces where each band corresponds to a variable
+        output by `model`.
+
+        The `model` argument must provide a `predict` method. If the desired
+        model does not provide a `predict` function,
+        :class:`ModelPredictAdaptor` can be used to wrap it and make it
+        compatible with this function.
+
+        Parameters
+        ----------
+        model : object
+            The model used to estimate new values. It must have a `predict`
+            method that takes an array-like object of shape `(N, M)`, where `N`
+            is the number of samples and `M` is the number of
+            features/predictor variables. The `predict` method should return an
+            `(N, [n_outputs])` shape result. If only one variable is resurned,
+            then the `n_outputs` dimension is optional.
+        n_outputs : int, optional
+            The number of output variables from the model. Each output variable
+            produced by the model is converted to a band in output raster. The
+            default is ``1``.
+
+        Returns
+        -------
+        Raster
+            The resulting raster of estimated values. Each band corresponds to
+            an output variable produced by the `model`.
+        """
+        from raster_tools.general import model_predict_raster
+
+        return model_predict_raster(self, model, n_outputs)
+
     def reclassify(self, remapping, unmapped_to_null=False):
         """Reclassify raster values based on a mapping.
 

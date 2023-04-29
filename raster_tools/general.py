@@ -14,6 +14,7 @@ from functools import partial
 import dask.array as da
 import numba as nb
 import numpy as np
+import pandas as pd
 import xarray as xr
 from dask_image import ndmeasure as ndm
 from scipy.ndimage import (
@@ -61,12 +62,14 @@ from raster_tools.stat_common import (
 from raster_tools.utils import make_raster_ds
 
 __all__ = [
+    "ModelPredictAdaptor",
     "aggregate",
     "band_concat",
     "dilate",
     "erode",
     "local_stats",
-    "predict_model",
+    "model_predict_vector",
+    "model_predict_raster",
     "reclassify",
     "regions",
     "remap_range",
@@ -156,11 +159,11 @@ def regions(raster, neighbors=4, unique_values=None):
     for bnd in range(data.shape[0]):
         dout[bnd] = _create_labels(data[bnd], wd, unique_values)
 
+    nv = reconcile_nullvalue_with_dtype(raster.null_value, rs_out.dtype)
     if raster._masked:
-        nv = reconcile_nullvalue_with_dtype(raster.null_value, rs_out.dtype)
         dout = da.where(raster._ds.mask.data, nv, dout)
     rs_out._ds.raster.data = dout
-    return rs_out
+    return rs_out.set_null_value(nv)
 
 
 @nb.jit(nopython=True, nogil=True, parallel=True)
@@ -331,38 +334,263 @@ def aggregate(raster, expand_cells, stype):
     return Raster(ds_out, _fast_path=True)
 
 
-def predict_model(raster, model):
+class ModelPredictAdaptor:
     """
-    Predict cell estimates from a model using raster band values as predictors.
+    An adaptor class that allows models without a `predict` method to be used
+    with :func:`model_predict_raster` and :func:`model_predict_vector`.
 
-    Predictor bands correspond to the order of the predictor variables within
-    the model. Outputs are raster surfaces with bands cell values depending on
-    the type of model.
+    Examples
+    --------
+    For a model function:
 
-    The function uses the `model` class' predict method to estimate a new
-    raster surface.
+    >>> def my_model_func(x):
+    ...     return np.sin(x) + np.cos(x)
+    >>> model = ModelPredictAdaptor(my_model_func)
+    >>> result_raster = rts.general.model_predict_raster(
+    ...         predictors, model, n_outputs=predictors.nbands
+    ... )
+
+    For a model function lacking a `predict` method:
+
+    >>> class MyModel:
+    ...     # ...
+    ...     def transform(x):
+    ...         # ...
+    ...         return result
+    >>> model = ModelPredictAdaptor(MyModel(), "transform")
+    >>> result_raster = rts.general.model_predict_raster(predictors, model)
+
+    """
+
+    def __init__(self, model, method=None):
+        """
+        Constructs an adaptor.
+
+        Parameters
+        ----------
+        model : callable, object
+            The model function or object. The `method` parameter determines
+            how this object is handled.
+        method : None, str, callable, optional
+            Determines how input data is provided to `model`. If ``None``,
+            `model` is called with the data as the argument, e.g. `model(x)`.
+            If a string, the adaptor passes input data to the method on `model`
+            with the same name, e.g. for `method="my_func"`,
+            `model.my_func(x)` is called.
+
+        """
+        if method is None:
+
+            def func(x):
+                return model(x)
+
+            self.method = func
+        elif isinstance(method, str):
+            if not hasattr(model, method):
+                raise AttributeError(
+                    f"The given model object has no attribute '{method}'"
+                )
+
+            def func(x):
+                return getattr(model, method)(x)
+
+            self.method = func
+        else:
+            raise ValueError(
+                "Could not understand the method argument. method must be "
+                "None or a string."
+            )
+
+    def predict(self, x):
+        """Pass the input data to the wrapped model and produce the results"""
+        return self.method(x)
+
+
+def _pred_raster(xarr, model, nbands):
+    b, y, x = xarr.shape
+    vl_arr = np.moveaxis(xarr, 0, -1).reshape(y * x, b)
+    pred = model.predict(np.nan_to_num(vl_arr))
+    if pred.ndim == 1:
+        pred = np.expand_dims(pred, 1)
+    return np.moveaxis(pred, -1, 0).reshape(nbands, y, x)
+
+
+def model_predict_raster(raster, model, n_outputs=1):
+    """
+    Generate a new raster using the provided model to predict new values.
+
+    The raster's values are used as the predictor inputs for `model`. Each band
+    in the input raster is used as a separate input variable. Outputs are
+    raster surfaces where each band corresponds to a variable output by
+    `model`.
+
+    The `model` argument must provide a `predict` method. If the desired model
+    does not provide a `predict` function, :class:`ModelPredictAdaptor` can be
+    used to wrap it and make it compatible with this function.
 
     Parameters
     ----------
-    raster : Raster or path str
-        Raster of predictor variables where the bands correspond to variables
-        in the model (one band for each variable in the model).
     model : object
-        The model used to estimate new values. Must have a `predict` method
-        that takes an `xarray.DataArray` object. The provided DataArray will
-        have null cells marked with ``NaN``.
+        The model used to estimate new values. It must have a `predict` method
+        that takes an array-like object of shape `(N, M)`, where `N` is the
+        number of samples and `M` is the number of features/predictor
+        variables. The `predict` method should return an `(N, [n_outputs])`
+        shape result. If only one variable is resurned, then the `n_outputs`
+        dimension is optional.
+    n_outputs : int, optional
+        The number of output variables from the model. Each output variable
+        produced by the model is converted to a band in the output raster. The
+        default is ``1``.
 
     Returns
     -------
     Raster
-        The resulting raster of estmated values.
+        The resulting raster of estimated values. Each band corresponds to an
+        output variable produced by `model`.
 
     """
-    rs = get_raster(raster, null_to_nan=True)
-    xarr = rs.xdata
-    xarrout = model.predict(xarr)
+    in_raster = get_raster(raster, null_to_nan=True)
+    n_outputs = int(n_outputs)
+    if n_outputs < 1:
+        raise ValueError("n_outputs must be greater than 0")
+    in_chunks = in_raster.xdata.chunksizes
+    nbands = in_raster.nbands
 
-    return Raster(xarrout)
+    data = in_raster.data.rechunk(chunks=(nbands, "auto", "auto"))
+    interim_chunks = data.chunks
+
+    data = data.map_blocks(
+        _pred_raster,
+        model=model,
+        nbands=n_outputs,
+        chunks=(n_outputs, interim_chunks[1], interim_chunks[2]),
+        meta=np.array((), dtype=F64),
+        dtype=F64,
+    ).rechunk((1, in_chunks["y"], in_chunks["x"]))
+    xdata = xr.DataArray(
+        data,
+        coords={
+            "band": np.arange(n_outputs) + 1,
+            "y": in_raster.y,
+            "x": in_raster.x,
+        },
+    )
+    if in_raster._masked:
+        xmask = in_raster.xmask.any(dim="band", keepdims=True)
+        if n_outputs > 1:
+            xmask = xr.concat([xmask] * n_outputs, "band")
+        xdata = xdata.rio.write_nodata(get_default_null_value(xdata.dtype))
+    else:
+        xmask = xr.zeros_like(xdata, dtype=bool)
+    ds = make_raster_ds(xdata, xmask)
+    if in_raster.crs is not None:
+        ds = ds.rio.write_crs(in_raster.crs)
+    return Raster(ds, _fast_path=True).burn_mask()
+
+
+def _pred_df(df, model, columns, n_outputs, prefix):
+    X = df[columns].values
+    valid_mask = ~np.isnan(X).any(axis=1)
+
+    y = model.predict(X[valid_mask])
+    if y.ndim == 1:
+        y = np.expand_dims(y, 1)
+    pred = np.empty((len(df), n_outputs), dtype=F64)
+    pred[valid_mask] = y
+    pred[~valid_mask] = np.nan
+
+    dic = {}
+    if pred.shape[1] > 1:
+        for i in range(pred.shape[1]):
+            dic[f"{prefix}{i + 1}"] = pred[:, i]
+    else:
+        dic[f"{prefix}{1}"] = pred.squeeze()
+    df2 = pd.DataFrame(dic, index=df.index)
+    return pd.concat([df, df2], axis=1)
+
+
+def model_predict_vector(
+    features, model, fields, n_outputs=1, out_prefix="pred_"
+):
+    """Predict new columns using a model.
+
+    `features`' values are used as predictors for the model to produce new
+    predictions. The resulting predictions are used to create a new vector with
+    the results appended as new columns.
+
+    The `model` argument must provide a `predict` method. If the desired model
+    does not provide a `predict` function, :class:`ModelPredictAdaptor` can be
+    used to wrap it and make it compatible with this function. information.
+
+    Parameters
+    ----------
+    features : vector or path str
+        Vector with attribute columns.
+    model : object
+        The model used to estimate new values. It must have a `predict` method
+        that takes an array-like object of shape `(N, M)`, where `N` is the
+        number of samples and `M` is the number of features/predictor
+        variables. The `predict` method should return an `(N, [n_outputs])`
+        shape result. If only one variable is resurned, then the `n_outputs`
+        dimension is optional.
+    fields : list of str
+        The names of columns used in the model
+    n_outputs : int, optional
+        The number of output variables from the model. Each output variable
+        produced by the model is converted to a band in the output raster. The
+        default is ``1``.
+    out_prefix : str, optional
+        The prefix to use when naming the resulting column(s). The prefix will
+        be combined with the 1-based number of the output variable. The Default
+        is `"pred_"`.
+
+    Returns
+    -------
+    Vector
+        The resulting vector with estimated values appended as a columns
+        (pred_1, pred_2, pred_3 ...).
+
+    """
+    from raster_tools.vector import get_vector
+
+    vc = get_vector(features).copy()
+    df = vc._geo
+    fields = list(fields)
+    for field in fields:
+        if field not in df:
+            raise KeyError(f"Invalid field name: '{field}'")
+    n_outputs = int(n_outputs)
+    if n_outputs < 1:
+        raise ValueError("n_outputs must be greater than 0")
+    if not isinstance(out_prefix, str):
+        raise TypeError("out_prefix must be a string")
+    for i in range(n_outputs):
+        i += 1
+        c = f"{out_prefix}{i}"
+        if c in df:
+            raise KeyError(
+                "out_prefix produced a column name that is already present in "
+                "the feature: '{c}'."
+            )
+
+    meta = df._meta.copy()
+    new_meta_cols = pd.DataFrame(
+        {
+            f"{out_prefix}{i + 1}": np.array([], dtype=F64)
+            for i in range(n_outputs)
+        }
+    )
+    meta = pd.concat([df._meta, new_meta_cols], axis=1)
+    print(meta.dtypes)
+    vc._geo = df.map_partitions(
+        _pred_df,
+        model=model,
+        columns=fields,
+        n_outputs=n_outputs,
+        prefix=out_prefix,
+        meta=meta,
+    )
+    return vc
 
 
 @nb.jit(nopython=True, nogil=True)

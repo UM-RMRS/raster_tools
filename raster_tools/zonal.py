@@ -517,7 +517,7 @@ def _build_zonal_stats_data_from_points(data, mask, x, y, affine):
 
 
 def extract_points_eager(
-    points, raster, column_name="extracted", skip_validation=True
+    points, raster, column_name="extracted", skip_validation=True, axis=0
 ):
     """Extract the raster cell values using point features
 
@@ -545,15 +545,23 @@ def extract_points_eager(
         If `True`, the input `points` is not validated to make sure that all
         features are points. This prevents partially computing the data.
         Default is `True`.
+    axis : int, optional
+        If 0 band column and values will be appended to a dataframe. Otherwise
+        band values will be append to the columns named after the prefix and
+        band of a dataframe
 
     Returns
     -------
     dask.dataframe.DataFrame
-        The columns are "band" and `column_name. These are the band data was
-        pulled from and the extracted value, respectively. NaN values in the
-        extracted column are where there was missing data in the raster or
-        the point was outside the raster's domain.
-
+        The columns names depend on the value of axis and are based on the
+        "band" and `column_name variable. If axis = 0, the output band column
+        within the dataframe identifies the band the value was extracted from.
+        The values within the column named after the column name variable are
+        the extracted values from the given band. Otherwise, the column names
+        within the dataframe are appended to the column_name prefix and provide
+        the extracted values. NaN values in the extracted column are where
+        there was missing data in the raster or the point was outside the
+        raster's domain.
     """
     points = get_vector(points)
     raster = get_raster(raster)
@@ -579,20 +587,25 @@ def extract_points_eager(
     dfs = []
     for i in range(nb):
         bnd = i + 1
-        index = _create_dask_range_index(n * i, n * bnd)
-        df = (
-            da.full(n, bnd, dtype=np.min_scalar_type(nb + 1))
-            .to_dask_dataframe(index=index)
-            .to_frame("band")
-        )
         extracted = da.full(n, np.nan, dtype=F64)
         extracted[valid] = raster.data.vindex[i, r[valid], c[valid]]
         # Mask out missing points within the valid zones
         exmask = da.zeros(n, dtype=bool)
         exmask[valid] = raster.mask.vindex[i, r[valid], c[valid]]
         extracted[exmask] = np.nan
-        df[column_name] = extracted.to_dask_dataframe(index=index)
+        if axis == 0:
+            index = _create_dask_range_index(n * i, n * bnd)
+            df = (
+                da.full(n, bnd, dtype=np.min_scalar_type(nb + 1))
+                .to_dask_dataframe(index=index)
+                .to_frame("band")
+            )
+            df[column_name] = extracted.to_dask_dataframe(index=index)
+        else:
+            df = extracted.to_dask_dataframe(
+                columns=column_name + "_" + str(bnd)
+            )
         assert df.known_divisions
         dfs.append(df)
-    df = dd.concat(dfs)
+    df = dd.concat(dfs, axis=axis)
     return df
