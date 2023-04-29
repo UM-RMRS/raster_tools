@@ -859,30 +859,48 @@ class Vector:
         (geo,) = dask.compute(self._geo)
         geo.to_file(path, **fiona_kwargs)
         return open_vectors(path)
-    
-    def predict_model(self, model, fields, out_prefix='pred'):
-        """
-        Predict row estimates from a model using columns as predictors.
 
-        Predictor column names should match model column names. Outputs are appended to a new Vector object.
+    def model_predict(self, model, fields, n_outputs=1, out_prefix="pred_"):
+        """Predict new columns using a model.
 
-        The function uses a class' with a predict function to estimate a new
-        raster surface.
+        `layer`'s values are used as predictors for the model to produce new
+        predictions. The resulting predictions are used to create a new vector
+        with the results appended as new columns.
+
+        The `model` argument must provide a `predict` method. If the desired
+        model does not provide a `predict` function,
+        :class:`ModelPredictAdaptor` can be used to wrap it and make it
+        compatible with this function. information.
 
         Parameters
         ----------
+        layer : vector or path str
+            Vector with attribute columns.
         model : object
-            The model used to estimate new values. Must have a `predict` method
-            that takes array like object of shape (n_samples, n_features).
-        fields : list of strings that identify the names of columns used in the model
-            
+            The model used to estimate new values. It must have a `predict`
+            method that takes an array-like object of shape `(N, M)`, where `N`
+            is the number of samples and `M` is the number of
+            features/predictor variables. The `predict` method should return an
+            `(N, [n_outputs])` shape result. If only one variable is resurned,
+            then the `n_outputs` dimension is optional.
+        fields : list of str
+            The names of columns used in the model
+        n_outputs : int, optional
+            The number of output variables from the model. Each output variable
+            produced by the model is converted to a band in the output raster.
+            The default is ``1``.
+        out_prefix : str, optional
+            The prefix to use when naming the resulting column(s). The prefix
+            will be combined with the 1-based number of the output variable.
+            The Default is `"pred_"`.
 
         Returns
         -------
         Vector
-            The resulting vector with estimated values appended as a columns (pred1, pred2, pred3 ...).
+            The resulting vector with estimated values appended as a columns
+            (pred_1, pred_2, pred_3 ...).
 
         """
-        from raster_tools.general import predict_model_dataframe
-        
-        return predict_model_dataframe(self,model,fields,out_prefix)
+        from raster_tools.general import model_predict_vector
+
+        return model_predict_vector(self, model, fields, n_outputs, out_prefix)

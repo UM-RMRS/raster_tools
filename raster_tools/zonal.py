@@ -546,12 +546,22 @@ def extract_points_eager(
         features are points. This prevents partially computing the data.
         Default is `True`.
     axis : int, optional
-        If 0 band column and values will be appended to a dataframe. Otherwise band values will be append to the columns named after the prefix and band of a dataframe
+        If 0 band column and values will be appended to a dataframe. Otherwise
+        band values will be append to the columns named after the prefix and
+        band of a dataframe
 
     Returns
     -------
     dask.dataframe.DataFrame
-        The columns names depend on the value of axis and are based on the "band" and `column_name variable. If axis = 0, the output band column within the dataframe identifies the band the value was extracted from. The values within the column named after the column name variable are the extracted values from the given band. Otherwise, the column names within the dataframe are appended to the column_name prefix and provide the extracted values. NaN values in the extracted column are where there was missing data in the raster or the point was outside the raster's domain.
+        The columns names depend on the value of axis and are based on the
+        "band" and `column_name variable. If axis = 0, the output band column
+        within the dataframe identifies the band the value was extracted from.
+        The values within the column named after the column name variable are
+        the extracted values from the given band. Otherwise, the column names
+        within the dataframe are appended to the column_name prefix and provide
+        the extracted values. NaN values in the extracted column are where
+        there was missing data in the raster or the point was outside the
+        raster's domain.
     """
     points = get_vector(points)
     raster = get_raster(raster)
