@@ -581,7 +581,6 @@ def model_predict_vector(
         }
     )
     meta = pd.concat([df._meta, new_meta_cols], axis=1)
-    print(meta.dtypes)
     vc._geo = df.map_partitions(
         _pred_df,
         model=model,

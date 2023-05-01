@@ -449,7 +449,7 @@ def zonal_stats(features, data_raster, stats, raster_feature_values=None):
     if isinstance(features, Raster):
         if features.crs != data_raster.crs:
             raise ValueError("Feature raster CRS must match data raster")
-        if features.shape != data_raster.shape:
+        if features.shape[1:] != data_raster.shape[1:]:
             raise ValueError("Feature raster shape must match data raster")
 
     feature_labels = None
