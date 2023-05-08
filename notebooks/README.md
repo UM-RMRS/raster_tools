@@ -20,8 +20,11 @@ Colab” link (top left). Once in Colab you can step through each notebook cell.
 ### Tutorials
 - **[Surface Module](./surface_module.ipynb)** – A short notebook that demonstrates surface module functionality.
 - **[General Module](./general_module.ipynb)** – A short notebook that demonstrates general module functionality.
-- **[Distance Module](./distacnce_module.ipynb)** – A short notebook that demonstrates distance module functionality.
-- **[Sample Design](./sample_design.ipynb)** – A short notebook that demonstrates how to make various spatially spread samples.
+- **[Distance Module](./distance_module.ipynb)** – A short notebook that demonstrates distance module functionality.
+- **[Sample Design](./SampleDesign.ipynb)** – A short notebook that demonstrates how to make various spatially spread samples.
+- **[Clipping Module](./clipping_module.ipynb)** – A short notebook that demonstrates clipping module functionality.
+- **[Creation Module](./creation_module.ipynb)** – A short notebook that demonstrates creation module functionality.
+- **[Zonal Module](./zonal_module.ipynb)** – A short notebook that demonstrates zonal module functionality.
 
 ### Use Cases
 - **[ANF_ML](./ANF_ML.ipynb)** – A short course notebook that demonstrates various vector, machine learning, and visualization techniques using the Raster_Tools package.
