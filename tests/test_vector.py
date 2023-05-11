@@ -11,7 +11,7 @@ from raster_tools import Raster
 from raster_tools.dtypes import I32, U16
 from raster_tools.masking import get_default_null_value
 from raster_tools.vector import Vector, open_vectors
-from tests.utils import assert_valid_raster
+from tests.utils import assert_rasters_similar, assert_valid_raster
 
 
 class TestOpenVectors(unittest.TestCase):
@@ -199,6 +199,15 @@ class TestConversions(unittest.TestCase):
         self.assertTrue(self.v.to_crs("epsg:4326").crs == crs)
 
 
+def assert_to_raster_all_close(left, right):
+    # GDAL keeps changing the tolerance for the all-touched option. The result
+    # is that a (very) few pixels on the boundries between features can differ
+    # from version to version. This introduces a small tolerance to allow for
+    # a small amount of pixel flipping.
+    if not np.allclose(left, right):
+        assert (left != right).sum() / left.size < 1e-6
+
+
 @pytest.mark.parametrize(
     "key", ["many_shapes", "single_shape", "one_part", "many_part"]
 )
@@ -219,20 +228,12 @@ def test_to_raster(key):
         v = Vector(v.to_lazy().data.repartition(10))
         result = v.to_raster(like)
 
-    result_eval = result.eval()
-
     assert_valid_raster(result)
+    assert_rasters_similar(result, like)
     assert result.null_value == 0
     assert result.dtype == np.dtype("uint8")
     assert result.shape[0] == 1
-    assert result.crs == like.crs
-    assert result.affine == like.affine
-    assert result_eval.crs == like.crs
-    assert result_eval.affine == like.affine
-    assert np.allclose(result, truth)
-    assert np.allclose(result.xdata.x, truth.xdata.x)
-    assert np.allclose(result.xdata.y, truth.xdata.y)
-    assert np.allclose(result.xdata.band, truth.xdata.band)
+    assert_to_raster_all_close(result, truth)
     if key == "single_shape":
         assert all(np.unique(result) == [0, 1])
 
@@ -246,7 +247,7 @@ def test_to_raster_chunks():
 
     result = v.to_raster(like)
     assert result.data.chunks == like.data.chunks
-    assert np.allclose(result, truth)
+    assert_to_raster_all_close(result, truth)
 
 
 def test_to_raster_field():
@@ -255,27 +256,18 @@ def test_to_raster_field():
     truth = Raster("tests/data/raster/pods_like_elevation_objectid_field.tif")
     result = v.to_raster(like, field="OBJECTID")
 
-    result_eval = result.eval()
-
     assert_valid_raster(result)
+    assert_rasters_similar(result, like)
     assert result.null_value == get_default_null_value(v.data.OBJECTID.dtype)
     assert result.dtype == v.data.OBJECTID.dtype
     assert result.shape[0] == 1
-    assert result.crs == like.crs
-    assert result.affine == like.affine
-    assert result_eval.crs == like.crs
-    assert result_eval.affine == like.affine
-    assert result_eval.dtype == v.data.OBJECTID.dtype
-    assert np.allclose(result, truth)
-    assert np.allclose(result.xdata.x, truth.xdata.x)
-    assert np.allclose(result.xdata.y, truth.xdata.y)
-    assert np.allclose(result.xdata.band, truth.xdata.band)
+    assert_to_raster_all_close(result, truth)
 
     v = v.cast_field("OBJECTID", U16)
     result = v.to_raster(like, field="OBJECTID")
     assert result.dtype == I32
     assert result.null_value == get_default_null_value(I32)
-    assert np.allclose(
+    assert_to_raster_all_close(
         result, truth.set_null_value(get_default_null_value(I32))
     )
 
