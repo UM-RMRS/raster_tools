@@ -128,6 +128,8 @@ def surface_area_3d(raster):
 
     """
     rs = get_raster(raster, null_to_nan=True)
+    if rs.dtype == np.dtype("float16"):
+        rs = rs.astype(F32)
     out_data = rs.data.map_overlap(
         _surface_area_3d,
         depth={0: 0, 1: 1, 1: 1},
@@ -194,7 +196,8 @@ def slope(raster, degrees=True):
 
     """  # noqa: E501
     rs = get_raster(raster, null_to_nan=True)
-
+    if rs.dtype == np.dtype("float16"):
+        rs = rs.astype(F32)
     # Leave resolution sign as is
     out_data = rs.data.map_overlap(
         _slope,
@@ -267,7 +270,8 @@ def aspect(raster):
 
     """  # noqa: E501
     rs = get_raster(raster, null_to_nan=True)
-
+    if rs.dtype == np.dtype("float16"):
+        rs = rs.astype(F32)
     out_data = rs.data.map_overlap(
         _aspect,
         depth={0: 0, 1: 1, 1: 1},
@@ -325,7 +329,8 @@ def curvature(raster):
 
     """  # noqa: E501
     rs = get_raster(raster, null_to_nan=True)
-
+    if rs.dtype == np.dtype("float16"):
+        rs = rs.astype(F32)
     out_data = rs.data.map_overlap(
         _curv,
         depth={0: 0, 1: 1, 1: 1},
@@ -371,8 +376,9 @@ def northing(raster, is_aspect=False):
     """
     if not is_aspect:
         raster = aspect(raster)
-
     rs = get_raster(raster, null_to_nan=True).copy()
+    if rs.dtype == np.dtype("float16"):
+        rs = rs.astype(F32)
     return _northing_easting(rs, True)
 
 
@@ -400,6 +406,8 @@ def easting(raster, is_aspect=False):
         raster = aspect(raster)
 
     rs = get_raster(raster, null_to_nan=True).copy()
+    if rs.dtype == np.dtype("float16"):
+        rs = rs.astype(F32)
     return _northing_easting(rs, False)
 
 
@@ -477,6 +485,8 @@ def hillshade(raster, azimuth=315, altitude=45):
 
     """  # noqa: E501
     rs = get_raster(raster, null_to_nan=True)
+    if rs.dtype == np.dtype("float16"):
+        rs = rs.astype(F32)
     # Specifically leave resolution sign as is
     out_data = rs.data.map_overlap(
         _hillshade,
