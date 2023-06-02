@@ -22,7 +22,17 @@ from scipy.ndimage import (
 )
 
 from raster_tools import creation, general
-from raster_tools.dtypes import F32, F64, I16, I32, I64, U8, U16, is_scalar
+from raster_tools.dtypes import (
+    F32,
+    F64,
+    I16,
+    I32,
+    I64,
+    U8,
+    U16,
+    get_common_dtype,
+    is_scalar,
+)
 from raster_tools.masking import get_default_null_value
 from raster_tools.raster import Raster, get_raster
 from raster_tools.stat_common import (
@@ -603,40 +613,51 @@ def test_band_concat_errors():
         general.band_concat([])
 
 
-def test_remap_range():
-    rs = Raster(np.arange(25).reshape((5, 5)))
-    rsnp = rs.values
+@pytest.mark.parametrize("inc", ["left", "right", "both", "none"])
+@pytest.mark.parametrize(
+    "raster,mapping",
+    [
+        (arange_raster((1, 5, 5)), (0, 5, 1)),
+        (arange_raster((1, 5, 5)), [(0, 5, 1), (5, 15, -1)]),
+        (
+            arange_raster((1, 5, 5)),
+            # Test multiple with potential conflict in last 2
+            [(0, 1, 0), (1, 2, 1), (2, 3, 8), (8, 9, 2)],
+        ),
+        # Test precedence
+        (arange_raster((1, 5, 5)), [(0, 2, 0), (1, 2, 1)]),
+        (arange_raster((1, 5, 5)) + 0.1, [(0, 2, 0), (1, 2, 1)]),
+    ],
+)
+def test_remap_range(raster, mapping, inc):
+    truth = raster.values
+    if np.asarray(mapping).shape == (3,):
+        mapping = [mapping]
+    out_dtype = get_common_dtype([m[-1] for m in mapping])
+    out_dtype = np.promote_types(raster.dtype, out_dtype)
+    truth = truth.astype(out_dtype)
+    remapped_mask = np.zeros_like(truth, dtype=bool)
+    for m in mapping:
+        if inc == "left":
+            match = (truth >= m[0]) & (truth < m[1])
+        elif inc == "right":
+            match = (truth > m[0]) & (truth <= m[1])
+        elif inc == "both":
+            match = (truth >= m[0]) & (truth <= m[1])
+        elif inc == "none":
+            match = (truth > m[0]) & (truth < m[1])
+        truth[(~remapped_mask) & match] = m[2]
+        remapped_mask |= match
 
-    mapping = (0, 5, 1)
-    result = general.remap_range(rs, mapping)
-    truth = rsnp.copy()
-    truth[(rsnp >= mapping[0]) & (rsnp < mapping[1])] = mapping[2]
-    assert np.allclose(result, truth)
-    assert np.allclose(rs.remap_range(mapping), truth)
-
-    mappings = [mapping, (5, 15, -1)]
-    result = general.remap_range(rs, mappings)
-    truth[(rsnp >= mappings[1][0]) & (rsnp < mappings[1][1])] = mappings[1][2]
-    assert np.allclose(result, truth)
-    assert np.allclose(rs.remap_range(mappings), truth)
-
-    # Test multiple with potential conflict in last 2
-    mappings = [(0, 1, 0), (1, 2, 1), (2, 3, 8), (8, 9, 2)]
-    result = general.remap_range(rs, mappings)
-    truth = rsnp.copy()
-    for m in mappings:
-        truth[(rsnp >= m[0]) & (rsnp < m[1])] = m[2]
-    assert np.allclose(result.values, truth)
-    assert np.allclose(rs.remap_range(mappings), truth)
-
-    # Test precedence
-    mappings = [(0, 2, 0), (1, 2, 1)]
-    result = general.remap_range(rs, mappings)
-    truth = rsnp.copy()
-    m = mappings[0]
-    truth[(rsnp >= m[0]) & (rsnp < m[1])] = m[2]
-    assert np.allclose(result.values, truth)
-    assert np.allclose(rs.remap_range(mappings), truth)
+    result1 = general.remap_range(raster, mapping, inc)
+    result2 = raster.remap_range(mapping, inc)
+    assert_valid_raster(result1)
+    assert_valid_raster(result2)
+    assert result1.dtype == out_dtype
+    assert result2.dtype == out_dtype
+    assert np.allclose(result1, result2)
+    assert np.allclose(result1, truth)
+    assert np.allclose(result2, truth)
 
 
 @pytest.mark.parametrize(

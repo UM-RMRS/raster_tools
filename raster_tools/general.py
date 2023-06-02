@@ -969,7 +969,7 @@ def _remap_values(x, mask, mappings, inclusivity):
             for cl in range(columns):
                 if mask[bnd, rw, cl]:
                     continue
-                vl = int(x[bnd, rw, cl])
+                vl = x[bnd, rw, cl]
                 remap = False
                 for imap in range(rngs):
                     left, right, new = mappings[imap]
