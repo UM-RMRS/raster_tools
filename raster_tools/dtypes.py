@@ -48,9 +48,7 @@ _add_type(
 _add_type(DTYPE_INPUT_TO_DTYPE, F128, ["f16", "float128", np.longdouble])
 # Boolean
 _add_type(
-    DTYPE_INPUT_TO_DTYPE,
-    BOOL,
-    ["bool", "?", bool, np.bool_, np.dtype("bool"), np.bool8],
+    DTYPE_INPUT_TO_DTYPE, BOOL, ["bool", "?", bool, np.bool_, np.dtype("bool")]
 )
 
 
