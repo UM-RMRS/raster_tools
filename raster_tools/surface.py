@@ -132,7 +132,7 @@ def surface_area_3d(raster):
         rs = rs.astype(F32)
     out_data = rs.data.map_overlap(
         _surface_area_3d,
-        depth={0: 0, 1: 1, 1: 1},
+        depth={0: 0, 1: 1, 2: 1},
         boundary=np.nan,
         dtype=F64,
         meta=np.array((), dtype=F64),
@@ -201,7 +201,7 @@ def slope(raster, degrees=True):
     # Leave resolution sign as is
     out_data = rs.data.map_overlap(
         _slope,
-        depth={0: 0, 1: 1, 1: 1},
+        depth={0: 0, 1: 1, 2: 1},
         boundary=np.nan,
         dtype=F64,
         meta=np.array((), dtype=F64),
@@ -274,7 +274,7 @@ def aspect(raster):
         rs = rs.astype(F32)
     out_data = rs.data.map_overlap(
         _aspect,
-        depth={0: 0, 1: 1, 1: 1},
+        depth={0: 0, 1: 1, 2: 1},
         boundary=np.nan,
         dtype=F64,
         meta=np.array((), dtype=F64),
@@ -333,7 +333,7 @@ def curvature(raster):
         rs = rs.astype(F32)
     out_data = rs.data.map_overlap(
         _curv,
-        depth={0: 0, 1: 1, 1: 1},
+        depth={0: 0, 1: 1, 2: 1},
         boundary=np.nan,
         dtype=F64,
         meta=np.array((), dtype=F64),
@@ -490,7 +490,7 @@ def hillshade(raster, azimuth=315, altitude=45):
     # Specifically leave resolution sign as is
     out_data = rs.data.map_overlap(
         _hillshade,
-        depth={0: 0, 1: 1, 1: 1},
+        depth={0: 0, 1: 1, 2: 1},
         boundary=np.nan,
         dtype=F32,
         meta=np.array((), dtype=F32),
