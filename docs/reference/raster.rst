@@ -93,14 +93,22 @@ Reductions
 Methods
 =======
 
-Reshaping and Reorganizing
---------------------------
+Reorganizing
+------------
 
 .. autosummary::
    :toctree: generated/
 
    Raster.chunk
+
+Extracting
+----------
+
+.. autosummary::
+   :toctree: generated/
+
    Raster.get_bands
+   Raster.to_quadrants
 
 Null Data and Remapping
 -----------------------
@@ -162,3 +170,4 @@ Miscellaneous
    :toctree: generated/
 
    Raster.get_chunked_coords
+   Raster.model_predict

@@ -515,8 +515,9 @@ def tpi(dem, annulus_inner, annulus_outer):
     to produce a scale-dependent index that highlights ridges (positive values)
     and valleys (negative valleys). Values close to zero, indicate areas with
     constant slope such as plains (slope of zero). The basic function looks
-    like this:
-        ``tpi = int(dem - focalmean(dem, annulus_inner, annulus_outer) + 0.5)``
+    like this: ``tpi = int(dem - focalmean(dem, annulus_inner, annulus_outer) +
+    0.5)``
+
     An annulus (donut) is used to select the neighborhood of each pixel. Larger
     radii values select features at larger scales.
 

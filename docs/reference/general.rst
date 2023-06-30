@@ -13,12 +13,14 @@ Operations
 .. autosummary::
    :toctree: generated/
 
+   ModelPredictAdaptor
    aggregate
    band_concat
    dilate
    erode
    local_stats
-   predict_model
+   model_predict_raster
+   model_predict_vector
    reclassify
    regions
    remap_range
