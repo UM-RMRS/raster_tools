@@ -42,7 +42,7 @@ def _clip(
                 " same CRS as the data raster."
             )
 
-    feat_rs = feat.to_raster_mask(rs)
+    feat_rs = feat.to_raster(rs, mask=True)
     if not envelope:
         if invert:
             clip_mask = feat_rs.to_null_mask()

@@ -115,3 +115,30 @@ def single_band_mappable(
     if func_ is None:
         return decorator
     return decorator(func_)
+
+
+def list_reshape_2d(lst, shape, flat_start=0):
+    if len(shape) != 2:
+        raise TypeError("shape must be a 2-tuple")
+    out = []
+    nrows, ncols = shape
+    flat_idx = flat_start
+    for row in range(nrows):
+        out.append([])
+        for col in range(ncols):
+            out[row].append(lst[flat_idx])
+            flat_idx += 1
+    return out
+
+
+def list_reshape_3d(lst, shape):
+    if len(shape) != 3:
+        raise TypeError("shape must be a 3-tuple")
+    out = []
+    shape_2d = shape[1:]
+    n_2d = np.prod(shape_2d)
+    flat_idx = 0
+    for band in range(shape[0]):
+        out.append(list_reshape_2d(lst, shape_2d, flat_start=flat_idx))
+        flat_idx += n_2d
+    return out

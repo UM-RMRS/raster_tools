@@ -100,6 +100,14 @@ raster\_tools.raster module
    :undoc-members:
    :show-inheritance:
 
+raster\_tools.rasterize module
+------------------------------
+
+.. automodule:: raster_tools.rasterize
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 raster\_tools.stat\_common module
 ---------------------------------
 

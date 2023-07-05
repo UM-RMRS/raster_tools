@@ -14,5 +14,6 @@ API Reference
    clipping
    focal
    general
+   rasterize
    surface
    zonal
