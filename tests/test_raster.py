@@ -11,12 +11,14 @@ import unittest
 import affine
 import dask
 import dask.array as da
+import geopandas as gpd
 import numpy as np
 import pytest
 import rasterio as rio
 import rioxarray as riox
 import xarray as xr
 from dask_geopandas import GeoDataFrame
+from shapely.geometry import box
 
 from raster_tools import Raster, band_concat
 from raster_tools.dtypes import (
@@ -46,8 +48,17 @@ from raster_tools.raster import (
     rowcol_to_xy,
     xy_to_rowcol,
 )
-from raster_tools.utils import is_strictly_decreasing, is_strictly_increasing
-from tests.utils import arange_nd, arange_raster, assert_valid_raster
+from raster_tools.utils import (
+    is_strictly_decreasing,
+    is_strictly_increasing,
+    make_raster,
+)
+from tests.utils import (
+    arange_nd,
+    arange_raster,
+    assert_rasters_similar,
+    assert_valid_raster,
+)
 
 TEST_ARRAY = np.array(
     [
@@ -1804,6 +1815,155 @@ def test_to_quadrants(raster):
         dim="y",
     )
     assert np.allclose(xmask_reconstructed, raster.xmask)
+
+
+def test_get_chunk_bounding_boxes():
+    raster = arange_raster((6, 6)).chunk((1, 3, 3)).set_crs("EPSG:5070")
+    boxes = [
+        box(0.0, 3.0, 3.0, 6.0),
+        box(3.0, 3.0, 6.0, 6.0),
+        box(0.0, 0.0, 3.0, 3.0),
+        box(3.0, 0.0, 6.0, 3.0),
+    ]
+    rows = [0, 0, 1, 1]
+    cols = [0, 1, 0, 1]
+    truth = gpd.GeoDataFrame(
+        {"chunk_row": rows, "chunk_col": cols, "geometry": boxes},
+        crs=raster.crs,
+    )
+
+    df = raster.get_chunk_bounding_boxes()
+    assert truth.crs == df.crs
+    assert df.geometry.geom_equals_exact(truth.geometry, 0, align=False).all()
+    assert df.equals(truth)
+
+    raster = raster_tools.band_concat([raster, raster])
+    rows += rows
+    cols += cols
+    boxes += boxes
+    bands = ([0] * 4) + ([1] * 4)
+    truth = gpd.GeoDataFrame(
+        {
+            "chunk_band": bands,
+            "chunk_row": rows,
+            "chunk_col": cols,
+            "geometry": boxes,
+        },
+        crs=raster.crs,
+    )
+    df = raster.get_chunk_bounding_boxes(True)
+    assert truth.crs == df.crs
+    assert df.geometry.geom_equals_exact(truth.geometry, 0, align=False).all()
+    assert df.equals(truth)
+
+
+def test_get_chunk_rasters():
+    raster = arange_raster((6, 6)).chunk((1, 3, 3)).set_crs("EPSG:5070")
+    blocks = raster.data.blocks
+    truth = np.empty((1, 2, 2), dtype="O")
+    truth[0, 0, 0] = make_raster(
+        blocks[0, 0, 0], raster.x[:3], raster.y[:3], crs=raster.crs
+    )
+    truth[0, 0, 1] = make_raster(
+        blocks[0, 0, 1], raster.x[3:], raster.y[:3], crs=raster.crs
+    )
+    truth[0, 1, 0] = make_raster(
+        blocks[0, 1, 0], raster.x[:3], raster.y[3:], crs=raster.crs
+    )
+    truth[0, 1, 1] = make_raster(
+        blocks[0, 1, 1], raster.x[3:], raster.y[3:], crs=raster.crs
+    )
+    rasters = raster.get_chunk_rasters()
+    assert rasters.shape == truth.shape
+    for r, t in zip(rasters.ravel(), truth.ravel()):
+        assert_valid_raster(r)
+        assert r.data.npartitions == 1
+        assert r.data.chunksize == r.shape
+        assert np.allclose(r, t)
+        assert np.allclose(r.mask.compute(), t.mask.compute())
+        assert_rasters_similar(r, t)
+
+    raster = raster.set_null_value(0).set_null_value(3).set_null_value(6)
+    blocks = raster.data.blocks
+    truth[0, 0, 0] = make_raster(
+        blocks[0, 0, 0],
+        raster.x[:3],
+        raster.y[:3],
+        crs=raster.crs,
+        null_value=6,
+    )
+    truth[0, 0, 1] = make_raster(
+        blocks[0, 0, 1],
+        raster.x[3:],
+        raster.y[:3],
+        crs=raster.crs,
+        null_value=6,
+    )
+    truth[0, 1, 0] = make_raster(
+        blocks[0, 1, 0],
+        raster.x[:3],
+        raster.y[3:],
+        crs=raster.crs,
+        null_value=6,
+    )
+    truth[0, 1, 1] = make_raster(
+        blocks[0, 1, 1],
+        raster.x[3:],
+        raster.y[3:],
+        crs=raster.crs,
+        null_value=6,
+    )
+    rasters = raster.get_chunk_rasters()
+    assert rasters.shape == truth.shape
+    for r, t in zip(rasters.ravel(), truth.ravel()):
+        assert_valid_raster(r)
+        assert r.data.npartitions == 1
+        assert r.data.chunksize == r.shape
+        assert np.allclose(r, t)
+        assert np.allclose(r.mask.compute(), t.mask.compute())
+        assert_rasters_similar(r, t)
+
+    raster = raster_tools.band_concat([raster, raster + 3]).set_null_value(6)
+    blocks = raster.data.blocks
+    truth = np.empty((2, 2, 2), dtype="O")
+    for i in range(2):
+        truth[i, 0, 0] = make_raster(
+            blocks[i, 0, 0],
+            raster.x[:3],
+            raster.y[:3],
+            crs=raster.crs,
+            null_value=6,
+        )
+        truth[i, 0, 1] = make_raster(
+            blocks[i, 0, 1],
+            raster.x[3:],
+            raster.y[:3],
+            crs=raster.crs,
+            null_value=6,
+        )
+        truth[i, 1, 0] = make_raster(
+            blocks[i, 1, 0],
+            raster.x[:3],
+            raster.y[3:],
+            crs=raster.crs,
+            null_value=6,
+        )
+        truth[i, 1, 1] = make_raster(
+            blocks[i, 1, 1],
+            raster.x[3:],
+            raster.y[3:],
+            crs=raster.crs,
+            null_value=6,
+        )
+    rasters = raster.get_chunk_rasters()
+    assert rasters.shape == truth.shape
+    for r, t in zip(rasters.ravel(), truth.ravel()):
+        assert_valid_raster(r)
+        assert r.data.npartitions == 1
+        assert r.data.chunksize == r.shape
+        assert np.allclose(r, t)
+        assert np.allclose(r.mask.compute(), t.mask.compute())
+        assert_rasters_similar(r, t)
 
 
 if __name__ == "__main__":

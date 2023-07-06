@@ -1,6 +1,8 @@
 import os
 from functools import wraps
 
+import dask
+import dask.array as da
 import numpy as np
 import xarray as xr
 
@@ -43,6 +45,26 @@ def can_broadcast(*shapes, max_dim=3, min_dim=3):
 
 def make_raster_ds(raster_dataarray, mask_dataarray):
     return xr.Dataset({"raster": raster_dataarray, "mask": mask_dataarray})
+
+
+def make_raster(data, x, y, crs=None, null_value=None):
+    from raster_tools.raster import Raster
+
+    if data.ndim == 2:
+        data = np.expand_dims(data, axis=0)
+    if not dask.is_dask_collection(data):
+        data = da.from_array(data, (1, "auto", "auto"))
+    band = np.arange(data.shape[0]) + 1
+    xdata = xr.DataArray(data, coords=(band, y, x), dims=("band", "y", "x"))
+    if null_value is not None:
+        xmask = xdata == null_value
+        xdata = xdata.rio.write_nodata(null_value)
+    else:
+        xmask = xr.zeros_like(xdata, dtype=bool)
+    ds = make_raster_ds(xdata, xmask)
+    if crs is not None:
+        ds = ds.rio.write_crs(crs)
+    return Raster(ds, _fast_path=True)
 
 
 def merge_masks(masks):
