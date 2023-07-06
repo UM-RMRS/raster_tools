@@ -10,8 +10,9 @@ import xarray as xr
 
 from raster_tools.dtypes import F32, I8, is_bool, is_scalar, is_str
 from raster_tools.raster import Raster, get_raster
+from raster_tools.rasterize import _rio_mask
 from raster_tools.utils import single_band_mappable
-from raster_tools.vector import _geoms_to_raster_mask, get_vector
+from raster_tools.vector import get_vector
 
 
 def _trim(x, slices):
@@ -125,9 +126,17 @@ GEOM_BATCH_SIZE = 700
 
 
 def _get_indices_and_lengths_core(geoms_df, xc, yc, radius):
+    shape = (yc.size, xc.size)
+    transform = xr.DataArray(
+        da.empty(shape), coords=(yc, xc), dims=("y", "x")
+    ).rio.transform()
     # Rasterize to create mask of cells-of-interest and extract the locations
-    indices = _geoms_to_raster_mask(
-        xc, yc, geoms_df.geometry.buffer(radius, BUFFER_RES)
+    indices = _rio_mask(
+        geoms_df.geometry.buffer(radius, BUFFER_RES),
+        shape,
+        transform,
+        True,
+        False,
     ).nonzero()
     # Convert to points and buffer them out by the radius
     buffered_cells = gpd.GeoSeries.from_xy(
