@@ -560,6 +560,12 @@ def rasterize(
     function. This causes the spatial partitions to be calculated before
     rasterization.
 
+    .. note::
+        If the CRS for `features` does not match the CRS for `like`, `features`
+        will be transformed to `like`'s CRS. This operation causes spatial
+        partition information to be lost. It is recommended that the CRSs for
+        both are matched ahead of time.
+
     Parameters
     ----------
     features : Vector, GeoDataFrame, dask_geopandas.GeoDataFrame

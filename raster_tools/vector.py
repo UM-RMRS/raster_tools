@@ -563,10 +563,14 @@ class Vector:
         flag can also be provided to this function. This causes the spatial
         partitions to be calculated before rasterization.
 
+        .. note::
+            If the CRS for this vector does not match the CRS for `like`,
+            this vector will be transformed to `like`'s CRS. This operation
+            causes spatial partition information to be lost. It is recommended
+            that the CRSs for both are matched ahead of time.
+
         Parameters
         ----------
-        features : Vector, GeoDataFrame, dask_geopandas.GeoDataFrame
-            Vector data to rasterize.
         like : Raster
             A raster to use for grid and CRS information. The resulting raster
             will be on the same grid as `like`.
