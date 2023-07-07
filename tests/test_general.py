@@ -91,63 +91,63 @@ def get_local_stats_dtype(stat, input_data):
     return F64
 
 
+@pytest.mark.parametrize("dtype", [I32, I64, F32, F64])
 @pytest.mark.parametrize("chunk", [False, True])
 @pytest.mark.parametrize("stat", list(custom_stat_funcs.keys()))
-def test_local_stats(stat, chunk):
-    for dt in (I32, I64, F32, F64):
-        x = np.arange(5 * 4 * 4).reshape(5, 4, 4) - 20
-        x[2, :, :-1] = 1
-        x[:, 2, 2] = 1
-        rs = Raster(x.astype(dt)).set_null_value(1)
-        if chunk:
-            rs = rs.chunk((1, 2, 2))
-            orig_chunks = rs.data.chunks
-        xx = np.where(rs.mask.compute(), np.nan, rs.values)
+def test_local_stats(stat, chunk, dtype):
+    x = np.arange(5 * 4 * 4).reshape(5, 4, 4) - 20
+    x[2, :, :-1] = 1
+    x[:, 2, 2] = 1
+    rs = Raster(x.astype(dtype)).set_null_value(1)
+    if chunk:
+        rs = rs.chunk((1, 2, 2))
+        orig_chunks = rs.data.chunks
+    xx = np.where(rs.mask.compute(), np.nan, rs.values)
 
-        if stat in stat_funcs:
-            sfunc = stat_funcs[stat]
-            truth = sfunc(xx)[None]
-            if stat != "sum":
-                truth = np.where(np.isnan(truth), 1, truth)
-            else:
-                truth = np.where(
-                    np.all(rs.mask, axis=0).compute(), rs.null_value, truth
-                )
-            result = general.local_stats(rs, stat)
+    if stat in stat_funcs:
+        sfunc = stat_funcs[stat]
+        truth = sfunc(xx)[None]
+        if stat != "sum":
+            truth = np.where(np.isnan(truth), 1, truth)
         else:
-            sfunc = custom_stat_funcs[stat]
-            truth = np.zeros(
-                (1, *rs.shape[1:]), dtype=get_local_stats_dtype(stat, rs.data)
+            truth = np.where(
+                np.all(rs.mask, axis=0).compute(), rs.null_value, truth
             )
-            for i in range(rs.shape[1]):
-                for j in range(rs.shape[2]):
-                    v = sfunc(xx[:, i, j])
-                    if np.isnan(v):
-                        v = rs.null_value
-                    truth[0, i, j] = v
-            if stat in ("unique", "minband", "maxband"):
-                nv = get_default_null_value(I16)
-                truth = np.where(
-                    np.all(rs.mask, axis=0).compute(), nv, truth.astype(I16)
-                )
-            else:
-                truth = np.where(
-                    np.all(rs.mask, axis=0).compute(),
-                    get_default_null_value(truth.dtype),
-                    truth,
-                )
-            result = general.local_stats(rs, stat)
-        assert_valid_raster(result)
-        assert result.shape[0] == 1
-        assert result.shape == truth.shape
-        assert np.allclose(result, truth, equal_nan=True)
-        if chunk:
-            assert result.data.chunks == ((1,), *orig_chunks[1:])
+        result = general.local_stats(rs, stat)
+    else:
+        sfunc = custom_stat_funcs[stat]
+        truth = np.zeros(
+            (1, *rs.shape[1:]), dtype=get_local_stats_dtype(stat, rs.data)
+        )
+        for i in range(rs.shape[1]):
+            for j in range(rs.shape[2]):
+                v = sfunc(xx[:, i, j])
+                if np.isnan(v):
+                    v = rs.null_value
+                truth[0, i, j] = v
+        if stat in ("unique", "minband", "maxband"):
+            nv = get_default_null_value(I16)
+            truth = np.where(
+                np.all(rs.mask, axis=0).compute(), nv, truth.astype(I16)
+            )
         else:
-            assert result.data.chunks == ((1,), *rs.data.chunks[1:])
-        assert result.dtype == get_local_stats_dtype(stat, rs.data)
-        assert result.crs == rs.crs
-        assert result.affine == rs.affine
+            truth = np.where(
+                np.all(rs.mask, axis=0).compute(),
+                get_default_null_value(truth.dtype),
+                truth,
+            )
+        result = general.local_stats(rs, stat)
+    assert_valid_raster(result)
+    assert result.shape[0] == 1
+    assert result.shape == truth.shape
+    assert np.allclose(result, truth, equal_nan=True)
+    if chunk:
+        assert result.data.chunks == ((1,), *orig_chunks[1:])
+    else:
+        assert result.data.chunks == ((1,), *rs.data.chunks[1:])
+    assert result.dtype == get_local_stats_dtype(stat, rs.data)
+    assert result.crs == rs.crs
+    assert result.affine == rs.affine
 
 
 def test_local_stats_reject_bad_stat():

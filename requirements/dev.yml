@@ -19,6 +19,7 @@ dependencies:
   - pyogrio
   - pyproj
   - pytest
+  - pytest-mock
   - pytest-xdist
   - rasterio
   - rioxarray

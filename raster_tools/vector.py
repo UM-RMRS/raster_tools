@@ -2,32 +2,17 @@ import os
 import sys
 
 import dask
-import dask.array as da
 import dask.dataframe as dd
 import dask_geopandas as dgpd
 import geopandas as gpd
 import numpy as np
 import pandas as pd
 import rasterio as rio
-import xarray as xr
 from dask.delayed import delayed
-from packaging import version
-from rasterio.enums import MergeAlg
-from rasterio.env import GDALVersion
-from rasterio.features import rasterize as rio_rasterize
+from dask.diagnostics import ProgressBar
 
-from raster_tools.dtypes import (
-    F64,
-    I8,
-    I16,
-    I64,
-    U64,
-    is_float,
-    is_int,
-    is_str,
-)
-from raster_tools.masking import get_default_null_value
-from raster_tools.raster import Raster, get_raster
+from raster_tools.dtypes import I64, is_int, is_str
+from raster_tools.rasterize import rasterize
 
 PYOGRIO_SUPPORTED = sys.version_info >= (3, 8)
 if PYOGRIO_SUPPORTED:
@@ -44,9 +29,10 @@ else:
 
 __all__ = [
     "Vector",
+    "add_objectid_column",
+    "count_layer_features",
     "get_vector",
     "list_layers",
-    "count_layer_features",
     "open_vectors",
 ]
 
@@ -231,6 +217,76 @@ def get_vector(src):
         raise TypeError("Invalid vector input")
 
 
+def get_dask_geodataframe(src):
+    if isinstance(src, Vector):
+        return src.data
+    elif is_str(src):
+        return get_vector(src).data
+    elif isinstance(src, gpd.GeoSeries):
+        return dgpd.from_geopandas(src.to_frame("geometry"), npartitions=1)
+    elif isinstance(src, dgpd.GeoSeries):
+        return src.to_frame("geometry")
+    elif isinstance(src, gpd.GeoDataFrame):
+        return dgpd.from_geopandas(src, npartitions=1)
+    elif isinstance(src, dgpd.GeoDataFrame):
+        return src
+    else:
+        raise TypeError(
+            "Could not coerce input to a dask_geopandas.GeoDataFrame"
+        )
+
+
+def _add_objid(df, name, base, partition_info=None):
+    df = df.copy()
+    df[name] = np.arange(1, len(df) + 1, dtype=I64) + (
+        partition_info["number"] * base
+    )
+    return df
+
+
+def add_objectid_column(features, name=None, _base=10**9):
+    """Add a column of unique ID values to the set of features.
+
+    Parameters
+    ----------
+    features : Vector, str, GeoDataFrame, GeoSeries
+        The features to add the column to.
+    name : str, optional
+        The name for the column. If not given, the ESRI OBJECTID convention is
+        used. For example, if no name is given, 'OBJECTID' will be used. If
+        'OBJECTID' is already present, 'OBJECTID_1' is used.
+
+    Returns
+    -------
+    result : Vector, dask_geopandas.GeoDataFrame
+        The updated vector or dataframe with the new column of unique values.
+
+    """
+    return_vector = isinstance(features, (Vector, str))
+    df = get_dask_geodataframe(features)
+
+    if name is not None:
+        if name in df:
+            raise ValueError(f"name already exists in dataframe: {name!r}")
+    else:
+        prefix = "OBJECTID"
+        if prefix not in df:
+            name = prefix
+        else:
+            n = 1
+            # Use ESRI convention of OBJECTID_{n} for duplicate OBJECTID
+            name = f"{prefix}_{n}"
+            while name in df:
+                n += 1
+                name = f"{prefix}_{n}"
+    meta = df._meta.copy()
+    meta[name] = np.array((), dtype=I64)
+    df = df.map_partitions(_add_objid, name, _base, meta=meta)
+    if return_vector:
+        return Vector(df)
+    return df
+
+
 def _get_len_from_divisions(divs):
     # This should never overcount but may undercount by 1 because
     # dask.dataframe special cases the last division when creating a dataframe.
@@ -280,196 +336,6 @@ def _get_best_effort_geo_len(geo):
     # the note in _get_len_from_divisions.
     n += len(geo.partitions[-1])
     return n
-
-
-_RIO_64BIT_INTS_SUPPORTED = GDALVersion.runtime().at_least("3.5") and (
-    version.parse(rio.__version__) >= version.parse("1.3")
-)
-
-
-def _get_rio_dtype(dtype):
-    if dtype == I8:
-        return I16
-    # GDAL >= 3.5 and Rasterio >= 1.3 support 64-bit (u)ints
-    if dtype in (I64, U64) and not _RIO_64BIT_INTS_SUPPORTED:
-        return F64
-    return dtype
-
-
-def _rio_rasterize_wrapper(
-    shape, transform, geometry, values, out_dtype, fill, all_touched
-):
-    rio_dtype = _get_rio_dtype(out_dtype)
-    values_dtype = _get_rio_dtype(values.dtype)
-    if values_dtype != values.dtype:
-        values = values.astype(values_dtype)
-
-    rast_array = rio_rasterize(
-        zip(geometry.values, values),
-        out_shape=shape,
-        transform=transform,
-        fill=fill,
-        all_touched=all_touched,
-        merge_alg=MergeAlg.replace,
-        dtype=rio_dtype,
-    )
-
-    if rio_dtype != out_dtype:
-        rast_array = rast_array.astype(out_dtype)
-    return rast_array
-
-
-def _rasterize_block(
-    xc, yc, geometry, values, out_dtype, fill, all_touched, block_info=None
-):
-    shape_2d = block_info[None]["chunk-shape"]
-    valid = ~(geometry.is_empty | geometry.isna())
-    geometry = geometry[valid]
-    values = values[valid.values]
-    if len(geometry) == 0:
-        return np.full(shape_2d, fill, dtype=out_dtype)
-
-    xc = xc.ravel()
-    yc = yc.ravel()
-    dummy_data = da.zeros(shape_2d)
-    dummy_xrs = xr.DataArray(dummy_data, coords=(yc, xc), dims=("y", "x"))
-    transform = dummy_xrs.rio.transform()
-    return _rio_rasterize_wrapper(
-        shape_2d, transform, geometry, values, out_dtype, fill, all_touched
-    )
-
-
-def _rasterize_partition(
-    df, xlike, field, fill, target_dtype, all_touched=True
-):
-    if xlike.ndim > 2:
-        # Trim off band dim since its not needed
-        xlike = xlike[0]
-    geometry = df.geometry
-    values = df.index if field is None else df[field]
-    values = (
-        values.to_dask_array()
-        if dask.is_dask_collection(values)
-        else values.to_numpy()
-    )
-    if field is None:
-        # Convert to 1-based index
-        values = values + 1
-        # Convert to minimum dtype
-        values = values.astype(target_dtype)
-    # Chunk up coords to match data. Dask will provide the correct coord chunks
-    # to the rasterizing func in map_blocks
-    xc = da.from_array(xlike.x.data, chunks=xlike.chunks[1]).reshape((1, -1))
-    yc = da.from_array(xlike.y.data, chunks=xlike.chunks[0]).reshape((-1, 1))
-
-    result_data = da.map_blocks(
-        _rasterize_block,
-        xc,
-        yc,
-        chunks=xlike.chunks,
-        meta=np.array((), dtype=target_dtype),
-        # func args
-        geometry=geometry,
-        values=values,
-        out_dtype=target_dtype,
-        fill=fill,
-        all_touched=all_touched,
-    )
-    return result_data
-
-
-def _vector_to_raster_dask(df, size, xlike, field=None, all_touched=True):
-    if not dask.is_dask_collection(xlike):
-        raise ValueError("xlike must be a dask collection")
-
-    # There is no way to neatly align the dataframe partitions with the raster
-    # chunks. Because of this, we burn in each partition on its own raster and
-    # then merge the results.
-    fill = 0
-    if field is None:
-        target_dtype = np.min_scalar_type(size)
-    else:
-        target_dtype = df[field].dtype
-        if target_dtype.kind == "u":
-            # Null values are difficult for unsigned ints so cast up to the
-            # next largest width signed int. If target_dtype is U64, this will
-            # cast to a F64.
-            target_dtype = np.promote_types(target_dtype, I16)
-        fill = get_default_null_value(target_dtype)
-    results = []
-    parts = df.partitions if dask.is_dask_collection(df) else [df]
-    for part in parts:
-        res = _rasterize_partition(
-            part,
-            xlike,
-            field,
-            fill,
-            target_dtype=target_dtype,
-            all_touched=all_touched,
-        )
-        results.append(res)
-    # (n-partitions, yn, xn)
-    result_data = da.stack(results, axis=0)
-    # (1, yn, xn)
-    result_data = result_data.max(axis=0, keepdims=True)
-    x = xlike.x.data
-    y = xlike.y.data
-    result = xr.DataArray(result_data, coords=([1], y, x), dims=xlike.dims)
-    if xlike.rio.crs is not None:
-        result = result.rio.write_crs(xlike.rio.crs)
-    result = result.rio.write_nodata(fill)
-    return result
-
-
-def _geoms_to_raster_mask(xc, yc, geoms, all_touched=True, block_info=None):
-    xc = xc.ravel()
-    yc = yc.ravel()
-    # Convert geoms into a boolean (0/1) array using xc and yc for gridding.
-    shape = (yc.size, xc.size)
-    transform = xr.DataArray(
-        da.zeros(shape), coords=(yc, xc), dims=("y", "x")
-    ).rio.transform()
-    # Use a MemoryFile to avoid writing to disk
-    with rio.io.MemoryFile() as memfile, rio.open(
-        memfile,
-        mode="w+",
-        driver="GTiff",
-        width=xc.size,
-        height=yc.size,
-        count=1,
-        crs=geoms.crs,
-        transform=transform,
-        dtype="uint8",
-    ) as ds:
-        ds.write(np.ones(shape, dtype="uint8"), 1)
-        mask, _ = rio.mask.mask(ds, geoms.values, all_touched=all_touched)
-        return mask.squeeze()
-
-
-def _vector_to_raster_mask(geoms, like, all_touched=True):
-    xc, yc = like.get_chunked_coords()
-    xc = xc[0]
-    yc = yc[0]
-    parts = []
-    for part in geoms.partitions:
-        data = da.map_blocks(
-            _geoms_to_raster_mask,
-            xc,
-            yc,
-            geoms=part,
-            all_touched=all_touched,
-            chunks=like.data.chunks[1:],
-            meta=np.array((), dtype=I8),
-        )
-        parts.append(data)
-    data = da.stack(parts, axis=0).max(axis=0, keepdims=True)
-    x = like.x
-    y = like.y
-    xrs = xr.DataArray(data, coords=([1], y, x), dims=like.xdata.dims)
-    if like.crs is not None:
-        xrs = xrs.rio.write_crs(like.crs)
-    xrs = xrs.rio.write_nodata(0)
-    return xrs
 
 
 def _normalize_geo_data(geo):
@@ -658,81 +524,124 @@ class Vector:
         """Returns the vector data as a list of shapely geometries objects."""
         return self.geometry.to_list()
 
-    def to_raster(self, like, field=None, all_touched=True):
-        """Convert vector data to a raster.
+    def to_raster(
+        self,
+        like,
+        field=None,
+        overlap_resolve_method="last",
+        mask=False,
+        mask_invert=False,
+        null_value=None,
+        all_touched=True,
+        use_spatial_aware=False,
+        show_progress=False,
+    ):
+        """Convert vector feature data to a raster.
+
+        This method can be used to either rasterize features using values from
+        a particular data field or to create a raster mask of zeros and ones.
+        Using values to rasterize is the default. Use `mask=True` to generate a
+        raster mask. If no data field is specified, the underlying dataframe's
+        index is used. NOTE: because of limitations in dask, dataframe index
+        values are not guaranteed to be unique across the dataframe. Cells that
+        do not touch or overlap any features are marked as null.
+
+        To add a column of unique IDs for each feature, see
+        :func:`raster_tools.vector.add_objectid_column` or
+        :meth:`raster_tools.vector.Vector.add_objectid_column`.
+
+        This operation can be greatly accelerated if the provided `features`
+        object has been spatially shuffled or had spatial partitions
+        calculated. There are a few ways to do this. For `Vector` or
+        `GeoDataFrame`/`GeoSeries` objects, you can use the `spatial_shuffle`
+        or `calculate_spatial_partitions` methods.
+        `calculate_spatial_partitions` simply computes the spatial bounds of
+        each partition in the data. `spatial_shuffle` shuffles the data into
+        partitions of spatially near groups and calculates the spatial bounds
+        at the same time. This second method is more expensive but provides a
+        potentially greater speed up for rasterization. The `use_spatial_aware`
+        flag can also be provided to this function. This causes the spatial
+        partitions to be calculated before rasterization.
+
+        .. note::
+            If the CRS for this vector does not match the CRS for `like`,
+            this vector will be transformed to `like`'s CRS. This operation
+            causes spatial partition information to be lost. It is recommended
+            that the CRSs for both are matched ahead of time.
 
         Parameters
         ----------
         like : Raster
-            A to use for grid and CRS information. The resulting raster will be
-            on the same grid as `like`.
+            A raster to use for grid and CRS information. The resulting raster
+            will be on the same grid as `like`.
         field : str, optional
-            The name of a field to use for fill values when rasterizing the
-            vector features.
+            The name of a field to use for cell values when rasterizing the
+            vector features. If None or not specified, the underlying
+            dataframe's index is used. The default is to use the index.
+        overlap_resolve_method : str, optional
+            The method used to resolve overlaping features. Default is
+            `"last"`. The available methods are:
+
+            'first'
+                Cells with overlapping features will receive the value from the
+                feature that appears first in the feature table.
+            'last'
+                Cells with overlapping features will receive the value from the
+                feature that appears last in the feature table.
+            'min'
+                Cells with overlap will receive the value from the feature with
+                the smallest value.
+            'max'
+                Cells with overlap will receive the value from the feature with
+                the largest value.
+
+        mask : bool, optional
+            If ``True``, the features are rasterized as a mask. Cells that do
+            not touch a feature are masked out. Cells that touch the features
+            are set to ``1``. If `mask_invert` is also ``True``, this is
+            inverted. If `mask` is ``False``, the features are rasterized using
+            `field` to retrieve values from the underlying dataframe. `field`
+            is ignored, if this option is a used. Default is ``False``.
+        mask_invert : bool, optional
+            If ``True`` cells that are inside or touch a feature are masked
+            out. If ``False``, cells that do not touch a feature are masked
+            out. Default is ``False``.
+        null_value : scalar, optional
+            The value to use in cells with no feature data, when not masking.
         all_touched : bool, optional
             If ``True``, grid cells that the vector touches will be burned in.
             If False, only cells with a center point inside of the vector
             perimeter will be burned in.
+        use_spatial_aware : bool, optional
+            Force the use of spatial aware rasterization. If ``True`` and
+            `features` is not already spatially indexed, a spatial index will
+            be computed. Alternatively, if ``True`` and `features`'s CRS
+            differs from `like`, a new spatial index in a common CRS will be
+            computed. If `features` already has a spatial index and its CRS
+            matches `like`, this argument is ignored. Default is ``False``.
+        show_progress : bool, optional
+            If `use_spatial_aware` is ``True``, this flag causes a progress bar
+            to be displayed for spatial indexing. Default is ``False``.
 
         Returns
         -------
         Raster
-            The resulting raster. The result will have a single band. Each
-            vector shape is assigned a 1-based integer value equal to its order
-            in the original vector collection. This integer value is what is
-            burned in at the corresponding grid cells. The dtype of the result
-            will be the minimum, unsigned integer type that can fit the ID
-            values. The null value is 0.
+            The resulting single band raster of rasterized features. This
+            raster will be on the same grid as `like`.
 
         """
-        like = get_raster(like)
-        if field is not None:
-            if not is_str(field):
-                raise TypeError("Field must be a string")
-            if field not in self._geo:
-                raise ValueError(f"Invalid field name: {repr(field)}")
-            dtype = self.field_schema[field]
-            if not is_int(dtype) and not is_float(dtype):
-                raise ValueError(
-                    "The specified field must be a scalar data type"
-                )
-
-        xrs = _vector_to_raster_dask(
-            self.to_crs(like.crs)._geo,
-            self.size,
-            xlike=like.xdata,
+        return rasterize(
+            self,
+            like,
             field=field,
+            overlap_resolve_method=overlap_resolve_method,
+            mask=mask,
+            mask_invert=mask_invert,
+            null_value=null_value,
             all_touched=all_touched,
+            use_spatial_aware=use_spatial_aware,
+            show_progress=show_progress,
         )
-        return Raster(xrs)
-
-    def to_raster_mask(self, like, all_touched=True):
-        """Convert vector data to a raster mask.
-
-        Parameters
-        ----------
-        like : Raster
-            A to use for grid and CRS information. The resulting raster will be
-            on the same grid as `like`.
-        all_touched : bool, optional
-            If ``True``, grid cells that the vector touches will be burned in.
-            If False, only cells with a center point inside of the vector
-            perimeter will be burned in.
-
-        Returns
-        -------
-        Raster
-            The resulting raster. The result will have a single band. All cells
-            that fall under the vector data are masked with ``1``. The null
-            value is 0.
-
-        """
-        like = get_raster(like)
-
-        xrs = _vector_to_raster_mask(
-            self.to_crs(like.crs).geometry, like, all_touched=all_touched
-        )
-        return Raster(xrs)
 
     def to_crs(self, crs):
         """Transform the vector coordinates to the specified `crs`.
@@ -904,3 +813,54 @@ class Vector:
         from raster_tools.general import model_predict_vector
 
         return model_predict_vector(self, model, fields, n_outputs, out_prefix)
+
+    def add_objectid_column(self, name=None):
+        """Add a column of unique ID values to the set of features.
+
+        Parameters
+        ----------
+        name : str, optional
+            The name for the column. If not given, the ESRI OBJECTID convention
+            is used. For example, if no name is given, 'OBJECTID' will be used.
+            If 'OBJECTID' is already present, 'OBJECTID_1' is used, etc.
+
+        Returns
+        -------
+        result : Vector
+            The updated vector with the new column of unique values.
+
+        """
+        return add_objectid_column(self, name=name)
+
+    def spatial_shuffle(self, show_progress=False):
+        """Shuffle the features into spatially grouped partitions.
+
+        This sorts the features into partitions such that each partition
+        contains features that are near to one another. This has the added
+        benefit of computing the spatial extents of each partition.
+
+        .. note::
+            This causes partial computation to take place.
+
+        """
+        if show_progress:
+            with ProgressBar():
+                data = self._geo.spatial_shuffle()
+        else:
+            data = self._geo.spatial_shuffle()
+        return Vector(data)
+
+    def calculate_spatial_partitions(self, show_progress):
+        """Calculate the spatial bounds of the underlying data.
+
+        .. note::
+            This causes partial computation to take place.
+
+        """
+        data = self._geo.copy()
+        if show_progress:
+            with ProgressBar():
+                data.calculate_spatial_partitions()
+        else:
+            data.calculate_spatial_partitions()
+        return Vector(data)

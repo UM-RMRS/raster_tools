@@ -108,6 +108,7 @@ Extracting
    :toctree: generated/
 
    Raster.get_bands
+   Raster.get_chunk_rasters
    Raster.to_quadrants
 
 Null Data and Remapping
@@ -169,5 +170,6 @@ Miscellaneous
 .. autosummary::
    :toctree: generated/
 
+   Raster.get_chunk_bounding_boxes
    Raster.get_chunked_coords
    Raster.model_predict

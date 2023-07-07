@@ -1,5 +1,6 @@
 import numpy as np
-from numba import generated_jit, jit, types
+from numba import jit, types
+from numba.extending import overload
 
 __all__ = [
     "nan_unique_count_jit",
@@ -21,17 +22,33 @@ __all__ = [
 ngjit = jit(nopython=True, nogil=True)
 
 
+def _atleast_1d(x):
+    return np.atleast_1d(x)
+
+
 # Numba has a long standing bug where scalars are not handled properly in
 # several numpy functions. This is a workaround. It generates the proper
 # implementation based on the input type. This func can be used to properly
 # handle scalar inputs in funcs that would otherwise fail to compile for scalar
 # inputs like np.nanmean.
 # See: https://github.com/numba/numba/issues/4202
-@generated_jit(nopython=True, nogil=True)
-def _atleast_1d(x):
-    if x in types.number_domain:
-        return lambda x: np.array([x])
-    return lambda x: np.atleast_1d(x)
+@overload(
+    _atleast_1d,
+    jit_options={"nopython": True, "nogil": True},
+)
+def _atleast_1d_ol(x):
+    if isinstance(x, types.Number):
+
+        def impl(x):
+            return np.array([x])
+
+        return impl
+    else:
+
+        def impl(x):
+            return np.atleast_1d(x)
+
+        return impl
 
 
 @ngjit

@@ -10,7 +10,7 @@ import numpy as np
 import xarray as xr
 from affine import Affine
 from numba import jit
-from shapely.geometry import Point
+from shapely.geometry import Point, box
 
 from raster_tools.dask_utils import dask_nanmax, dask_nanmin
 from raster_tools.dtypes import (
@@ -1417,6 +1417,132 @@ class Raster(_RasterBase):
                 ds = ds.rio.write_crs(self.crs)
             results.append(Raster(ds, _fast_path=True))
         return RasterQuadrantsResult(*results)
+
+    def get_chunk_bounding_boxes(self, include_band=False):
+        """Return GeoDataFrame with the chunk bounding boxes.
+
+        This method generates a GeoDataFrame of bounding boxes for the
+        underlying data chunks. By default it does this for a single band since
+        the bounding boxes are the same across bands. The result also contains
+        columns for the chunk position in the data.
+
+        By default, the result has two position columns: `'chunk_row'` and
+        `'chunk_col'`. Setting `include_band` adds `'chunk_band'`.
+
+        Parameters
+        ----------
+        include_band : bool, optional
+            Duplicates the result across bands and adds a third position column
+            named `'chunk_band'`. Default is ``False``.
+
+        Examples
+        --------
+
+        >>> dem = Raster("data/dem.tif")
+        >>> dem.get_chunk_bounding_boxes()
+            chunk_row  chunk_col                                           geometry
+        0           0          0  POLYGON ((-32863.383 53183.938, -32863.383 681...
+        1           0          1  POLYGON ((-17863.383 53183.938, -17863.383 681...
+        2           0          2  POLYGON ((-2863.383 53183.938, -2863.383 68183...
+        3           0          3  POLYGON ((12136.617 53183.938, 12136.617 68183...
+        4           0          4  POLYGON ((27136.617 53183.938, 27136.617 68183...
+        ...
+        >>> dem.get_chunk_bounding_boxes(True)
+            chunk_band  chunk_row  chunk_col                                           geometry
+        0            0          0          0  POLYGON ((-32863.383 53183.938, -32863.383 681...
+        1            0          0          1  POLYGON ((-17863.383 53183.938, -17863.383 681...
+        2            0          0          2  POLYGON ((-2863.383 53183.938, -2863.383 68183...
+        3            0          0          3  POLYGON ((12136.617 53183.938, 12136.617 68183...
+        4            0          0          4  POLYGON ((27136.617 53183.938, 27136.617 68183...
+        ...
+
+        """  # noqa: E501
+        _, ychunks, xchunks = self.data.chunks
+        i = 0
+        j = 0
+        chunk_boxes = []
+        rows = []
+        cols = []
+        for row, yc in enumerate(ychunks):
+            for col, xc in enumerate(xchunks):
+                y = self.y[i : i + yc]
+                x = self.x[j : j + xc]
+                j += xc
+                bounds = xr.DataArray(
+                    da.empty((yc, xc)), dims=("y", "x"), coords=(y, x)
+                ).rio.bounds()
+                chunk_boxes.append(box(*bounds))
+                rows.append(row)
+                cols.append(col)
+            i += yc
+            j = 0
+        if not include_band:
+            data = {
+                "chunk_row": rows,
+                "chunk_col": cols,
+                "geometry": chunk_boxes,
+            }
+        else:
+            chunks_per_band = np.prod(self.data.blocks.shape[1:])
+            bands = []
+            for i in range(self.nbands):
+                bands += [i] * chunks_per_band
+            rows *= self.nbands
+            cols *= self.nbands
+            chunk_boxes *= self.nbands
+            data = {
+                "chunk_band": bands,
+                "chunk_row": rows,
+                "chunk_col": cols,
+                "geometry": chunk_boxes,
+            }
+        return gpd.GeoDataFrame(data, crs=self.crs)
+
+    def get_chunk_rasters(self):
+        """Return the underlying data chunks as an array of Rasters.
+
+        This returns a 3D array where each element corresponds to a chunk of
+        data. Each element is a Raster wrapping the corresponding chunk. The
+        dimensions of the array are (n-bands, y-chunks, x-chunks). For
+        example, if a Raster has 2 bands, 3 chunks in the y direction, and 4
+        chunks in the x direction, this method would produce an array of
+        Rasters with shape ``(2, 3, 4)``.
+
+        Returns
+        -------
+        numpy.ndarray
+            The 3D numpy array of chunk Rasters.
+
+        """
+        bchunks, ychunks, xchunks = self.data.chunks
+        i = 0
+        j = 0
+        out = np.empty(self.data.blocks.shape, dtype=object)
+        for band, bc in enumerate(bchunks):
+            for row, yc in enumerate(ychunks):
+                for col, xc in enumerate(xchunks):
+                    y = self.y[i : i + yc]
+                    x = self.x[j : j + xc]
+                    j += xc
+                    xdata = xr.DataArray(
+                        self.data.blocks[band, row, col].copy(),
+                        dims=("band", "y", "x"),
+                        coords=([1], y, x),
+                    ).rio.write_nodata(self.null_value)
+                    xmask = xr.DataArray(
+                        self.mask.blocks[band, row, col].copy(),
+                        dims=("band", "y", "x"),
+                        coords=([1], y, x),
+                    )
+                    ds = make_raster_ds(xdata, xmask)
+                    if self.crs is not None:
+                        ds = ds.rio.write_crs(self.crs)
+                    rs = Raster(ds, _fast_path=True)
+                    out[band, row, col] = rs
+                i += yc
+                j = 0
+            i = 0
+        return out
 
 
 _offset_name_to_rc_offset = {
