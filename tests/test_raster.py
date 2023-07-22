@@ -13,9 +13,11 @@ import dask
 import dask.array as da
 import geopandas as gpd
 import numpy as np
+import pandas as pd
 import pytest
 import rasterio as rio
 import rioxarray as riox
+import shapely
 import xarray as xr
 from dask_geopandas import GeoDataFrame
 from shapely.geometry import box
@@ -53,6 +55,7 @@ from raster_tools.utils import (
     is_strictly_increasing,
     make_raster,
 )
+from raster_tools.vector import Vector
 from tests.utils import (
     arange_nd,
     arange_raster,
@@ -1677,7 +1680,7 @@ def test_xy_to_rowcol():
     assert result[1].dtype == np.dtype(int)
 
 
-def _compare_raster_to_vectorized(rs, df):
+def _compare_raster_to_points(rs, df):
     data = rs.values
     x = rs.xdata.x.values
     y = rs.xdata.y.values
@@ -1693,7 +1696,7 @@ def _compare_raster_to_vectorized(rs, df):
         assert y[row] == p.y
 
 
-def test_to_vector():
+def test_to_points():
     data = np.array(
         [
             [
@@ -1712,20 +1715,20 @@ def test_to_vector():
     )
     count = np.sum(data > 0)
     rs = Raster(data).set_null_value(0)
-    ddf = rs.to_vector()
+    ddf = rs.to_points()
     df = ddf.compute()
 
     assert isinstance(ddf, GeoDataFrame)
     assert ddf.crs == rs.crs
     assert len(df) == count
     assert np.all(ddf.columns == ["value", "band", "row", "col", "geometry"])
-    _compare_raster_to_vectorized(rs, df)
+    _compare_raster_to_points(rs, df)
 
     rs = Raster("tests/data/raster/elevation_small.tif")
     rs = band_concat((rs, rs + 100))
     data = rs.values
     rs = rs.chunk((1, 20, 20))
-    ddf = rs.to_vector()
+    ddf = rs.to_points()
     df = ddf.compute()
 
     assert rs.data.npartitions == 50
@@ -1734,7 +1737,7 @@ def test_to_vector():
     assert ddf.crs == rs.crs
     assert len(df) == rs.data.size
     assert np.all(ddf.columns == ["value", "band", "row", "col", "geometry"])
-    _compare_raster_to_vectorized(rs, df)
+    _compare_raster_to_points(rs, df)
 
     # make sure that empty (all-null) chunks are handled
     data = np.array(
@@ -1749,7 +1752,7 @@ def test_to_vector():
     )
     count = np.sum(data > 0)
     rs = Raster(data).set_null_value(0).chunk((1, 2, 2))
-    ddf = rs.to_vector()
+    ddf = rs.to_points()
     df = ddf.compute()
 
     assert len(df) == count
@@ -1757,7 +1760,7 @@ def test_to_vector():
     assert df["band"].dtype == np.dtype(int)
     assert df["row"].dtype == np.dtype(int)
     assert df["col"].dtype == np.dtype(int)
-    _compare_raster_to_vectorized(rs, df)
+    _compare_raster_to_points(rs, df)
 
 
 @pytest.mark.parametrize(
@@ -1964,6 +1967,87 @@ def test_get_chunk_rasters():
         assert np.allclose(r, t)
         assert np.allclose(r.mask.compute(), t.mask.compute())
         assert_rasters_similar(r, t)
+
+
+@pytest.mark.parametrize("neighbors", [4, 8])
+@pytest.mark.parametrize(
+    "raster",
+    [
+        Raster("tests/data/raster/elevation_small.tif"),
+        Raster("tests/data/raster/elevation_small.tif").chunk((1, 20, 20)),
+        band_concat(
+            [
+                Raster("tests/data/raster/elevation_small.tif"),
+                Raster("tests/data/raster/elevation_small.tif"),
+            ]
+        ).chunk((1, 20, 20)),
+    ],
+)
+def test_to_polygons(raster, neighbors):
+    hist = np.histogram_bin_edges(raster.values.ravel(), bins=10)
+    mapping = [(hist[i], hist[i + 1], i) for i in range(len(hist) - 1)]
+    mapping[-1] = (mapping[-1][0], mapping[-1][1] + 1, mapping[-1][-1])
+    raster.data[:, 1100:2000, 1200:2200] = True
+    raster = raster.burn_mask()
+    feats = raster.remap_range(mapping)
+    band_truths = []
+    for values, mask, band in zip(
+        feats.values, feats.mask, np.arange(raster.nbands) + 1
+    ):
+        raw_shapes_results = list(
+            rio.features.shapes(
+                values,
+                # Invert mask to match rasterio interpretation
+                ~mask.compute(),
+                connectivity=neighbors,
+                transform=feats.affine,
+            )
+        )
+        shapes = [shapely.geometry.shape(s[0]) for s in raw_shapes_results]
+        values = [s[1] for s in raw_shapes_results]
+        truth = (
+            gpd.GeoDataFrame(
+                {
+                    "value": values,
+                    "band": [band] * len(values),
+                    "geometry": shapes,
+                },
+                crs=feats.crs,
+            )
+            .dissolve(by="value")
+            .reset_index()
+        )
+        truth = truth[["value", "band", "geometry"]]
+        band_truths.append(truth)
+    truth = pd.concat(band_truths)
+    # Reset index to make comparison easier below
+    truth = truth.sort_values(by=["band", "value"]).reset_index(drop=True)
+    assert len(truth) == raster.nbands * 10
+
+    result = feats.to_polygons(neighbors)
+    assert result.npartitions == 1
+    assert result.crs == raster.crs
+    assert result.columns.equals(truth.columns)
+    result = result.compute()
+    result = result.sort_values(by=["band", "value"]).reset_index(drop=True)
+    print(result[["value", "band"]])
+    print(truth[["value", "band"]])
+    assert result[["value", "band"]].equals(truth[["value", "band"]])
+    for g1, g2 in zip(truth.geometry.values, result.geometry.values):
+        # Resort to shapely's equals because the points for each polygon are
+        # the same but the order is shifted due to the starting/ending points
+        # being different. geopandas doesn't consider this in equality checks.
+        assert g1.equals(g2)
+
+
+@pytest.mark.parametrize("neighbors", [4, 8])
+def test_to_polygons_and_back_to_raster(neighbors):
+    raster = Raster("tests/data/raster/elevation_small.tif")
+    vec = Vector(raster.to_polygons(neighbors).compute())
+    new_rast = vec.to_raster(raster, field="value").set_null_value(
+        raster.null_value
+    )
+    assert np.allclose(raster, new_rast)
 
 
 if __name__ == "__main__":

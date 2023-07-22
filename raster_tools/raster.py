@@ -7,6 +7,8 @@ import dask.array as da
 import dask.dataframe as dd
 import geopandas as gpd
 import numpy as np
+import rasterio as rio
+import shapely
 import xarray as xr
 from affine import Affine
 from numba import jit
@@ -15,6 +17,17 @@ from shapely.geometry import Point, box
 from raster_tools.dask_utils import dask_nanmax, dask_nanmin
 from raster_tools.dtypes import (
     DTYPE_INPUT_TO_DTYPE,
+    F16,
+    F32,
+    F64,
+    I8,
+    I16,
+    I32,
+    I64,
+    U8,
+    U16,
+    U32,
+    U64,
     is_bool,
     is_float,
     is_int,
@@ -1319,7 +1332,105 @@ class Raster(_RasterBase):
         """
         return xy_to_rowcol(x, y, self.affine)
 
-    def to_vector(self):
+    def to_polygons(self, neighbors=4):
+        """Convert the raster to a vector of polygons.
+
+        Null cells are ignored. The resulting vector is randomly ordered.
+
+        Parameters
+        ----------
+        neighbors : {4, 8} int, optional
+            This determines how many neighboring cells to consider when joining
+            cells together to form polygons. Valid values are ``4`` and ``8``.
+            ``8`` causes diagonal neighbors to be used. Default is ``4``.
+
+        Returns
+        -------
+        dask_geopandas.GeoDataFrame
+            A `GeoDataFrame` with columns: value, band, geometry. The geometry
+            column contains polygons/multi-polygons.
+
+        Notes
+        -----
+        The algorithm used by this method is best used with simple thematic
+        data. This is because the algorithm consumes memory proportional to the
+        number and complexity of the produced polygons. Data that produces a
+        large number of polygons, i.e. data with high pixel-to-pixel
+        variability, will cause a large amount of memory to be consumed.
+
+        """
+        if neighbors not in (4, 8):
+            raise ValueError("neighbors can only be 4 or 8")
+        meta = gpd.GeoDataFrame(
+            {
+                "value": np.array((), dtype=self.dtype),
+                "band": np.array((), dtype=I64),
+                "geometry": gpd.GeoSeries(()),
+            },
+            crs=self.crs,
+        )
+        # Iterate over bands because dissolve will join polygons from different
+        # bands, otherwise.
+        band_results = []
+        for iband in range(self.nbands):
+            chunks = list(self.data[iband].to_delayed().ravel())
+            mask_chunks = list(self.mask[iband].to_delayed().ravel())
+            transforms = [
+                r.affine
+                for r in self.get_bands(iband + 1).get_chunk_rasters().ravel()
+            ]
+            partitions = []
+            for chunk, mask, transform in zip(chunks, mask_chunks, transforms):
+                part = dd.from_delayed(
+                    _shapes_delayed(
+                        chunk, mask, neighbors, transform, iband + 1, self.crs
+                    ),
+                    meta=meta.copy(),
+                )
+                partitions.append(part)
+            # Dissolve uses the 'by' column to create the new index. Reset the
+            # index to turn it back into a regular column.
+            band_results.append(
+                dd.concat(partitions).dissolve(by="value").reset_index()
+            )
+        return (
+            dd.concat(band_results)
+            .repartition(npartitions=1)
+            .reset_index(drop=True)
+        )
+
+    def to_vector(self, as_polygons=False, neighbors=4):
+        """Convert the raster to a vector.
+
+        Parameters
+        ----------
+        as_polygons : bool, optional
+            If ``True``, the raster is converted to polygons/multi-polygon,
+            each polyon/mult-polygon is made up of like-valued cells. Null
+            cells are ignored. :meth:`to_polygons` for more information. If
+            ``False``, the raster is converted to points. Each non-null cell is
+            point in the output. See :meth:`to_points` for more information.
+            Default is ``False``.
+        neighbors : {4, 8} int, optional
+            Used when `as_polygons` is ``True``. This determines how many
+            neighboring cells to consider when joining cells together to form
+            polygons. Valid values are ``4`` and ``8``. ``8`` causes diagonal
+            neighbors to be used. Default is ``4``.
+
+        Returns
+        -------
+        dask_geopandas.GeoDataFrame
+            A `GeoDataFrame`. If `as_polygons` is ``True``, the result is a
+            dataframe with columns: value, band, geometry. The geometry column
+            will contain polygons. If ``False``, the result has columns: value,
+            band, row, col, geometry. The geometry column will contain points.
+
+        """
+        if as_polygons:
+            return self.to_polygons(neighbors=neighbors)
+        return self.to_points()
+
+    def to_points(self):
         """
         Convert the raster into a vector where each non-null cell is a point.
 
@@ -1327,10 +1438,10 @@ class Raster(_RasterBase):
 
         Returns
         -------
-        result
+        dask_geopandas.GeoDataFrame
             The result is a dask_geopandas GeoDataFrame with the following
-            columns: value, row, col, geometry. The value is the cell value
-            at the row and column in the raster.
+            columns: value, band, row, col, geometry. The value is the cell
+            value at the row and column in the raster.
 
         """
         xrs = self._ds.raster
@@ -1640,6 +1751,61 @@ def _vectorize(data, mask, xc, yc, band, crs, affine_tuple):
     # https://github.com/geopandas/dask-geopandas/issues/190
     return df.astype(
         {"value": data.dtype, "band": int, "row": int, "col": int}
+    )
+
+
+def _get_rio_shapes_dtype(dtype):
+    if dtype in (I16, I32, U8, U16, F32):
+        return dtype
+
+    new_dtype = dtype
+    if is_bool(dtype):
+        new_dtype = U8
+    elif dtype == I8:
+        new_dtype = I16
+    elif dtype == I64 or dtype == U32 or dtype == U64:
+        new_dtype = I32
+    elif dtype == F16 or dtype == F64:
+        new_dtype = F32
+    return new_dtype
+
+
+@dask.delayed
+def _shapes_delayed(chunk, mask, neighbors, transform, band, crs):
+    # Rasterio's shapes function only supports a small set of dtypes. This may
+    # cause the dtype to be downcast.
+    # ref: rasterio._features._shapes
+    orig_dtype = chunk.dtype
+    working_dtype = _get_rio_shapes_dtype(orig_dtype)
+    if working_dtype != orig_dtype:
+        # Replace null values with a value that will work for all dtypes. Null
+        # values are the most likely to produce warnings when down casting. The
+        # null cells will be ignored in rio.features.shapes so the value
+        # does not matter for computation.
+        chunk[mask] = 0
+        chunk = chunk.astype(working_dtype)
+
+    # Invert because rasterio's shapes func uses False for masked cells.
+    mask = ~mask
+    shapes = []
+    values = []
+    for geojson, value in rio.features.shapes(
+        chunk, mask, neighbors, transform
+    ):
+        shapes.append(shapely.geometry.shape(geojson))
+        values.append(value)
+    values = np.array(values)
+
+    # Cast back to the original dtype, if needed
+    if working_dtype != orig_dtype:
+        values = values.astype(orig_dtype)
+    return gpd.GeoDataFrame(
+        {
+            "value": values,
+            "band": [band] * len(values),
+            "geometry": gpd.GeoSeries(shapes),
+        },
+        crs=crs,
     )
 
 
