@@ -2030,8 +2030,6 @@ def test_to_polygons(raster, neighbors):
     assert result.columns.equals(truth.columns)
     result = result.compute()
     result = result.sort_values(by=["band", "value"]).reset_index(drop=True)
-    print(result[["value", "band"]])
-    print(truth[["value", "band"]])
     assert result[["value", "band"]].equals(truth[["value", "band"]])
     for g1, g2 in zip(truth.geometry.values, result.geometry.values):
         # Resort to shapely's equals because the points for each polygon are
