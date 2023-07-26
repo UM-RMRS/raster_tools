@@ -73,6 +73,7 @@ __all__ = [
     "reclassify",
     "regions",
     "remap_range",
+    "where",
 ]
 
 # TODO: mosaic
