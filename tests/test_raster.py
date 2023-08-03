@@ -910,20 +910,21 @@ def test_binary_ops_arithmetic_inplace():
     assert rr.crs == rs.crs
 
 
-_NP_UFUNCS = list(
-    filter(
-        lambda x: isinstance(x, np.ufunc)
-        # not valid for rasters
-        and x not in (np.isnat, np.matmul),
-        map(lambda x: getattr(np, x), dir(np)),
-    )
+_NP_UFUNCS = np.array(
+    [
+        x
+        # Get all ufuncs from main numpy namespace
+        for x in map(lambda x: getattr(np, x), dir(np))
+        # isnat and matmul not valid for rasters
+        if isinstance(x, np.ufunc) and x not in (np.isnat, np.matmul)
+    ]
 )
-_NP_UFUNCS_NIN_SINGLE = list(filter(lambda x: x.nin == 1, _NP_UFUNCS))
-_NP_UFUNCS_NIN_MULT = list(filter(lambda x: x.nin > 1, _NP_UFUNCS))
-_UNSUPPORED_UFUNCS = frozenset((np.isnat, np.matmul))
+_NP_UFUNCS_NIN_SINGLE = _NP_UFUNCS[[x.nin == 1 for x in _NP_UFUNCS]]
+_NP_UFUNCS_NIN_MULT = _NP_UFUNCS[[x.nin > 1 for x in _NP_UFUNCS]]
+_UNSUPPORED_UFUNCS = [np.isnat, np.matmul]
 
 
-@pytest.mark.parametrize("ufunc", list(_UNSUPPORED_UFUNCS))
+@pytest.mark.parametrize("ufunc", _UNSUPPORED_UFUNCS)
 def test_ufuncs_unsupported(ufunc):
     rs = Raster(np.arange(4 * 5 * 5).reshape((4, 5, 5)))
     with pytest.raises(TypeError):
