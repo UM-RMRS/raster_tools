@@ -855,8 +855,15 @@ class Vector:
             data = self._geo.spatial_shuffle()
         return Vector(data)
 
-    def calculate_spatial_partitions(self, show_progress):
+    def calculate_spatial_partitions(self, show_progress=False):
         """Calculate the spatial bounds of the underlying data.
+
+        Parameters
+        ----------
+        show_progress : bool, optional
+            Show a progressbar for the calculation. This operation can take a
+            significant amount of time, so a progressbar may be helpful.
+            Default is ``False``.
 
         .. note::
             This causes partial computation to take place.
