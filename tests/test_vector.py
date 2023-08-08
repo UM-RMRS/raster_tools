@@ -1,12 +1,21 @@
+# isort: off
+# TODO(pygeos): remove this once shapely is the default backend for geopandas.
+# Force raster_tools._compat to be loaded before geopandas when running tests
+import raster_tools as rts  # noqa: F401
+
+# isort: on
+
+
 import unittest
 
 import dask
 import dask_geopandas as dgpd
 import geopandas as gpd
 import numpy as np
+import pytest
 import rasterio as rio
 
-from raster_tools.vector import Vector, open_vectors
+from raster_tools.vector import _OBJECTID_BASE, Vector, open_vectors
 
 
 class TestOpenVectors(unittest.TestCase):
@@ -202,3 +211,44 @@ class TestCastField(unittest.TestCase):
             dt = np.dtype(d)
             vc = v.cast_field("POD_Num", d)
             self.assertTrue(vc.data.POD_Num.dtype == dt)
+
+
+@pytest.mark.parametrize(
+    "vec",
+    [
+        "tests/data/vector/pods.shp",
+        open_vectors("tests/data/vector/pods.shp"),
+        open_vectors("tests/data/vector/pods.shp").data.repartition(
+            npartitions=5
+        ),
+        open_vectors("tests/data/vector/pods.shp")
+        .data.repartition(npartitions=5)
+        .spatial_shuffle(),
+    ],
+)
+def test_add_objectid_column(vec):
+    if isinstance(vec, str):
+        vec = open_vectors(vec)
+    if isinstance(vec, Vector):
+        df = vec.data
+    else:
+        df = vec
+
+    id_values = []
+    for i, part in enumerate(df.partitions):
+        part = part.compute()
+        base = i * _OBJECTID_BASE
+        id_values.extend(np.arange(1, len(part) + 1) + base)
+    id_values = np.array(id_values)
+
+    result = rts.vector.add_objectid_column(vec, name="id_col")
+    result_df = result
+    if isinstance(vec, Vector):
+        assert isinstance(result, Vector)
+        result_df = result.data
+
+    if df.spatial_partitions is not None:
+        assert result.spatial_partitions.equals(df.spatial_partitions)
+    assert df.npartitions == result_df.npartitions
+    assert "id_col" in result_df
+    assert np.allclose(id_values, result_df.id_col.compute().values)

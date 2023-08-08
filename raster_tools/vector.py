@@ -244,7 +244,10 @@ def _add_objid(df, name, base, partition_info=None):
     return df
 
 
-def add_objectid_column(features, name=None, _base=10**9):
+_OBJECTID_BASE = 10**9
+
+
+def add_objectid_column(features, name=None, _base=_OBJECTID_BASE):
     """Add a column of unique ID values to the set of features.
 
     Parameters
@@ -281,10 +284,12 @@ def add_objectid_column(features, name=None, _base=10**9):
                 name = f"{prefix}_{n}"
     meta = df._meta.copy()
     meta[name] = np.array((), dtype=I64)
-    df = df.map_partitions(_add_objid, name, _base, meta=meta)
+    df_new = df.map_partitions(_add_objid, name, _base, meta=meta)
+    if df.spatial_partitions is not None:
+        df_new.spatial_partitions = df.spatial_partitions.copy()
     if return_vector:
-        return Vector(df)
-    return df
+        return Vector(df_new)
+    return df_new
 
 
 def _get_len_from_divisions(divs):
