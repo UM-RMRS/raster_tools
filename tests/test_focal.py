@@ -7,6 +7,7 @@ import pytest
 from scipy import ndimage, stats
 
 from raster_tools import Raster, focal
+from tests import testdata
 from tests.utils import assert_valid_raster
 
 PY_VER_37 = sys.version_info[0] == 3 and sys.version_info[1] == 7
@@ -434,7 +435,7 @@ def test_focal_correlate():
 
 
 def test_focal_integration():
-    rs = Raster("tests/data/raster/multiband_small.tif")
+    rs = testdata.raster.multiband_small
     rsnp = rs.values
     truth = rsnp.astype(float)
     for bnd in range(truth.shape[0]):
@@ -464,7 +465,7 @@ def test_focal_integration():
 
 
 def test_focal_integration_raster_input():
-    rs = Raster("tests/data/raster/multiband_small.tif")
+    rs = testdata.raster.multiband_small
     rsnp = rs.values
     with pytest.raises(TypeError):
         focal.focal(rsnp, "median", 3)
@@ -476,7 +477,7 @@ def test_focal_integration_raster_input():
 
 
 def test_focal_output_type():
-    rs = Raster("tests/data/raster/multiband_small.tif") * 100
+    rs = testdata.raster.multiband_small * 100
     rs_masked = rs.set_null_value(-1).astype(int)
     rsi = rs.set_null_value(None).astype(int)
 
@@ -508,7 +509,7 @@ def test_focal_output_type():
 
 
 def test_correlate_integration():
-    rs = Raster("tests/data/raster/multiband_small.tif").astype(float)
+    rs = testdata.raster.multiband_small.astype(float)
     rsnp = rs.values
     truth = rsnp.astype(float)
     kernel = np.array([[1, 1, 1], [1, 1, 0], [1, 0, 0]]).astype(float)
@@ -543,7 +544,7 @@ def test_correlate_integration():
 
 
 def test_convolve_integration():
-    rs = Raster("tests/data/raster/multiband_small.tif").astype(float)
+    rs = testdata.raster.multiband_small.astype(float)
     rsnp = rs.values
     truth = rsnp.astype(float)
     kernel = np.array([[1, 1, 1], [1, 1, 0], [1, 0, 0]]).astype(float)
@@ -580,7 +581,7 @@ def test_convolve_integration():
 
 
 def test_correlate_integration_raster_input():
-    rs = Raster("tests/data/raster/multiband_small.tif")
+    rs = testdata.raster.multiband_small
     rsnp = rs.values
     with pytest.raises(TypeError):
         focal.correlate(rsnp, 3)
@@ -592,7 +593,7 @@ def test_correlate_integration_raster_input():
 
 
 def test_correlate_output_type():
-    rs = Raster("tests/data/raster/multiband_small.tif") * 100
+    rs = testdata.raster.multiband_small * 100
     rs = rs.set_null_value(-1)
     rs = rs.astype(int)
 

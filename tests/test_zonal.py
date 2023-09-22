@@ -15,13 +15,14 @@ import pandas as pd
 import pytest
 import shapely
 
-from raster_tools import Raster, band_concat, open_vectors
+from raster_tools import band_concat
 from raster_tools.zonal import (
     _ZONAL_STAT_FUNCS,
     ZONAL_STAT_FUNCS,
     extract_points_eager,
     zonal_stats,
 )
+from tests import testdata
 from tests.test_focal import asm, entropy, mode, unique
 from tests.utils import arange_raster
 
@@ -58,9 +59,9 @@ all_stats = {
 
 class TestZonalStats(TestCase):
     def setUp(self):
-        self.dem = Raster("tests/data/raster/elevation.tif")
+        self.dem = testdata.raster.dem
         self.dem_np = np.array(self.dem)
-        self.vc = open_vectors("tests/data/vector/pods_first_10.shp")
+        self.vc = testdata.vector.pods_first_10
         self.vc_rasters = [v.to_raster(self.dem).eval() for v in self.vc]
 
     def test_stat_func_set(self):
@@ -145,7 +146,7 @@ def get_random_points(n, nparts, dem):
 
 
 def dem_clipped_small():
-    return Raster("tests/data/raster/elevation_clipped_small.tif")
+    return testdata.raster.dem_clipped_small
 
 
 @pytest.mark.parametrize(
