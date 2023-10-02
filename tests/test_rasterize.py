@@ -16,8 +16,7 @@ import xarray as xr
 from raster_tools import rasterize
 from raster_tools.masking import get_default_null_value
 from raster_tools.raster import Raster
-from raster_tools.vector import Vector, get_vector
-from tests import testdata
+from raster_tools.vector import Vector, get_vector, open_vectors
 from tests.utils import assert_rasters_similar, assert_valid_raster
 
 
@@ -111,14 +110,14 @@ def rio_rasterize_helper(
     return Raster(xtruth)
 
 
-DEM_CRS = testdata.raster.dem.crs
+DEM_CRS = Raster("tests/data/raster/elevation.tif").crs
 
 
 def test_rasterize_spatial_aware():
     features = dgpd.read_file(
         "tests/data/vector/test_circles_small.shp", chunksize=2
     )
-    like = testdata.raster.dem_small.chunk((1, 20, 20))
+    like = Raster("tests/data/raster/elevation_small.tif").chunk((1, 20, 20))
     assert features.spatial_partitions is None
 
     rasterize_kwargs = dict(
@@ -152,7 +151,7 @@ def test_rasterize_spatial_aware():
 
 
 def test_rasterize_spatial_aware_reduces_operations(mocker):
-    like = testdata.raster.dem.chunk((1, 500, 500))
+    like = Raster("tests/data/raster/elevation.tif").chunk((1, 500, 500))
     features = dgpd.read_file(
         "tests/data/vector/pods.shp", chunksize=40
     ).to_crs(like.crs)
@@ -200,24 +199,31 @@ def calc_spatial_parts(x):
 @pytest.mark.parametrize(
     "features,like",
     [
-        (testdata.vector.test_circles_small, testdata.raster.dem_small),
         (
-            testdata.vector.test_circles_small.data.repartition(npartitions=2),
-            testdata.raster.dem_small.chunk((1, 20, 20)),
+            open_vectors("tests/data/vector/test_circles_small.shp"),
+            Raster("tests/data/raster/elevation_small.tif"),
+        ),
+        (
+            open_vectors(
+                "tests/data/vector/test_circles_small.shp"
+            ).data.repartition(npartitions=2),
+            Raster("tests/data/raster/elevation_small.tif").chunk((1, 20, 20)),
         ),
         (
             calc_spatial_parts(
-                testdata.vector.test_circles_small.data.repartition(
-                    npartitions=2
-                )
+                open_vectors(
+                    "tests/data/vector/test_circles_small.shp"
+                ).data.repartition(npartitions=2)
             ),
-            testdata.raster.dem_small.chunk((1, 20, 20)),
+            Raster("tests/data/raster/elevation_small.tif").chunk((1, 20, 20)),
         ),
         (
-            testdata.vector.pods.data.repartition(
-                npartitions=5
-            ).spatial_shuffle(),
-            testdata.raster.dem_small.chunk((1, 1000, 1000)),
+            open_vectors("tests/data/vector/pods.shp")
+            .data.repartition(npartitions=5)
+            .spatial_shuffle(),
+            Raster("tests/data/raster/elevation_small.tif").chunk(
+                (1, 1000, 1000)
+            ),
         ),
     ],
 )

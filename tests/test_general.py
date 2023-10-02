@@ -44,7 +44,6 @@ from raster_tools.stat_common import (
     nanmode_jit,
 )
 from raster_tools.vector import Vector
-from tests import testdata
 from tests.utils import (
     arange_nd,
     arange_raster,
@@ -298,7 +297,7 @@ def test_aggregate(stat, window_y, window_x, chunk):
     ],
 )
 def test_aggregate_errors(window, stat, error_type):
-    rs = testdata.raster.dem
+    rs = Raster("tests/data/raster/elevation.tif")
     with pytest.raises(error_type):
         general.aggregate(rs, window, stat)
 
@@ -538,7 +537,7 @@ def test_erode_dilate(name, size, null_value, chunk):
 @pytest.mark.parametrize("name", ["erode", "dilate"])
 def test_erode_dilate_errors(name):
     func = getattr(general, name)
-    rs = testdata.raster.dem_small
+    rs = Raster("tests/data/raster/elevation_small.tif")
 
     for size in [3.0, None]:
         with pytest.raises(TypeError):
@@ -551,8 +550,8 @@ def test_erode_dilate_errors(name):
 # TODO: fully test module
 class TestSurface(unittest.TestCase):
     def setUp(self):
-        self.dem = testdata.raster.dem
-        self.multi = testdata.raster.multiband_small
+        self.dem = Raster("tests/data/raster/elevation.tif")
+        self.multi = Raster("tests/data/raster/multiband_small.tif")
 
     def test_regions(self):
         rs_pos = creation.random_raster(
@@ -564,7 +563,7 @@ class TestSurface(unittest.TestCase):
 
 
 def test_band_concat():
-    rs1 = testdata.raster.dem_clipped_small
+    rs1 = Raster("tests/data/raster/elevation_clipped_small.tif")
     rs2 = rs1 + 30
     rsnp1 = rs1.values
     rsnp2 = rs2.values
@@ -595,7 +594,7 @@ def test_band_concat():
 
 @pytest.mark.filterwarnings("ignore:The null value")
 def test_band_concat_bool_rasters():
-    rs1 = testdata.raster.dem_small > -100
+    rs1 = Raster("tests/data/raster/elevation_small.tif") > -100
     rs2 = rs1.copy()
     result = general.band_concat((rs1, rs2))
     assert result.null_value == get_default_null_value(result.dtype)
@@ -718,7 +717,7 @@ def test_remap_range_f16():
 
 
 def test_remap_range_errors():
-    rs = testdata.raster.dem_small
+    rs = Raster("tests/data/raster/elevation_small.tif")
     # TypeError if not scalars
     with pytest.raises(TypeError):
         general.remap_range(rs, (None, 2, 4))

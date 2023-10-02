@@ -56,7 +56,6 @@ from raster_tools.utils import (
     make_raster,
 )
 from raster_tools.vector import Vector
-from tests import testdata
 from tests.utils import (
     arange_nd,
     arange_raster,
@@ -441,8 +440,8 @@ def test_raster_from_dataset(ds):
 @pytest.mark.parametrize(
     "path",
     [
-        "tests/data/raster/dem.tif",
-        "tests/data/raster/dem_clipped.tif",
+        "tests/data/raster/elevation.tif",
+        "tests/data/raster/elevation_clipped.tif",
     ],
 )
 def test_raster_from_file(path):
@@ -487,13 +486,13 @@ def test_raster_from_any_errors(data, error_type):
 @pytest.mark.parametrize(
     "raster_input,masked",
     [
-        ("tests/data/raster/dem_small.tif", True),
-        ("tests/data/raster/dem_clipped_small.tif", True),
+        ("tests/data/raster/elevation_small.tif", True),
+        ("tests/data/raster/elevation_clipped_small.tif", True),
         (np.ones((1, 3, 3)), False),
         (np.array([np.nan, 3.2, 4, 5]).reshape((2, 2)), True),
         (
             riox.open_rasterio(
-                "tests/data/raster/dem_clipped_small.tif"
+                "tests/data/raster/elevation_clipped_small.tif"
             ).rio.write_nodata(None),
             False,
         ),
@@ -506,7 +505,7 @@ def test_property__masked(raster_input, masked):
 
 
 def test_property_values():
-    raster = testdata.raster.dem_clipped_small
+    raster = Raster("tests/data/raster/elevation_clipped_small.tif")
     assert hasattr(raster, "values")
     assert isinstance(raster.values, np.ndarray)
     assert raster.shape == raster.values.shape
@@ -514,7 +513,7 @@ def test_property_values():
 
 
 def test_property_null_value():
-    path = "tests/data/raster/dem_clipped_small.tif"
+    path = "tests/data/raster/elevation_clipped_small.tif"
     raster = Raster(path)
     xdata = riox.open_rasterio(path)
     assert hasattr(raster, "null_value")
@@ -522,7 +521,7 @@ def test_property_null_value():
 
 
 def test_property_dtype():
-    path = "tests/data/raster/dem_clipped_small.tif"
+    path = "tests/data/raster/elevation_clipped_small.tif"
     raster = Raster(path)
     xdata = riox.open_rasterio(path)
     assert hasattr(raster, "dtype")
@@ -531,7 +530,7 @@ def test_property_dtype():
 
 
 def test_property_shape():
-    path = "tests/data/raster/dem_clipped_small.tif"
+    path = "tests/data/raster/elevation_clipped_small.tif"
     raster = Raster(path)
     xdata = riox.open_rasterio(path)
     assert hasattr(raster, "shape")
@@ -542,7 +541,7 @@ def test_property_shape():
 @pytest.mark.parametrize(
     "raster",
     [
-        band_concat([testdata.raster.dem_small] * 3),
+        band_concat(["tests/data/raster/elevation_small.tif"] * 3),
         arange_raster((4, 20, 25)),
     ],
 )
@@ -553,7 +552,7 @@ def test_property_size(raster):
 
 
 def test_property_crs():
-    path = "tests/data/raster/dem_clipped_small.tif"
+    path = "tests/data/raster/elevation_clipped_small.tif"
     raster = Raster(path)
     xdata = riox.open_rasterio(path)
     assert hasattr(raster, "crs")
@@ -562,7 +561,7 @@ def test_property_crs():
 
 
 def test_property_affine():
-    path = "tests/data/raster/dem_clipped_small.tif"
+    path = "tests/data/raster/elevation_clipped_small.tif"
     raster = Raster(path)
     xdata = riox.open_rasterio(path)
     assert hasattr(raster, "affine")
@@ -571,7 +570,7 @@ def test_property_affine():
 
 
 def test_property_resolution():
-    path = "tests/data/raster/dem_clipped_small.tif"
+    path = "tests/data/raster/elevation_clipped_small.tif"
     raster = Raster(path)
     xdata = riox.open_rasterio(path)
     assert hasattr(raster, "resolution")
@@ -580,23 +579,22 @@ def test_property_resolution():
 
 
 def test_property_xdata():
-    rs = testdata.raster.dem_small
+    rs = Raster("tests/data/raster/elevation_small.tif")
     assert hasattr(rs, "xdata")
     assert isinstance(rs.xdata, xr.DataArray)
     assert rs.xdata.identical(rs._ds.raster)
 
 
 def test_property_data():
-    rs = testdata.raster.dem_small
+    rs = Raster("tests/data/raster/elevation_small.tif")
     assert hasattr(rs, "data")
     assert isinstance(rs.data, da.Array)
     assert rs.data is rs._ds.raster.data
 
 
 def test_property_bounds():
-    path = "tests/data/raster/dem_small.tif"
-    rs = Raster(path)
-    rds = rio.open(path)
+    rs = Raster("tests/data/raster/elevation_small.tif")
+    rds = rio.open("tests/data/raster/elevation_small.tif")
     assert hasattr(rs, "bounds")
     assert isinstance(rs.bounds, tuple)
     assert len(rs.bounds) == 4
@@ -637,7 +635,7 @@ def test_property_xmask():
 
 @pytest.mark.parametrize("name", ["band", "x", "y"])
 def test_properties_coords(name):
-    rs = testdata.raster.dem_small
+    rs = Raster("tests/data/raster/elevation_small.tif")
 
     assert hasattr(rs, name)
     assert isinstance(getattr(rs, name), np.ndarray)
@@ -650,7 +648,7 @@ def test_properties_coords(name):
         Raster(da.ones((4, 100, 100), chunks=(1, 5, 5))),
         Raster(da.ones((100, 100), chunks=(5, 5))),
         Raster(np.ones((100, 100))),
-        testdata.raster.dem,
+        Raster("tests/data/raster/elevation.tif"),
     ],
 )
 def test_get_chunked_coords(rs):
@@ -1367,7 +1365,7 @@ def test_round():
 @pytest.mark.parametrize(
     "rs",
     [
-        testdata.raster.dem_small,
+        Raster("tests/data/raster/elevation_small.tif"),
         Raster(np.arange(100).reshape((10, 10))).set_null_value(99),
     ],
 )
@@ -1393,7 +1391,7 @@ def test_astype(rs, type_code, dtype):
 
 @pytest.mark.filterwarnings("ignore:The null value ")
 def test_astype_wrong_type_codes():
-    rs = testdata.raster.dem_small
+    rs = Raster("tests/data/raster/elevation_small.tif")
     with pytest.raises(ValueError):
         rs.astype("not float32")
     with pytest.raises(ValueError):
@@ -1401,7 +1399,7 @@ def test_astype_wrong_type_codes():
 
 
 def test_copy():
-    rs = testdata.raster.dem_clipped_small
+    rs = Raster("tests/data/raster/elevation_clipped_small.tif")
     copy = rs.copy()
     assert_valid_raster(copy)
     assert rs is not copy
@@ -1414,7 +1412,7 @@ def test_copy():
 
 
 def test_set_crs():
-    rs = testdata.raster.dem_small
+    rs = Raster("tests/data/raster/elevation_small.tif")
     assert rs.crs != 4326
 
     rs4326 = rs.set_crs(4326)
@@ -1425,7 +1423,7 @@ def test_set_crs():
 
 @pytest.mark.filterwarnings("ignore:The null value")
 def test_set_null_value():
-    rs = testdata.raster.dem_clipped_small
+    rs = Raster("tests/data/raster/elevation_clipped_small.tif")
     assert rs.null_value is not None
     truth = rs.values
     mask = rs._ds.mask.data.compute()
@@ -1448,7 +1446,7 @@ def test_set_null_value():
     assert np.allclose(rs2._ds.mask.values, rs2._ds.raster.values == 99)
     assert rs2.crs == rs2.crs
 
-    rs = testdata.raster.dem_small
+    rs = Raster("tests/data/raster/elevation_small.tif")
     nv = rs.null_value
     rs2 = rs.set_null_value(None)
     assert rs.null_value == nv
@@ -1457,7 +1455,7 @@ def test_set_null_value():
     assert np.allclose(rs, rs2)
     assert rs2.crs == rs2.crs
 
-    rs = testdata.raster.dem_clipped_small.astype(int)
+    rs = Raster("tests/data/raster/elevation_clipped_small.tif").astype(int)
     assert rs.dtype == np.dtype(int)
     rs2 = rs.set_null_value(get_default_null_value(float))
     assert rs2.dtype == np.dtype(float)
@@ -1466,7 +1464,7 @@ def test_set_null_value():
 
 def test_replace_null():
     fill_value = 0
-    rs = testdata.raster.dem_clipped_small
+    rs = Raster("tests/data/raster/elevation_clipped_small.tif")
     rsnp = rs.values
     rsnp_replaced = rsnp.copy()
     mask = rsnp == rs.null_value
@@ -1482,7 +1480,7 @@ def test_replace_null():
 
 @pytest.mark.filterwarnings("ignore:The null value")
 def test_where():
-    rs = testdata.raster.dem_small
+    rs = Raster("tests/data/raster/elevation_small.tif")
     c = rs > 1100
 
     r = rs.where(c, 0)
@@ -1490,7 +1488,9 @@ def test_where():
     rsnp = np.asarray(rs)
     truth = np.where(rsnp > 1100, rsnp, 0)
     assert np.allclose(r, truth)
-    assert np.allclose(rs.where(c, "tests/data/raster/dem_small.tif"), rs)
+    assert np.allclose(
+        rs.where(c, "tests/data/raster/elevation_small.tif"), rs
+    )
     assert r.crs == rs.crs
 
     c = c.astype(int)
@@ -1513,7 +1513,7 @@ def test_where():
 
 
 def test_to_null_mask():
-    rs = testdata.raster.dem_clipped_small
+    rs = Raster("tests/data/raster/elevation_clipped_small.tif")
     nv = rs.null_value
     rsnp = rs.values
     truth = rsnp == nv
@@ -1523,7 +1523,7 @@ def test_to_null_mask():
     assert nmask.null_value is None
     assert np.allclose(nmask, truth)
     # Test case where no null values
-    rs = testdata.raster.dem_small
+    rs = Raster("tests/data/raster/elevation_small.tif")
     truth = np.full(rs.shape, False, dtype=bool)
     nmask = rs.to_null_mask()
     assert_valid_raster(nmask)
@@ -1533,7 +1533,7 @@ def test_to_null_mask():
 
 class TestEval(unittest.TestCase):
     def test_eval(self):
-        rs = testdata.raster.dem_small
+        rs = Raster("tests/data/raster/elevation_small.tif")
         rsnp = rs.xdata.values
         rs += 2
         rsnp += 2
@@ -1625,7 +1625,7 @@ def test_burn_mask():
 @pytest.mark.parametrize("index", [(0, 0), (0, 1), (1, 0), (-1, -1), (1, -1)])
 @pytest.mark.parametrize("offset", ["center", "ul", "ll", "ur", "lr"])
 def test_xy(index, offset):
-    rs = testdata.raster.dem_small
+    rs = Raster("tests/data/raster/elevation_small.tif")
     i, j = index
     if i == -1:
         i = rs.shape[1] - 1
@@ -1649,7 +1649,7 @@ def test_xy(index, offset):
     ],
 )
 def test_index(x, y):
-    rs = testdata.raster.dem_small
+    rs = Raster("tests/data/raster/elevation_small.tif")
     T = rs.affine
 
     assert rs.index(x, y) == rio.transform.rowcol(T, x, y)
@@ -1657,7 +1657,7 @@ def test_index(x, y):
 
 @pytest.mark.parametrize("offset_name", ["center", "ul", "ur", "ll", "lr"])
 def test_rowcol_to_xy(offset_name):
-    rs = testdata.raster.dem_small
+    rs = Raster("tests/data/raster/elevation_small.tif")
     affine = rs.affine
     _, ny, nx = rs.shape
     R, C = np.mgrid[:ny, :nx]
@@ -1669,7 +1669,7 @@ def test_rowcol_to_xy(offset_name):
 
 
 def test_xy_to_rowcol():
-    rs = testdata.raster.dem_small
+    rs = Raster("tests/data/raster/elevation_small.tif")
     affine = rs.affine
     X, Y = np.meshgrid(rs.x, rs.y)
     x = X.ravel()
@@ -1725,7 +1725,7 @@ def test_to_points():
     assert np.all(ddf.columns == ["value", "band", "row", "col", "geometry"])
     _compare_raster_to_points(rs, df)
 
-    rs = testdata.raster.dem_small
+    rs = Raster("tests/data/raster/elevation_small.tif")
     rs = band_concat((rs, rs + 100))
     data = rs.values
     rs = rs.chunk((1, 20, 20))
@@ -1767,7 +1767,7 @@ def test_to_points():
 @pytest.mark.parametrize(
     "raster",
     [
-        testdata.raster.dem,
+        Raster("tests/data/raster/elevation.tif"),
         arange_raster((3, 35, 50))
         .set_crs("EPSG:3857")
         .remap_range([(0, 10, 0), (3490, 3500, 0), (5200, 5210, 0)])
@@ -1974,10 +1974,13 @@ def test_get_chunk_rasters():
 @pytest.mark.parametrize(
     "raster",
     [
-        testdata.raster.dem_small,
-        testdata.raster.dem_small.chunk((1, 20, 20)),
+        Raster("tests/data/raster/elevation_small.tif"),
+        Raster("tests/data/raster/elevation_small.tif").chunk((1, 20, 20)),
         band_concat(
-            [testdata.raster.dem_small, testdata.raster.dem_small]
+            [
+                Raster("tests/data/raster/elevation_small.tif"),
+                Raster("tests/data/raster/elevation_small.tif"),
+            ]
         ).chunk((1, 20, 20)),
     ],
 )
@@ -2038,7 +2041,7 @@ def test_to_polygons(raster, neighbors):
 
 @pytest.mark.parametrize("neighbors", [4, 8])
 def test_to_polygons_and_back_to_raster(neighbors):
-    raster = testdata.raster.dem_small
+    raster = Raster("tests/data/raster/elevation_small.tif")
     vec = Vector(raster.to_polygons(neighbors).compute())
     new_rast = vec.to_raster(raster, field="value").set_null_value(
         raster.null_value

@@ -5,13 +5,13 @@ from raster_tools import focal, surface
 from raster_tools.dtypes import I32
 from raster_tools.general import band_concat
 from raster_tools.masking import get_default_null_value
-from tests import testdata
+from raster_tools.raster import Raster
 from tests.utils import assert_rasters_similar, assert_valid_raster
 
 
 @pytest.fixture
 def dem():
-    return testdata.raster.dem
+    return Raster("tests/data/raster/elevation.tif")
 
 
 # TODO: add test for surface_area_3d
@@ -20,9 +20,9 @@ def dem():
 @pytest.mark.parametrize(
     "degrees,truth",
     [
-        (None, testdata.raster.dem_slope),
-        (True, testdata.raster.dem_slope),
-        (False, testdata.raster.dem_slope_percent),
+        (None, Raster("tests/data/raster/slope.tif")),
+        (True, Raster("tests/data/raster/slope.tif")),
+        (False, Raster("tests/data/raster/slope_percent.tif")),
     ],
 )
 def test_slope(dem, degrees, truth):
@@ -41,7 +41,7 @@ def test_slope(dem, degrees, truth):
 
 def test_aspect(dem):
     aspect = surface.aspect(dem)
-    truth = testdata.raster.dem_aspect
+    truth = Raster("tests/data/raster/aspect.tif")
 
     assert_valid_raster(aspect)
     assert_rasters_similar(aspect, dem)
@@ -54,7 +54,7 @@ def test_aspect(dem):
 
 def test_curvature(dem):
     curv = surface.curvature(dem)
-    truth = testdata.raster.dem_curv
+    truth = Raster("tests/data/raster/curv.tif")
 
     assert_valid_raster(curv)
     assert_rasters_similar(curv, dem)
@@ -75,7 +75,7 @@ def test_curvature(dem):
 
 def test_northing(dem):
     northing = surface.northing(dem)
-    truth = testdata.raster.dem_northing
+    truth = Raster("tests/data/raster/northing.tif")
 
     assert_valid_raster(northing)
     assert_rasters_similar(northing, dem)
@@ -102,7 +102,7 @@ def test_northing(dem):
 
 def test_easting(dem):
     easting = surface.easting(dem)
-    truth = testdata.raster.dem_easting
+    truth = Raster("tests/data/raster/easting.tif")
 
     assert_valid_raster(easting)
     assert_rasters_similar(easting, dem)
@@ -129,7 +129,7 @@ def test_easting(dem):
 
 def test_hillshade(dem):
     hill = surface.hillshade(dem)
-    truth = testdata.raster.dem_hillshade
+    truth = Raster("tests/data/raster/hillshade.tif")
 
     assert_valid_raster(hill)
     assert_rasters_similar(hill, dem)
@@ -141,7 +141,7 @@ def test_hillshade(dem):
 
 
 def test_tpi():
-    dem = testdata.raster.dem_small
+    dem = Raster("tests/data/raster/elevation_small.tif")
     truth = ((dem - focal.focal(dem, "mean", (5, 11))) + 0.5).astype(
         I32, False
     )

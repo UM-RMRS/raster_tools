@@ -4,7 +4,6 @@ import numpy as np
 from affine import Affine
 
 from raster_tools import Raster, distance
-from tests import testdata
 from tests.utils import assert_valid_raster
 
 # Example taken from ESRI docs
@@ -172,21 +171,21 @@ class TestCostDist(unittest.TestCase):
         with self.assertRaises(ValueError):
             # Must have same shape
             distance.cost_distance_analysis(
-                self.cs, "tests/data/raster/dem_small.tif"
+                self.cs, "tests/data/raster/elevation_small.tif"
             )
         with self.assertRaises(TypeError):
             # source raster must be int
             distance.cost_distance_analysis(
-                "tests/data/raster/dem_small.tif",
-                "tests/data/raster/dem_small.tif",
+                "tests/data/raster/elevation_small.tif",
+                "tests/data/raster/elevation_small.tif",
             )
         with self.assertRaises(ValueError):
             # source raster must have null value
             distance.cost_distance_analysis(
-                "tests/data/raster/dem_small.tif",
-                testdata.raster.dem_small.astype(int, False).set_null_value(
-                    None
-                ),
+                "tests/data/raster/elevation_small.tif",
+                Raster("tests/data/raster/elevation_small.tif")
+                .astype(int, False)
+                .set_null_value(None),
             )
         with self.assertRaises(ValueError):
             # sources array must have shape (M, 2)
@@ -221,7 +220,7 @@ class TestCostDist(unittest.TestCase):
 
 
 def test_cost_distance_analysis_crs():
-    rs = testdata.raster.dem_small
+    rs = Raster("tests/data/raster/elevation_small.tif")
     srcs = np.array([[1, 1], [20, 30]])
     cd, tr, al = distance.cost_distance_analysis(rs, srcs)
     assert_valid_raster(cd)

@@ -5,14 +5,14 @@ import numpy as np
 
 from raster_tools import clipping
 from raster_tools.raster import Raster, RasterNoDataError
-from tests import testdata
+from raster_tools.vector import open_vectors
 from tests.utils import assert_valid_raster
 
 
 class TestClipping(TestCase):
     def setUp(self):
-        self.dem = testdata.raster.dem
-        self.pods = testdata.vector.pods
+        self.dem = Raster("tests/data/raster/elevation.tif")
+        self.pods = open_vectors("tests/data/vector/pods.shp")
         self.v10 = self.pods[10]
         self.v10_bounds = dask.compute(self.v10.to_crs(self.dem.crs).bounds)[0]
 
@@ -24,7 +24,7 @@ class TestClipping(TestCase):
 
     def test_clip(self):
         res = clipping.clip(self.v10, self.dem)
-        truth = testdata.raster.clipping_clip_pods_10
+        truth = Raster("tests/data/raster/clipping_clip_pods_10.tif")
         assert_valid_raster(res)
         self.assertTrue(np.allclose(res, truth))
         assert res.crs == self.dem.crs
@@ -35,7 +35,7 @@ class TestClipping(TestCase):
 
     def test_erase(self):
         res = clipping.erase(self.v10, self.dem)
-        truth = testdata.raster.clipping_erase_pods_10
+        truth = Raster("tests/data/raster/clipping_erase_pods_10.tif")
         assert_valid_raster(res)
         self.assertTrue(np.allclose(res, truth))
         assert res.crs == self.dem.crs
@@ -46,20 +46,20 @@ class TestClipping(TestCase):
 
     def test_mask(self):
         res = clipping.mask(self.v10, self.dem)
-        truth = testdata.raster.clipping_mask_pods_10
+        truth = Raster("tests/data/raster/clipping_mask_pods_10.tif")
         assert_valid_raster(res)
         self.assertTrue(np.allclose(res, truth))
         assert res.crs == self.dem.crs
 
         res = clipping.mask(self.v10, self.dem, invert=True)
-        truth = testdata.raster.clipping_mask_inverted_pods_10
+        truth = Raster("tests/data/raster/clipping_mask_inverted_pods_10.tif")
         assert_valid_raster(res)
         self.assertTrue(np.allclose(res, truth))
         assert res.crs == self.dem.crs
 
     def test_envelope(self):
         res = clipping.envelope(self.v10, self.dem)
-        truth = testdata.raster.clipping_envelope_pods_10
+        truth = Raster("tests/data/raster/clipping_envelope_pods_10.tif")
         assert_valid_raster(res)
         self.assertTrue(np.allclose(res, truth))
         assert res.crs == self.dem.crs
@@ -79,8 +79,8 @@ class TestClipping(TestCase):
             clipping._clip(self.v10, self.dem, bounds=self.v10.bounds)
 
     def test_clip_box(self):
-        self.dem = testdata.raster.dem
-        rs_clipped = testdata.raster.dem_small
+        self.dem = Raster("tests/data/raster/elevation.tif")
+        rs_clipped = Raster("tests/data/raster/elevation_small.tif")
         bounds = [
             rs_clipped.xdata.x.min().item(),
             rs_clipped.xdata.y.min().item(),

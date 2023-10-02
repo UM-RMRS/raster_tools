@@ -1,232 +1,137 @@
 # isort: off
 # TODO(pygeos): remove this once shapely is the default backend for geopandas.
 # Force raster_tools._compat to be loaded before geopandas when running tests
-import raster_tools as rts  # noqa: F401
+import raster_tools  # noqa: F401
 
 # isort: on
 
+from unittest import TestCase
+
 import dask
-import dask.dataframe as dd
 import dask_geopandas as dgpd
 import geopandas as gpd
 import numpy as np
 import pandas as pd
 import pytest
-import scipy
 import shapely
 
-from raster_tools import band_concat
+from raster_tools import Raster, band_concat, open_vectors
 from raster_tools.zonal import (
-    _asm_agg,
-    _entropy_agg,
-    _mode_agg,
-    _nunique_agg,
-    _raster_to_series,
+    _ZONAL_STAT_FUNCS,
+    ZONAL_STAT_FUNCS,
     extract_points_eager,
     zonal_stats,
 )
-from tests import testdata
+from tests.test_focal import asm, entropy, mode, unique
 from tests.utils import arange_raster
 
 
-def asm(x):
-    return rts.stat_common.nanasm_jit(x.values)
+def _apply_stat(dem, vrs, func):
+    rsnp = np.array(vrs)
+    mask = rsnp > 0
+    return func(dem[mask])
 
 
-def entropy(x):
-    return rts.stat_common.nanentropy_jit(x.values)
+def _apply_stat_all(dem, vrss, func):
+    return [_apply_stat(dem, vrs, func) for vrs in vrss]
 
 
-def mode(x):
-    m = scipy.stats.mode(x.values).mode
-    if np.isscalar:
-        return m
-    return m[0]
+def count(x):
+    return np.count_nonzero(~np.isnan(x))
 
 
-def nunique(x):
-    return rts.stat_common.nan_unique_count_jit(x.values)
+all_stats = {
+    "asm": asm,
+    "count": count,
+    "entropy": entropy,
+    "max": np.nanmax,
+    "mean": np.nanmean,
+    "median": np.nanmedian,
+    "min": np.nanmin,
+    "mode": mode,
+    "std": np.nanstd,
+    "sum": np.nansum,
+    "unique": unique,
+    "var": np.nanvar,
+}
 
 
-group_df1 = pd.DataFrame(
-    {"zone": np.arange(5).repeat(4), "band_1": np.arange(20).astype("float64")}
-)
-group_df2 = pd.DataFrame(
-    {
-        "zone": [8, 0, 1, 1, 2, 3, 3, 3, 3, 3, 4, 4, 6, 7, 7, 7, 7, 7, 8, 8],
-        "band_1": np.arange(20).astype("float64"),
-    }
-)
-group_df3 = pd.DataFrame(
-    {"zone": np.arange(5).repeat(4), "band_1": np.ones(20).astype("float64")}
-)
+class TestZonalStats(TestCase):
+    def setUp(self):
+        self.dem = Raster("tests/data/raster/elevation.tif")
+        self.dem_np = np.array(self.dem)
+        self.vc = open_vectors("tests/data/vector/pods_first_10.shp")
+        self.vc_rasters = [v.to_raster(self.dem).eval() for v in self.vc]
 
+    def test_stat_func_set(self):
+        # Make sure public set of funcs matches private look up table
+        self.assertTrue(ZONAL_STAT_FUNCS == set(_ZONAL_STAT_FUNCS))
 
-@pytest.mark.parametrize(
-    "stat,stat_truth",
-    [
-        (_asm_agg, asm),
-        (_entropy_agg, entropy),
-        (_mode_agg, mode),
-        (_nunique_agg, nunique),
-    ],
-)
-@pytest.mark.parametrize(
-    "frame",
-    [
-        dd.from_pandas(group_df1, npartitions=1),
-        dd.from_pandas(group_df1, npartitions=3),
-        dd.from_pandas(group_df1, npartitions=10),
-        dd.from_pandas(group_df2, npartitions=3),
-        dd.from_pandas(group_df2, npartitions=7),
-        dd.from_pandas(group_df3, npartitions=7),
-    ],
-)
-def test_custom_stats(stat, stat_truth, frame):
-    gdfc = frame.compute().groupby("zone")
-    gdf = frame.groupby("zone")
-    truth = gdfc.agg([stat_truth]).sort_index()
-    result = gdf.agg([stat]).compute().sort_index()
+    def test_zonal_stats(self):
+        res = zonal_stats(self.vc, self.dem, "mode")
+        resc = res.compute()
+        # Check that result is lazy
+        self.assertTrue(dask.is_dask_collection(res))
 
-    assert truth.equals(result)
+        mode_truth = _apply_stat_all(self.dem_np, self.vc_rasters, mode)
+        self.assertTrue(all(resc.columns == ["band", "mode"]))
+        self.assertTrue(len(resc["mode"]) == 10)
+        self.assertTrue(all(resc.index == list(range(10))))
+        self.assertTrue(np.allclose(resc["mode"], mode_truth))
 
+        stats = {"std": np.nanstd, "count": count, "asm": asm}
+        resc = zonal_stats(self.vc, self.dem, list(stats)).compute()
 
-def rasters_to_zonal_df(feat_raster, data_raster):
-    feat_raster = feat_raster.chunk(data_raster.data.chunks)
-    dfs = [_raster_to_series(feat_raster).rename("zone").compute()]
-    for b in range(1, data_raster.nbands + 1):
-        band = (
-            _raster_to_series(data_raster.get_bands(b))
-            .rename(f"band_{b}")
-            .compute()
-            .replace(data_raster.null_value, np.nan)
-            # Cast up to avoid floating point issues in sums
-            .astype("float64")
-        )
-        dfs.append(band)
-    return pd.concat(dfs, axis=1)
+        truth = {
+            k: _apply_stat_all(self.dem_np, self.vc_rasters, func)
+            for k, func in stats.items()
+        }
+        self.assertTrue(all(resc.columns == ["band", *stats]))
+        for k in stats:
+            self.assertTrue(np.allclose(resc[k], truth[k], 1e5))
 
+    def test_lazy(self):
+        res = zonal_stats(self.vc.to_lazy(), self.dem, "mode")
+        # Check that result is lazy
+        self.assertTrue(dask.is_dask_collection(res))
+        mode_truth = _apply_stat_all(self.dem_np, self.vc_rasters, mode)
+        self.assertTrue(np.allclose(res["mode"], mode_truth))
 
-@pytest.mark.parametrize(
-    "stats",
-    [
-        ["max", "mean", "median", "min", "size", "std", "sum", "var"],
-        ["asm", "entropy", "mode", "nunique", "mean", "var"],
-        ["asm", "median"],
-        "median",
-        ["mean", "median"],
-    ],
-)
-@pytest.mark.parametrize(
-    "features,raster",
-    [
-        # No null data in data raster
-        (
-            testdata.vector.pods_small.data.repartition(npartitions=3),
-            testdata.raster.dem_small.chunk((1, 20, 20)),
-        ),
-        # Some null data in data raster outside of features
-        (
-            testdata.vector.pods_small,
-            rts.clipping.clip(
-                testdata.vector.pods_small.buffer(100),
-                testdata.raster.dem_small.chunk((1, 20, 20)),
-            ),
-        ),
-        # All null data in data raster outside of features and some inside
-        (
-            testdata.vector.pods_small,
-            rts.clipping.clip(
-                testdata.vector.pods_small.data.compute()
-                .dissolve()
-                .buffer(-100),
-                testdata.raster.dem_small.chunk((1, 20, 20)),
-            ),
-        ),
-        # Raster features instead of vector
-        (
-            testdata.vector.pods_small.to_raster(testdata.raster.dem_small),
-            testdata.raster.dem_small.chunk((1, 20, 20)),
-        ),
-        # Raster features instead of vector and mismatched chunksize
-        (
-            testdata.vector.pods_small.to_raster(
-                testdata.raster.dem_small.chunk((1, 25, 25))
-            ),
-            testdata.raster.dem_small.chunk((1, 20, 20)),
-        ),
-    ],
-)
-def test_zonal_stats(features, raster, stats):
-    if isinstance(stats, str):
-        stats_working = [stats]
-    else:
-        stats_working = stats.copy()
-    for i, s in enumerate(stats_working):
-        if s == "asm":
-            stats_working[i] = asm
-        elif s == "entropy":
-            stats_working[i] = entropy
-        elif s == "mode":
-            stats_working[i] = mode
-        elif s == "nunique":
-            stats_working[i] = nunique
+    def test_all_stats(self):
+        self.assertTrue(set(all_stats) == set(ZONAL_STAT_FUNCS))
+        res = zonal_stats(self.vc, self.dem, list(all_stats)).compute()
 
-    if not isinstance(features, rts.Raster):
-        feat_raster = rts.rasterize.rasterize(features, raster)
-    else:
-        feat_raster = features
-    tdf = rasters_to_zonal_df(feat_raster, raster)
-    # Trim off areas outside features
-    tdf = tdf[tdf.zone != feat_raster.null_value]
-    truth_df = tdf.groupby("zone").agg(stats_working).sort_index()
+        truth = {
+            k: _apply_stat_all(self.dem_np, self.vc_rasters, func)
+            for k, func in all_stats.items()
+        }
+        self.assertTrue(all(res.columns == ["band", *all_stats]))
+        for k in all_stats:
+            self.assertTrue(np.allclose(res[k], truth[k], 1e5))
 
-    result = zonal_stats(features, raster, stats)
-    assert isinstance(result, dd.DataFrame)
-    assert result.columns.equals(truth_df.columns)
-    assert result.dtypes.equals(truth_df.dtypes)
-    resultc = result.compute().sort_index()
-    # Use this because .equals() is too sensitive
-    assert (truth_df - resultc).abs().max().max() < 1e-8
+    def test_multiband_all_stats(self):
+        dem = band_concat((self.dem, self.dem * 105))
+        dem_np = np.array(dem)
+        res = zonal_stats(self.vc, dem, list(all_stats)).compute()
 
-
-@pytest.mark.parametrize(
-    "raster",
-    [
-        testdata.raster.dem_small,
-        rts.band_concat(
-            [
-                testdata.raster.dem_small,
-                testdata.raster.dem_small,
-                testdata.raster.dem_small,
-            ]
-        ).chunk((1, 20, 20)),
-    ],
-)
-def test_zonal_stats_long_format(raster):
-    zdf = zonal_stats(
-        testdata.vector.pods_small, raster, ["mean", "min", "max"]
-    )
-    truth = (
-        zdf.compute()
-        .stack(0)
-        .reset_index()
-        .rename(columns={"level_1": "band"})
-        .sort_values(["band", "zone"])
-        .sort_index()
-    )
-    lookup = {f"band_{i + 1}": i + 1 for i in range(raster.nbands)}
-    truth["band"] = truth.band.apply(lambda x: lookup[x])
-    zdf = zonal_stats(
-        testdata.vector.pods_small,
-        raster,
-        ["mean", "min", "max"],
-        wide_format=False,
-    )
-
-    assert truth.columns.equals(zdf.columns)
-    zdf = zdf.compute().sort_index()
-    assert truth.equals(zdf)
+        truth = {
+            k: _apply_stat_all(dem_np[0:1], self.vc_rasters, func)
+            for k, func in all_stats.items()
+        }
+        for k in truth:
+            truth[k] = np.concatenate(
+                [
+                    truth[k],
+                    _apply_stat_all(dem_np[1:], self.vc_rasters, all_stats[k]),
+                ]
+            )
+        self.assertTrue(all(res.columns == ["band", *all_stats]))
+        band = np.ones(2 * len(self.vc))
+        band[len(self.vc) :] = 2
+        self.assertTrue(len(res) == 2 * len(self.vc))
+        self.assertTrue(np.allclose(res.band, band))
+        for k in all_stats:
+            self.assertTrue(np.allclose(res[k], truth[k], 1e5))
 
 
 def get_random_points(n, nparts, dem):
@@ -240,7 +145,7 @@ def get_random_points(n, nparts, dem):
 
 
 def dem_clipped_small():
-    return testdata.raster.dem_clipped_small
+    return Raster("tests/data/raster/elevation_clipped_small.tif")
 
 
 @pytest.mark.parametrize(
