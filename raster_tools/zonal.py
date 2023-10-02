@@ -1,179 +1,30 @@
-from collections.abc import Iterable, Iterator, Sequence
+from collections.abc import Sequence
 from functools import partial
 
 import dask
 import dask.array as da
 import dask.dataframe as dd
+import dask_geopandas as dgpd
+import geopandas as gpd
 import numba as nb
 import numpy as np
 import pandas as pd
-from dask_image import ndmeasure
 
-from raster_tools.dask_utils import dask_nanmax, dask_nanmin
 from raster_tools.dtypes import F64, I64, is_int, is_str
-from raster_tools.raster import Raster, get_raster, xy_to_rowcol
+from raster_tools.raster import Raster, get_raster
 from raster_tools.vector import Vector, get_vector
 
 __all__ = ["ZONAL_STAT_FUNCS", "extract_points_eager", "zonal_stats"]
 
 
-def _nan_count(x):
-    return da.count_nonzero(~np.isnan(x))
-
-
-def _nan_median(x):
-    x = da.asarray(x)
-    return da.nanmedian(x, axis=0)
-
-
-def _nan_unique(x):
-    return _nan_count(da.unique(x))
-
-
-def _flatten_gen(x):
-    """
-    A generator that recursively yields numpy arrays from arbitrarily nested
-    lists of arrays.
-    """
-    for xi in x:
-        if isinstance(x, Iterable) and not isinstance(xi, np.ndarray):
-            yield from _flatten_gen(xi)
-        else:
-            yield xi
-
-
-def _flatten(x):
-    """Flatten nested lists of arrays."""
-    if isinstance(x, np.ndarray):
-        return [x]
-    return list(_flatten_gen(x))
-
-
-def _recursive_map(func, *seqs):
-    """Apply a function to items in nested sequences."""
-    if isinstance(seqs[0], (list, Iterator)):
-        return [_recursive_map(func, *items) for items in zip(*seqs)]
-    return func(*seqs)
-
-
-def _unique_with_counts_chunk(x, computing_meta=False, axis=(), **kwargs):
-    """Reduce a dask chunk to a dict of unique values and counts.
-
-    This is the leaf operation in the reduction tree.
-    """
-    if computing_meta:
-        return x
-    x_non_nan = x[~np.isnan(x)]
-    values, counts = np.unique(x_non_nan, return_counts=True)
-    while values.ndim < len(axis):
-        values = np.expand_dims(values, axis=0)
-        counts = np.expand_dims(counts, axis=0)
-    return {"values": values, "counts": counts}
-
-
-def _ravel_key(item, key):
-    return item[key].ravel()
-
-
-_ravel_values = partial(_ravel_key, key="values")
-_ravel_counts = partial(_ravel_key, key="counts")
-
-
-def _split_concat(pairs, split_func):
-    # Split out a key from lists of dicts, ravel them, and concat all together
-    split = _recursive_map(split_func, pairs)
-    return np.concatenate(_flatten(split))
-
-
-def _unique_with_counts_combine(
-    pairs, computing_meta=False, axis=(), **kwargs
-):
-    """Merge/combine branches of the unique-with-counts reduction tree.
-
-    This includes results from multiple _unique_with_counts_chunk calls and
-    from prior _unique_with_counts_combine calls.
-    """
-    values = (
-        _recursive_map(_ravel_values, pairs) if not computing_meta else pairs
-    )
-    values = np.concatenate(_flatten(values))
-    if computing_meta:
-        return np.array([[[0]]], dtype=pairs.dtype)
-
-    counts = _split_concat(pairs, _ravel_counts)
-    res = {v: 0 for v in values}
-    for v, c in zip(values, counts):
-        res[v] += c
-    values = np.array(list(res.keys()))
-    counts = np.array(list(res.values()))
-    while values.ndim < len(axis):
-        values = np.expand_dims(values, axis=0)
-        counts = np.expand_dims(counts, axis=0)
-    return {"values": values, "counts": counts}
-
-
-def _mode_agg(pairs, computing_meta=False, axis=(), **kwargs):
-    """Perform the final aggregation to a single mode value."""
-    values = (
-        _split_concat(pairs, _ravel_values) if not computing_meta else pairs
-    )
-    if computing_meta:
-        return pairs.dtype.type(0)
-    if len(values) == 0:
-        # See note below about wrapping in np.array()
-        return np.array(np.nan)
-    counts = _split_concat(pairs, _ravel_counts)
-    res = {v: 0 for v in values}
-    for v, c in zip(values, counts):
-        res[v] += c
-    values = res.keys()
-    counts = res.values()
-    sorted_pairs = sorted(zip(counts, values), reverse=True)
-    # Find the minimum mode when there is a tie. This is the same behavior as
-    # scipy.
-    i = -1
-    c = sorted_pairs[0][0]
-    for pair in sorted_pairs:
-        if pair[0] == c:
-            i += 1
-        else:
-            break
-    # NOTE: wrapping the value in an array is a hack to prevent dask from
-    # mishandling the return value as an array with dims, leading to index
-    # errors. I can't pierce the veil of black magic that is causing the
-    # mishandling so this is the best fix I can come up with.
-    return np.array(sorted_pairs[i][1])
-
-
-def _nan_mode(x):
-    """
-    Compute the statistical mode of an array using a dask reduction operation.
-    """
-    return da.reduction(
-        x,
-        chunk=_unique_with_counts_chunk,
-        combine=_unique_with_counts_combine,
-        aggregate=_mode_agg,
-        # F64 to allow for potential empty input array. In that case a NaN is
-        # returned.
-        dtype=F64,
-        # Turn off concatenation to prevent dask from trying to concat the
-        # dicts of variable length values and counts. Dask tries to concat
-        # along the wrong axis, which causes errors.
-        concatenate=False,
-    )
-
-
 @nb.jit(nopython=True, nogil=True)
-def _entropy(values, counts):
-    if len(values) == 0:
+def _entropy(counts):
+    if len(counts) == 0:
         return np.nan
-    res = {v: 0 for v in values}
-    for v, c in zip(values, counts):
-        res[v] += c
-    counts = res.values()
+    # Manual stat calculation with a loop is faster than using vectorized numpy
+    # operations, likely due to numpy ops allocating temporary arrays.
     entropy = 0.0
-    frac = 1 / len(res)
+    frac = 1 / np.sum(counts)
     for cnt in counts:
         p = cnt * frac
         entropy -= p * np.log(p)
@@ -181,188 +32,243 @@ def _entropy(values, counts):
 
 
 @nb.jit(nopython=True, nogil=True)
-def _asm(values, counts):
-    if len(values) == 0:
+def _asm(counts):
+    if len(counts) == 0:
         return np.nan
-    res = {v: 0 for v in values}
-    for v, c in zip(values, counts):
-        res[v] += c
-    counts = res.values()
+    # Manual stat calculation with a loop is faster than using vectorized numpy
+    # operations, likely due to numpy ops allocating temporary arrays.
     asm = 0.0
-    frac = 1 / len(res)
+    frac = 1 / np.sum(counts)
     for cnt in counts:
         p = cnt * frac
         asm += p * p
     return asm
 
 
-def _entropy_asm_agg(
-    pairs, compute_entropy, computing_meta=False, axis=(), **kwargs
-):
-    """Perform the final aggregation to a single entropy or ASM value."""
-    if computing_meta:
-        return 0
-    values = _split_concat(pairs, _ravel_values)
-    if len(values) == 0:
-        return np.array([])
-    counts = _split_concat(pairs, _ravel_counts)
-    # NOTE: wrapping the value in an array is a hack to prevent dask from
-    # mishandling the return value as an array with dims, leading to index
-    # errors. I can't pierce the veil of black magic that is causing the
-    # mishandling so this is the best fix I can come up with.
-    if compute_entropy:
-        return np.array(_entropy(values, counts))
-    return np.array(_asm(values, counts))
+def _unique_with_counts_chunk(grps):
+    return grps.apply(lambda s: np.unique(s, return_counts=True))
 
 
-def _nan_entropy(x):
-    """Compute the entropy of an array using a dask reduction operation."""
-    return da.reduction(
-        x,
-        # mode chunk and combine funcs can be reused here
-        chunk=_unique_with_counts_chunk,
-        combine=_unique_with_counts_combine,
-        aggregate=partial(_entropy_asm_agg, compute_entropy=True),
-        dtype=F64,
-        # Turn off concatenation to prevent dask from trying to concat the
-        # dicts of variable length values and counts. Dask tries to concat
-        # along the wrong axis, which causes errors.
-        concatenate=False,
+def _combine_values_and_counts(s):
+    df = (
+        pd.DataFrame(
+            {
+                "values_": [vs for vs, _ in s.values],
+                "counts_": [cs for _, cs in s.values],
+            }
+        )
+        .explode(["values_", "counts_"])
+        .groupby("values_")
+        .sum()
     )
+    # Convert to lists because of weird behavior in finalize step. If the
+    # results are not converted to lists, the finalize step will get a series
+    # where each row is a tuple of arrays of objects instead of a tuple of
+    # lists of numbers. I don't know why this happens, but the following works.
+    return (df.index.to_list(), df.counts_.to_list())
 
 
-def _nan_asm(x):
-    """Compute the ASM of an array using a dask reduction operation.
-
-    Angular second moment.
-    """
-    return da.reduction(
-        x,
-        # mode chunk and combine funcs can be reused here
-        chunk=_unique_with_counts_chunk,
-        combine=_unique_with_counts_combine,
-        aggregate=partial(_entropy_asm_agg, compute_entropy=False),
-        dtype=F64,
-        # Turn off concatenation to prevent dask from trying to concat the
-        # dicts of variable length values and counts. Dask tries to concat
-        # along the wrong axis, which causes errors.
-        concatenate=False,
-    )
-
-
-_ZONAL_STAT_FUNCS = {
-    "asm": _nan_asm,
-    "count": _nan_count,
-    "entropy": _nan_entropy,
-    "max": dask_nanmax,
-    "mean": da.nanmean,
-    "median": _nan_median,
-    "min": dask_nanmin,
-    "mode": _nan_mode,
-    "std": da.nanstd,
-    "sum": da.nansum,
-    "unique": _nan_unique,
-    "var": da.nanvar,
-}
-# The set of valid zonal function names/keys
-ZONAL_STAT_FUNCS = frozenset(_ZONAL_STAT_FUNCS)
-
-
-def _build_zonal_stats_data(data_raster, feat_raster, feat_labels, stats):
-    nbands = data_raster.shape[0]
-    feat_data = feat_raster.data
-    # data will end up looking like:
-    # {
-    #   # band number
-    #   1: {
-    #     # Stat results
-    #     "mean": [X, X, X], <- dask array
-    #     "std": [X, X, X],
-    #     ...
-    #   },
-    #   2: {
-    #     # Stat results
-    #     "mean": [X, X, X],
-    #     "std": [X, X, X],
-    #     ...
-    #   },
-    #   ...
-    data = {}
-    raster_data = get_raster(data_raster, null_to_nan=True).data
-    for ibnd in range(nbands):
-        ibnd += 1
-        data[ibnd] = {}
-        # Use range to keep band dimension intact
-        band_data = raster_data[ibnd - 1 : ibnd]
-        for f in stats:
-            result_delayed = dask.delayed(ndmeasure.labeled_comprehension)(
-                band_data,
-                feat_data,
-                feat_labels,
-                _ZONAL_STAT_FUNCS[f],
-                F64,
-                np.nan,
+def _mode_fin(s):
+    # Final operation of the mode calculation
+    results = np.empty(len(s), dtype=F64)
+    for i, (vs, cs) in enumerate(s.values):
+        if len(vs) != 0:
+            # Order the counts descending with values ascending. In the case of
+            # tied counts, lower values come first. This mirrors the behavior
+            # of scipy's mode function.
+            df = pd.DataFrame({"values_": vs, "counts_": cs}).sort_values(
+                by=["counts_", "values_"], ascending=[False, True]
             )
-            data[ibnd][f] = da.from_delayed(
-                result_delayed,
-                feat_labels.shape,
-                dtype=F64,
-                meta=np.array([], dtype=F64),
-            )
-    return data
-
-
-def _create_dask_range_index(start, stop):
-    # dask.dataframe only allows dask.dataframe.index objects but doesn't have
-    # a way to create them. this is a hack to create one using from_pandas.
-    dummy = pd.DataFrame(
-        {"tmp": np.zeros(stop - start, dtype="u1")},
-        index=pd.RangeIndex(start, stop),
-    )
-    return dd.from_pandas(dummy, 1).index
-
-
-def _build_zonal_stats_dataframe(zonal_data, nparts=None):
-    bands = list(zonal_data)
-    snames = list(zonal_data[bands[0]])
-    n = zonal_data[bands[0]][snames[0]].size
-    if nparts is None:
-        # Get the number of partitions that dask thinks is reasonable. The data
-        # arrays have chunks of size 1 so we need to rechunk later and then
-        # repartition everything else in the dataframe to match.
-        nparts = zonal_data[bands[0]][snames[0]].rechunk().npartitions
-
-    df = None
-    for bnd in bands:
-        df_part = None
-        band_data = zonal_data[bnd]
-        band = da.full(n, bnd, dtype=I64)
-        # We need to create an index because the concat operation later will
-        # blindly paste in each dataframe's index. If an explicit index is not
-        # set, the default is a range index from 0 to n. Thus the final
-        # resulting dataframe would have identical indexes chained end-to-end:
-        # [0, 1, ..., n-1, 0, 1, ..., n-1, 0, 1..., n-1]. By setting an index
-        # we get [0, 1, ..., n, n+1, ..., n + n, ...].
-        ind_start = n * (bnd - 1)
-        ind_end = ind_start + n
-        index = _create_dask_range_index(ind_start, ind_end)
-        df_part = band.to_dask_dataframe("band", index=index).to_frame()
-        # Repartition to match the data
-        df_part = df_part.repartition(npartitions=nparts)
-        index = index.repartition(npartitions=nparts)
-        for name in snames:
-            df_part[name] = (
-                band_data[name].rechunk().to_dask_dataframe(name, index=index)
-            )
-        if df is None:
-            df = df_part
+            results[i] = df.values_.iloc[0]
         else:
-            # Use interleave_partitions to keep partition and division info
-            df = dd.concat([df, df_part], interleave_partitions=True)
-    return df
+            results[i] = np.nan
+    return pd.Series(results, index=s.index.copy())
 
 
-def zonal_stats(features, data_raster, stats, raster_feature_values=None):
+def _asm_entropy_fin(s, func):
+    # Final operation of the asm and entropy calculations
+    if len(s) == 0:
+        return pd.Series(np.array((), dtype=F64), index=s.index)
+    result_list = []
+    for _, cs in s.values:
+        result_list.append(func(np.asarray(cs)))
+    return pd.Series(result_list, index=s.index.copy())
+
+
+# Notes for mode, asm, and entropy aggs:
+# chunk:
+#     Each row is now a 2-tuple of numpy arrays representing the unique values
+#     and their counts
+# agg:
+#     Compbine the values and counts for zone value into a single 2-tuple of
+#     values and counts lists.
+# finalize:
+#     Compute final stat from values and counts.
+_mode_agg = dd.Aggregation(
+    "mode",
+    chunk=lambda grps: grps.apply(lambda s: np.unique(s, return_counts=True)),
+    agg=lambda grps: grps.apply(_combine_values_and_counts),
+    finalize=_mode_fin,
+)
+_asm_agg = dd.Aggregation(
+    "asm",
+    chunk=lambda grps: grps.apply(lambda s: np.unique(s, return_counts=True)),
+    agg=lambda grps: grps.apply(_combine_values_and_counts),
+    finalize=partial(_asm_entropy_fin, func=_asm),
+)
+_entropy_agg = dd.Aggregation(
+    "entropy",
+    chunk=_unique_with_counts_chunk,
+    agg=lambda grps: grps.apply(_combine_values_and_counts),
+    finalize=partial(_asm_entropy_fin, func=_entropy),
+)
+_nunique_agg = dd.Aggregation(
+    name="nunique",
+    chunk=lambda s: s.apply(lambda x: list(set(x.dropna()))),
+    agg=lambda s0: s0.obj.groupby(
+        level=list(range(s0.obj.index.nlevels))
+    ).sum(),
+    finalize=lambda s1: s1.apply(lambda final: len(set(final))),
+)
+
+
+_DASK_STAT_NAMES = frozenset(
+    ("max", "mean", "median", "min", "prod", "size", "std", "sum", "var")
+)
+_CUSTOM_STAT_NAMES = frozenset(("asm", "entropy", "mode", "nunique"))
+_CUSTOM_STAT_AGGS = {
+    "asm": _asm_agg,
+    "entropy": _entropy_agg,
+    "mode": _mode_agg,
+    "nunique": _nunique_agg,
+}
+ZONAL_STAT_FUNCS = frozenset(sorted(_DASK_STAT_NAMES | _CUSTOM_STAT_NAMES))
+
+
+def _build_long_format_meta(df):
+    return pd.DataFrame(
+        {
+            "zone": np.array((), dtype=df.index.dtype),
+            "band": np.array((), dtype=I64),
+            **{
+                s: np.array((), dtype=dtype)
+                for s, dtype in df.dtypes["band_1"].items()
+            },
+        },
+        index=np.array((), dtype=I64),
+    )
+
+
+def _melt_part(part):
+    # Convert a dataframe from wide format to long format
+    part = (
+        # Unpivot band_# column labels into the index. The index is now a
+        # MultiIndex of (zone, level_1) where level_1 has the band labels
+        part.stack(0)
+        # Move the zone and level_1 indices to columns
+        .reset_index()
+        .rename(columns={"level_1": "band"})
+        .sort_values(["band", "zone"])
+    )
+    # Convert band labels to 1-based integers
+    part["band"] = part.band.apply(lambda x: int(x.split("_")[-1]))
+    # New DataFrame structure:
+    #        zone  band  stat1  stat2  ...
+    # index
+    #     0     1     1     --     --  ...
+    return part
+
+
+def _find_problem_stats(stats):
+    has_median = False
+    out = []
+    for s in stats:
+        if not s == "median":
+            out.append(s)
+        else:
+            has_median = True
+    return out, has_median
+
+
+def _raster_to_series(raster):
+    # Returns a Series
+    return raster.xdata.to_dask_dataframe(["band", "x", "y"])["raster"]
+
+
+def _zonal_stats(features_raster, data_raster, stats):
+    """
+    Convert data to large dask DataFrame, group by the feature zone ids, and
+    apply aggregations specified by `stats` for each band.
+    """
+    stat_names = stats
+    stats, has_median = _find_problem_stats(stats)
+    stats = [
+        s if s in _DASK_STAT_NAMES else _CUSTOM_STAT_AGGS[s] for s in stats
+    ]
+    if features_raster.data.chunks[1:] != data_raster.data.chunks[1:]:
+        # Force rasters to have matching chunksizes
+        features_raster = features_raster.chunk(data_raster.data.chunks)
+    # Convert the features raster and data raster bands to dataframes and join
+    # them together. Each cell becomes a row and each chunk becomes a
+    # partition. The order is the same and the chunk boundaries are the same so
+    # they should concat together, cleanly.
+    dfs = [_raster_to_series(features_raster).rename("zone")]
+    for b in range(1, data_raster.nbands + 1):
+        band = _raster_to_series(data_raster.get_bands(b)).rename(f"band_{b}")
+        if not np.isnan(data_raster.null_value):
+            # Replace null values with NA values
+            band = band.replace(data_raster.null_value, np.nan)
+        # Cast up to avoid floating point issues in sums. F32 sums loose
+        # precision quickly even for smaller rasters. This affects any stat
+        # that involves a sum such as std, var, and mean.
+        # ref: https://web.archive.org/web/20230329091023/https://pythonspeed.com/articles/float64-float32-precision/  # noqa
+        if band.dtype != F64:
+            band = band.astype(F64)
+        dfs.append(band)
+    # DataFrame structure:
+    #        zone  band_1  band_2  ...
+    # index
+    #     0    --      --      --  ...
+    df = dd.concat(dfs, axis=1)
+    # Filter out non-feature areas
+    df = df[df.zone != features_raster.null_value]
+
+    gdf = df.groupby("zone")
+    adf = None
+    if has_median:
+        # median requires special treatment. It needs the shuffle arg and also
+        # causes TypeErrors when used with custom agg functions.
+        # ref: https://github.com/dask/dask/issues/10517
+        median_df = gdf.agg(["median"], shuffle="tasks")
+    if len(stats):
+        adf = gdf.agg(stats)
+        if has_median:
+            adf = adf.join(median_df)
+    else:
+        # Only median was provided
+        adf = median_df
+    if has_median:
+        # Shuffle columns to be in order of the original stats
+        col_tuples = []
+        for b in range(1, data_raster.nbands + 1):
+            band = f"band_{b}"
+            for stat in stat_names:
+                col_tuples.append((band, stat))
+        target_columns = pd.MultiIndex.from_tuples(col_tuples)
+        if not adf.columns.equals(target_columns):
+            adf = adf[target_columns]
+    # DataFrame structure, the columns are a MultiIndex and zone ids are the
+    # index:
+    #       band_1             band_2             ...
+    #       stat1  stat2  ...  stat1  stat2  ...  ...
+    # zone
+    #    1     --     --  ...
+    return adf
+
+
+def zonal_stats(
+    features, data_raster, stats, features_field=None, wide_format=True
+):
     """Apply stat functions to a raster based on a set of features.
 
     Parameters
@@ -376,7 +282,7 @@ def zonal_stats(features, data_raster, stats, raster_feature_values=None):
         A `Raster` or path string pointing to a raster file. The data raster
         to pull data from and apply the stat functions to.
     stats : str, list of str
-        A single string or list of strings corresponding to stat funcstions.
+        A single string or list of strings corresponding to stat functions.
         These functions will be applied to the raster data for each of the
         features in `features`. Valid string values:
 
@@ -399,31 +305,67 @@ def zonal_stats(features, data_raster, stats, raster_feature_values=None):
         'mode'
             Compute the statistical mode of the data. In the case of a tie, the
             lowest value is returned.
+        'nunique'
+            Count unique values.
+        'prod'
+            Calculate the product.
+        'size'
+            Calculate zone size.
         'std'
             Calculate the standard deviation.
         'sum'
             Calculate the sum.
-        'unique'
-            Count unique values.
         'var'
             Calculate the variance.
-    raster_feature_values : sequence of ints, optional
-        Unique values to be used when the `features` argument is a Raster. If
-        `features` is a Raster and this is not provided the unique values in
-        the raster will be calculated.
+    features_field : str, optional
+        If the `features` argument is a vector, this determines which field to
+        use when rasterizing the features. It must match one of the fields in
+        `features`. The default is to use `features`' index.
+    wide_format : bool, optional
+        If ``True``, the resulting dataframe is returned in wide format where
+        the columns are a cartesian product of the `data_raster` bands and the
+        specified stats and the index contains the feature zone IDs.
+
+        .. code-block::
+
+            pandas.MultiIndex(
+              [
+                ('band_1', 'stat1'),
+                ('band_1', 'stat2'),
+                ...
+                ('band_2', 'stat1'),
+                ('band_2', 'stat2'),
+                ...
+              ],
+            )
+
+        If ``False``, the resulting dataframe has columns `'zone', 'band',
+        'stat1', 'stat2', ...` and an integer index. In this case, the zone
+        column contains the feature zone IDs and band contains the one-base
+        integer band number. The rest of the columns correspond to the
+        specified stats.
+
+        The default is wide format.
 
     Returns
     -------
     dask.dataframe.DataFrame
-        A delayed dask DataFrame. The columns are the values in `stats` plus a
-        column indicating the band the calculation was carried out on. Each row
-        is the set of statistical calculations carried out on data pulled from
-        `data_raster` based on the corresponding feature in `features`. NaN
-        values indicate where a feature was outside of the raster or all data
-        under the feature was null.
+        A delayed dask DataFrame where the specified stats have been applied to
+        the bands in `data_raster`. See the `wide_format` option for a
+        description of the dataframe's structure.
 
     """
-    if is_str(features) or isinstance(features, Vector):
+    if isinstance(
+        features,
+        (
+            str,
+            Vector,
+            dgpd.GeoDataFrame,
+            dgpd.GeoSeries,
+            gpd.GeoDataFrame,
+            gpd.GeoSeries,
+        ),
+    ):
         features = get_vector(features)
     elif isinstance(features, Raster):
         if not is_int(features.dtype):
@@ -452,68 +394,53 @@ def zonal_stats(features, data_raster, stats, raster_feature_values=None):
         if features.shape[1:] != data_raster.shape[1:]:
             raise ValueError("Feature raster shape must match data raster")
 
-    feature_labels = None
+    # Rechunk based on largest (probable) dtype to avoid overly large chunks,
+    # which could cause memory issues down the pipeline. For instance, if the
+    # data raster has dtype of f32 but the rasterization of the features
+    # produces an i64 raster, the features raster will have double the memory
+    # footprint, for each chunk, compared to the original data raster. This
+    # causes dask to raise warnings about chunk sizes and drastically increases
+    # the likelihood of running out of memory at compute time.
+    # Rechunking to an 8-byte dtype helps mitigate the potential for memory
+    # pressure at compute time. It is done here because the chunksize of the
+    # data raster determines the chunksize of the features raster.
+    new_chunksize = da.empty((1, *data_raster.shape[1:]), dtype=F64).chunksize
+    data_raster = data_raster.chunk(new_chunksize)
     features_raster = None
     if isinstance(features, Vector):
-        feature_labels = np.arange(1, len(features) + 1)
-        features_raster = features.to_raster(data_raster)
+        if features_field is not None and features_field not in features.data:
+            raise KeyError(
+                "features_field must be a field name in the features input"
+            )
+        features_raster = features.to_raster(data_raster, field=features_field)
     else:
-        if raster_feature_values is None:
-            (raster_feature_values,) = dask.compute(np.unique(features.data))
-        else:
-            raster_feature_values = np.atleast_1d(raster_feature_values)
-            raster_feature_values = raster_feature_values[
-                raster_feature_values > 0
-            ]
-        feature_labels = raster_feature_values
+        if features.nbands > 1:
+            raise ValueError("features raster must have a single band")
+        if features.shape[1:] != data_raster.shape[1:]:
+            raise ValueError(
+                "features raster shape must match the data raster. "
+                f"Expected {data_raster.shape[1:]}, got {features.shape[1:]}."
+            )
         features_raster = features
 
-    data = _build_zonal_stats_data(
-        data_raster, features_raster, feature_labels, stats
-    )
-    df = _build_zonal_stats_dataframe(data)
+    df = _zonal_stats(features_raster, data_raster, stats)
+    if not wide_format:
+        # New DataFrame structure:
+        #        zone  band  stat1  stat2  ...
+        # index
+        #     0     1     1     --     --  ...
+        df = df.map_partitions(_melt_part, meta=_build_long_format_meta(df))
     return df
 
 
-def _xy_to_rowcol_wrapper(x, y, affine):
-    return np.stack(xy_to_rowcol(x, y, affine), axis=0)
-
-
-def _extract_points(data, r, c, valid_mask):
-    r, c, valid_mask = dask.compute(r, c, valid_mask)
-    extracted = np.full((len(valid_mask),), np.nan, dtype=F64)
-    extracted[valid_mask] = data[r[valid_mask], c[valid_mask]]
-    return extracted
-
-
-def _build_zonal_stats_data_from_points(data, mask, x, y, affine):
-    r, c = da.blockwise(
-        _xy_to_rowcol_wrapper,
-        "zi",
-        x,
-        "i",
-        y,
-        "i",
-        affine=affine,
-        new_axes={"z": 2},
-        dtype=np.int64,
+def _create_dask_range_index(start, stop):
+    # dask.dataframe only allows dask.dataframe.index objects but doesn't have
+    # a way to create them. this is a hack to create one using from_pandas.
+    dummy = pd.DataFrame(
+        {"tmp": np.zeros(stop - start, dtype="u1")},
+        index=pd.RangeIndex(start, stop),
     )
-    _, rn, cn = data.shape
-    r, c = dask.compute(r, c)
-    valid_mask = (r >= 0) & (r < rn) & (c >= 0) & (c < cn)
-    out = {
-        i + 1: {"extracted": da.full(len(valid_mask), np.nan, dtype=F64)}
-        for i in range(data.shape[0])
-    }
-    for i in range(data.shape[0]):
-        extracted = da.full(len(valid_mask), np.nan, dtype=F64)
-        extracted[valid_mask] = data.vindex[i, r[valid_mask], c[valid_mask]]
-        # Mask out missing points within the valid zones
-        exmask = da.zeros(len(valid_mask), dtype=bool)
-        exmask[valid_mask] = mask.vindex[i, r[valid_mask], c[valid_mask]]
-        extracted[exmask] = np.nan
-        out[i + 1]["extracted"] = extracted
-    return out
+    return dd.from_pandas(dummy, 1).index
 
 
 def extract_points_eager(

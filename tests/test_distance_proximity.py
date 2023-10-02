@@ -8,6 +8,7 @@ from raster_tools.distance import proximity as prx
 from raster_tools.dtypes import F32
 from raster_tools.masking import get_default_null_value
 from raster_tools.raster import Raster
+from tests import testdata
 
 
 @pytest.mark.parametrize(
@@ -251,11 +252,11 @@ def test_proximity_metric(src, metric, truth_func, max_distance):
 
 
 def test_proximity_great_circle():
-    tprox = Raster("tests/data/raster/prox_haversine_proximity.tif")
-    talloc = Raster("tests/data/raster/prox_haversine_allocation.tif")
-    tdirn = Raster("tests/data/raster/prox_haversine_direction.tif")
+    tprox = testdata.raster.prox_haversine_proximity
+    talloc = testdata.raster.prox_haversine_allocation
+    tdirn = testdata.raster.prox_haversine_direction
 
-    src = Raster("tests/data/raster/prox_src.tif")
+    src = testdata.raster.prox_src
 
     rprox, rdirn, ralloc = prx.proximity_analysis(
         src, distance_metric="haversine"
