@@ -215,9 +215,7 @@ def _zonal_stats(features_raster, data_raster, stats):
     dfs = [_raster_to_series(features_raster).rename("zone")]
     for b in range(1, data_raster.nbands + 1):
         band = _raster_to_series(data_raster.get_bands(b)).rename(f"band_{b}")
-        if data_raster.null_value is not None and not np.isnan(
-            data_raster.null_value
-        ):
+        if not np.isnan(data_raster.null_value):
             # Replace null values with NA values
             band = band.replace(data_raster.null_value, np.nan)
         # Cast up to avoid floating point issues in sums. F32 sums loose
