@@ -39,7 +39,7 @@ def entropy(x):
 
 def mode(x):
     m = scipy.stats.mode(x.values).mode
-    if np.isscalar:
+    if np.isscalar(m):
         return m
     return m[0]
 
