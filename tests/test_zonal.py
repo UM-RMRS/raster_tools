@@ -39,7 +39,7 @@ def entropy(x):
 
 def mode(x):
     m = scipy.stats.mode(x.values).mode
-    if np.isscalar:
+    if np.isscalar(m):
         return m
     return m[0]
 
@@ -95,14 +95,16 @@ def rasters_to_zonal_df(feat_raster, data_raster):
     feat_raster = feat_raster.chunk(data_raster.data.chunks)
     dfs = [_raster_to_series(feat_raster).rename("zone").compute()]
     for b in range(1, data_raster.nbands + 1):
+        nv = data_raster.null_value
         band = (
             _raster_to_series(data_raster.get_bands(b))
             .rename(f"band_{b}")
             .compute()
-            .replace(data_raster.null_value, np.nan)
-            # Cast up to avoid floating point issues in sums
-            .astype("float64")
         )
+        if nv is not None:
+            band = band.replace(data_raster.null_value, np.nan)
+        # Cast up to avoid floating point issues in sums
+        band = band.astype("float64")
         dfs.append(band)
     return pd.concat(dfs, axis=1)
 
@@ -154,6 +156,11 @@ def rasters_to_zonal_df(feat_raster, data_raster):
                 testdata.raster.dem_small.chunk((1, 25, 25))
             ),
             testdata.raster.dem_small.chunk((1, 20, 20)),
+        ),
+        # No null value set
+        (
+            testdata.vector.pods_small,
+            testdata.raster.dem_small.set_null_value(None).chunk((1, 20, 20)),
         ),
     ],
 )
