@@ -20,9 +20,9 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         env:
-          - requirements/38-ci.yml
           - requirements/39-ci.yml
           - requirements/310-ci.yml
+          - requirements/311-ci.yml
 
     steps:
       - uses: actions/checkout@v3

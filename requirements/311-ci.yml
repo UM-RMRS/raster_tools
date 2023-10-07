@@ -1,0 +1,24 @@
+name: test
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - affine
+  - dask
+  - dask-geopandas
+  - dask-image
+  - fiona
+  - geopandas
+  - numba
+  - numpy
+  - pandas
+  - pyogrio
+  - pyproj
+  - pytest
+  - pytest-xdist
+  - pytest-mock
+  - rasterio
+  - rioxarray
+  - scipy
+  - shapely>=2.0
+  - xarray

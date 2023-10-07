@@ -51,5 +51,5 @@ setup(
     package_dir={"": "."},
     packages=find_packages(exclude=["docs", "tests"]),
     install_requires=INSTALL_REQUIRES,
-    python_requires=">=3.8",
+    python_requires=">=3.9",
 )

@@ -191,8 +191,11 @@ def _find_problem_stats(stats):
 
 
 def _raster_to_series(raster):
-    # Returns a Series
-    return raster.xdata.to_dask_dataframe(["band", "x", "y"])["raster"]
+    # Convert the underlying dask array into a dask Series
+    # DataArray.to_dask_dataframe is only available in newer versions of xarray
+    if hasattr(raster.xdata, "to_dask_dataframe"):
+        return raster.xdata.to_dask_dataframe(["band", "x", "y"])["raster"]
+    return raster._ds.to_dask_dataframe(["band", "x", "y"])["raster"]
 
 
 def _zonal_stats(features_raster, data_raster, stats):
