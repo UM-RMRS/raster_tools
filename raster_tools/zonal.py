@@ -133,7 +133,18 @@ _nunique_agg = dd.Aggregation(
 
 
 _DASK_STAT_NAMES = frozenset(
-    ("max", "mean", "median", "min", "prod", "size", "std", "sum", "var")
+    (
+        "count",
+        "max",
+        "mean",
+        "median",
+        "min",
+        "prod",
+        "size",
+        "std",
+        "sum",
+        "var",
+    )
 )
 _CUSTOM_STAT_NAMES = frozenset(("asm", "entropy", "mode", "nunique"))
 _CUSTOM_STAT_AGGS = {

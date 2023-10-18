@@ -113,7 +113,7 @@ def rasters_to_zonal_df(feat_raster, data_raster):
     "stats",
     [
         ["max", "mean", "median", "min", "size", "std", "sum", "var"],
-        ["asm", "entropy", "mode", "nunique", "mean", "var"],
+        ["asm", "entropy", "mode", "nunique", "mean", "var", "count"],
         ["asm", "median"],
         "median",
         ["mean", "median"],
