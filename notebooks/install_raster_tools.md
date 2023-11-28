@@ -21,7 +21,7 @@ Steps:
     ![Screenshot of PowerShell prompt in Windows Start menu](https://user-images.githubusercontent.com/11561085/200663596-be258e6b-64bc-48f7-9e04-92ec6474f6ce.png)
 
 4. Download our yml file <a href="./rstools39.yml" download>Click to Download</a> and store it within your documents folder in a location you can access (e.g., ./documents/raster_tools_setup/rstools39.yml
-5. Type in `conda create -f <the path to the yml file>`. For example: `conda create -f ./documents/raster_tools_setup/rstools39.yml`
+5. Type in `conda env create -f <the path to the yml file>`. For example: `conda env create -f ./documents/raster_tools_setup/rstools39.yml`
 6. Press Enter and Raster-Tools will be installed within the rstools39 environment
 
 To launch Jupyter Lab type the following commands:
