@@ -4,8 +4,9 @@ from pathlib import Path
 import dask
 import numpy as np
 import rasterio as rio
-import rioxarray as rxr
+import rioxarray as xrio
 import xarray as xr
+from affine import Affine
 from dask.array.core import normalize_chunks as dask_chunks
 
 from raster_tools.dtypes import F32, F64, I64, U8, is_bool, is_float, is_int
@@ -161,7 +162,7 @@ def open_raster_from_path(path):
     # Try to let gdal open anything but NC, HDF, GRIB files
     if not ext or ext not in READ_NOT_IMPLEMENTED_EXTS:
         try:
-            xrs = rxr.open_rasterio(path, chunks=_get_chunks())
+            xrs = xrio.open_rasterio(path, chunks=_get_chunks())
         except rio.errors.RasterioIOError as e:
             raise RasterIOError(str(e))
     elif ext in READ_NOT_IMPLEMENTED_EXTS:
@@ -216,3 +217,87 @@ def write_raster(xrs, path, no_data_value, **rio_gdal_kwargs):
     else:
         # TODO: populate
         raise NotImplementedError()
+
+
+def _get_valid_variables(meta, ignore_too_many_dims):
+    data_vars = list(meta.data_vars)
+    valid = []
+    for v in data_vars:
+        n = meta[v].squeeze().ndim
+        if n > 3:
+            if ignore_too_many_dims:
+                continue
+            else:
+                raise ValueError(
+                    f"Too many dimensions for variable {v!r} with "
+                    f"{meta[v].ndim}."
+                )
+        elif n in (2, 3):
+            valid.append(v)
+        else:
+            raise ValueError(
+                f"Too few dimensions for variable {v!r} with {n}."
+            )
+    if not valid:
+        raise ValueError("No valid raster variables found")
+    return valid
+
+
+def _build_xr_raster(path, variable, affine, crs):
+    if affine is None:
+        affine = Affine(1, 0, 0, 0, -1, 0, 0)
+    var = xr.open_dataset(path, chunks="auto")[variable].squeeze()
+    var_data = var.data
+    if var.ndim == 2:
+        var_data = np.expand_dims(var_data, axis=0)
+    var_data = var_data.rechunk((1, "auto", "auto"))
+    band = np.array(list(range(var_data.shape[0])))
+    x = var[var.rio.x_dim].to_numpy()
+    y = var[var.rio.y_dim].to_numpy()
+    new_var = xr.DataArray(
+        var_data, dims=["band", "y", "x"], coords=(band, y, x)
+    )
+    new_var = new_var.rio.write_transform(affine)
+    if crs is not None:
+        new_var = new_var.rio.write_crs(crs)
+    nv = var._FillValue if "_FillValue" in var.attrs else var.rio.nodata
+    if nv is not None:
+        new_var = new_var.rio.write_nodata(nv)
+    return new_var
+
+
+class AffineEncodingError(Exception):
+    pass
+
+
+def _get_affine(ds):
+    try:
+        affine = ds.rio.transform()
+    except TypeError as err:
+        # Some datasets like gridMET improperly encode the transform.
+        raise AffineEncodingError(
+            "Error reading GeoTransform data:"
+            f"{ds.coords[ds.rio.grid_mapping].attrs['GeoTransform']!r}"
+        ) from err
+    return affine
+
+
+def open_dataset(
+    path,
+    band_dim=None,
+    crs=None,
+    affine=None,
+    ignore_extra_dim_errors=False,
+):
+    from raster_tools.raster import Raster
+
+    tmp_ds = xr.open_dataset(path, decode_coords="all")
+    data_vars = _get_valid_variables(tmp_ds, ignore_extra_dim_errors)
+    crs = crs or tmp_ds.rio.crs
+    affine = affine or _get_affine(tmp_ds)
+    tmp_ds = None
+    ds = {}
+    for v in data_vars:
+        var = _build_xr_raster(path, v, affine, crs)
+        ds[v] = Raster(var)
+    return ds
