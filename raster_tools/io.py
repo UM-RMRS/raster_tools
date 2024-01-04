@@ -219,6 +219,14 @@ def write_raster(xrs, path, no_data_value, **rio_gdal_kwargs):
         raise NotImplementedError()
 
 
+class AffineEncodingError(Exception):
+    pass
+
+
+class DimensionsError(Exception):
+    pass
+
+
 def _get_valid_variables(meta, ignore_too_many_dims):
     data_vars = list(meta.data_vars)
     valid = []
@@ -228,14 +236,14 @@ def _get_valid_variables(meta, ignore_too_many_dims):
             if ignore_too_many_dims:
                 continue
             else:
-                raise ValueError(
+                raise DimensionsError(
                     f"Too many dimensions for variable {v!r} with "
                     f"{meta[v].ndim}."
                 )
         elif n in (2, 3):
             valid.append(v)
         else:
-            raise ValueError(
+            raise DimensionsError(
                 f"Too few dimensions for variable {v!r} with {n}."
             )
     if not valid:
@@ -243,10 +251,12 @@ def _get_valid_variables(meta, ignore_too_many_dims):
     return valid
 
 
-def _build_xr_raster(path, variable, affine, crs):
+def _build_xr_raster(path, variable, affine, crs, xarray_kwargs):
     if affine is None:
         affine = Affine(1, 0, 0, 0, -1, 0, 0)
-    var = xr.open_dataset(path, chunks="auto")[variable].squeeze()
+    kwargs = xarray_kwargs.copy()
+    kwargs["chunks"] = "auto"
+    var = xr.open_dataset(path, **kwargs)[variable].squeeze()
     var_data = var.data
     if var.ndim == 2:
         var_data = np.expand_dims(var_data, axis=0)
@@ -266,10 +276,6 @@ def _build_xr_raster(path, variable, affine, crs):
     return new_var
 
 
-class AffineEncodingError(Exception):
-    pass
-
-
 def _get_affine(ds):
     try:
         affine = ds.rio.transform()
@@ -284,20 +290,65 @@ def _get_affine(ds):
 
 def open_dataset(
     path,
-    band_dim=None,
     crs=None,
-    affine=None,
     ignore_extra_dim_errors=False,
+    xarray_kwargs=None,
 ):
+    """Open a netCDF or GRIB dataset.
+
+    This function opens a netCDF or GRIB dataset file and returns a dictionary
+    of Raster objectds where each raster corrersponds to the variables in the
+    the file. netCDF/GRIB files can be N-dimensional, while rasters only
+    comprehend 2 to 3 dimensions (band, y, x), so it may not be possible to map
+    all variables in a file to a raster. See the `ignore_extra_dim_errors`
+    option below for more information.
+
+    Parameters
+    ----------
+    path : str
+        THe path to the netCDF or GRIB dataset file.
+    crs : str, rasterio.crs.CRS, optional
+        A coordinate reference system definition to attach to the dataset. This
+        can be an EPSG, PROJ, or WKT string. It can also be a
+        `rasterio.crs.CRS` object. netCDF/GRIB files do not always encode a
+        CRS. This option allows a CRS to be supplied, if known ahead of time.
+        It can also be used to override the CRS encoded in the file.
+    ignore_extra_dim_errors : bool, optional
+        If ``True``, ignore dataset variables that cannot be mapped to a
+        raster. An error is raised, otherwise. netCDF/GRIB files allow
+        N-dimensional. Rasters only comprehend 2 or 3 dimensional data so it is
+        not always possible to map a variable to a raster. The default is
+        ``False``.
+    xarray_kwargs : dict, optional
+        Keyword arguments to supply to `xarray.open_dataset` when opening the
+        file.
+
+    Raises
+    ------
+    raster_tools.io.AffineEncodingError
+        Raised if the affine matrix is improperly encoded.
+    ra
+
+    Returns
+    -------
+    dataset : dict of Raster
+        A ``dict`` of Raster objects. The keys are the variable names in the
+        dataset file and the values are the corresponding variable data as a
+        raster.
+
+    """
     from raster_tools.raster import Raster
 
-    tmp_ds = xr.open_dataset(path, decode_coords="all")
+    if xarray_kwargs is None:
+        xarray_kwargs = {}
+    xarray_kwargs["decode_coords"] = "all"
+    tmp_ds = xr.open_dataset(path, **xarray_kwargs)
     data_vars = _get_valid_variables(tmp_ds, ignore_extra_dim_errors)
     crs = crs or tmp_ds.rio.crs
-    affine = affine or _get_affine(tmp_ds)
+    affine = _get_affine(tmp_ds)
     tmp_ds = None
     ds = {}
     for v in data_vars:
-        var = _build_xr_raster(path, v, affine, crs)
+        var = _build_xr_raster(path, v, affine, crs, xarray_kwargs)
         ds[v] = Raster(var)
     return ds

@@ -10,6 +10,7 @@ from raster_tools.creation import (
     zeros_like,
 )
 from raster_tools.general import band_concat, reclassify, remap_range
+from raster_tools.io import open_dataset
 from raster_tools.raster import Raster, get_raster
 from raster_tools.vector import (
     Vector,
@@ -33,6 +34,7 @@ __all__ = [
     "line_stats",
     "list_layers",
     "ones_like",
+    "open_dataset",
     "open_vectors",
     "random_raster",
     "reclassify",
