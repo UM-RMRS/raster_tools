@@ -4,11 +4,13 @@ channels:
 dependencies:
   - python=3.11
   - affine
+  - cfgrib
   - dask
   - dask-geopandas
   - dask-image
   - fiona
   - geopandas
+  - netcdf4
   - numba
   - numpy
   - pandas

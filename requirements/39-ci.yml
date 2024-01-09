@@ -4,6 +4,7 @@ channels:
 dependencies:
   - python=3.9
   - affine
+  - cfgrib
   - dask
   - dask-geopandas
   - dask-image
@@ -11,6 +12,7 @@ dependencies:
   - geopandas
   - numba
   - numpy
+  - netcdf4
   - pandas
   - pyogrio
   - pyproj
