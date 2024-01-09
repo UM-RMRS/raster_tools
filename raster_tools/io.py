@@ -161,7 +161,9 @@ def open_raster_from_path(path):
         try:
             xrs = xrio.open_rasterio(path, chunks=to_chunk_dict(_get_chunks()))
         except rio.errors.RasterioIOError as e:
-            raise RasterIOError(str(e))
+            raise RasterIOError(
+                "Could not open given path as a raster."
+            ) from e
     elif ext in READ_NOT_IMPLEMENTED_EXTS:
         raise NotImplementedError(
             "Reading of NetCDF, HDF, and GRIB files is not supported at this"
