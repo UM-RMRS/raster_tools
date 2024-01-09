@@ -14,6 +14,7 @@ from raster_tools.masking import create_null_mask
 from raster_tools.utils import (
     is_strictly_decreasing,
     is_strictly_increasing,
+    to_chunk_dict,
     validate_path,
 )
 
@@ -44,9 +45,6 @@ def _get_chunks(data=None, src_file=None):
         if src_file is None:
             return chunks
         tile_shape, shape, dtype = _get_chunking_info_from_file(src_file)
-        return dask_chunks(
-            chunks, shape, dtype=dtype, previous_chunks=tile_shape
-        )
     else:
         shape = data.shape
         dtype = data.dtype
@@ -55,17 +53,16 @@ def _get_chunks(data=None, src_file=None):
             tile_shape = data.chunks
         elif src_file is not None:
             _, tile_shape, _ = _get_chunking_info_from_file(src_file)
-        return dask_chunks(
-            chunks, shape, dtype=dtype, previous_chunks=tile_shape
-        )
+    return dask_chunks(chunks, shape, dtype=dtype, previous_chunks=tile_shape)
 
 
 def chunk(xrs, src_file=None):
-    if isinstance(xrs, xr.Dataset):
-        chunks = _get_chunks(xrs.raster, src_file)
-        return xrs.chunk({d: c for d, c in zip(xrs.raster.dims, chunks)})
-    else:
-        return xrs.chunk(_get_chunks(xrs, src_file))
+    chunks = to_chunk_dict(
+        _get_chunks(
+            xrs.raster if isinstance(xrs, xr.Dataset) else xrs, src_file
+        )
+    )
+    return xrs.chunk(chunks)
 
 
 TIFF_EXTS = frozenset((".tif", ".tiff"))
@@ -162,7 +159,7 @@ def open_raster_from_path(path):
     # Try to let gdal open anything but NC, HDF, GRIB files
     if not ext or ext not in READ_NOT_IMPLEMENTED_EXTS:
         try:
-            xrs = xrio.open_rasterio(path, chunks=_get_chunks())
+            xrs = xrio.open_rasterio(path, chunks=to_chunk_dict(_get_chunks()))
         except rio.errors.RasterioIOError as e:
             raise RasterIOError(str(e))
     elif ext in READ_NOT_IMPLEMENTED_EXTS:

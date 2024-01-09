@@ -41,7 +41,12 @@ from raster_tools.masking import (
     get_default_null_value,
     reconcile_nullvalue_with_dtype,
 )
-from raster_tools.utils import can_broadcast, make_raster_ds, merge_masks
+from raster_tools.utils import (
+    can_broadcast,
+    make_raster_ds,
+    merge_masks,
+    to_chunk_dict,
+)
 
 from .io import (
     IO_UNDERSTOOD_TYPES,
@@ -533,7 +538,7 @@ def _dataset_to_raster_ds(xin):
     if mask.shape != raster.shape:
         raise ValueError("raster and mask dimensions do not match")
     if not dask.is_dask_collection(mask):
-        mask = mask.chunk(chunks=raster.chunks)
+        mask = mask.chunk(chunks=to_chunk_dict(raster.chunks))
 
     nv = _try_to_get_null_value_xarray(raster)
     if nv is None:
