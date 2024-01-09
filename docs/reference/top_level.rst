@@ -4,6 +4,15 @@
 Top Level Functions
 *******************
 
+Opening Rasters
+==================
+
+.. autosummary::
+   :toctree: generated/
+
+   Raster.__init__
+   open_dataset
+
 Combining Rasters
 =================
 

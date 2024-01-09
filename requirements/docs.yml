@@ -4,11 +4,13 @@ channels:
   - defaults
 dependencies:
   - python=3.8
+  - cfgrib
   - dask
   - dask-geopandas
   - dask-image
   - fiona
   - geopandas
+  - netcdf4
   - numba
   - numpy
   - pandas

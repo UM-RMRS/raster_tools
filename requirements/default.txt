@@ -1,9 +1,11 @@
 affine
+cfgrib
 dask
 dask-geopandas
 dask-image
 fiona
 geopandas
+netcdf4
 numba
 numpy>=1.22
 pandas
