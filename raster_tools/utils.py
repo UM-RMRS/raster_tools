@@ -164,3 +164,11 @@ def list_reshape_3d(lst, shape):
         out.append(list_reshape_2d(lst, shape_2d, flat_start=flat_idx))
         flat_idx += n_2d
     return out
+
+
+def to_chunk_dict(chunks, dims=None):
+    if isinstance(chunks, dict):
+        return chunks
+    if dims is None:
+        dims = ["band", "y", "x"]
+    return dict(zip(dims, chunks))

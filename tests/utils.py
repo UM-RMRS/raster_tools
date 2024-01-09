@@ -93,7 +93,7 @@ def assert_rasters_similar(left, right, check_nbands=True, check_chunks=True):
     if left is right:
         return
 
-    assert left._ds.dims.keys() == right._ds.dims.keys()
+    assert set(left._ds.dims) == set(right._ds.dims)
     assert np.allclose(left.x, right.x)
     assert np.allclose(left.y, right.y)
     assert left.crs == right.crs

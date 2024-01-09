@@ -1,5 +1,6 @@
 docs/**/generated/
 *.npy
+tests/data/raster/*.idx
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

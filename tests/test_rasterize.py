@@ -16,6 +16,7 @@ import xarray as xr
 from raster_tools import rasterize
 from raster_tools.masking import get_default_null_value
 from raster_tools.raster import Raster
+from raster_tools.utils import to_chunk_dict
 from raster_tools.vector import Vector, get_vector
 from tests import testdata
 from tests.utils import assert_rasters_similar, assert_valid_raster
@@ -106,7 +107,7 @@ def rio_rasterize_helper(
         )
         .rio.write_crs(like.crs)
         .rio.write_nodata(fill)
-        .chunk(like.data.chunks)
+        .chunk(to_chunk_dict(like.data.chunks))
     )
     return Raster(xtruth)
 

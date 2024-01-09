@@ -230,7 +230,7 @@ def test_raster_from_dask_array(data):
             da.from_array(np.arange(20).reshape((1, 4, 5))),
             dims=("other", "lat", "lon"),
             coords=([1], np.arange(4)[::-1], np.arange(5)),
-        ).chunk((1, 1, 1)),
+        ).chunk({"other": 1, "lat": 1, "lon": 1}),
     ],
 )
 def test_raster_from_dataarray(xdata):
