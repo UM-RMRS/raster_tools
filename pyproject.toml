@@ -8,6 +8,61 @@ build-backend = "setuptools.build_meta"
 [tool.black]
 line-length = 79
 
+[tool.ruff]
+line-length = 79
+# Exclude a variety of commonly ignored directories.
+exclude = [
+    ".bzr",
+    ".direnv",
+    ".eggs",
+    ".git",
+    ".git-rewrite",
+    ".hg",
+    ".mypy_cache",
+    ".nox",
+    ".pants.d",
+    ".pytype",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    ".venv",
+    "__pypackages__",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "node_modules",
+    "venv",
+]
+select = [
+    "E",      # Pycodestyle
+    "W",      # Pycodestyle
+    "N",      # pep8-naming
+    "B",      # flake8-bugbear
+    "A",      # flake8-builtins
+    "ISC",    # flake8-implicit-str-concat
+    "T20",    # flake8-print
+    "F",      # Pyflakes
+    "I",      # isort
+    "NPY",    # numpy rules
+    "PD",     # pandas-vet
+    "ASYNC",  # flake8-async
+    "SLOT",   # flake8-slots
+    "SIM",    # flake8-simplify
+    "Q",      # flake8-quotes
+    "C4",     # flake8-comprehensions
+    "PERF",   # perflint
+]
+
+[tool.ruff.lint]
+extend-select = ["I"]
+ignore = [
+    # Whitespace before ':'. flake8 is wrong when inside slice expressions.
+    "E203",
+]
+[tool.ruff.lint.isort]
+known-first-party = ["raster_tools", "test"]
+
 [tool.isort]
 profile = "black"
 line_length = 79

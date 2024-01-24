@@ -93,7 +93,7 @@ def _rasterize_onto_chunk(
         return np.full(shape_2d, fill, dtype=out_dtype)
     use_index = "values" not in gdf
     if use_index:
-        gdf.reset_index(names="values", inplace=True)
+        gdf = gdf.reset_index(names="values")
 
     # Trim anything outside the chunk
     chunk_bbox = shapely.geometry.box(
@@ -107,10 +107,10 @@ def _rasterize_onto_chunk(
     # ref: https://github.com/geopandas/geopandas/issues/2937
     gdf["idx"] = np.arange(len(gdf))
     gdf = gdf.clip(chunk_bbox)
-    gdf.sort_values(by=["idx"], inplace=True)
+    gdf = gdf.sort_values(by=["idx"])
     if not len(gdf):
         return np.full(shape_2d, fill, dtype=out_dtype)
-    gdf.drop(labels="idx", axis=1, inplace=True)
+    gdf = gdf.drop(labels="idx", axis=1)
 
     # Sort the dataframe to match the specified overlap resolution method.
     # rasterio's raesterize function replaces cells with overlapping features
@@ -138,8 +138,8 @@ def _rasterize_onto_chunk(
         # Sort so that larger values get rasterized last
         gdf = gdf.sort_values(by=["values"], na_position="first")
 
-    geometry = gdf.geometry.values
-    values = gdf["values"].values
+    geometry = gdf.geometry.to_numpy()
+    values = gdf["values"].to_numpy()
     if use_index:
         values += 1
 
@@ -169,7 +169,7 @@ def _mask_onto_chunk(
         return np.full(shape_2d, fill, dtype="uint8")
 
     return _rio_mask(
-        gdf.geometry.values, shape_2d, transform, all_touched, invert
+        gdf.geometry.to_numpy(), shape_2d, transform, all_touched, invert
     )
 
 
@@ -256,12 +256,9 @@ def _reduction_wrapper(
         # gets confused otherwise.
         return x
     # Assuming x has dims (B, Y, X), where B in {1, 2}
-    if x.shape[0] == 1:
-        # Do nothing if input only has one band. Nothing to reduce. Copy in
-        # order to follow dask best practices.
-        out = x.copy()
-    else:
-        out = resolve_func(x, fill=fill)
+    # Do nothing if input only has one band. Nothing to reduce. Copy in order
+    # to follow dask best practices.
+    out = x.copy() if x.shape[0] == 1 else resolve_func(x, fill=fill)
     if keepdims:
         return out
     return out[0]

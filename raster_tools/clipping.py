@@ -36,11 +36,11 @@ def _clip(
             bounds = np.atleast_1d(bounds)
         try:
             rs = clip_box(rs, bounds)
-        except RasterNoDataError:
+        except RasterNoDataError as err:
             raise RuntimeError(
                 "No data in given bounds. Make sure that the bounds are in the"
                 " same CRS as the data raster."
-            )
+            ) from err
 
     feat_rs = feat.to_raster(rs, mask=True)
     if not envelope:
@@ -54,10 +54,7 @@ def _clip(
         else:
             clip_mask = ones_like(feat_rs, dtype=bool)
 
-    if rs._masked:
-        nv = rs.null_value
-    else:
-        nv = get_default_null_value(rs.dtype)
+    nv = rs.null_value if rs._masked else get_default_null_value(rs.dtype)
 
     xdata_out = xr.where(clip_mask.xdata, rs.xdata, nv)
     xmask_out = ~clip_mask.xdata
@@ -216,8 +213,10 @@ def clip_box(raster, bounds):
         raise ValueError("Invalid bounds. Must be a size 4 array or tuple.")
     try:
         xrs = rs.xdata.rio.clip_box(*bounds, auto_expand=True)
-    except rxr.exceptions.NoDataInBounds:
-        raise RasterNoDataError("No data found within provided bounds")
+    except rxr.exceptions.NoDataInBounds as err:
+        raise RasterNoDataError(
+            "No data found within provided bounds"
+        ) from err
     if rs._masked:
         xmask = rs.xmask.rio.clip_box(*bounds, auto_expand=True)
     else:

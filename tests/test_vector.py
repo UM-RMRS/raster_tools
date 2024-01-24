@@ -115,11 +115,11 @@ class TestVectorProperties(unittest.TestCase):
 
     def test_bounds(self):
         self.assertTrue(hasattr(self.v, "bounds"))
-        df = gpd.read_file("tests/data/vector/pods.shp")
-        v = open_vectors("tests/data/vector/pods.shp")
-        self.assertTrue(all(v.bounds == df.total_bounds))
-        self.assertTrue(dask.is_dask_collection(v.to_lazy().bounds))
-        self.assertTrue(all(v.to_lazy().bounds == df.total_bounds))
+        geoms_df = gpd.read_file("tests/data/vector/pods.shp")
+        vect = open_vectors("tests/data/vector/pods.shp")
+        self.assertTrue(all(vect.bounds == geoms_df.total_bounds))
+        self.assertTrue(dask.is_dask_collection(vect.to_lazy().bounds))
+        self.assertTrue(all(vect.to_lazy().bounds == geoms_df.total_bounds))
 
 
 class TestSpecialMethods(unittest.TestCase):
@@ -229,13 +229,10 @@ class TestCastField(unittest.TestCase):
 def test_add_objectid_column(vec):
     if isinstance(vec, str):
         vec = open_vectors(vec)
-    if isinstance(vec, Vector):
-        df = vec.data
-    else:
-        df = vec
+    geoms_df = vec.data if isinstance(vec, Vector) else vec
 
     id_values = []
-    for i, part in enumerate(df.partitions):
+    for i, part in enumerate(geoms_df.partitions):
         part = part.compute()
         base = i * _OBJECTID_BASE
         id_values.extend(np.arange(1, len(part) + 1) + base)
@@ -247,8 +244,8 @@ def test_add_objectid_column(vec):
         assert isinstance(result, Vector)
         result_df = result.data
 
-    if df.spatial_partitions is not None:
-        assert result.spatial_partitions.equals(df.spatial_partitions)
-    assert df.npartitions == result_df.npartitions
+    if geoms_df.spatial_partitions is not None:
+        assert result.spatial_partitions.equals(geoms_df.spatial_partitions)
+    assert geoms_df.npartitions == result_df.npartitions
     assert "id_col" in result_df
-    assert np.allclose(id_values, result_df.id_col.compute().values)
+    assert np.allclose(id_values, result_df.id_col.compute().to_numpy())

@@ -401,7 +401,7 @@ def test_focal(filter_name, filter_func, kernel, kernel_params):
 
     result_raster = focal.focal(rx, filter_name, *kernel_params)
     assert_valid_raster(result_raster)
-    res_full = result_raster.values[0]
+    res_full = result_raster.to_numpy()[0]
     # Fill with null value
     assert np.allclose(
         np.where(mask, result_raster.null_value, truth),
@@ -436,7 +436,7 @@ def test_focal_correlate():
 
 def test_focal_integration():
     rs = testdata.raster.multiband_small
-    rsnp = rs.values
+    rsnp = rs.to_numpy()
     truth = rsnp.astype(float)
     for bnd in range(truth.shape[0]):
         truth[bnd] = ndimage.generic_filter(
@@ -445,7 +445,7 @@ def test_focal_integration():
     res_raster = focal.focal(rs, "mean", 3, 3)
     assert_valid_raster(res_raster)
     assert res_raster.crs == rs.crs
-    res = res_raster.values
+    res = res_raster.to_numpy()
     assert np.allclose(truth, res, equal_nan=True)
     truth = rsnp.astype(float)
     kern = focal.get_focal_window(3)
@@ -460,19 +460,19 @@ def test_focal_integration():
     res_raster = focal.focal(rs, "median", 3)
     assert_valid_raster(res_raster)
     assert res_raster.crs == rs.crs
-    res = res_raster.values
+    res = res_raster.to_numpy()
     assert np.allclose(truth, res, equal_nan=True)
 
 
 def test_focal_integration_raster_input():
     rs = testdata.raster.multiband_small
-    rsnp = rs.values
+    rsnp = rs.to_numpy()
     with pytest.raises(TypeError):
         focal.focal(rsnp, "median", 3)
     res_raster = focal.focal(rs, "mean", 1)
     assert_valid_raster(res_raster)
     assert res_raster.crs == rs.crs
-    res = res_raster.values
+    res = res_raster.to_numpy()
     assert np.allclose(rsnp, res, equal_nan=True)
 
 
@@ -510,7 +510,7 @@ def test_focal_output_type():
 
 def test_correlate_integration():
     rs = testdata.raster.multiband_small.astype(float)
-    rsnp = rs.values
+    rsnp = rs.to_numpy()
     truth = rsnp.astype(float)
     kernel = np.array([[1, 1, 1], [1, 1, 0], [1, 0, 0]]).astype(float)
     for bnd in range(truth.shape[0]):
@@ -520,7 +520,7 @@ def test_correlate_integration():
     res_raster = focal.correlate(rs, kernel)
     assert_valid_raster(res_raster)
     assert res_raster.crs == rs.crs
-    res = res_raster.values
+    res = res_raster.to_numpy()
     assert np.allclose(truth, res, equal_nan=False)
 
     truth = rsnp.astype(float)
@@ -538,14 +538,14 @@ def test_correlate_integration():
     res_raster = focal.correlate(rs, kern)
     assert_valid_raster(res_raster)
     assert res_raster.crs == rs.crs
-    res = res_raster.values
-    truth[res_raster.xmask.values] = res_raster.null_value
+    res = res_raster.to_numpy()
+    truth[res_raster.xmask.to_numpy()] = res_raster.null_value
     assert np.allclose(truth, res, equal_nan=True)
 
 
 def test_convolve_integration():
     rs = testdata.raster.multiband_small.astype(float)
-    rsnp = rs.values
+    rsnp = rs.to_numpy()
     truth = rsnp.astype(float)
     kernel = np.array([[1, 1, 1], [1, 1, 0], [1, 0, 0]]).astype(float)
     for bnd in range(truth.shape[0]):
@@ -558,7 +558,7 @@ def test_convolve_integration():
     res_raster = focal.convolve(rs, kernel)
     assert_valid_raster(res_raster)
     assert res_raster.crs == rs.crs
-    res = res_raster.values
+    res = res_raster.to_numpy()
     assert np.allclose(truth, res, equal_nan=False)
 
     truth = rsnp.astype(float)
@@ -575,14 +575,14 @@ def test_convolve_integration():
     res_raster = focal.convolve(rs, kernel)
     assert_valid_raster(res_raster)
     assert res_raster.crs == rs.crs
-    res = res_raster.values
-    truth[res_raster.xmask.values] = res_raster.null_value
+    res = res_raster.to_numpy()
+    truth[res_raster.xmask.to_numpy()] = res_raster.null_value
     assert np.allclose(truth, res, equal_nan=True)
 
 
 def test_correlate_integration_raster_input():
     rs = testdata.raster.multiband_small
-    rsnp = rs.values
+    rsnp = rs.to_numpy()
     with pytest.raises(TypeError):
         focal.correlate(rsnp, 3)
     res_raster = focal.correlate(rs, np.ones((1, 1)))

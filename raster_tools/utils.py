@@ -147,7 +147,7 @@ def list_reshape_2d(lst, shape, flat_start=0):
     flat_idx = flat_start
     for row in range(nrows):
         out.append([])
-        for col in range(ncols):
+        for _ in range(ncols):
             out[row].append(lst[flat_idx])
             flat_idx += 1
     return out
@@ -157,10 +157,10 @@ def list_reshape_3d(lst, shape):
     if len(shape) != 3:
         raise TypeError("shape must be a 3-tuple")
     out = []
-    shape_2d = shape[1:]
+    nbands, *shape_2d = shape
     n_2d = np.prod(shape_2d)
     flat_idx = 0
-    for band in range(shape[0]):
+    for _ in range(nbands):
         out.append(list_reshape_2d(lst, shape_2d, flat_start=flat_idx))
         flat_idx += n_2d
     return out

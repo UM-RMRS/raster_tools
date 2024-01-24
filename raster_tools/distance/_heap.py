@@ -217,11 +217,8 @@ def pop(keys, values, crossrefs, heap):
     # The minimum key sits at position 1
     i = 1
     # Trace min key through the heap levels
-    for lvl in range(1, heap[0].levels):
-        if keys[i] <= keys[i + 1]:
-            i = (i * 2) + 1
-        else:
-            i = ((i + 1) * 2) + 1
+    for _ in range(1, heap[0].levels):
+        i = (i * 2) + 1 if keys[i] <= keys[i + 1] else ((i + 1) * 2) + 1
     # Find it in the last level
     if keys[i] > keys[i + 1]:
         i += 1

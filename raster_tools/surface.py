@@ -436,7 +436,7 @@ def _hillshade(xarr, res, azimuth, altitude):
             dzdy = ((g + 2 * h + i) - (a + 2 * b + c)) / dy
             slpr = np.arctan((dzdx * dzdx + dzdy * dzdy) ** 0.5)
             asr = asr = np.arctan2(dzdy, -dzdx)
-            if not dzdx == 0:
+            if dzdx != 0:
                 if asr < 0:
                     asr = 2 * np.pi + asr
             else:

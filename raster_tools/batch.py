@@ -196,15 +196,15 @@ def _batch_parse_set_null(state, args_str, line_no):
         rs.set_null_value(get_default_null_value(rs.dtype))
     sranges = [_split_strip(r, "-") for r in args_str]
     ranges = []
-    for sr in sranges:
-        try:
+    try:
+        for sr in sranges:
             lh = _parse_user_number(sr[0])
             rh = _parse_user_number(sr[1])
             ranges.extend((lh, rh, rs.null_value))
-        except ValueError:
-            _batch_error("Error parsing range value", line_no)
-        except TypeError:
-            _batch_error("Range bounds must be numbers", line_no)
+    except ValueError:
+        _batch_error("Error parsing range value", line_no)
+    except TypeError:
+        _batch_error("Range bounds must be numbers", line_no)
     return rs.remap_range(*ranges).set_null_value(rs.null_value)
 
 

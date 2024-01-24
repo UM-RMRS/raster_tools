@@ -490,10 +490,10 @@ def model_predict_raster(raster, model, n_outputs=1):
 
 
 def _pred_df(df, model, columns, n_outputs, prefix):
-    X = df[columns].values
-    valid_mask = ~np.isnan(X).any(axis=1)
+    x = df[columns].to_numpy()
+    valid_mask = ~np.isnan(x).any(axis=1)
 
-    y = model.predict(X[valid_mask])
+    y = model.predict(x[valid_mask])
     if y.ndim == 1:
         y = np.expand_dims(y, 1)
     pred = np.empty((len(df), n_outputs), dtype=F64)
@@ -555,10 +555,10 @@ def model_predict_vector(
     from raster_tools.vector import get_vector
 
     vc = get_vector(features).copy()
-    df = vc._geo
+    feats = vc._geo
     fields = list(fields)
     for field in fields:
-        if field not in df:
+        if field not in feats:
             raise KeyError(f"Invalid field name: '{field}'")
     n_outputs = int(n_outputs)
     if n_outputs < 1:
@@ -568,21 +568,21 @@ def model_predict_vector(
     for i in range(n_outputs):
         i += 1
         c = f"{out_prefix}{i}"
-        if c in df:
+        if c in feats:
             raise KeyError(
                 "out_prefix produced a column name that is already present in "
                 "the feature: '{c}'."
             )
 
-    meta = df._meta.copy()
+    meta = feats._meta.copy()
     new_meta_cols = pd.DataFrame(
         {
             f"{out_prefix}{i + 1}": np.array([], dtype=F64)
             for i in range(n_outputs)
         }
     )
-    meta = pd.concat([df._meta, new_meta_cols], axis=1)
-    vc._geo = df.map_partitions(
+    meta = pd.concat([feats._meta, new_meta_cols], axis=1)
+    vc._geo = feats.map_partitions(
         _pred_df,
         model=model,
         columns=fields,
@@ -745,16 +745,12 @@ def _morph_op_chunk(x, footprint, cval, morph_op, binary=False):
     if x.ndim > 2:
         x = x[0]
     if not binary:
-        if morph_op == "dilation":
-            morph_func = grey_dilation
-        else:
-            morph_func = grey_erosion
+        morph_func = grey_dilation if morph_op == "dilation" else grey_erosion
         out = morph_func(x, footprint=footprint, mode="constant", cval=cval)
     else:
-        if morph_op == "dilation":
-            morph_func = binary_dilation
-        else:
-            morph_func = binary_erosion
+        morph_func = (
+            binary_dilation if morph_op == "dilation" else binary_erosion
+        )
         out = morph_func(x, structure=footprint)
     return out[None]
 
@@ -779,16 +775,8 @@ def _get_footprint(size):
 
 
 def _get_fill(dtype, op):
-    if is_int(dtype):
-        type_info = np.iinfo(dtype)
-    else:
-        type_info = np.finfo(dtype)
-    if op == "erosion":
-        fill = type_info.max
-    else:
-        # dilation
-        fill = type_info.min
-    return fill
+    type_info = np.iinfo(dtype) if is_int(dtype) else np.finfo(dtype)
+    return type_info.max if op == "erosion" else type_info.min
 
 
 def _erosion_or_dilation_filter(rs, footprint, op):
@@ -1006,7 +994,7 @@ def _normalize_mappings(mappings):
         raise TypeError(
             "Mappings must be either single 3-tuple or list of 3-tuples of "
             "scalars"
-        )
+        ) from None
     for m in mappings:
         if len(m) != 3:
             raise ValueError(
@@ -1066,10 +1054,7 @@ def remap_range(raster, mapping, inclusivity="left"):
         raise TypeError(
             f"inclusivity must be a str. Got type: {type(inclusivity)}"
         )
-    inc_map = {
-        name: value
-        for name, value in zip(("left", "right", "both", "none"), range(4))
-    }
+    inc_map = dict(zip(("left", "right", "both", "none"), range(4)))
     if inclusivity not in inc_map:
         raise ValueError(f"Invalid inclusivity value. Got: {inclusivity!r}")
     mappings_common_dtype = get_common_dtype([m[-1] for m in mappings])
@@ -1137,10 +1122,10 @@ def where(condition, true_rast, false_rast):
         if not is_scalar(r):
             try:
                 r = get_raster(r)
-            except TypeError:
+            except TypeError as err:
                 raise TypeError(
                     f"Could not understand {name} argument. Got: {r!r}"
-                )
+                ) from err
         args.append(r)
     true_rast, false_rast = args
     out_crs = None

@@ -33,7 +33,7 @@ def rio_rasterize(
     mask=False,
     mask_invert=False,
 ):
-    gdf["idx"] = gdf.index.values + 1
+    gdf["idx"] = gdf.index.to_numpy() + 1
     if field is None:
         field = "idx"
 
@@ -46,10 +46,10 @@ def rio_rasterize(
     else:
         gdf = gdf.sort_values(by=[field], ascending=True, na_position="first")
 
-    values = gdf[field].values
+    values = gdf[field].to_numpy()
     if mask:
         values = values.astype("int8")
-    geoms = gdf.geometry.values
+    geoms = gdf.geometry.to_numpy()
     return rio.features.rasterize(
         zip(geoms, values),
         out_shape=shape,
@@ -122,9 +122,11 @@ def test_rasterize_spatial_aware():
     like = testdata.raster.dem_small.chunk((1, 20, 20))
     assert features.spatial_partitions is None
 
-    rasterize_kwargs = dict(
-        field="values", overlap_resolve_method="max", all_touched=True
-    )
+    rasterize_kwargs = {
+        "field": "values",
+        "overlap_resolve_method": "max",
+        "all_touched": True,
+    }
     truth = rio_rasterize_helper(features, like, **rasterize_kwargs)
 
     result = rasterize.rasterize(features, like, **rasterize_kwargs)
@@ -171,7 +173,7 @@ def test_rasterize_spatial_aware_reduces_operations(mocker):
     chunk_rasters = list(like.get_chunk_rasters().ravel())
     # Partitions only get mapped to chunks they touch based on bounding polygon
     n_aware = 0
-    for g in features.spatial_partitions.geometry.values:
+    for g in features.spatial_partitions.geometry.to_numpy():
         for rast in chunk_rasters:
             bbox = shapely.geometry.box(*rast.bounds)
             n_aware += int(g.intersects(bbox))
