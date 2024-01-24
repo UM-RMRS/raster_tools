@@ -103,7 +103,7 @@ def test_local_stats(stat, chunk, dtype):
     if chunk:
         rs = rs.chunk((1, 2, 2))
         orig_chunks = rs.data.chunks
-    xx = np.where(rs.mask.compute(), np.nan, rs.values)
+    xx = np.where(rs.mask.compute(), np.nan, rs.to_numpy())
 
     if stat in stat_funcs:
         sfunc = stat_funcs[stat]
@@ -448,17 +448,17 @@ def test_model_predict_raster(raster, model, nout):
     ],
 )
 def test_model_predict_vector(features, model, columns, nout, prefix):
-    df = features.compute()
+    feats_df = features.compute()
     new_columns = [f"{prefix}{i + 1}" for i in range(nout)]
-    data = df[columns].values
+    data = feats_df[columns].to_numpy()
     valid = ~np.isnan(data).any(axis=1)
-    truth = np.full((len(df), nout), np.nan, dtype=F64)
+    truth = np.full((len(feats_df), nout), np.nan, dtype=F64)
     r = model.predict(data[valid])
     if r.ndim == 1:
         r = r[:, None]
     truth[valid] = r
-    new_df = pd.DataFrame({c: t for c, t in zip(new_columns, truth.T)})
-    truth_df = pd.concat([df, new_df], axis=1)
+    new_df = pd.DataFrame(dict(zip(new_columns, truth.T)))
+    truth_df = pd.concat([feats_df, new_df], axis=1)
 
     for result in [
         general.model_predict_vector(features, model, columns, nout, prefix),
@@ -492,10 +492,7 @@ def test_erode_dilate(name, size, null_value, chunk):
     x[5] = 4
     x[12, 12] = 3
     x = np.stack((x, x))
-    if nan_null:
-        mask = np.isnan(x)
-    else:
-        mask = x == null_value
+    mask = np.isnan(x) if nan_null else x == null_value
     x[1] += 1
     if not nan_null:
         x[mask] = null_value
@@ -566,10 +563,10 @@ class TestSurface(unittest.TestCase):
 def test_band_concat():
     rs1 = testdata.raster.dem_clipped_small
     rs2 = rs1 + 30
-    rsnp1 = rs1.values
-    rsnp2 = rs2.values
-    mask1 = rs1.xmask.values
-    mask2 = rs2.xmask.values
+    rsnp1 = rs1.to_numpy()
+    rsnp2 = rs2.to_numpy()
+    mask1 = rs1.xmask.to_numpy()
+    mask2 = rs2.xmask.to_numpy()
     truth = np.concatenate((rsnp1, rsnp2))
     mask = np.concatenate((mask1, mask2))
     truth[mask] = get_default_null_value(truth.dtype)
@@ -631,7 +628,7 @@ def test_band_concat_errors():
     ],
 )
 def test_remap_range(raster, mapping, inc):
-    truth = raster.values
+    truth = raster.to_numpy()
     if np.asarray(mapping).shape == (3,):
         mapping = [mapping]
     out_dtype = get_common_dtype([m[-1] for m in mapping])
@@ -673,7 +670,7 @@ def test_remap_range(raster, mapping, inc):
 )
 @pytest.mark.parametrize("inc", ["left", "right", "both", "none"])
 def test_remap_range_inclusivity(rast, mapping, inc):
-    data = rast.values.copy()
+    data = rast.to_numpy().copy()
     hist = np.zeros(data.shape, dtype=bool)
     for left, right, new in mapping:
         if inc == "left":
@@ -697,7 +694,7 @@ def test_remap_range_inclusivity(rast, mapping, inc):
 
 def test_remap_range_f16():
     rs = Raster(np.arange(25).reshape((5, 5))).astype("float16")
-    rsnp = rs.values
+    rsnp = rs.to_numpy()
     mapping = (0, 5, 1)
     result = general.remap_range(rs, mapping)
     truth = rsnp.copy()
@@ -707,7 +704,7 @@ def test_remap_range_f16():
     assert np.allclose(result, truth)
 
     rs = Raster(np.arange(25).reshape((5, 5))).astype("int8")
-    rsnp = rs.values
+    rsnp = rs.to_numpy()
     mapping = (0, 5, 2.0)
     result = general.remap_range(rs, mapping)
     truth = rsnp.copy().astype("float16")
@@ -776,10 +773,7 @@ def get_where_truth(cond, x, y):
     ymask = y.mask.compute() if not is_scalar(y) else np.zeros_like(cond)
 
     result = np.ma.where(cond, nx, ny)
-    if scalar_and_nan:
-        mask = np.isnan(result)
-    else:
-        mask = np.where(cond, xmask, ymask)
+    mask = np.isnan(result) if scalar_and_nan else np.where(cond, xmask, ymask)
     result = Raster(np.array(result))
     if chunks != "auto":
         result = result.chunk(chunks)

@@ -191,7 +191,7 @@ def _cost_distance_analysis_core(
     #
     # ref: https://pro.arcgis.com/en/pro-app/latest/tool-reference/spatial-analyst/how-the-cost-distance-tools-work.htm  # noqa: E501
     # ref: https://en.wikipedia.org/wiki/Dijkstra%27s_algorithm
-    for it in range(maxiter):
+    for it in range(maxiter):  # noqa: B007
         if heap_state[0].count == 0:
             break
 
@@ -541,8 +541,8 @@ def cost_distance_analysis(costs, sources, elevation=None):
             srcs[src_idxs[:, 0], src_idxs[:, 1]] = np.arange(
                 len(sources), dtype=I64
             )
-        except TypeError:
-            raise ValueError("Could not understand sources argument")
+        except TypeError as err:
+            raise ValueError("Could not understand sources argument") from err
 
     data = _normalize_raster_data(costs)
     if elevation is not None:

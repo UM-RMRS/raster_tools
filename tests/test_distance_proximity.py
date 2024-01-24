@@ -223,7 +223,7 @@ srcs = [build_raster(s) for s in srcs]
 )
 @pytest.mark.parametrize("src", srcs)
 def test_proximity_metric(src, metric, truth_func, max_distance):
-    data = src.values[0]
+    data = src.to_numpy()[0]
     x = src.x
     y = src.y
 
@@ -266,7 +266,7 @@ def test_proximity_great_circle():
     assert np.allclose(rdirn, tdirn)
 
     max_dist = 1.5e6
-    mask = tprox.values > max_dist
+    mask = tprox.to_numpy() > max_dist
     tprox.xdata.data = da.where(mask, tprox.null_value, tprox.data)
     talloc.xdata.data = da.where(mask, talloc.null_value, talloc.data)
     tdirn.xdata.data = da.where(mask, tdirn.null_value, tdirn.data)

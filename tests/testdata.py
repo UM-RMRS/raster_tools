@@ -31,7 +31,7 @@ class _DataProvider:
         else:
             raise ValueError(f"Could not provide data for {key!r}")
 
-    def open(self, file, *args, **kwargs):
+    def open_file(self, file, *args, **kwargs):
         return self._opener(
             os.path.join(self._data_dir, file), *args, **kwargs
         )

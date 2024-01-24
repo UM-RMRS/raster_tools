@@ -80,7 +80,7 @@ def run_constant_raster_tests(
     assert mask_truth.ndim == 3
     assert mask_truth.shape[0] == nbands
 
-    kwargs = dict(bands=nbands, dtype=dtype, copy_mask=copy_mask)
+    kwargs = {"bands": nbands, "dtype": dtype, "copy_mask": copy_mask}
     if pass_value:
         kwargs["value"] = value
     result = op_to_test(template, **kwargs)

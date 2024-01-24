@@ -45,7 +45,7 @@ def _compute_lengths(geom_df, targets):
     if "weights" in geom_df:
         overlay["len"] *= overlay.weights
     lengths = np.zeros(len(targets), dtype=F32)
-    _length_sum(lengths, overlay.len.values, overlay.target_idx.values)
+    _length_sum(lengths, overlay.len.to_numpy(), overlay.target_idx.to_numpy())
     return lengths
 
 
@@ -89,7 +89,7 @@ def _calculate_number_vertices(geoms):
                 .sum()
             )
     nverts += (
-        geoms[geoms.geom_type.isin(set(["LineString", "LinearRing"]))]
+        geoms[geoms.geom_type.isin({"LineString", "LinearRing"})]
         .apply(_len_coords)
         .astype(int)
         .sum()
@@ -169,22 +169,24 @@ def _get_indices_and_lengths(geoms_df, xc, yc, radius, weight_values=None):
         n_batches = max(1, int(ratio / VERTS_PER_GEOM_CUTOFF))
         # Clamp between 1 and GEOM_BATCH_SIZE
         batch_size = min(GEOM_BATCH_SIZE, max(1, n // n_batches))
-        dfs = []
+        idx_len_dfs = []
         # Process the batches
         for i in range(0, n, batch_size):
             batch_df = geoms_df.iloc[i : i + batch_size]
             idxs, lens = _get_indices_and_lengths_core(
                 batch_df, xc, yc, radius
             )
-            df = pd.DataFrame(
+            idx_len_df = pd.DataFrame(
                 {"idx0": idxs[0], "idx1": idxs[1], "length": lens}
             )
-            dfs.append(df)
+            idx_len_dfs.append(idx_len_df)
         # Merge results, summing co-located length values
-        dfs = pd.concat(dfs, ignore_index=True)
-        dfs = dfs.groupby(["idx0", "idx1"], as_index=False).sum()
-        indices = tuple(dfs[["idx0", "idx1"]].to_numpy().T)
-        lengths = dfs["length"].to_numpy()
+        idx_len_dfs = pd.concat(idx_len_dfs, ignore_index=True)
+        idx_len_sums = idx_len_dfs.groupby(
+            ["idx0", "idx1"], as_index=False
+        ).sum()
+        indices = tuple(idx_len_sums[["idx0", "idx1"]].to_numpy().T)
+        lengths = idx_len_sums["length"].to_numpy()
     else:
         indices, lengths = _get_indices_and_lengths_core(
             geoms_df, xc, yc, radius

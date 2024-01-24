@@ -99,7 +99,7 @@ def normalize_xarray_data(xrs):
     if "lat" in dims:
         xrs = xrs.rename({"lat": "y"})
         dims = xrs.dims
-    if not dims == ("band", "y", "x"):
+    if dims != ("band", "y", "x"):
         # No easy way to figure out how best to transpose based on dim names so
         # just assume the order is valid and rename.
         xrs = xrs.rename(
@@ -109,7 +109,7 @@ def normalize_xarray_data(xrs):
                 if d != new_d
             }
         )
-    if xrs.band.values[0] != 1:
+    if xrs.band.to_numpy()[0] != 1:
         xrs["band"] = np.arange(1, len(xrs.band) + 1)
     if any(dim not in xrs.coords for dim in xrs.dims):
         raise ValueError(
