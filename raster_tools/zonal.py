@@ -50,11 +50,11 @@ def _unique_with_counts_chunk(grps):
 
 
 def _combine_values_and_counts(s):
-    df = (
+    result = (
         pd.DataFrame(
             {
-                "values_": [vs for vs, _ in s.values],
-                "counts_": [cs for _, cs in s.values],
+                "values_": [vs for vs, _ in s.to_numpy()],
+                "counts_": [cs for _, cs in s.to_numpy()],
             }
         )
         .explode(["values_", "counts_"])
@@ -65,21 +65,21 @@ def _combine_values_and_counts(s):
     # results are not converted to lists, the finalize step will get a series
     # where each row is a tuple of arrays of objects instead of a tuple of
     # lists of numbers. I don't know why this happens, but the following works.
-    return (df.index.to_list(), df.counts_.to_list())
+    return (result.index.to_list(), result.counts_.to_list())
 
 
 def _mode_fin(s):
     # Final operation of the mode calculation
     results = np.empty(len(s), dtype=F64)
-    for i, (vs, cs) in enumerate(s.values):
+    for i, (vs, cs) in enumerate(s.to_numpy()):
         if len(vs) != 0:
             # Order the counts descending with values ascending. In the case of
             # tied counts, lower values come first. This mirrors the behavior
             # of scipy's mode function.
-            df = pd.DataFrame({"values_": vs, "counts_": cs}).sort_values(
-                by=["counts_", "values_"], ascending=[False, True]
-            )
-            results[i] = df.values_.iloc[0]
+            values_and_counts = pd.DataFrame(
+                {"values_": vs, "counts_": cs}
+            ).sort_values(by=["counts_", "values_"], ascending=[False, True])
+            results[i] = values_and_counts.values_.iloc[0]
         else:
             results[i] = np.nan
     return pd.Series(results, index=s.index.copy())
@@ -90,7 +90,7 @@ def _asm_entropy_fin(s, func):
     if len(s) == 0:
         return pd.Series(np.array((), dtype=F64), index=s.index)
     result_list = []
-    for _, cs in s.values:
+    for _, cs in s.to_numpy():
         result_list.append(func(np.asarray(cs)))
     return pd.Series(result_list, index=s.index.copy())
 
@@ -172,10 +172,17 @@ def _build_long_format_meta(df):
 
 def _melt_part(part):
     # Convert a dataframe from wide format to long format
+    #
+    # DataFrame structure, the columns are a MultiIndex and zone ids
+    # are the index:
+    #       band_1             band_2             ...
+    #       stat1  stat2  ...  stat1  stat2  ...  ...
+    # zone
+    #    1     --     --  ...
     part = (
         # Unpivot band_# column labels into the index. The index is now a
         # MultiIndex of (zone, level_1) where level_1 has the band labels
-        part.stack(0)
+        part.stack(0)  # noqa: PD013  warning is wrong. .melt cannot do this
         # Move the zone and level_1 indices to columns
         .reset_index()
         .rename(columns={"level_1": "band"})
@@ -194,7 +201,7 @@ def _find_problem_stats(stats):
     has_median = False
     out = []
     for s in stats:
-        if not s == "median":
+        if s != "median":
             out.append(s)
         else:
             has_median = True
@@ -226,7 +233,7 @@ def _zonal_stats(features_raster, data_raster, stats):
     # them together. Each cell becomes a row and each chunk becomes a
     # partition. The order is the same and the chunk boundaries are the same so
     # they should concat together, cleanly.
-    dfs = [_raster_to_series(features_raster).rename("zone")]
+    raster_dfs = [_raster_to_series(features_raster).rename("zone")]
     for b in range(1, data_raster.nbands + 1):
         band = _raster_to_series(data_raster.get_bands(b)).rename(f"band_{b}")
         if data_raster.null_value is not None and not np.isnan(
@@ -240,46 +247,46 @@ def _zonal_stats(features_raster, data_raster, stats):
         # ref: https://web.archive.org/web/20230329091023/https://pythonspeed.com/articles/float64-float32-precision/  # noqa
         if band.dtype != F64:
             band = band.astype(F64)
-        dfs.append(band)
+        raster_dfs.append(band)
     # DataFrame structure:
     #        zone  band_1  band_2  ...
     # index
     #     0    --      --      --  ...
-    df = dd.concat(dfs, axis=1)
+    combined_raster_df = dd.concat(raster_dfs, axis=1)
     # Filter out non-feature areas
-    df = df[df.zone != features_raster.null_value]
-
-    gdf = df.groupby("zone")
-    adf = None
+    combined_raster_df = combined_raster_df[
+        combined_raster_df.zone != features_raster.null_value
+    ]
+    grouped = combined_raster_df.groupby("zone")
+    agg_result_df = None
     if has_median:
         # median requires special treatment. It needs the shuffle arg and also
         # causes TypeErrors when used with custom agg functions.
         # ref: https://github.com/dask/dask/issues/10517
-        median_df = gdf.agg(["median"], shuffle="tasks")
+        median_df = grouped.agg(["median"], shuffle="tasks")
     if len(stats):
-        adf = gdf.agg(stats)
+        agg_result_df = grouped.agg(stats)
         if has_median:
-            adf = adf.join(median_df)
+            agg_result_df = agg_result_df.join(median_df)
     else:
         # Only median was provided
-        adf = median_df
+        agg_result_df = median_df
     if has_median:
         # Shuffle columns to be in order of the original stats
         col_tuples = []
         for b in range(1, data_raster.nbands + 1):
             band = f"band_{b}"
-            for stat in stat_names:
-                col_tuples.append((band, stat))
+            col_tuples.extend((band, stat) for stat in stat_names)
         target_columns = pd.MultiIndex.from_tuples(col_tuples)
-        if not adf.columns.equals(target_columns):
-            adf = adf[target_columns]
+        if not agg_result_df.columns.equals(target_columns):
+            agg_result_df = agg_result_df[target_columns]
     # DataFrame structure, the columns are a MultiIndex and zone ids are the
     # index:
     #       band_1             band_2             ...
     #       stat1  stat2  ...  stat1  stat2  ...  ...
     # zone
     #    1     --     --  ...
-    return adf
+    return agg_result_df
 
 
 def zonal_stats(
@@ -439,14 +446,16 @@ def zonal_stats(
             )
         features_raster = features
 
-    df = _zonal_stats(features_raster, data_raster, stats)
+    zonal_result_df = _zonal_stats(features_raster, data_raster, stats)
     if not wide_format:
         # New DataFrame structure:
         #        zone  band  stat1  stat2  ...
         # index
         #     0     1     1     --     --  ...
-        df = df.map_partitions(_melt_part, meta=_build_long_format_meta(df))
-    return df
+        zonal_result_df = zonal_result_df.map_partitions(
+            _melt_part, meta=_build_long_format_meta(zonal_result_df)
+        )
+    return zonal_result_df
 
 
 def _create_dask_range_index(start, stop):
@@ -538,17 +547,19 @@ def extract_points_eager(
         extracted[exmask] = np.nan
         if axis == 0:
             index = _create_dask_range_index(n * i, n * bnd)
-            df = (
+            extracted_df = (
                 da.full(n, bnd, dtype=np.min_scalar_type(nb + 1))
                 .to_dask_dataframe(index=index)
                 .to_frame("band")
             )
-            df[column_name] = extracted.to_dask_dataframe(index=index)
+            extracted_df[column_name] = extracted.to_dask_dataframe(
+                index=index
+            )
         else:
-            df = extracted.to_dask_dataframe(
+            extracted_df = extracted.to_dask_dataframe(
                 columns=column_name + "_" + str(bnd)
             )
-        assert df.known_divisions
-        dfs.append(df)
-    df = dd.concat(dfs, axis=axis)
-    return df
+        assert extracted_df.known_divisions
+        dfs.append(extracted_df)
+    extracted_result = dd.concat(dfs, axis=axis)
+    return extracted_result

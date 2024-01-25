@@ -23,7 +23,7 @@ def assert_coords_equal(ac, bc):
         ),
     )
     assert list(ac.keys()) == list(bc.keys())
-    for k in ac.keys():
+    for k in ac:
         assert np.allclose(ac[k], bc[k])
 
 
@@ -35,7 +35,7 @@ def assert_valid_raster(raster):
     assert raster._ds.raster.shape == raster._ds.mask.shape
     # Coords and dims
     # xr.Dataset seems to sort dims alphabetically (sometimes)
-    assert set(raster._ds.dims) == set(("band", "y", "x"))
+    assert set(raster._ds.dims) == {"band", "y", "x"}
     assert raster._ds.raster.dims == ("band", "y", "x")
     assert raster._ds.mask.dims == ("band", "y", "x")
     # Make sure that all dims have coords
@@ -50,8 +50,10 @@ def assert_valid_raster(raster):
         assert is_strictly_increasing(raster._ds.x)
     if raster.shape[1] > 1:
         assert is_strictly_decreasing(raster._ds.y)
-    assert np.allclose(raster._ds.band.values, np.arange(raster.shape[0]) + 1)
-    assert raster._ds.band.values[0] == 1
+    assert np.allclose(
+        raster._ds.band.to_numpy(), np.arange(raster.shape[0]) + 1
+    )
+    assert raster._ds.band.to_numpy()[0] == 1
     # is lazy
     assert dask.is_dask_collection(raster._ds)
     assert dask.is_dask_collection(raster._ds.raster)

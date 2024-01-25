@@ -490,10 +490,10 @@ def model_predict_raster(raster, model, n_outputs=1):
 
 
 def _pred_df(df, model, columns, n_outputs, prefix):
-    X = df[columns].values
-    valid_mask = ~np.isnan(X).any(axis=1)
+    x = df[columns].to_numpy()
+    valid_mask = ~np.isnan(x).any(axis=1)
 
-    y = model.predict(X[valid_mask])
+    y = model.predict(x[valid_mask])
     if y.ndim == 1:
         y = np.expand_dims(y, 1)
     pred = np.empty((len(df), n_outputs), dtype=F64)
@@ -555,10 +555,10 @@ def model_predict_vector(
     from raster_tools.vector import get_vector
 
     vc = get_vector(features).copy()
-    df = vc._geo
+    feats = vc._geo
     fields = list(fields)
     for field in fields:
-        if field not in df:
+        if field not in feats:
             raise KeyError(f"Invalid field name: '{field}'")
     n_outputs = int(n_outputs)
     if n_outputs < 1:
@@ -568,21 +568,21 @@ def model_predict_vector(
     for i in range(n_outputs):
         i += 1
         c = f"{out_prefix}{i}"
-        if c in df:
+        if c in feats:
             raise KeyError(
                 "out_prefix produced a column name that is already present in "
                 "the feature: '{c}'."
             )
 
-    meta = df._meta.copy()
+    meta = feats._meta.copy()
     new_meta_cols = pd.DataFrame(
         {
             f"{out_prefix}{i + 1}": np.array([], dtype=F64)
             for i in range(n_outputs)
         }
     )
-    meta = pd.concat([df._meta, new_meta_cols], axis=1)
-    vc._geo = df.map_partitions(
+    meta = pd.concat([feats._meta, new_meta_cols], axis=1)
+    vc._geo = feats.map_partitions(
         _pred_df,
         model=model,
         columns=fields,
@@ -745,16 +745,12 @@ def _morph_op_chunk(x, footprint, cval, morph_op, binary=False):
     if x.ndim > 2:
         x = x[0]
     if not binary:
-        if morph_op == "dilation":
-            morph_func = grey_dilation
-        else:
-            morph_func = grey_erosion
+        morph_func = grey_dilation if morph_op == "dilation" else grey_erosion
         out = morph_func(x, footprint=footprint, mode="constant", cval=cval)
     else:
-        if morph_op == "dilation":
-            morph_func = binary_dilation
-        else:
-            morph_func = binary_erosion
+        morph_func = (
+            binary_dilation if morph_op == "dilation" else binary_erosion
+        )
         out = morph_func(x, structure=footprint)
     return out[None]
 
@@ -779,16 +775,8 @@ def _get_footprint(size):
 
 
 def _get_fill(dtype, op):
-    if is_int(dtype):
-        type_info = np.iinfo(dtype)
-    else:
-        type_info = np.finfo(dtype)
-    if op == "erosion":
-        fill = type_info.max
-    else:
-        # dilation
-        fill = type_info.min
-    return fill
+    type_info = np.iinfo(dtype) if is_int(dtype) else np.finfo(dtype)
+    return type_info.max if op == "erosion" else type_info.min
 
 
 def _erosion_or_dilation_filter(rs, footprint, op):
@@ -1006,7 +994,7 @@ def _normalize_mappings(mappings):
         raise TypeError(
             "Mappings must be either single 3-tuple or list of 3-tuples of "
             "scalars"
-        )
+        ) from None
     for m in mappings:
         if len(m) != 3:
             raise ValueError(
@@ -1066,10 +1054,7 @@ def remap_range(raster, mapping, inclusivity="left"):
         raise TypeError(
             f"inclusivity must be a str. Got type: {type(inclusivity)}"
         )
-    inc_map = {
-        name: value
-        for name, value in zip(("left", "right", "both", "none"), range(4))
-    }
+    inc_map = dict(zip(("left", "right", "both", "none"), range(4)))
     if inclusivity not in inc_map:
         raise ValueError(f"Invalid inclusivity value. Got: {inclusivity!r}")
     mappings_common_dtype = get_common_dtype([m[-1] for m in mappings])
@@ -1137,10 +1122,10 @@ def where(condition, true_rast, false_rast):
         if not is_scalar(r):
             try:
                 r = get_raster(r)
-            except TypeError:
+            except TypeError as err:
                 raise TypeError(
                     f"Could not understand {name} argument. Got: {r!r}"
-                )
+                ) from err
         args.append(r)
     true_rast, false_rast = args
     out_crs = None
@@ -1192,12 +1177,11 @@ def where(condition, true_rast, false_rast):
 
 
 @nb.jit(nopython=True, nogil=True)
-def _reclassify_chunk(x, mask, mapping_array, unmapped_to_null, null):
-    mapping = dict()
-    for i in range(mapping_array.shape[0]):
-        mapping[mapping_array[i, 0]] = mapping_array[i, 1]
-
-    out = np.empty_like(x)
+def _reclassify_chunk(
+    x, mask, mapping_from, mapping_to, unmapped_to_null, null, out_dtype
+):
+    mapping = dict(zip(mapping_from, mapping_to))
+    out = np.empty_like(x, dtype=out_dtype)
     nb, ny, nx = x.shape
     for b in range(nb):
         for i in range(ny):
@@ -1220,58 +1204,75 @@ class RemapFileParseError(Exception):
     pass
 
 
-_REMAPPING_LINE_PATTERN = re.compile(r"^(?P<from>[+-]*\d+):(?P<to>[+-]*\d+)$")
+# Matches: 0, 0.0, .0, 12, 1.2, .2, 1.2e34, 1.2e-34, .2e+34, 0e+12, 1.2E23
+_INT_OR_FLOAT_RE = (
+    r"(?:[-+]?(?:(?:0|[1-9]\d*)(?:\.\d*)?|\.\d+)?)(?:[eE][-+]?\d+)?"
+)
+_REMAPPING_LINE_PATTERN = re.compile(
+    rf"^\s*(?P<from>{_INT_OR_FLOAT_RE})\s*:\s*(?P<to>{_INT_OR_FLOAT_RE})\s*$"
+)
 
 
-def _parse_ascii_remap_file(path):
+def _str_to_float_or_int(string):
+    # String matched regex for a number value. Check if float specific
+    # characters are in the string.
+    if any(c in string for c in ".eE"):
+        return float(string)
+    return int(string)
+
+
+def _parse_ascii_remap_file(fd):
     mapping = {}
-    with open(path) as fd:
-        for line in fd:
-            line = line.strip()
-            m = _REMAPPING_LINE_PATTERN.match(line)
-            if m is None:
-                raise RemapFileParseError(f"Invalid remap line: {line!r}")
-            k = int(m.group("from"))
-            v = int(m.group("to"))
-            if k in mapping:
-                raise ValueError("Found duplicate mapping: '{k}:{v}'.")
-            mapping[k] = v
+    for line_no, line in enumerate(fd):
+        line = line.strip()
+        if not line:
+            continue
+        m = _REMAPPING_LINE_PATTERN.match(line)
+        if m is None or not m.group("from") or not m.group("to"):
+            raise RemapFileParseError(
+                f"Invalid remapping on line {line_no + 1}: {line!r}"
+            )
+        from_str = m.group("from")
+        to_str = m.group("to")
+        k = _str_to_float_or_int(from_str)
+        v = _str_to_float_or_int(to_str)
+        if k in mapping:
+            raise ValueError(f"Found duplicate mapping: '{k}:{v}'.")
+        mapping[k] = v
     return mapping
 
 
 def _get_remapping(mapping):
     if is_str(mapping):
         if os.path.exists(mapping):
-            mapping = _parse_ascii_remap_file(mapping)
+            with open(mapping) as fd:
+                mapping = _parse_ascii_remap_file(fd)
+            if not mapping:
+                raise ValueError("No mapping found in the provided file")
         else:
             raise IOError(f"No such file: {mapping!r}")
     elif not isinstance(mapping, dict):
         raise TypeError(
             f"Remapping must be a str or dict. Got: {type(mapping)!r}"
         )
-    if not all(is_int(k) for k in mapping.keys()) or not all(
-        is_int(v) for v in mapping.values()
-    ):
-        raise TypeError("Remapping values must all be integer types")
     return mapping
 
 
 def reclassify(raster, remapping, unmapped_to_null=False):
     """Reclassify the input raster values based on a mapping.
 
-    This function only works with integer type rasters.
-
     Parameters
     ----------
     raster : str, Raster
         The input raster to reclassify. Can be a path string or Raster object.
-        The raster dtype must be integer.
     remapping : str, dict
         Can be either a ``dict`` or a path string. If a ``dict`` is provided,
         the keys will be reclassified to the corresponding values. If a path
         string, it is treated as an ASCII remap file where each line looks like
-        ``a:b`` and ``a`` and ``b`` are integers. All remap values (both from
-        and to) must be integers.
+        ``a:b`` and ``a`` and ``b`` are integers. The output values of the
+        mapping can cause type promotion. If the input raster has integer data
+        and one of the outputs in the mapping is a float, the result will be a
+        float raster.
     unmapped_to_null : bool, optional
         If ``True``, values not included in the mapping are instead mapped to
         the null value. Default is ``False``.
@@ -1284,39 +1285,43 @@ def reclassify(raster, remapping, unmapped_to_null=False):
     """
     raster = get_raster(raster)
     remapping = _get_remapping(remapping)
-    if not is_int(raster.dtype):
-        raise TypeError(
-            f"Input raster must be an integer type. Got {raster.dtype!r}"
-        )
 
     out_dtype = raster.dtype
-    to_values = list(remapping.values())
-    if any(not np.can_cast(v, out_dtype) for v in to_values):
-        extra_min = raster.dtype.type(np.iinfo(raster.dtype).min)
-        extra_max = raster.dtype.type(np.iinfo(raster.dtype).max)
-        out_dtype = get_common_dtype(to_values + [extra_min, extra_max, -1])
+    mapping_out_values = list(remapping.values())
+    out_dtype = np.promote_types(
+        get_common_dtype(mapping_out_values), out_dtype
+    )
     if unmapped_to_null:
         if raster._masked:
             nv = raster.null_value
         else:
             nv = get_default_null_value(out_dtype)
     else:
-        nv = 0
+        # 0 is a placeholder value. If input raster is not masked and
+        # unmapped_to_null is False, the null value will not be used in the
+        # dask function. nv still needs to be passed to dask so it needs to be
+        # a value with valid type.
+        nv = raster.null_value if raster._masked else 0
 
-    mapping = np.array(list(remapping.items()))
+    mapping_from = np.array(list(remapping))
+    mapping_to = np.array(list(remapping.values())).astype(out_dtype)
     data = da.map_blocks(
         _reclassify_chunk,
-        raster.data.copy().astype(out_dtype),
+        raster.data,
         raster.mask,
-        mapping_array=mapping,
+        mapping_from=mapping_from,
+        mapping_to=mapping_to,
         unmapped_to_null=unmapped_to_null,
         null=nv,
+        out_dtype=out_dtype,
         dtype=out_dtype,
         meta=np.array((), dtype=out_dtype),
     )
     xdata = xr.DataArray(
         data, coords=raster.xdata.coords, dims=raster.xdata.dims
-    ).rio.write_nodata(nv)
+    )
+    if raster._masked or unmapped_to_null:
+        xdata = xdata.rio.write_nodata(nv)
     if raster.crs is not None:
         xdata = xdata.rio.write_crs(raster.crs)
     return Raster(xdata)

@@ -509,7 +509,7 @@ def _dataarry_to_raster_ds(xin):
 def _dataset_to_raster_ds(xin):
     if (
         dask.is_dask_collection(xin)
-        and set(xin.data_vars) == set(["raster", "mask"])
+        and set(xin.data_vars) == {"raster", "mask"}
         and dask.is_dask_collection(xin.raster)
         and dask.is_dask_collection(xin.mask)
         and is_bool(xin.mask.dtype)
@@ -521,7 +521,7 @@ def _dataset_to_raster_ds(xin):
         return xin
 
     nvars = len(xin.data_vars)
-    if nvars < 2 or nvars > 2 or set(xin.data_vars) != set(["raster", "mask"]):
+    if nvars < 2 or nvars > 2 or set(xin.data_vars) != {"raster", "mask"}:
         raise ValueError(
             "Dataset input must have only 'raster' and 'mask' variables"
         )
@@ -547,10 +547,10 @@ def _dataset_to_raster_ds(xin):
         nv = reconcile_nullvalue_with_dtype(nv, raster.dtype)
     if nv is not None:
         raster.data = xr.where(mask, nv, raster.data)
-    raster.rio.write_nodata(nv, inplace=True)
+    raster = raster.rio.write_nodata(nv)
     crs = raster.rio.crs
     if crs != mask.rio.crs:
-        mask.rio.write_crs(crs, inplace=True)
+        mask = mask.rio.write_crs(crs)
     return make_raster_ds(raster, mask)
 
 
@@ -658,7 +658,7 @@ class Raster(_RasterBase):
         .. note::
            This triggers computation and loads the raster data into memory.
         """
-        return self._ds.raster.values
+        return self.to_numpy()
 
     @property
     def mask(self):
@@ -777,7 +777,7 @@ class Raster(_RasterBase):
             DeprecationWarning,
             stacklevel=2,
         )
-        return self._ds.raster.values
+        return self._ds.raster.to_numpy()
 
     @property
     def _mask(self):
@@ -833,15 +833,23 @@ class Raster(_RasterBase):
         """
         assert len(chunks) == 3
         return Raster(
-            self._ds.chunk(
-                {d: cs for d, cs in zip(["band", "y", "x"], chunks)}
-            ),
+            self._ds.chunk(dict(zip(["band", "y", "x"], chunks))),
             _fast_path=True,
         )
 
     def to_dataset(self):
         """Returns the underlying `xarray.Dataset`."""
         return self._ds
+
+    def to_numpy(self):
+        """
+        Return the raw internal raster as a numpy array.
+
+        .. note::
+           This triggers computation and loads the raster data into memory.
+
+        """
+        return self._ds.raster.to_numpy()
 
     def plot(self, *args, **kwargs):
         """
@@ -900,7 +908,20 @@ class Raster(_RasterBase):
         )
         return Raster(path)
 
-    def eval(self):
+    def load(self):
+        """Compute delayed operations and load the result into memory.
+
+        This computes all delayed operations built up so far and then stores
+        the resulting raster in memory. This can have significant performance
+        implications if the raster data being computed is large relative to the
+        available computer memory. The original raster is unaltered.
+
+        """
+        ds = chunk(self._ds.compute())
+        # A new raster is returned to mirror the xarray and dask APIs
+        return Raster(ds)
+
+    def eval(self):  # noqa: A003
         """Compute any applied operations and return the result as new Raster.
 
         Note that the unerlying sources will be loaded into memory for the
@@ -908,9 +929,8 @@ class Raster(_RasterBase):
         Raster will be unaltered.
 
         """
-        ds = chunk(self._ds.compute())
-        # A new raster is returned to mirror the xarray and dask APIs
-        return Raster(ds)
+        # TODO: deprecate in favor of load
+        return self.load()
 
     def copy(self):
         """Returns a copy of this Raster."""
@@ -1059,10 +1079,7 @@ class Raster(_RasterBase):
         # Update mask
         mask = self._ds.mask
         temp_mask = np.isnan(xrs) if np.isnan(value) else xrs == value
-        if self._masked:
-            mask = mask | temp_mask
-        else:
-            mask = temp_mask
+        mask = mask | temp_mask if self._masked else temp_mask
         xrs = xrs.rio.write_nodata(value)
         return Raster(make_raster_ds(xrs, mask), _fast_path=True).burn_mask()
 
@@ -1257,7 +1274,7 @@ class Raster(_RasterBase):
 
         return reclassify(self, remapping, unmapped_to_null=unmapped_to_null)
 
-    def round(self, decimals=0):
+    def round(self, decimals=0):  # noqa: A003
         """Evenly round to the given number of decimals
 
         Parameters
@@ -1385,10 +1402,10 @@ class Raster(_RasterBase):
                 for r in self.get_bands(iband + 1).get_chunk_rasters().ravel()
             ]
             partitions = []
-            for chunk, mask, transform in zip(chunks, mask_chunks, transforms):
+            for chnk, mask, transform in zip(chunks, mask_chunks, transforms):
                 part = dd.from_delayed(
                     _shapes_delayed(
-                        chunk, mask, neighbors, transform, iband + 1, self.crs
+                        chnk, mask, neighbors, transform, iband + 1, self.crs
                     ),
                     meta=meta.copy(),
                 )
@@ -1634,7 +1651,7 @@ class Raster(_RasterBase):
         i = 0
         j = 0
         out = np.empty(self.data.blocks.shape, dtype=object)
-        for band, bc in enumerate(bchunks):
+        for band in range(len(bchunks)):
             for row, yc in enumerate(ychunks):
                 for col, xc in enumerate(xchunks):
                     y = self.y[i : i + yc]
@@ -1675,8 +1692,8 @@ def rowcol_to_xy(row, col, affine, offset):
     Convert (row, col) index values to (x, y) coords using the transformation.
     """
     roffset, coffset = _offset_name_to_rc_offset[offset]
-    T = Affine.identity().translation(coffset, roffset)
-    return affine * T * (col, row)
+    transform = Affine.identity().translation(coffset, roffset)
+    return affine * transform * (col, row)
 
 
 def xy_to_rowcol(x, y, affine):
@@ -1740,7 +1757,7 @@ def _vectorize(data, mask, xc, yc, band, crs, affine_tuple):
         bands = []
         rows = []
         cols = []
-    df = gpd.GeoDataFrame(
+    vec = gpd.GeoDataFrame(
         {
             "value": values,
             "band": bands,
@@ -1751,10 +1768,10 @@ def _vectorize(data, mask, xc, yc, band, crs, affine_tuple):
         crs=crs,
     )
     if len(xpoints):
-        return df
+        return vec
     # Add astype() as a workaround for
     # https://github.com/geopandas/dask-geopandas/issues/190
-    return df.astype(
+    return vec.astype(
         {"value": data.dtype, "band": int, "row": int, "col": int}
     )
 
@@ -1768,9 +1785,9 @@ def _get_rio_shapes_dtype(dtype):
         new_dtype = U8
     elif dtype == I8:
         new_dtype = I16
-    elif dtype == I64 or dtype == U32 or dtype == U64:
+    elif dtype in (I64, U32, U64):
         new_dtype = I32
-    elif dtype == F16 or dtype == F64:
+    elif dtype in (F16, F64):
         new_dtype = F32
     return new_dtype
 
@@ -1827,8 +1844,10 @@ def get_raster(src, strict=True, null_to_nan=False):
     else:
         try:
             rs = Raster(src)
-        except (ValueError, TypeError, RasterDataError, RasterIOError):
-            raise ValueError(f"Could not convert input to Raster: {repr(src)}")
+        except (ValueError, TypeError, RasterDataError, RasterIOError) as err:
+            raise ValueError(
+                f"Could not convert input to Raster: {repr(src)}"
+            ) from err
 
     if null_to_nan and rs._masked:
         rs = rs.copy()

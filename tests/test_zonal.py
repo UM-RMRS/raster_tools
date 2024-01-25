@@ -30,22 +30,22 @@ from tests.utils import arange_raster
 
 
 def asm(x):
-    return rts.stat_common.nanasm_jit(x.values)
+    return rts.stat_common.nanasm_jit(x.to_numpy())
 
 
 def entropy(x):
-    return rts.stat_common.nanentropy_jit(x.values)
+    return rts.stat_common.nanentropy_jit(x.to_numpy())
 
 
 def mode(x):
-    m = scipy.stats.mode(x.values).mode
+    m = scipy.stats.mode(x.to_numpy()).mode
     if np.isscalar(m):
         return m
     return m[0]
 
 
 def nunique(x):
-    return rts.stat_common.nan_unique_count_jit(x.values)
+    return rts.stat_common.nan_unique_count_jit(x.to_numpy())
 
 
 group_df1 = pd.DataFrame(
@@ -165,10 +165,7 @@ def rasters_to_zonal_df(feat_raster, data_raster):
     ],
 )
 def test_zonal_stats(features, raster, stats):
-    if isinstance(stats, str):
-        stats_working = [stats]
-    else:
-        stats_working = stats.copy()
+    stats_working = [stats] if isinstance(stats, str) else stats.copy()
     for i, s in enumerate(stats_working):
         if s == "asm":
             stats_working[i] = asm
@@ -215,7 +212,7 @@ def test_zonal_stats_long_format(raster):
         testdata.vector.pods_small, raster, ["mean", "min", "max"]
     )
     truth = (
-        zdf.compute()
+        zdf.compute()  # noqa: PD013  warning is wrong. .melt cannot do this
         .stack(0)
         .reset_index()
         .rename(columns={"level_1": "band"})
@@ -242,8 +239,8 @@ def get_random_points(n, nparts, dem):
     yspan = ymax - ymin
     x = xmin + (xspan * 1.1 * np.random.random(n)) - (0.05 * xspan)
     y = ymin + (yspan * 1.1 * np.random.random(n)) - (0.05 * yspan)
-    df = gpd.GeoSeries.from_xy(x, y, crs=dem.crs).to_frame("geometry")
-    return dgpd.from_geopandas(df, npartitions=nparts)
+    points = gpd.GeoSeries.from_xy(x, y, crs=dem.crs).to_frame("geometry")
+    return dgpd.from_geopandas(points, npartitions=nparts)
 
 
 def dem_clipped_small():
@@ -275,19 +272,17 @@ def dem_clipped_small():
 def test_extract_points_eager(dem, n, nparts, name):
     if name is None:
         name = "extracted"
-    df = get_random_points(n, nparts, dem)
-    points = df.geometry.compute().to_list()
-    x, y = dask.compute(df.geometry.x, df.geometry.y)
+    points_df = get_random_points(n, nparts, dem)
+    points = points_df.geometry.compute().to_list()
+    x, y = dask.compute(points_df.geometry.x, points_df.geometry.y)
     r, c = dem.index(x, y)
-    data = dem.values
+    data = dem.to_numpy()
     mask = dem.mask.compute()
     nb, nr, nc = data.shape
     valid = (r >= 0) & (r < nr) & (c >= 0) & (c < nc)
     n = len(x)
     bbox = shapely.geometry.box(*dem.bounds)
-    point_check = []
-    for p in points:
-        point_check.append(bbox.contains(p))
+    point_check = [bbox.contains(p) for p in points]
     assert np.allclose(valid, point_check)
     dfs = []
     for bnd in range(nb):
@@ -303,7 +298,7 @@ def test_extract_points_eager(dem, n, nparts, name):
             pd.DataFrame(d, index=pd.RangeIndex(n * bnd, n * (bnd + 1)))
         )
     truth = pd.concat(dfs)
-    result = extract_points_eager(df, dem, name)
+    result = extract_points_eager(points_df, dem, name)
     resultc = result.compute()
     assert isinstance(result, dask.dataframe.DataFrame)
     assert isinstance(resultc, pd.DataFrame)

@@ -42,7 +42,7 @@ class TestJitStats(TestCase):
             for i in INPUTS:
                 try:
                     truth.append(truth_func(i))
-                except ValueError:
+                except ValueError:  # noqa: PERF203
                     truth.append(None)
         for i, t in zip(INPUTS, truth):
             if t is not None:

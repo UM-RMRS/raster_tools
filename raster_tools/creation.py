@@ -34,6 +34,30 @@ _VALID_RANDOM_DISTRIBUTIONS = frozenset(
 )
 
 
+def _get_bands(bands):
+    if not is_int(bands):
+        try:
+            bands = int(bands)
+        except Exception:
+            raise TypeError(
+                f"Could not coerce bands argument to an int: {repr(bands)}"
+            ) from None
+    if bands < 1:
+        raise ValueError("Number of bands must be greater than 0")
+    return bands
+
+
+def _get_dtype(dtype):
+    if dtype is not None:
+        try:
+            dtype = np.dtype(dtype)
+        except TypeError:
+            raise ValueError(
+                f"Could not understand dtype argument: {repr(dtype)}"
+            ) from None
+    return dtype
+
+
 def _copy_mask(template, out_bands):
     if out_bands == template.nbands:
         return template.xmask.copy()
@@ -113,23 +137,14 @@ def random_raster(
 
     """
     rst = get_raster(raster_template)
-
-    if not is_int(bands):
-        try:
-            bands = int(bands)
-        except Exception:
-            raise TypeError(
-                f"Could not coerce bands argument to an int: {repr(bands)}"
-            )
-    if bands < 1:
-        raise ValueError("Number of bands must be greater than 0")
+    bands = _get_bands(bands)
     if not isinstance(params, Sequence):
         try:
             params = list(params)
         except Exception:
             raise TypeError(
                 f"Could not coerce params argument to a list: {repr(params)}"
-            )
+            ) from None
     else:
         params = list(params)
 
@@ -198,23 +213,8 @@ def empty_like(raster_template, bands=1, dtype=None, copy_mask=False):
 
     """
     rst = get_raster(raster_template)
-
-    if not is_int(bands):
-        try:
-            bands = int(bands)
-        except Exception:
-            raise TypeError(
-                f"Could not coerce bands argument to an int: {repr(bands)}"
-            )
-    if bands < 1:
-        raise ValueError("Number of bands must be greater than 0")
-    if dtype is not None:
-        try:
-            dtype = np.dtype(dtype)
-        except TypeError:
-            raise ValueError(
-                f"Could not understand dtype argument: {repr(dtype)}"
-            )
+    bands = _get_bands(bands)
+    dtype = _get_dtype(dtype)
 
     shape = (bands,) + rst.shape[1:]
     chunks = ((1,) * bands,) + rst.data.chunks[1:]
@@ -253,30 +253,15 @@ def full_like(raster_template, value, bands=1, dtype=None, copy_mask=False):
 
     """
     rst = get_raster(raster_template)
-
-    if not is_int(bands):
-        try:
-            bands = int(bands)
-        except Exception:
-            raise TypeError(
-                f"Could not coerce bands argument to an int: {repr(bands)}"
-            )
-    if bands < 1:
-        raise ValueError("Number of bands must be greater than 0")
+    bands = _get_bands(bands)
     if not is_scalar(value):
         try:
             value = float(value)
         except Exception:
             raise TypeError(
                 f"Could not coerce value argument to a scalar: {repr(value)}"
-            )
-    if dtype is not None:
-        try:
-            dtype = np.dtype(dtype)
-        except TypeError:
-            raise ValueError(
-                f"Could not understand dtype argument: {repr(dtype)}"
-            )
+            ) from None
+    dtype = _get_dtype(dtype)
 
     shape = (bands,) + rst.shape[1:]
     chunks = ((1,) * bands,) + rst.data.chunks[1:]

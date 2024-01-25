@@ -111,21 +111,23 @@ class TestCostDist(unittest.TestCase):
 
         # Cost dist
         self.assertTrue(
-            np.allclose(cost_dist.values, CD_TRUTH_SCALE_1, equal_nan=True)
+            np.allclose(cost_dist.to_numpy(), CD_TRUTH_SCALE_1, equal_nan=True)
         )
         self.assertTrue(cost_dist._masked)
         self.assertTrue(cost_dist.dtype == np.dtype(np.float64))
         self.assertTrue(cost_dist.null_value == -1)
         # traceback
         self.assertTrue(
-            np.allclose(traceback.values, TR_TRUTH_SCALE_1, equal_nan=True)
+            np.allclose(traceback.to_numpy(), TR_TRUTH_SCALE_1, equal_nan=True)
         )
         self.assertTrue(traceback._masked)
         self.assertTrue(traceback.dtype == np.dtype(np.int8))
         self.assertTrue(traceback.null_value == -1)
         # Allocation
         self.assertTrue(
-            np.allclose(allocation.values, AL_TRUTH_SCALE_1, equal_nan=True)
+            np.allclose(
+                allocation.to_numpy(), AL_TRUTH_SCALE_1, equal_nan=True
+            )
         )
         self.assertTrue(allocation._masked)
         self.assertTrue(allocation.dtype == np.dtype(np.int64))
@@ -141,14 +143,14 @@ class TestCostDist(unittest.TestCase):
 
         # Cost dist
         self.assertTrue(
-            np.allclose(cost_dist.values, CD_TRUTH_SCALE_1, equal_nan=True)
+            np.allclose(cost_dist.to_numpy(), CD_TRUTH_SCALE_1, equal_nan=True)
         )
         self.assertTrue(cost_dist._masked)
         self.assertTrue(cost_dist.dtype == np.dtype(np.float64))
         self.assertTrue(cost_dist.null_value == -1)
         # traceback
         self.assertTrue(
-            np.allclose(traceback.values, TR_TRUTH_SCALE_1, equal_nan=True)
+            np.allclose(traceback.to_numpy(), TR_TRUTH_SCALE_1, equal_nan=True)
         )
         self.assertTrue(traceback._masked)
         self.assertTrue(traceback.dtype == np.dtype(np.int8))
@@ -156,7 +158,7 @@ class TestCostDist(unittest.TestCase):
         # Allocation
         self.assertTrue(
             np.allclose(
-                allocation.values, AL_TRUTH_IDXS_SCALE_1, equal_nan=True
+                allocation.to_numpy(), AL_TRUTH_IDXS_SCALE_1, equal_nan=True
             )
         )
         self.assertTrue(allocation._masked)
@@ -216,7 +218,7 @@ class TestCostDist(unittest.TestCase):
         assert_valid_raster(allocation)
 
         self.assertTrue(
-            np.allclose(cost_dist.values, CD_TRUTH_SCALE_5, equal_nan=True)
+            np.allclose(cost_dist.to_numpy(), CD_TRUTH_SCALE_5, equal_nan=True)
         )
 
 

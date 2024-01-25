@@ -89,7 +89,7 @@ class TestClipping(TestCase):
         ]
         test = clipping.clip_box(self.dem, bounds)
         self.assertTrue(test.shape == rs_clipped.shape)
-        self.assertTrue(np.allclose(test.values, rs_clipped.values))
+        self.assertTrue(np.allclose(test.to_numpy(), rs_clipped.to_numpy()))
 
         # Test that the mask is also clipped
         x = np.arange(25).reshape((1, 5, 5))

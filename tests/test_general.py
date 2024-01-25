@@ -5,6 +5,7 @@ import raster_tools  # noqa: F401
 
 # isort: on
 
+import io
 import unittest
 from functools import partial
 
@@ -46,7 +47,6 @@ from raster_tools.stat_common import (
 from raster_tools.vector import Vector
 from tests import testdata
 from tests.utils import (
-    arange_nd,
     arange_raster,
     assert_rasters_similar,
     assert_valid_raster,
@@ -103,7 +103,7 @@ def test_local_stats(stat, chunk, dtype):
     if chunk:
         rs = rs.chunk((1, 2, 2))
         orig_chunks = rs.data.chunks
-    xx = np.where(rs.mask.compute(), np.nan, rs.values)
+    xx = np.where(rs.mask.compute(), np.nan, rs.to_numpy())
 
     if stat in stat_funcs:
         sfunc = stat_funcs[stat]
@@ -448,17 +448,17 @@ def test_model_predict_raster(raster, model, nout):
     ],
 )
 def test_model_predict_vector(features, model, columns, nout, prefix):
-    df = features.compute()
+    feats_df = features.compute()
     new_columns = [f"{prefix}{i + 1}" for i in range(nout)]
-    data = df[columns].values
+    data = feats_df[columns].to_numpy()
     valid = ~np.isnan(data).any(axis=1)
-    truth = np.full((len(df), nout), np.nan, dtype=F64)
+    truth = np.full((len(feats_df), nout), np.nan, dtype=F64)
     r = model.predict(data[valid])
     if r.ndim == 1:
         r = r[:, None]
     truth[valid] = r
-    new_df = pd.DataFrame({c: t for c, t in zip(new_columns, truth.T)})
-    truth_df = pd.concat([df, new_df], axis=1)
+    new_df = pd.DataFrame(dict(zip(new_columns, truth.T)))
+    truth_df = pd.concat([feats_df, new_df], axis=1)
 
     for result in [
         general.model_predict_vector(features, model, columns, nout, prefix),
@@ -492,10 +492,7 @@ def test_erode_dilate(name, size, null_value, chunk):
     x[5] = 4
     x[12, 12] = 3
     x = np.stack((x, x))
-    if nan_null:
-        mask = np.isnan(x)
-    else:
-        mask = x == null_value
+    mask = np.isnan(x) if nan_null else x == null_value
     x[1] += 1
     if not nan_null:
         x[mask] = null_value
@@ -566,10 +563,10 @@ class TestSurface(unittest.TestCase):
 def test_band_concat():
     rs1 = testdata.raster.dem_clipped_small
     rs2 = rs1 + 30
-    rsnp1 = rs1.values
-    rsnp2 = rs2.values
-    mask1 = rs1.xmask.values
-    mask2 = rs2.xmask.values
+    rsnp1 = rs1.to_numpy()
+    rsnp2 = rs2.to_numpy()
+    mask1 = rs1.xmask.to_numpy()
+    mask2 = rs2.xmask.to_numpy()
     truth = np.concatenate((rsnp1, rsnp2))
     mask = np.concatenate((mask1, mask2))
     truth[mask] = get_default_null_value(truth.dtype)
@@ -631,7 +628,7 @@ def test_band_concat_errors():
     ],
 )
 def test_remap_range(raster, mapping, inc):
-    truth = raster.values
+    truth = raster.to_numpy()
     if np.asarray(mapping).shape == (3,):
         mapping = [mapping]
     out_dtype = get_common_dtype([m[-1] for m in mapping])
@@ -673,7 +670,7 @@ def test_remap_range(raster, mapping, inc):
 )
 @pytest.mark.parametrize("inc", ["left", "right", "both", "none"])
 def test_remap_range_inclusivity(rast, mapping, inc):
-    data = rast.values.copy()
+    data = rast.to_numpy().copy()
     hist = np.zeros(data.shape, dtype=bool)
     for left, right, new in mapping:
         if inc == "left":
@@ -697,7 +694,7 @@ def test_remap_range_inclusivity(rast, mapping, inc):
 
 def test_remap_range_f16():
     rs = Raster(np.arange(25).reshape((5, 5))).astype("float16")
-    rsnp = rs.values
+    rsnp = rs.to_numpy()
     mapping = (0, 5, 1)
     result = general.remap_range(rs, mapping)
     truth = rsnp.copy()
@@ -707,7 +704,7 @@ def test_remap_range_f16():
     assert np.allclose(result, truth)
 
     rs = Raster(np.arange(25).reshape((5, 5))).astype("int8")
-    rsnp = rs.values
+    rsnp = rs.to_numpy()
     mapping = (0, 5, 2.0)
     result = general.remap_range(rs, mapping)
     truth = rsnp.copy().astype("float16")
@@ -776,10 +773,7 @@ def get_where_truth(cond, x, y):
     ymask = y.mask.compute() if not is_scalar(y) else np.zeros_like(cond)
 
     result = np.ma.where(cond, nx, ny)
-    if scalar_and_nan:
-        mask = np.isnan(result)
-    else:
-        mask = np.where(cond, xmask, ymask)
+    mask = np.isnan(result) if scalar_and_nan else np.where(cond, xmask, ymask)
     result = Raster(np.array(result))
     if chunks != "auto":
         result = result.chunk(chunks)
@@ -850,121 +844,110 @@ def test_where(cond, x, y):
     assert result.crs == "EPSG:3857"
 
 
-@pytest.mark.parametrize("unmapped_to_null", [False, True])
+@pytest.mark.parametrize("unmapped_to_null", [True, False])
 @pytest.mark.parametrize(
-    "mapping",
-    [{0: -1, 1: -2, 2: -3, 5: 1, 10: 20, 14: 2}, {k: 20 for k in range(10)}],
-)
-@pytest.mark.parametrize(
-    "mask",
+    "raster,mapping,expected_out_dtype",
     [
-        np.array(
-            [
-                [
-                    [1, 1, 1, 1],
-                    [1, 1, 1, 0],
-                    [1, 1, 0, 0],
-                    [1, 0, 0, 0],
-                ]
-            ]
-        ).astype(bool),
-        np.array(
-            [
-                [
-                    [1, 1, 0, 0],
-                    [1, 1, 0, 0],
-                    [1, 1, 0, 0],
-                    [1, 1, 0, 0],
-                ]
-            ]
-        ).astype(bool),
-        np.array(
-            [
-                [
-                    [1, 0, 0, 0],
-                    [0, 1, 0, 0],
-                    [0, 0, 1, 0],
-                    [0, 0, 0, 1],
-                ]
-            ]
-        ).astype(bool),
+        (
+            arange_raster((2, 10, 10))
+            .set_crs("EPSG:3857")
+            .set_null_value(99)
+            .set_null_value(100)
+            .astype("int16"),
+            {0: -1, 1: -2, 2: -3, 120: -120, 150: -150},
+            np.dtype("int16"),
+        ),
+        # Check promotion from uint16 to int32
+        (
+            arange_raster((2, 10, 10))
+            .set_crs("EPSG:3857")
+            .set_null_value(99)
+            .set_null_value(100)
+            .astype("uint16"),
+            {0: -1, 1: -2, 2: -3, 120: -120, 150: -150},
+            np.dtype("int32"),
+        ),
+        # Make sure that float values in the mapping cause promotion (i2 -> f4)
+        (
+            arange_raster((2, 10, 10)).astype("int16"),
+            {0: -1.0, 1: -2, 2: -3, 120: -120, 150: -150},
+            np.dtype("float32"),
+        ),
+        (
+            arange_raster((2, 10, 10)).astype("int16"),
+            {
+                0: -1.0,
+                1: -2,
+                2: -3,
+                120: -120,
+                150: np.finfo("float32").max + 1e35,
+            },
+            np.dtype("float64"),
+        ),
+        # make sure that float input rasters are accepted
+        (
+            arange_raster((2, 10, 10)).astype("float32"),
+            {0.0: -1.0, 1: -2, 2: -3, 120: -120, 150: 1e23},
+            np.dtype("float32"),
+        ),
     ],
 )
-@pytest.mark.parametrize(
-    "data",
-    [
-        arange_nd((1, 4, 4)),
-        arange_nd((1, 4, 4)).astype(float),
-        arange_nd((1, 4, 4)).astype("int16"),
-        arange_nd((1, 4, 4))[..., ::-1, ::-1],
-    ],
-)
-def test__reclassify_chunk(data, mask, mapping, unmapped_to_null):
-    nv = -99
-    map_array = np.array([(k, v) for k, v in mapping.items()]).astype(
-        data.dtype
+def test_reclassify(raster, mapping, unmapped_to_null, expected_out_dtype):
+    tdata = raster.data.compute().astype(expected_out_dtype)
+    mapped = np.zeros_like(tdata, dtype=bool)
+    nv = (
+        raster.null_value
+        if raster._masked
+        else get_default_null_value(expected_out_dtype)
     )
-    all_values = set(np.unique(data))
-    mapped = set(mapping)
-    unmapped = set(all_values) - mapped
-    truth = data.copy()
-    tmask = mask.copy()
+    for f, t in mapping.items():
+        mapped |= tdata == f
+        tdata[tdata == f] = t
     if unmapped_to_null:
-        for v in unmapped:
-            tmask |= data == v
-    for k, v in map_array[::-1]:
-        truth[data == k] = v
-    truth = np.where(tmask, nv, truth)
+        tdata[~mapped] = nv
+    result = general.reclassify(raster, mapping, unmapped_to_null)
 
-    result = general._reclassify_chunk(
-        data, mask, map_array, unmapped_to_null, nv
-    )
-    assert result.ndim == 3
-    assert result.shape == truth.shape
-    assert result.dtype == truth.dtype
-    assert np.allclose(truth, result)
+    assert_valid_raster(result)
+    assert_rasters_similar(raster, result)
+    assert result.dtype == expected_out_dtype
+    if unmapped_to_null:
+        assert result._masked
+        assert result.null_value == nv
+    if raster._masked:
+        assert result._masked
+    assert np.allclose(tdata, result.data.compute())
 
 
-@pytest.mark.parametrize("method", [False, True])
-def test_reclassify(method):
-    data = np.arange(100).reshape((10, 10))
-    rast = Raster(Raster(data)._ds.rio.write_crs("EPSG:3857"))
-    mapping = {k: v for k, v in zip(np.arange(40), np.arange(20, 60))}
-    included_mask = np.array([v in mapping for v in data.ravel()]).reshape(
-        (10, 10)
-    )
+@pytest.mark.parametrize(
+    "fd,expected_mapping",
+    [
+        (io.StringIO(""), {}),
+        (
+            io.StringIO("0:3\n1.:2\n.2:2\n1.2:3.\n5:.0"),
+            {0: 3, 1.0: 2, 0.2: 2, 1.2: 3.0, 5: 0.0},
+        ),
+        (
+            io.StringIO("1e23:2\n-1e-23 :2\n1.2e+23:3"),
+            {1e23: 2, -1e-23: 2, 1.2e23: 3},
+        ),
+        (io.StringIO("1:\t 2\n 3 : 4 \n"), {1: 2, 3: 4}),
+    ],
+)
+def test_reclassify_mapping_file_parsing(fd, expected_mapping):
+    assert general._parse_ascii_remap_file(fd) == expected_mapping
 
-    truth = data.copy()
-    truth[included_mask] = np.arange(20, 60)
-    result = (
-        rast.reclassify(mapping)
-        if method
-        else general.reclassify(rast, mapping)
-    )
-    assert np.allclose(result, truth)
-    assert result.crs == rast.crs
 
-    truth = data.copy()
-    truth[included_mask] = np.arange(20, 60)
-    truth[~included_mask] = get_default_null_value(int)
-    result = (
-        rast.reclassify(mapping, True)
-        if method
-        else general.reclassify(rast, mapping, True)
-    )
-    assert np.allclose(general.reclassify(rast, mapping, True), truth)
-    assert result.null_value == get_default_null_value(int)
-    assert result.crs == rast.crs
-
-    rast = rast.set_null_value(-1)
-    truth = data.copy()
-    truth[included_mask] = np.arange(20, 60)
-    truth[~included_mask] = -1
-    result = (
-        rast.reclassify(mapping, True)
-        if method
-        else general.reclassify(rast, mapping, True)
-    )
-    assert np.allclose(result, truth)
-    assert result.null_value == -1
-    assert result.crs == rast.crs
+@pytest.mark.parametrize(
+    "fd,error",
+    [
+        (io.StringIO("1.e:2"), general.RemapFileParseError),
+        (io.StringIO(":2"), general.RemapFileParseError),
+        (io.StringIO("1:"), general.RemapFileParseError),
+        (io.StringIO("12"), general.RemapFileParseError),
+        (io.StringIO("12 34"), general.RemapFileParseError),
+        (io.StringIO("1:2\n1:3"), ValueError),
+    ],
+)
+def test_reclassify__parse_ascii_remap_file_errors(fd, error):
+    with pytest.raises(error):
+        assert general._parse_ascii_remap_file(fd)

@@ -101,23 +101,23 @@ def _read_file_delayed(path, layer, npartitions):
     batch_size = (total_size // npartitions) + 1
 
     row_offset = 0
-    dfs = []
+    parts = []
     divs = []
     while row_offset < total_size:
         left = row_offset
         right = min(row_offset + batch_size, total_size)
         rows = slice(left, right)
-        df = delayed(gpd.read_file)(path, rows=rows, layer=layer)
+        part = delayed(gpd.read_file)(path, rows=rows, layer=layer)
         index = pd.RangeIndex(left, right)
-        df = delayed(_df_asign_index)(df, index)
-        dfs.append(df)
+        part = delayed(_df_asign_index)(part, index)
+        parts.append(part)
         divs.append(left)
         row_offset += batch_size
     divs.append(right - 1)
     meta = gpd.read_file(path, layer=layer, rows=1)
     divs = tuple(divs)
     # Returns a dask_geopandas GeoDataFrame
-    return dd.from_delayed(dfs, meta, divisions=divs), total_size
+    return dd.from_delayed(parts, meta, divisions=divs), total_size
 
 
 def _normalize_layers_arg(layers):
@@ -184,22 +184,22 @@ def open_vectors(path, layers=None):
     else:
         layers = src_layers
 
-    dfs = []
+    layer_vecs = []
     for layer in layers:
         n = count_layer_features(path, layer=layer)
         if PYOGRIO_SUPPORTED:
-            df = dgpd.read_file(
+            layer_vec = dgpd.read_file(
                 path, layer=layer, chunksize=_TARGET_CHUNK_SIZE
             )
-            pair = (df, n)
+            pair = (layer_vec, n)
         else:
             n_parts = max(n // _TARGET_CHUNK_SIZE, 1)
             pair = _read_file_delayed(path, layer, n_parts)
-        dfs.append(pair)
+        layer_vecs.append(pair)
 
-    if len(dfs) > 1:
-        return [Vector(df, n) for df, n in dfs]
-    return Vector(*dfs[0])
+    if len(layer_vecs) > 1:
+        return [Vector(layer_vec, n) for layer_vec, n in layer_vecs]
+    return Vector(*layer_vecs[0])
 
 
 def get_vector(src):
@@ -236,12 +236,12 @@ def get_dask_geodataframe(src):
         )
 
 
-def _add_objid(df, name, base, partition_info=None):
-    df = df.copy()
-    df[name] = np.arange(1, len(df) + 1, dtype=I64) + (
+def _add_objid(feats, name, base, partition_info=None):
+    feats = feats.copy()
+    feats[name] = np.arange(1, len(feats) + 1, dtype=I64) + (
         partition_info["number"] * base
     )
-    return df
+    return feats
 
 
 _OBJECTID_BASE = 10**9
@@ -266,27 +266,27 @@ def add_objectid_column(features, name=None, _base=_OBJECTID_BASE):
 
     """
     return_vector = isinstance(features, (Vector, str))
-    df = get_dask_geodataframe(features)
+    feats = get_dask_geodataframe(features)
 
     if name is not None:
-        if name in df:
+        if name in feats:
             raise ValueError(f"name already exists in dataframe: {name!r}")
     else:
         prefix = "OBJECTID"
-        if prefix not in df:
+        if prefix not in feats:
             name = prefix
         else:
             n = 1
             # Use ESRI convention of OBJECTID_{n} for duplicate OBJECTID
             name = f"{prefix}_{n}"
-            while name in df:
+            while name in feats:
                 n += 1
                 name = f"{prefix}_{n}"
-    meta = df._meta.copy()
+    meta = feats._meta.copy()
     meta[name] = np.array((), dtype=I64)
-    df_new = df.map_partitions(_add_objid, name, _base, meta=meta)
-    if df.spatial_partitions is not None:
-        df_new.spatial_partitions = df.spatial_partitions.copy()
+    df_new = feats.map_partitions(_add_objid, name, _base, meta=meta)
+    if feats.spatial_partitions is not None:
+        df_new.spatial_partitions = feats.spatial_partitions.copy()
     if return_vector:
         return Vector(df_new)
     return df_new
@@ -486,8 +486,13 @@ class Vector:
         """Copies the vector."""
         return Vector(self._geo.copy())
 
-    def eval(self):
+    def eval(self):  # noqa: A003
         """Computes the built-up chain of operations on the underlying data."""
+        # TODO: deprecate in favor of load
+        return self.load()
+
+    def load(self):
+        """Compute delayed operations and load the result into memory."""
         if dask.is_dask_collection(self._geo):
             return Vector(self._geo.compute(), self._size)
         return self
