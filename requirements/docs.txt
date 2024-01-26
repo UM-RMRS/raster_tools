@@ -5,6 +5,7 @@ fiona
 geopandas
 numba
 numpy
+odc-geo
 pandas
 rioxarray
 scipy

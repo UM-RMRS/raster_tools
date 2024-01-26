@@ -7,6 +7,7 @@ import dask.array as da
 import dask.dataframe as dd
 import geopandas as gpd
 import numpy as np
+import odc.geo.xr  # noqa: F401
 import rasterio as rio
 import shapely
 import xarray as xr
@@ -740,6 +741,11 @@ class Raster(_RasterBase):
         minx, maxy = self.xy(0, 0, offset="ul")
         maxx, miny = self.xy(r - 1, c - 1, "lr")
         return (minx, miny, maxx, maxy)
+
+    @property
+    def geobox(self):
+        """GeoBox object describing the raster's grid."""
+        return self._ds.odc.geobox
 
     @property
     def bandwise(self):

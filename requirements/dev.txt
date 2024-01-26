@@ -10,6 +10,7 @@ nose2
 netcdf4
 numba
 numpy>=1.22
+odc-geo
 pandas
 pre-commit
 pyarrow
