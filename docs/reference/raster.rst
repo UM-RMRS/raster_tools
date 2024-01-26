@@ -134,6 +134,7 @@ Contents / Conversion
    Raster.astype
    Raster.copy
    Raster.to_dataset
+   Raster.to_numpy
    Raster.to_vector
 
 Georeferencing
@@ -154,6 +155,7 @@ Raster IO
 
    Raster.close
    Raster.eval
+   Raster.load
    Raster.save
 
 Plotting

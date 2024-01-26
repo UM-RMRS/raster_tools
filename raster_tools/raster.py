@@ -928,6 +928,10 @@ class Raster(_RasterBase):
         computations and the result will be fixed in memory. The original
         Raster will be unaltered.
 
+        .. note::
+            This method has been replaced by :meth:`load` and will eventually
+            be deprecated and then removed.
+
         """
         # TODO: deprecate in favor of load
         return self.load()
