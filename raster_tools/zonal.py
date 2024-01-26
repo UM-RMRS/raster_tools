@@ -182,7 +182,9 @@ def _melt_part(part):
     part = (
         # Unpivot band_# column labels into the index. The index is now a
         # MultiIndex of (zone, level_1) where level_1 has the band labels
-        part.stack(0)  # noqa: PD013  warning is wrong. .melt cannot do this
+        # The PD013 warning is silenced below because I could not get melt to
+        # reproduce the desired result (I tried A LOT).
+        part.stack(0, future_stack=True)  # noqa: PD013
         # Move the zone and level_1 indices to columns
         .reset_index()
         .rename(columns={"level_1": "band"})
