@@ -16,4 +16,5 @@ API Reference
    general
    rasterize
    surface
+   warp
    zonal
