@@ -613,6 +613,16 @@ def test_property_bounds():
     assert rs.bounds == (0, 0, 2, 2)
 
 
+def test_property_geobox():
+    raster = testdata.raster.dem
+    assert hasattr(raster, "geobox")
+    gb = raster.geobox
+    assert gb.affine == raster.affine
+    assert gb.shape == raster.shape[1:]
+    assert gb.crs == raster.crs
+    assert gb.resolution.xy == raster.resolution
+
+
 def test_property_mask():
     rs = Raster(np.arange(100).reshape((10, 10)) % 4).set_null_value(0)
     assert rs._ds.mask.data.sum().compute() > 0

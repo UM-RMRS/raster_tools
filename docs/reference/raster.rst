@@ -147,6 +147,15 @@ Georeferencing
    Raster.set_crs
    Raster.xy
 
+Warping
+-------
+
+.. autosummary::
+   :toctree: generated/
+
+   Raster.reproject
+
+
 Raster IO
 ---------
 

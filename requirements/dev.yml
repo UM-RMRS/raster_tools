@@ -15,6 +15,7 @@ dependencies:
   - netcdf4
   - numba
   - numpy
+  - odc-geo
   - pandas
   - pre-commit
   - pyarrow

@@ -7,6 +7,7 @@ import dask.array as da
 import dask.dataframe as dd
 import geopandas as gpd
 import numpy as np
+import odc.geo.xr  # noqa: F401
 import rasterio as rio
 import shapely
 import xarray as xr
@@ -742,6 +743,11 @@ class Raster(_RasterBase):
         return (minx, miny, maxx, maxy)
 
     @property
+    def geobox(self):
+        """GeoBox object describing the raster's grid."""
+        return self._ds.odc.geobox
+
+    @property
     def bandwise(self):
         """Returns an adapter for band-wise operations on this raster
 
@@ -1305,6 +1311,77 @@ class Raster(_RasterBase):
         if self.crs is not None:
             ds = ds.rio.write_crs(self.crs)
         return Raster(ds, _fast_path=True)
+
+    def reproject(
+        self, crs_or_geobox=None, resample_method="nearest", resolution=None
+    ):
+        """Reproject to a new projection or resolution.
+
+        This is a lazy operation.
+
+        Parameters
+        ----------
+        crs_or_geobox : int, str, CRS, GeoBox, optional
+            The target grid to reproject the raster to. This can be a
+            projection string, EPSG code string or integer, a CRS object, or a
+            GeoBox object. `resolution` can also be specified to change the
+            output raster's resolution in the new CRS. If `crs_or_geobox` is
+            not provided, `resolution` must be specified.
+        resample_method : str, optional
+            The data resampling method to use. Null pixels are ignored for all
+            methods. Some methods require specific versions of GDAL. These are
+            noted below. Valid methods are:
+
+            'nearest'
+                Nearest neighbor resampling. This is the default.
+            'bilinear'
+                Bilinear resmapling.
+            'cubic'
+                Cubic resmapling.
+            'cubic_spline'
+                Cubic spline resmapling.
+            'lanczos'
+                Lanczos windowed sinc resmapling.
+            'average'
+                Average resampling, computes the weighted average of all
+                contributing pixels.
+            'mode'
+                Mode resampling, selects the value which appears most often.
+            'max'
+                Maximum resampling. (GDAL 2.0+)
+            'min'
+                Minimum resampling. (GDAL 2.0+)
+            'med'
+                Median resampling. (GDAL 2.0+)
+            'q1'
+                Q1, first quartile resampling. (GDAL 2.0+)
+            'q3'
+                Q3, third quartile resampling. (GDAL 2.0+)
+            'sum'
+                Sum, compute the weighted sum. (GDAL 3.1+)
+            'rms'
+                RMS, root mean square/quadratic mean. (GDAL 3.3+)
+        resolution : int, float, tuple of int or float, optional
+            The desired resolution of the reprojected raster. If
+            `crs_or_geobox` is unspecified, this is used to reproject to the
+            new resolution while maintaining the same CRS. One of
+            `crs_or_geobox` or `resolution` must be provided. Both can also be
+            provided.
+
+        Returns
+        -------
+        Raster
+            The reprojected raster on the new grid.
+
+        """
+        from raster_tools.warp import reproject
+
+        return reproject(
+            self,
+            crs_or_geobox=crs_or_geobox,
+            resample_method=resample_method,
+            resolution=resolution,
+        )
 
     def xy(self, row, col, offset="center"):
         """Return the `(x, y)` coordinates of the pixel at `(row, col)`.

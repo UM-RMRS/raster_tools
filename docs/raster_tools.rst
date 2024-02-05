@@ -140,6 +140,14 @@ raster\_tools.vector module
    :undoc-members:
    :show-inheritance:
 
+raster\_tools.warp module
+-------------------------
+
+.. automodule:: raster_tools.warp
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 raster\_tools.zonal module
 --------------------------
 

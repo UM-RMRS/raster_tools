@@ -13,6 +13,7 @@ dependencies:
   - netcdf4
   - numba
   - numpy
+  - odc-geo
   - pandas
   - pyogrio
   - pyproj
