@@ -714,6 +714,34 @@ def test_remap_range_f16():
     assert np.allclose(result, truth)
 
 
+def test_remap_range_null_mapping():
+    raster = testdata.raster.dem_small
+    mapping = (0, 1500, None)
+    truth_rast = xr.where(raster.xdata > 1500, raster.xdata, raster.null_value)
+    truth_mask = truth_rast == raster.null_value
+
+    result = general.remap_range(raster, mapping)
+    assert_valid_raster(result)
+    assert result.dtype == raster.dtype
+    assert result.null_value == raster.null_value
+    assert np.allclose(result.xdata, truth_rast)
+    assert np.allclose(result.xmask, truth_mask)
+
+    mapping = [(0, 1500, None), (1500, 2000, 1)]
+    truth_rast = xr.where(raster.xdata > 1500, raster.xdata, raster.null_value)
+    truth_rast = xr.where(
+        (truth_rast >= 1500) & (truth_rast < 2000), 1, truth_rast
+    )
+    truth_mask = truth_rast == raster.null_value
+
+    result = general.remap_range(raster, mapping)
+    assert_valid_raster(result)
+    assert result.dtype == raster.dtype
+    assert result.null_value == raster.null_value
+    assert np.allclose(result.xdata, truth_rast)
+    assert np.allclose(result.xmask, truth_mask)
+
+
 def test_remap_range_errors():
     rs = testdata.raster.dem_small
     # TypeError if not scalars
@@ -721,10 +749,6 @@ def test_remap_range_errors():
         general.remap_range(rs, (None, 2, 4))
     with pytest.raises(TypeError):
         general.remap_range(rs, (0, "2", 4))
-    with pytest.raises(TypeError):
-        general.remap_range(rs, (0, 2, None))
-    with pytest.raises(TypeError):
-        general.remap_range(rs, [(0, 2, 1), (2, 3, None)])
     # ValueError if nan
     with pytest.raises(ValueError):
         general.remap_range(rs, (np.nan, 2, 4))
@@ -854,7 +878,7 @@ def test_where(cond, x, y):
             .set_null_value(99)
             .set_null_value(100)
             .astype("int16"),
-            {0: -1, 1: -2, 2: -3, 120: -120, 150: -150},
+            {0: -1, 1: -2, 2: -3, 120: -120, 150: None},
             np.dtype("int16"),
         ),
         # Check promotion from uint16 to int32
@@ -902,20 +926,26 @@ def test_reclassify(raster, mapping, unmapped_to_null, expected_out_dtype):
     )
     for f, t in mapping.items():
         mapped |= tdata == f
+        if t is None:
+            t = nv
         tdata[tdata == f] = t
     if unmapped_to_null:
         tdata[~mapped] = nv
+    tmask = tdata == nv
     result = general.reclassify(raster, mapping, unmapped_to_null)
 
     assert_valid_raster(result)
     assert_rasters_similar(raster, result)
     assert result.dtype == expected_out_dtype
-    if unmapped_to_null:
+    if (
+        raster._masked
+        or unmapped_to_null
+        or any(v is None for v in mapping.values())
+    ):
         assert result._masked
         assert result.null_value == nv
-    if raster._masked:
-        assert result._masked
     assert np.allclose(tdata, result.data.compute())
+    assert np.allclose(tmask, result.mask.compute())
 
 
 @pytest.mark.parametrize(
@@ -931,6 +961,7 @@ def test_reclassify(raster, mapping, unmapped_to_null, expected_out_dtype):
             {1e23: 2, -1e-23: 2, 1.2e23: 3},
         ),
         (io.StringIO("1:\t 2\n 3 : 4 \n"), {1: 2, 3: 4}),
+        (io.StringIO("1:NoData"), {1: None}),
     ],
 )
 def test_reclassify_mapping_file_parsing(fd, expected_mapping):
@@ -946,6 +977,7 @@ def test_reclassify_mapping_file_parsing(fd, expected_mapping):
         (io.StringIO("12"), general.RemapFileParseError),
         (io.StringIO("12 34"), general.RemapFileParseError),
         (io.StringIO("1:2\n1:3"), ValueError),
+        (io.StringIO("1:ND"), general.RemapFileParseError),
     ],
 )
 def test_reclassify__parse_ascii_remap_file_errors(fd, error):

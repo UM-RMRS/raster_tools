@@ -949,10 +949,10 @@ def band_concat(rasters):
 
 
 @nb.jit(nopython=True, nogil=True)
-def _remap_values(x, mask, mappings, inclusivity):
+def _remap_values(x, mask, start_end_values, new_values, inclusivity):
     outx = np.zeros_like(x)
     bands, rows, columns = x.shape
-    rngs = mappings.shape[0]
+    rngs = start_end_values.shape[0]
     for bnd in range(bands):
         for rw in range(rows):
             for cl in range(columns):
@@ -961,7 +961,8 @@ def _remap_values(x, mask, mappings, inclusivity):
                 vl = x[bnd, rw, cl]
                 remap = False
                 for imap in range(rngs):
-                    left, right, new = mappings[imap]
+                    left, right = start_end_values[imap]
+                    new = new_values[imap]
                     if inclusivity == 0:
                         remap = left <= vl < right
                     elif inclusivity == 1:
@@ -986,7 +987,7 @@ def _normalize_mappings(mappings):
         )
     if not len(mappings):
         raise ValueError("No mappings provided")
-    if len(mappings) and is_scalar(mappings[0]):
+    if is_scalar(mappings[0]):
         mappings = [mappings]
     try:
         mappings = [list(m) for m in mappings]
@@ -995,14 +996,17 @@ def _normalize_mappings(mappings):
             "Mappings must be either single 3-tuple or list of 3-tuples of "
             "scalars"
         ) from None
+    starts = []
+    ends = []
+    news = []
     for m in mappings:
         if len(m) != 3:
             raise ValueError(
                 "Mappings must be either single 3-tuple or list of 3-tuples of"
                 " scalars"
             )
-        if not all(is_scalar(mi) for mi in m):
-            raise TypeError("Mappings values must be scalars")
+        if not all(is_scalar(mi) for mi in m[:2]):
+            raise TypeError("Mapping min and max values must be scalars")
         if any(np.isnan(mi) for mi in m[:2]):
             raise ValueError("Mapping min and max values cannot be NaN")
         if m[0] >= m[1]:
@@ -1010,7 +1014,15 @@ def _normalize_mappings(mappings):
                 "Mapping min value must be strictly less than max value:"
                 f" {m[0]}, {m[1]}"
             )
-    return mappings
+        if not is_scalar(m[2]) and m[2] is not None:
+            raise ValueError(
+                "The new value in a mapping must be a scalar or None. "
+                f"Got {m[2]!r}."
+            )
+        starts.append(m[0])
+        ends.append(m[1])
+        news.append(m[2])
+    return starts, ends, news
 
 
 def remap_range(raster, mapping, inclusivity="left"):
@@ -1026,7 +1038,8 @@ def remap_range(raster, mapping, inclusivity="left"):
     mapping : 3-tuple of scalars or list of 3-tuples of scalars
         A tuple or list of tuples containing ``(min, max, new_value)``
         scalars. The mappiing(s) map values between the min and max to the
-        ``new_value``. If `mapping` is a list and there are mappings that
+        ``new_value``. If ``new_value`` is ``None``, the matching pixels will
+        be marked as null. If `mapping` is a list and there are mappings that
         conflict or overlap, earlier mappings take precedence. `inclusivity`
         determines which sides of the range are inclusive and exclusive.
     inclusivity : str, optional
@@ -1049,7 +1062,7 @@ def remap_range(raster, mapping, inclusivity="left"):
 
     """
     raster = get_raster(raster)
-    mappings = _normalize_mappings(mapping)
+    map_starts, map_ends, map_news = _normalize_mappings(mapping)
     if not is_str(inclusivity):
         raise TypeError(
             f"inclusivity must be a str. Got type: {type(inclusivity)}"
@@ -1057,11 +1070,21 @@ def remap_range(raster, mapping, inclusivity="left"):
     inc_map = dict(zip(("left", "right", "both", "none"), range(4)))
     if inclusivity not in inc_map:
         raise ValueError(f"Invalid inclusivity value. Got: {inclusivity!r}")
-    mappings_common_dtype = get_common_dtype([m[-1] for m in mappings])
+    if not all(m is None for m in map_news):
+        mappings_common_dtype = get_common_dtype(
+            [m for m in map_news if m is not None]
+        )
+    else:
+        mappings_common_dtype = raster.dtype
     out_dtype = np.promote_types(raster.dtype, mappings_common_dtype)
     # numba doesn't understand f16 so use f32 and then downcast
     f16_workaround = out_dtype == F16
-    mappings = np.atleast_2d(mappings)
+    if raster._masked:
+        nv = raster.null_value
+    else:
+        nv = get_default_null_value(out_dtype)
+    start_end_values = np.array([[s, e] for s, e in zip(map_starts, map_ends)])
+    new_values = np.array([v if v is not None else nv for v in map_news])
 
     outrs = raster.copy()
     if out_dtype != outrs.dtype:
@@ -1072,15 +1095,16 @@ def remap_range(raster, mapping, inclusivity="left"):
     elif f16_workaround:
         outrs = outrs.astype(F32)
     data = outrs.data
-    func = partial(
-        _remap_values, mappings=mappings, inclusivity=inc_map[inclusivity]
-    )
     outrs.xdata.data = data.map_blocks(
-        func,
+        _remap_values,
         raster.mask,
+        start_end_values=start_end_values,
+        new_values=new_values,
+        inclusivity=inc_map[inclusivity],
         dtype=data.dtype,
         meta=np.array((), dtype=data.dtype),
     )
+    outrs.xmask.data = outrs.data == nv
     if f16_workaround:
         outrs = outrs.astype(F16)
     return outrs
@@ -1209,7 +1233,8 @@ _INT_OR_FLOAT_RE = (
     r"(?:[-+]?(?:(?:0|[1-9]\d*)(?:\.\d*)?|\.\d+)?)(?:[eE][-+]?\d+)?"
 )
 _REMAPPING_LINE_PATTERN = re.compile(
-    rf"^\s*(?P<from>{_INT_OR_FLOAT_RE})\s*:\s*(?P<to>{_INT_OR_FLOAT_RE})\s*$"
+    rf"^\s*(?P<from>{_INT_OR_FLOAT_RE})\s*:"
+    rf"\s*(?P<to>{_INT_OR_FLOAT_RE}|NoData)\s*$"
 )
 
 
@@ -1235,7 +1260,7 @@ def _parse_ascii_remap_file(fd):
         from_str = m.group("from")
         to_str = m.group("to")
         k = _str_to_float_or_int(from_str)
-        v = _str_to_float_or_int(to_str)
+        v = _str_to_float_or_int(to_str) if to_str != "NoData" else None
         if k in mapping:
             raise ValueError(f"Found duplicate mapping: '{k}:{v}'.")
         mapping[k] = v
@@ -1267,12 +1292,14 @@ def reclassify(raster, remapping, unmapped_to_null=False):
         The input raster to reclassify. Can be a path string or Raster object.
     remapping : str, dict
         Can be either a ``dict`` or a path string. If a ``dict`` is provided,
-        the keys will be reclassified to the corresponding values. If a path
-        string, it is treated as an ASCII remap file where each line looks like
-        ``a:b`` and ``a`` and ``b`` are integers. The output values of the
-        mapping can cause type promotion. If the input raster has integer data
-        and one of the outputs in the mapping is a float, the result will be a
-        float raster.
+        the keys will be reclassified to the corresponding values. It is
+        possible to map values to the null value by providing ``None`` in the
+        mapping. If a path string, it is treated as an ASCII remap file where
+        each line looks like ``a:b`` and ``a`` and ``b`` are scalars. ``b`` can
+        also be "NoData". This indicates that ``a`` will be mapped to the null
+        value. The output values of the mapping can cause type promotion. If
+        the input raster has integer data and one of the outputs in the mapping
+        is a float, the result will be a float raster.
     unmapped_to_null : bool, optional
         If ``True``, values not included in the mapping are instead mapped to
         the null value. Default is ``False``.
@@ -1287,21 +1314,18 @@ def reclassify(raster, remapping, unmapped_to_null=False):
     remapping = _get_remapping(remapping)
 
     out_dtype = raster.dtype
-    mapping_out_values = list(remapping.values())
-    out_dtype = np.promote_types(
-        get_common_dtype(mapping_out_values), out_dtype
-    )
-    if unmapped_to_null:
-        if raster._masked:
-            nv = raster.null_value
-        else:
-            nv = get_default_null_value(out_dtype)
+    mapping_out_values = [v for v in remapping.values() if v is not None]
+    if len(mapping_out_values):
+        out_dtype = np.promote_types(
+            get_common_dtype(mapping_out_values), out_dtype
+        )
+    if raster._masked:
+        nv = raster.null_value
     else:
-        # 0 is a placeholder value. If input raster is not masked and
-        # unmapped_to_null is False, the null value will not be used in the
-        # dask function. nv still needs to be passed to dask so it needs to be
-        # a value with valid type.
-        nv = raster.null_value if raster._masked else 0
+        nv = get_default_null_value(out_dtype)
+    for k in remapping:
+        if remapping[k] is None:
+            remapping[k] = nv
 
     mapping_from = np.array(list(remapping))
     mapping_to = np.array(list(remapping.values())).astype(out_dtype)

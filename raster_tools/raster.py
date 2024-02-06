@@ -1187,10 +1187,11 @@ class Raster(_RasterBase):
         mapping : 3-tuple of scalars or list of 3-tuples of scalars
             A tuple or list of tuples containing ``(min, max, new_value)``
             scalars. The mappiing(s) map values between the min and max to the
-            ``new_value``. If `mapping` is a list and there are mappings that
-            conflict or overlap, earlier mappings take precedence.
-            `inclusivity` determines which sides of the range are inclusive and
-            exclusive.
+            ``new_value``. If ``new_value`` is ``None``, the matching pixels
+            will be marked as null. If `mapping` is a list and there are
+            mappings that conflict or overlap, earlier mappings take
+            precedence. `inclusivity` determines which sides of the range are
+            inclusive and exclusive.
         inclusivity : str, optional
             Determines whether to be inclusive or exclusive on either end of
             the range. Default is `'left'`.
@@ -1267,9 +1268,14 @@ class Raster(_RasterBase):
         remapping : str, dict
             Can be either a ``dict`` or a path string. If a ``dict`` is
             provided, the keys will be reclassified to the corresponding
-            values. If a path string, it is treated as an ASCII remap file
-            where each line looks like ``a:b`` and ``a`` and ``b`` are
-            integers. All remap values (both from and to) must be integers.
+            values. It is possible to map values to the null value by providing
+            ``None`` in the mapping. If a path string, it is treated as an
+            ASCII remap file where each line looks like ``a:b`` and ``a`` and
+            ``b`` are scalars. ``b`` can also be "NoData". This indicates that
+            ``a`` will be mapped to the null value. The output values of the
+            mapping can cause type promotion. If the input raster has integer
+            data and one of the outputs in the mapping is a float, the result
+            will be a float raster.
         unmapped_to_null : bool, optional
             If ``True``, values not included in the mapping are instead mapped
             to the null value. Default is ``False``.
