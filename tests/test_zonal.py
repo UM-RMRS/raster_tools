@@ -213,7 +213,7 @@ def test_zonal_stats_long_format(raster):
     )
     truth = (
         zdf.compute()  # noqa: PD013  warning is wrong. .melt cannot do this
-        .stack(0)
+        .stack(0, future_stack=True)
         .reset_index()
         .rename(columns={"level_1": "band"})
         .sort_values(["band", "zone"])

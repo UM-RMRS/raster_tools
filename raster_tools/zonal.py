@@ -265,7 +265,7 @@ def _zonal_stats(features_raster, data_raster, stats):
         # median requires special treatment. It needs the shuffle arg and also
         # causes TypeErrors when used with custom agg functions.
         # ref: https://github.com/dask/dask/issues/10517
-        median_df = grouped.agg(["median"], shuffle="tasks")
+        median_df = grouped.agg(["median"], shuffle_method="tasks")
     if len(stats):
         agg_result_df = grouped.agg(stats)
         if has_median:

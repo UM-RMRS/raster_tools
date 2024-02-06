@@ -18,6 +18,7 @@ from raster_tools.vector import (
     list_layers,
     open_vectors,
 )
+from raster_tools.warp import reproject
 
 __all__ = [
     "Raster",
@@ -39,6 +40,7 @@ __all__ = [
     "random_raster",
     "reclassify",
     "remap_range",
+    "reproject",
     "surface",
     "zeros_like",
     "zonal",
