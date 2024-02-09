@@ -1101,15 +1101,17 @@ class Raster(_RasterBase):
         promoting to fit the null value.
         """
         if not self._masked:
-            return self
+            return self.copy()
         nv = self.null_value
         if is_bool(self.dtype):
+            # Sanity check to make sure that boolean rasters get a boolean null
+            # value
             nv = get_default_null_value(self.dtype)
-        # call write_nodata because xr.where drops the nodata info
-        xrs = xr.where(self._ds.mask, nv, self._ds.raster).rio.write_nodata(nv)
-        if self.crs is not None:
-            xrs = xrs.rio.write_crs(self.crs)
-        return Raster(make_raster_ds(xrs, self._ds.mask), _fast_path=True)
+        out_raster = self.copy()
+        # Work with .data to avoid dropping attributes caused by using xarray
+        # and rioxarrays' APIs
+        out_raster._ds.raster.data = da.where(self.mask, nv, self.data)
+        return out_raster
 
     def to_null_mask(self):
         """
