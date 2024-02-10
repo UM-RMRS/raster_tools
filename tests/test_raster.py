@@ -1431,6 +1431,9 @@ def test_copy():
     assert rs is not copy
     assert rs._ds is not copy._ds
     assert rs._ds.equals(copy._ds)
+    assert copy._ds.attrs == rs._ds.attrs
+    assert copy._ds.raster.attrs == rs._ds.raster.attrs
+    assert copy._ds.mask.attrs == rs._ds.mask.attrs
     assert np.allclose(rs, copy)
     # make sure a deep copy has occurred
     copy._ds.raster.data[0, -1, -1] = 0
@@ -1504,6 +1507,46 @@ def test_replace_null():
 
     with pytest.raises(TypeError):
         rs.replace_null(None)
+
+
+def test_set_null():
+    raster = testdata.raster.dem_small
+    truth = raster.to_numpy()
+    truth_mask = truth < 1500
+    truth[truth_mask] = raster.null_value
+    result = raster.set_null(raster < 1500)
+    assert_valid_raster(result)
+    assert result.null_value == raster.null_value
+    assert np.allclose(result, truth)
+    assert np.allclose(result.mask.compute(), truth_mask)
+    assert result._ds.raster.attrs == raster._ds.raster.attrs
+
+    # Make sure broadcasting works
+    raster = band_concat([testdata.raster.dem_small] * 3)
+    assert raster.shape == (3, 100, 100)
+    mask = (testdata.raster.dem_small < 1500).to_numpy()
+    truth[:, mask[0]] = raster.null_value
+    result = raster.set_null(testdata.raster.dem_small < 1500)
+    assert_valid_raster(result)
+    assert result.null_value == raster.null_value
+    assert np.allclose(result, truth)
+    assert np.allclose(result.mask.compute(), truth_mask)
+    assert result._ds.raster.attrs == raster._ds.raster.attrs
+
+    # Make sure that a null value is added if not already present
+    raster = testdata.raster.dem_small.set_null_value(None)
+    nv = get_default_null_value(raster.dtype)
+    truth = raster.to_numpy()
+    truth_mask = truth < 1500
+    truth[truth_mask] = nv
+    result = raster.set_null(raster < 1500)
+    assert_valid_raster(result)
+    assert result.null_value == nv
+    assert np.allclose(result, truth)
+    assert np.allclose(result.mask.compute(), truth_mask)
+    attrs = raster._ds.raster.attrs
+    attrs["_FillValue"] = nv
+    assert result._ds.raster.attrs == attrs
 
 
 @pytest.mark.filterwarnings("ignore:The null value")
@@ -1630,41 +1673,86 @@ def test_get_bands():
 
 
 def test_burn_mask():
-    x = arange_nd((1, 5, 5))
-    rs = Raster(x)
-    rs._ds["raster"] = xr.where(
-        (rs._ds.raster >= 0) & (rs._ds.raster < 10), -999, rs._ds.raster
+    raster = (
+        arange_raster((1, 5, 5))
+        .set_crs("EPSG:3857")
+        .set_null_value(4)
+        .set_null_value(-1)
     )
-    rs = rs.set_null_value(-999).set_crs("EPSG:3857")
-    data = rs.to_numpy()
-    assert rs.null_value == -999
-    assert rs._masked
-    assert rs.crs == "EPSG:3857"
-    true_mask = data < 10
-    true_state = data.copy()
-    true_state[true_mask] = -999
-    assert np.allclose(true_mask, rs._ds.mask)
-    assert np.allclose(true_state, rs)
-
-    rs._ds.raster.data = data
-    assert np.allclose(rs, data)
-    assert_valid_raster(rs.burn_mask())
-    assert np.allclose(rs.burn_mask(), true_state)
-    assert rs.burn_mask().crs == rs.crs
-
-    data = arange_nd((1, 5, 5))
-    rs = Raster(data)
-    rs._ds["raster"] = xr.where(
-        (rs._ds.raster >= 20) & (rs._ds.raster < 26), 999, rs._ds.raster
+    raster._ds.mask.data[raster.data > 20] = True
+    truth = raster.copy()
+    truth._ds.raster.data = da.where(truth.mask, truth.null_value, truth.data)
+    # Confirm state
+    assert_valid_raster(truth)
+    assert truth.crs == 3857
+    assert truth.null_value == -1
+    assert np.allclose(
+        truth.mask.compute(),
+        np.array(
+            [
+                [
+                    [0, 0, 0, 0, 1],
+                    [0, 0, 0, 0, 0],
+                    [0, 0, 0, 0, 0],
+                    [0, 0, 0, 0, 0],
+                    [0, 1, 1, 1, 1],
+                ]
+            ]
+        ).astype(bool),
     )
-    rs = rs.set_null_value(999).set_crs("EPSG:3857")
-    rs = rs > 15
-    assert rs.dtype == np.dtype(bool)
-    nv = get_default_null_value(bool)
-    assert rs.null_value == nv
-    true_state = data > 15
-    true_state = np.where(data >= 20, nv, true_state)
-    assert np.allclose(rs.burn_mask(), true_state)
+    # Confirm raster is invalid because the data does not match the mask
+    with pytest.raises(AssertionError):
+        assert_valid_raster(raster)
+
+    result = raster.burn_mask()
+    assert_valid_raster(result)
+    assert_rasters_similar(result, truth)
+    assert result is not raster
+    assert result.null_value == truth.null_value
+    # Make sure nothing else changed on the raster
+    assert result.xdata.attrs == raster.xdata.attrs
+    assert np.allclose(result, truth)
+    assert np.allclose(result.mask.compute(), truth.mask.compute())
+
+    # Make sure a copy is returned if there is nothing to mask
+    raster = arange_raster((1, 5, 5)).set_crs("EPSG:3857")
+    assert raster.null_value is None
+    result = raster.burn_mask()
+    assert_valid_raster(result)
+    assert_rasters_similar(result, truth)
+    assert result is not raster
+    assert result.null_value is None
+    # Make sure nothing else changed on the raster
+    assert result.xdata.attrs == raster.xdata.attrs
+    assert np.allclose(result, raster)
+    assert np.allclose(result.mask.compute(), raster.mask.compute())
+
+    # Boolean rasters
+    raster = (
+        arange_raster((1, 5, 5))
+        .set_crs("EPSG:3857")
+        .set_null_value(0)
+        .set_null_value(-1)
+    )
+    raster = raster > 20
+    raster._ds.mask.data[raster.data <= 12] = True
+    assert raster.dtype == np.dtype(bool)
+    assert raster.null_value == get_default_null_value(bool)
+    truth = raster.copy()
+    truth._ds.raster.data = da.where(
+        truth.mask, get_default_null_value(bool), truth.data
+    )
+    truth._ds["raster"] = truth.xdata.rio.write_nodata(
+        get_default_null_value(bool)
+    )
+    result = raster.burn_mask()
+    assert_valid_raster(result)
+    assert_rasters_similar(result, truth)
+    assert result is not raster
+    # Make sure nothing else changed on the raster
+    assert result.xdata.attrs == raster.xdata.attrs
+    assert np.allclose(result, truth)
+    assert np.allclose(result.mask.compute(), truth.mask.compute())
 
 
 @pytest.mark.parametrize("index", [(0, 0), (0, 1), (1, 0), (-1, -1), (1, -1)])

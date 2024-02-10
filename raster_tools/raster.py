@@ -17,6 +17,7 @@ from shapely.geometry import Point, box
 
 from raster_tools.dask_utils import dask_nanmax, dask_nanmin
 from raster_tools.dtypes import (
+    BOOL,
     DTYPE_INPUT_TO_DTYPE,
     F16,
     F32,
@@ -1093,6 +1094,60 @@ class Raster(_RasterBase):
         xrs = xrs.rio.write_nodata(value)
         return Raster(make_raster_ds(xrs, mask), _fast_path=True).burn_mask()
 
+    def set_null(self, mask_raster):
+        """Update the raster's null pixels using the provided mask
+
+        Parameters
+        ----------
+        mask_raster : str, Raster
+            Raster or path to a raster that is used to update the masked out
+            pixels. This raster updates the mask. It does not replace the mask.
+            Pixels that were already marked as null stay null and pixels that
+            are marked as null in `mask_raster` become marked as null in the
+            resulting raster. This is a logical "OR" operation. `mask_raster`
+            must have data type of boolean, int8, or uint8. `mask_raster` must
+            have either 1 band or the same number of bands as the raster it is
+            being applied to. A single band `mask_raster` is broadcast across
+            all bands of the raster being modified.
+
+        Returns
+        -------
+        Raster
+            The resulting raster with updated mask.
+
+        """
+        mask_raster = get_raster(mask_raster)
+        if mask_raster.nbands > 1 and mask_raster.nbands != self.nbands:
+            raise ValueError(
+                "The number of bands in mask_raster must be 1 or match"
+                f" this raster. Got {mask_raster.nbands}"
+            )
+        if mask_raster.shape[1:] != self.shape[1:]:
+            raise ValueError(
+                "x and y dims for mask_raster do not match this raster."
+                f" {mask_raster.shape[1:]} vs {self.shape[1:]}"
+            )
+        dtype = mask_raster.dtype
+        if dtype not in {BOOL, I8, U8}:
+            raise TypeError("mask_raster must be boolean, int8, or uint8")
+        elif not is_bool(dtype):
+            mask_raster = mask_raster.astype(bool)
+
+        out_raster = self.copy()
+        new_mask_data = out_raster._ds.mask.data
+        # Rely on numpy broadcasting when applying the new mask data
+        if mask_raster._masked:
+            new_mask_data |= mask_raster.data & (~mask_raster.mask)
+        else:
+            new_mask_data |= mask_raster.data
+        out_raster._ds.mask.data = new_mask_data
+        if not self._masked:
+            out_raster._ds["raster"] = out_raster._ds.raster.rio.write_nodata(
+                get_default_null_value(self.dtype)
+            )
+        # Burn mask to set null values in newly masked regions
+        return out_raster.burn_mask()
+
     def burn_mask(self):
         """Fill null-masked cells with null value.
 
@@ -1101,15 +1156,17 @@ class Raster(_RasterBase):
         promoting to fit the null value.
         """
         if not self._masked:
-            return self
+            return self.copy()
         nv = self.null_value
         if is_bool(self.dtype):
+            # Sanity check to make sure that boolean rasters get a boolean null
+            # value
             nv = get_default_null_value(self.dtype)
-        # call write_nodata because xr.where drops the nodata info
-        xrs = xr.where(self._ds.mask, nv, self._ds.raster).rio.write_nodata(nv)
-        if self.crs is not None:
-            xrs = xrs.rio.write_crs(self.crs)
-        return Raster(make_raster_ds(xrs, self._ds.mask), _fast_path=True)
+        out_raster = self.copy()
+        # Work with .data to avoid dropping attributes caused by using xarray
+        # and rioxarrays' APIs
+        out_raster._ds.raster.data = da.where(self.mask, nv, self.data)
+        return out_raster
 
     def to_null_mask(self):
         """
@@ -1187,10 +1244,11 @@ class Raster(_RasterBase):
         mapping : 3-tuple of scalars or list of 3-tuples of scalars
             A tuple or list of tuples containing ``(min, max, new_value)``
             scalars. The mappiing(s) map values between the min and max to the
-            ``new_value``. If `mapping` is a list and there are mappings that
-            conflict or overlap, earlier mappings take precedence.
-            `inclusivity` determines which sides of the range are inclusive and
-            exclusive.
+            ``new_value``. If ``new_value`` is ``None``, the matching pixels
+            will be marked as null. If `mapping` is a list and there are
+            mappings that conflict or overlap, earlier mappings take
+            precedence. `inclusivity` determines which sides of the range are
+            inclusive and exclusive.
         inclusivity : str, optional
             Determines whether to be inclusive or exclusive on either end of
             the range. Default is `'left'`.
@@ -1267,9 +1325,14 @@ class Raster(_RasterBase):
         remapping : str, dict
             Can be either a ``dict`` or a path string. If a ``dict`` is
             provided, the keys will be reclassified to the corresponding
-            values. If a path string, it is treated as an ASCII remap file
-            where each line looks like ``a:b`` and ``a`` and ``b`` are
-            integers. All remap values (both from and to) must be integers.
+            values. It is possible to map values to the null value by providing
+            ``None`` in the mapping. If a path string, it is treated as an
+            ASCII remap file where each line looks like ``a:b`` and ``a`` and
+            ``b`` are scalars. ``b`` can also be "NoData". This indicates that
+            ``a`` will be mapped to the null value. The output values of the
+            mapping can cause type promotion. If the input raster has integer
+            data and one of the outputs in the mapping is a float, the result
+            will be a float raster.
         unmapped_to_null : bool, optional
             If ``True``, values not included in the mapping are instead mapped
             to the null value. Default is ``False``.
