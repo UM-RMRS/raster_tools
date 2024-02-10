@@ -17,6 +17,7 @@ from shapely.geometry import Point, box
 
 from raster_tools.dask_utils import dask_nanmax, dask_nanmin
 from raster_tools.dtypes import (
+    BOOL,
     DTYPE_INPUT_TO_DTYPE,
     F16,
     F32,
@@ -1092,6 +1093,60 @@ class Raster(_RasterBase):
         mask = mask | temp_mask if self._masked else temp_mask
         xrs = xrs.rio.write_nodata(value)
         return Raster(make_raster_ds(xrs, mask), _fast_path=True).burn_mask()
+
+    def set_null(self, mask_raster):
+        """Update the raster's null pixels using the provided mask
+
+        Parameters
+        ----------
+        mask_raster : str, Raster
+            Raster or path to a raster that is used to update the masked out
+            pixels. This raster updates the mask. It does not replace the mask.
+            Pixels that were already marked as null stay null and pixels that
+            are marked as null in `mask_raster` become marked as null in the
+            resulting raster. This is a logical "OR" operation. `mask_raster`
+            must have data type of boolean, int8, or uint8. `mask_raster` must
+            have either 1 band or the same number of bands as the raster it is
+            being applied to. A single band `mask_raster` is broadcast across
+            all bands of the raster being modified.
+
+        Returns
+        -------
+        Raster
+            The resulting raster with updated mask.
+
+        """
+        mask_raster = get_raster(mask_raster)
+        if mask_raster.nbands > 1 and mask_raster.nbands != self.nbands:
+            raise ValueError(
+                "The number of bands in mask_raster must be 1 or match"
+                f" this raster. Got {mask_raster.nbands}"
+            )
+        if mask_raster.shape[1:] != self.shape[1:]:
+            raise ValueError(
+                "x and y dims for mask_raster do not match this raster."
+                f" {mask_raster.shape[1:]} vs {self.shape[1:]}"
+            )
+        dtype = mask_raster.dtype
+        if dtype not in {BOOL, I8, U8}:
+            raise TypeError("mask_raster must be boolean, int8, or uint8")
+        elif not is_bool(dtype):
+            mask_raster = mask_raster.astype(bool)
+
+        out_raster = self.copy()
+        new_mask_data = out_raster._ds.mask.data
+        # Rely on numpy broadcasting when applying the new mask data
+        if mask_raster._masked:
+            new_mask_data |= mask_raster.data & (~mask_raster.mask)
+        else:
+            new_mask_data |= mask_raster.data
+        out_raster._ds.mask.data = new_mask_data
+        if not self._masked:
+            out_raster._ds["raster"] = out_raster._ds.raster.rio.write_nodata(
+                get_default_null_value(self.dtype)
+            )
+        # Burn mask to set null values in newly masked regions
+        return out_raster.burn_mask()
 
     def burn_mask(self):
         """Fill null-masked cells with null value.

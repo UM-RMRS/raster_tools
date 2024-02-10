@@ -122,6 +122,7 @@ Null Data and Remapping
    Raster.replace_null
    Raster.remap_range
    Raster.set_null_value
+   Raster.set_null
    Raster.to_null_mask
    Raster.where
 

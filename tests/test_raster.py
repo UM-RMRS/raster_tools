@@ -1431,6 +1431,9 @@ def test_copy():
     assert rs is not copy
     assert rs._ds is not copy._ds
     assert rs._ds.equals(copy._ds)
+    assert copy._ds.attrs == rs._ds.attrs
+    assert copy._ds.raster.attrs == rs._ds.raster.attrs
+    assert copy._ds.mask.attrs == rs._ds.mask.attrs
     assert np.allclose(rs, copy)
     # make sure a deep copy has occurred
     copy._ds.raster.data[0, -1, -1] = 0
@@ -1504,6 +1507,46 @@ def test_replace_null():
 
     with pytest.raises(TypeError):
         rs.replace_null(None)
+
+
+def test_set_null():
+    raster = testdata.raster.dem_small
+    truth = raster.to_numpy()
+    truth_mask = truth < 1500
+    truth[truth_mask] = raster.null_value
+    result = raster.set_null(raster < 1500)
+    assert_valid_raster(result)
+    assert result.null_value == raster.null_value
+    assert np.allclose(result, truth)
+    assert np.allclose(result.mask.compute(), truth_mask)
+    assert result._ds.raster.attrs == raster._ds.raster.attrs
+
+    # Make sure broadcasting works
+    raster = band_concat([testdata.raster.dem_small] * 3)
+    assert raster.shape == (3, 100, 100)
+    mask = (testdata.raster.dem_small < 1500).to_numpy()
+    truth[:, mask[0]] = raster.null_value
+    result = raster.set_null(testdata.raster.dem_small < 1500)
+    assert_valid_raster(result)
+    assert result.null_value == raster.null_value
+    assert np.allclose(result, truth)
+    assert np.allclose(result.mask.compute(), truth_mask)
+    assert result._ds.raster.attrs == raster._ds.raster.attrs
+
+    # Make sure that a null value is added if not already present
+    raster = testdata.raster.dem_small.set_null_value(None)
+    nv = get_default_null_value(raster.dtype)
+    truth = raster.to_numpy()
+    truth_mask = truth < 1500
+    truth[truth_mask] = nv
+    result = raster.set_null(raster < 1500)
+    assert_valid_raster(result)
+    assert result.null_value == nv
+    assert np.allclose(result, truth)
+    assert np.allclose(result.mask.compute(), truth_mask)
+    attrs = raster._ds.raster.attrs
+    attrs["_FillValue"] = nv
+    assert result._ds.raster.attrs == attrs
 
 
 @pytest.mark.filterwarnings("ignore:The null value")
