@@ -864,6 +864,33 @@ class Raster(_RasterBase):
         """
         return get_raster(self, null_to_nan=True).xdata.plot(*args, **kwargs)
 
+    def explore(self, band, *args, **kwargs):
+        """Plot the raster band on an interactive :py:mod:`folium` map.
+
+        This allows for rapid data exploration. Any extra arguments or keyword
+        arguments are passed on to `odc-geo`'s `explore` function.
+
+        .. note::
+            This function is very experimental.
+
+        Parameters
+        ----------
+        band : int
+            The band to plot. Bands use 1-based indexing so this value must be
+            greater than 0.
+
+        Returns
+        -------
+        map : folium.folium.Map
+            The resulting py:mod:`folium` map.
+
+        """
+        if not is_int(band):
+            raise TypeError("Band value must be an integer")
+        if band < 1:
+            raise ValueError("Specified band must be greater than 0")
+        return self.xdata.sel(band=band).odc.explore(*args, **kwargs)
+
     def get_chunked_coords(self):
         """Get lazy coordinate arrays, in x-y order, chunked to match data."""
         xc = da.from_array(self.x, chunks=self.data.chunks[2]).reshape(
