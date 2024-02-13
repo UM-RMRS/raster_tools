@@ -174,6 +174,7 @@ Plotting
 .. autosummary::
    :toctree: generated/
 
+   Raster.explore
    Raster.plot
 
 Miscellaneous
