@@ -12,6 +12,7 @@ import pandas as pd
 
 from raster_tools.dtypes import F64, I64, is_int, is_str
 from raster_tools.raster import Raster, get_raster
+from raster_tools.utils import version_to_tuple
 from raster_tools.vector import Vector, get_vector
 
 __all__ = ["ZONAL_STAT_FUNCS", "extract_points_eager", "zonal_stats"]
@@ -265,7 +266,12 @@ def _zonal_stats(features_raster, data_raster, stats):
         # median requires special treatment. It needs the shuffle arg and also
         # causes TypeErrors when used with custom agg functions.
         # ref: https://github.com/dask/dask/issues/10517
-        median_df = grouped.agg(["median"], shuffle_method="tasks")
+        # Stay backword compatible with older versions of dask
+        if version_to_tuple(dask.__version__) < (2024, 1, 1):
+            shuffle_kw = "shuffle"
+        else:
+            shuffle_kw = "shuffle_method"
+        median_df = grouped.agg(["median"], **{shuffle_kw: "tasks"})
     if len(stats):
         agg_result_df = grouped.agg(stats)
         if has_median:
