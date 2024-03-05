@@ -172,3 +172,7 @@ def to_chunk_dict(chunks, dims=None):
     if dims is None:
         dims = ["band", "y", "x"]
     return dict(zip(dims, chunks))
+
+
+def version_to_tuple(version_str):
+    return tuple(map(int, version_str.strip().split(".")))
