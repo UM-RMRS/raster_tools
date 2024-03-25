@@ -1819,33 +1819,29 @@ class Raster(_RasterBase):
 
         """
         bchunks, ychunks, xchunks = self.data.chunks
-        i = 0
-        j = 0
-        out = np.empty(self.data.blocks.shape, dtype=object)
-        for band in range(len(bchunks)):
+        b = 0
+        y = 0
+        x = 0
+        out = np.empty(self.data.numblocks, dtype=object)
+        for band, bc in enumerate(bchunks):
             for row, yc in enumerate(ychunks):
                 for col, xc in enumerate(xchunks):
-                    y = self.y[i : i + yc]
-                    x = self.x[j : j + xc]
-                    j += xc
-                    xdata = xr.DataArray(
-                        self.data.blocks[band, row, col].copy(),
-                        dims=("band", "y", "x"),
-                        coords=([1], y, x),
-                    ).rio.write_nodata(self.null_value)
-                    xmask = xr.DataArray(
-                        self.mask.blocks[band, row, col].copy(),
-                        dims=("band", "y", "x"),
-                        coords=([1], y, x),
+                    ds = (
+                        self._ds.isel(
+                            band=slice(b, b + bc),
+                            y=slice(y, y + yc),
+                            x=slice(x, x + xc),
+                        )
+                        .copy()
+                        .assign_coords(band=[1])
                     )
-                    ds = make_raster_ds(xdata, xmask)
-                    if self.crs is not None:
-                        ds = ds.rio.write_crs(self.crs)
                     rs = Raster(ds, _fast_path=True)
                     out[band, row, col] = rs
-                i += yc
-                j = 0
-            i = 0
+                    x += xc
+                y += yc
+                x = 0
+            b += bc
+            y = 0
         return out
 
 

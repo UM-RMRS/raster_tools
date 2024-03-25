@@ -19,6 +19,7 @@ import rasterio as rio
 import rioxarray as riox
 import shapely
 import xarray as xr
+from affine import Affine
 from dask_geopandas import GeoDataFrame
 from shapely.geometry import box
 
@@ -2111,6 +2112,21 @@ def test_get_chunk_rasters():
         assert np.allclose(r, t)
         assert np.allclose(r.mask.compute(), t.mask.compute())
         assert_rasters_similar(r, t)
+
+
+def test_get_chunk_rasters_chunk_size_1_has_geobox_and_affine():
+    raster = Raster(
+        xr.DataArray(
+            np.ones((2, 2)), dims=("y", "x"), coords=([1, 0], [0, 1])
+        ).rio.write_crs("5070")
+    ).chunk((1, 1, 1))
+    chunk_rasters = raster.get_chunk_rasters()
+    for b, i, j in np.ndindex(chunk_rasters.shape):
+        r = chunk_rasters[b, i, j]
+        assert r.geobox is not None
+        assert np.allclose(
+            list(r.affine), list(raster.affine * Affine.translation(j, i))
+        )
 
 
 @pytest.mark.parametrize("neighbors", [4, 8])
