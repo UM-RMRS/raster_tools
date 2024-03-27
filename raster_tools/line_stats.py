@@ -1,5 +1,3 @@
-from functools import partial
-
 import dask.array as da
 import geopandas as gpd
 import numba as nb
@@ -11,7 +9,6 @@ import xarray as xr
 from raster_tools.dtypes import F32, I8, is_bool, is_scalar, is_str
 from raster_tools.raster import Raster, get_raster
 from raster_tools.rasterize import _rio_mask
-from raster_tools.utils import single_band_mappable
 from raster_tools.vector import get_vector
 
 
@@ -194,34 +191,8 @@ def _get_indices_and_lengths(geoms_df, xc, yc, radius, weight_values=None):
     return indices, lengths
 
 
-@single_band_mappable(no_input_chunk=True)
-def _length_chunk(xc, yc, gdf, radius, field=None, block_info=None):
-    xc = xc.ravel()
-    yc = yc.ravel()
-    # The overlap operation extends the raster into regions with no coords
-    # given. The coords in these regions are set to nan. Find the nan coord
-    # spans and trim them off.
-    xslice = _get_valid_slice(xc)
-    yslice = _get_valid_slice(yc)
-    xc_valid = xc[xslice]
-    yc_valid = yc[yslice]
-    out_shape = block_info[None]["chunk-shape"][-2:]
-
-    # Filter out any geoms that could be problematic
-    # TODO: throw error if bad geoms detected?
-    gdf = gdf[(~gdf.is_empty) & gdf.is_valid]
-    # Clip out any features outside of this chunk's area of interest
-    gdf = gdf.clip(
-        shapely.geometry.box(
-            xc_valid.min(),
-            yc_valid.min(),
-            xc_valid.max(),
-            yc_valid.max(),
-        )
-        .buffer(radius)
-        .bounds
-    )
-
+def _length(gdf, xc, yc, radius, field=None, dtype=F32):
+    shape = (yc.size, xc.size)
     if len(gdf):
         cols = ["geometry"]
         if field is not None:
@@ -233,14 +204,37 @@ def _length_chunk(xc, yc, gdf, radius, field=None, block_info=None):
             if is_bool(gdf.weights.dtype):
                 gdf = gdf.astype({"weights": I8})
 
-        indices, lengths = _get_indices_and_lengths(
-            gdf, xc_valid, yc_valid, radius
-        )
-        output = np.zeros(out_shape, dtype=F32)
-        output[yslice, xslice][indices] = lengths
+        indices, lengths = _get_indices_and_lengths(gdf, xc, yc, radius)
+        output = np.zeros(shape, dtype=dtype)
+        output[indices] = lengths
     else:
-        output = np.zeros(out_shape, dtype=F32)
+        output = np.zeros(shape, dtype=dtype)
     return output
+
+
+def _length_chunk(geochunk_array, gdf, radius, field=None, block_info=None):
+    # Handle chunk related logic in this function
+    geochunk = geochunk_array.item()
+    xc = geochunk.x
+    yc = geochunk.y
+    out_shape = block_info[None]["chunk-shape"][-2:]
+    assert (yc.size, xc.size) == out_shape
+    out_dtype = block_info[None]["dtype"]
+
+    # Filter out any geoms that could be problematic
+    gdf = gdf[(~gdf.is_empty) & gdf.is_valid]
+    # Clip out any features outside of this chunk's area of interest
+    gdf = gdf.clip(
+        shapely.geometry.box(xc.min(), yc.min(), xc.max(), yc.max())
+        .buffer(radius)
+        .bounds
+    )
+    length_grid = _length(gdf, xc, yc, radius, field=field, dtype=out_dtype)
+    return np.expand_dims(length_grid, axis=0)
+
+
+def _check_if_dask_needs_rechunk(chunks, depth):
+    return any(c < depth for c in chunks)
 
 
 def length(features, like_rast, radius, weighting_field=None):
@@ -279,7 +273,7 @@ def length(features, like_rast, radius, weighting_field=None):
 
     """
     features = get_vector(features)
-    like_rast = get_raster(like_rast)
+    like_rast = get_raster(like_rast).get_bands(1)
 
     if not is_scalar(radius):
         raise TypeError(f"radius must be a scalar. Got type: {type(radius)}.")
@@ -302,49 +296,62 @@ def length(features, like_rast, radius, weighting_field=None):
                 f" Found: {field_dtype}."
             )
 
-    features = features.to_crs(like_rast.crs)
-    gdf = features.data
-    out_chunks = ((1,), *like_rast.xdata.chunks[1:])
+    gdf = features.to_crs(like_rast.crs).data
 
-    # Cast to float in case coordinates are int. This allows for nan values in
-    # overlap.
-    xc, yc = [c.astype(float) for c in like_rast.get_chunked_coords()]
+    # We need to do a manual implimentation of map_overlap in order to get the
+    # GeoChunk objects mapped to each chunk.
     xdepth, ydepth = np.ceil(radius / np.abs(like_rast.resolution)).astype(int)
+    depths = {0: 0, 1: ydepth, 2: xdepth}
+    # dask's overlap operation needs to rechunk the array if any dim's depth is
+    # larger than a chunk along that dim. We need to know the new chunks that
+    # would result from an overlap in order to get properly sized GeoChunks.
+    if any(
+        _check_if_dask_needs_rechunk(chunks, depth)
+        for chunks, depth in zip(like_rast.data.chunks[1:], (ydepth, xdepth))
+    ):
+        like_rast = like_rast.copy()
+        grid_ds = like_rast._ds
+        grid_data = like_rast.data
+        new_chunks = tuple(
+            da.overlap.ensure_minimum_chunksize(depth, c)
+            for depth, c in zip(depths.values(), grid_data.chunks)
+        )
+        grid_ds.raster.data = grid_ds.raster.data.rechunk(new_chunks)
+        grid_ds.mask.data = grid_ds.mask.data.rechunk(new_chunks)
+        like_rast._ds = grid_ds
+    # Perform dummy overlap overation to get what the resulting chunks should
+    # be.
+    chunks = da.overlap.overlap(
+        like_rast.data, depths, allow_rechunk=False, boundary=0
+    ).chunks
+    # chunksize of 1 so each geochunk is mapped to the corresponding chunk
+    dask_overlapped_geochunks = like_rast.geochunks.map(
+        lambda gc: gc.pad(ydepth, xdepth)
+    ).to_dask()
 
-    oxc = da.overlap.overlap(
-        xc, depth={0: 0, 1: 0, 2: xdepth}, boundary=np.nan
-    )
-    oyc = da.overlap.overlap(
-        yc, depth={0: 0, 1: ydepth, 2: 0}, boundary=np.nan
-    )
-    overlap_chunks = ((1,), oyc.chunks[1], oxc.chunks[2])
     rasters = []
     for part in gdf.partitions:
         data = da.map_blocks(
             _length_chunk,
-            oxc,
-            oyc,
+            dask_overlapped_geochunks,
             gdf=part,
             radius=radius,
             field=weighting_field,
-            chunks=overlap_chunks,
+            chunks=chunks,
             meta=np.array((), dtype=F32),
         )
         rasters.append(data[0])
     data = da.stack(rasters)
     # Trim off overlap regions
-    trim_func = partial(
-        _trim,
-        slices=(slice(None), slice(ydepth, -ydepth), slice(xdepth, -xdepth)),
+    data = da.overlap.trim_internal(
+        data, axes={0: 0, 1: ydepth, 2: xdepth}, boundary=1
     )
-    data = da.map_blocks(
-        trim_func,
-        data,
-        chunks=((1,) * data.shape[0], *out_chunks[1:]),
-        meta=np.array((), dtype=F32),
-    )
+    assert data.chunks == like_rast.data.chunks
     data = da.sum(data, axis=0, keepdims=True)
     xrs = xr.DataArray(
         data, dims=("band", "y", "x"), coords=([1], like_rast.y, like_rast.x)
-    ).rio.write_crs(like_rast.crs)
+    )
+    if like_rast.crs is not None:
+        xrs = xrs.rio.write_crs(like_rast.crs)
+    # TODO: rechunk to original chunks?
     return Raster(xrs)
