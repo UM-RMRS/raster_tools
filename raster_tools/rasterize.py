@@ -535,10 +535,10 @@ def rasterize(
     This function can be used to either rasterize features using values from a
     particular data field or to create a raster mask of zeros and ones. Using
     values to rasterize is the default. Use `mask=True` to generate a raster
-    mask. If no data field is specified, the underlying dataframe's index is
-    used. NOTE: because of limitations in dask, dataframe index values are not
-    guaranteed to be unique across the dataframe. Cells that do not touch or
-    overlap any features are marked as null.
+    mask. If no data field is specified, the underlying dataframe's index plus
+    one is used. NOTE: because of limitations in dask, dataframe index values
+    are not guaranteed to be unique across the dataframe. Cells that do not
+    touch or overlap any features are marked as null.
 
     To add a column of unique IDs for each feature, see
     :func:`raster_tools.vector.add_objectid_column` or
@@ -573,7 +573,7 @@ def rasterize(
     field : str, optional
         The name of a field to use for cell values when rasterizing the
         vector features. If None or not specified, the underlying dataframe's
-        index is used. The default is to use the index.
+        index plus 1 is used. The default is to use the index plus 1.
     overlap_resolve_method : str, optional
         The method used to resolve overlaping features. Default is `"last"`.
         The available methods are:

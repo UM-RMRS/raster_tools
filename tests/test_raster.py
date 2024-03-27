@@ -19,6 +19,7 @@ import rasterio as rio
 import rioxarray as riox
 import shapely
 import xarray as xr
+from affine import Affine
 from dask_geopandas import GeoDataFrame
 from shapely.geometry import box
 
@@ -46,6 +47,7 @@ from raster_tools.masking import (
     reconcile_nullvalue_with_dtype,
 )
 from raster_tools.raster import (
+    GeoChunk,
     RasterQuadrantsResult,
     rowcol_to_xy,
     xy_to_rowcol,
@@ -2113,6 +2115,21 @@ def test_get_chunk_rasters():
         assert_rasters_similar(r, t)
 
 
+def test_get_chunk_rasters_chunk_size_1_has_geobox_and_affine():
+    raster = Raster(
+        xr.DataArray(
+            np.ones((2, 2)), dims=("y", "x"), coords=([1, 0], [0, 1])
+        ).rio.write_crs("5070")
+    ).chunk((1, 1, 1))
+    chunk_rasters = raster.get_chunk_rasters()
+    for b, i, j in np.ndindex(chunk_rasters.shape):
+        r = chunk_rasters[b, i, j]
+        assert r.geobox is not None
+        assert np.allclose(
+            list(r.affine), list(raster.affine * Affine.translation(j, i))
+        )
+
+
 @pytest.mark.parametrize("neighbors", [4, 8])
 @pytest.mark.parametrize(
     "raster",
@@ -2187,6 +2204,266 @@ def test_to_polygons_and_back_to_raster(neighbors):
         raster.null_value
     )
     assert np.allclose(raster, new_rast)
+
+
+def test_geochunk_creation():
+    raster = testdata.raster.dem_small.chunk((1, 50, 50))
+    chunk_raster = raster.get_chunk_rasters().ravel()[1]
+    geobox = chunk_raster.geobox
+    gc = GeoChunk(
+        chunk_raster.shape,
+        geobox,
+        raster.affine,
+        [(0, 1), (50, 100), (50, 100)],
+        (0, 0, 1),
+    )
+    assert gc.shape == chunk_raster.shape
+    assert gc.geobox == chunk_raster.geobox
+    assert gc.parent_affine == raster.affine
+    assert gc.affine == chunk_raster.affine
+    assert gc.crs == raster.crs
+    assert gc.array_location == [(0, 1), (50, 100), (50, 100)]
+    assert gc.chunk_location == (0, 0, 1)
+    assert np.allclose(gc.x, chunk_raster.x)
+    assert np.allclose(gc.y, chunk_raster.y)
+
+
+@pytest.mark.parametrize(
+    "args,expected_shape,expected_affine,expected_location",
+    [
+        (
+            (0, 0, 0),
+            (1, 100, 100),
+            testdata.raster.dem_small.affine,
+            [(0, 1), (0, 100), (0, 100)],
+        ),
+        (
+            (1, 0, 0),
+            (1, 101, 100),
+            testdata.raster.dem_small.affine * Affine.translation(0, -1),
+            [(0, 1), (-1, 100), (0, 100)],
+        ),
+        (
+            (1, 0, 1),
+            (1, 100, 101),
+            testdata.raster.dem_small.affine * Affine.translation(-1, 0),
+            [(0, 1), (0, 100), (-1, 100)],
+        ),
+        (
+            (-1, 0, 0),
+            (1, 99, 100),
+            testdata.raster.dem_small.affine * Affine.translation(0, 1),
+            [(0, 1), (1, 100), (0, 100)],
+        ),
+        (
+            (0, -1, 0),
+            (1, 99, 100),
+            testdata.raster.dem_small.affine,
+            [(0, 1), (0, 99), (0, 100)],
+        ),
+        (
+            (1, 1, 0),
+            (1, 102, 100),
+            testdata.raster.dem_small.affine * Affine.translation(0, -1),
+            [(0, 1), (-1, 101), (0, 100)],
+        ),
+        (
+            (1, 2, 1),
+            (1, 100, 103),
+            testdata.raster.dem_small.affine * Affine.translation(-1, 0),
+            [(0, 1), (0, 100), (-1, 102)],
+        ),
+    ],
+)
+def test_geochunk_resize_dim(
+    args, expected_shape, expected_affine, expected_location
+):
+    raster = testdata.raster.dem_small
+    geobox = raster.geobox
+    loc = [(0, 1), (0, 100), (0, 100)]
+    gc = GeoChunk(
+        raster.shape,
+        geobox,
+        raster.affine,
+        loc,
+        (0, 0, 0),
+    )
+    left, right, dim = args
+
+    new_gc = gc.resize_dim(*args)
+    assert new_gc.shape == expected_shape
+    assert new_gc.affine == expected_affine
+    assert new_gc.parent_affine == raster.affine
+    assert new_gc.crs == raster.crs
+    assert new_gc.array_location == expected_location
+    assert new_gc.chunk_location == gc.chunk_location
+
+
+@pytest.mark.parametrize(
+    "args,expected_shape,expected_affine,expected_location",
+    [
+        (
+            (0, 0),
+            (1, 100, 100),
+            testdata.raster.dem_small.affine,
+            [(0, 1), (0, 100), (0, 100)],
+        ),
+        (
+            (1, None),
+            (1, 102, 102),
+            testdata.raster.dem_small.affine * Affine.translation(-1, -1),
+            [(0, 1), (-1, 101), (-1, 101)],
+        ),
+        (
+            (1, 2),
+            (1, 102, 104),
+            testdata.raster.dem_small.affine * Affine.translation(-2, -1),
+            [(0, 1), (-1, 101), (-2, 102)],
+        ),
+        (
+            (0, 2),
+            (1, 100, 104),
+            testdata.raster.dem_small.affine * Affine.translation(-2, 0),
+            [(0, 1), (0, 100), (-2, 102)],
+        ),
+    ],
+)
+def test_geochunk_pad(
+    args, expected_shape, expected_affine, expected_location
+):
+    raster = testdata.raster.dem_small
+    geobox = raster.geobox
+    loc = [(0, 1), (0, 100), (0, 100)]
+    gc = GeoChunk(
+        raster.shape,
+        geobox,
+        raster.affine,
+        loc,
+        (0, 0, 0),
+    )
+
+    new_gc = gc.pad(*args)
+    assert new_gc.shape == expected_shape
+    assert new_gc.affine == expected_affine
+    assert new_gc.parent_affine == raster.affine
+    assert new_gc.crs == raster.crs
+    assert new_gc.array_location == expected_location
+    assert new_gc.chunk_location == gc.chunk_location
+
+
+@pytest.mark.parametrize(
+    "args,expected_shape,expected_affine,expected_location",
+    [
+        (
+            (0, 0),
+            (1, 100, 100),
+            testdata.raster.dem_small.affine,
+            [(0, 1), (0, 100), (0, 100)],
+        ),
+        (
+            (1, None),
+            (1, 98, 98),
+            testdata.raster.dem_small.affine * Affine.translation(1, 1),
+            [(0, 1), (1, 99), (1, 99)],
+        ),
+        (
+            (1, 2),
+            (1, 98, 96),
+            testdata.raster.dem_small.affine * Affine.translation(2, 1),
+            [(0, 1), (1, 99), (2, 98)],
+        ),
+        (
+            (0, 2),
+            (1, 100, 96),
+            testdata.raster.dem_small.affine * Affine.translation(2, 0),
+            [(0, 1), (0, 100), (2, 98)],
+        ),
+    ],
+)
+def test_geochunk_trim(
+    args, expected_shape, expected_affine, expected_location
+):
+    raster = testdata.raster.dem_small
+    geobox = raster.geobox
+    loc = [(0, 1), (0, 100), (0, 100)]
+    gc = GeoChunk(
+        raster.shape,
+        geobox,
+        raster.affine,
+        loc,
+        (0, 0, 0),
+    )
+
+    new_gc = gc.trim(*args)
+    assert new_gc.shape == expected_shape
+    assert new_gc.affine == expected_affine
+    assert new_gc.parent_affine == raster.affine
+    assert new_gc.crs == raster.crs
+    assert new_gc.array_location == expected_location
+    assert new_gc.chunk_location == gc.chunk_location
+
+
+@pytest.mark.parametrize(
+    "args,expected_shape,expected_affine,expected_location",
+    [
+        (
+            (0, 0),
+            (1, 100, 100),
+            testdata.raster.dem_small.affine,
+            [(0, 1), (0, 100), (0, 100)],
+        ),
+        (
+            (1, None),
+            (1, 100, 100),
+            testdata.raster.dem_small.affine * Affine.translation(1, 1),
+            [(0, 1), (1, 101), (1, 101)],
+        ),
+        (
+            (1, 2),
+            (1, 100, 100),
+            testdata.raster.dem_small.affine * Affine.translation(2, 1),
+            [(0, 1), (1, 101), (2, 102)],
+        ),
+        (
+            (0, 2),
+            (1, 100, 100),
+            testdata.raster.dem_small.affine * Affine.translation(2, 0),
+            [(0, 1), (0, 100), (2, 102)],
+        ),
+    ],
+)
+def test_geochunk_shift(
+    args, expected_shape, expected_affine, expected_location
+):
+    raster = testdata.raster.dem_small
+    geobox = raster.geobox
+    loc = [(0, 1), (0, 100), (0, 100)]
+    gc = GeoChunk(
+        raster.shape,
+        geobox,
+        raster.affine,
+        loc,
+        (0, 0, 0),
+    )
+
+    new_gc = gc.shift(*args)
+    assert new_gc.shape == expected_shape
+    assert new_gc.affine == expected_affine
+    assert new_gc.parent_affine == raster.affine
+    assert new_gc.crs == raster.crs
+    assert new_gc.array_location == expected_location
+    assert new_gc.chunk_location == gc.chunk_location
+
+
+def test_geochunkarray_to_dask_chunksize_1():
+    raster = testdata.raster.dem_small.chunk((1, 50, 50))
+    gc_arr = raster.geochunks
+    gc_arr_dask = gc_arr.to_dask()
+    assert isinstance(gc_arr_dask, da.Array)
+    assert gc_arr_dask.chunksize == (1, 1, 1)
+    assert gc_arr_dask.numblocks == (1, 2, 2)
+    # Make sure that a numpy array is produced.
+    assert isinstance(gc_arr_dask.compute(), np.ndarray)
 
 
 if __name__ == "__main__":

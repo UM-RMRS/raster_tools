@@ -83,6 +83,14 @@ def assert_valid_raster(raster):
         data_copy = data.copy()
         data_copy[mask] = raster.null_value
         assert np.allclose(data, data_copy, equal_nan=True)
+    # Check for expected chunksize mismatch with actual size
+    for expected_chunksize, actual_chunksize in zip(
+        [c.shape for c in raster.data.blocks.ravel()],
+        [c.compute().shape for c in raster.data.blocks.ravel()],
+    ):
+        assert expected_chunksize == actual_chunksize
+    assert raster.shape == raster.data.compute().shape
+    assert raster.shape == raster.mask.compute().shape
     # CRS
     assert isinstance(raster.crs, rio.crs.CRS) or raster.crs is None
     assert raster.crs == raster._ds.rio.crs

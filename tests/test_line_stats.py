@@ -13,7 +13,12 @@ from shapely.geometry import LinearRing, LineString, Point, Polygon, box
 
 from raster_tools import line_stats
 from raster_tools.raster import Raster
-from tests.utils import assert_rasters_similar, assert_valid_raster
+from raster_tools.vector import Vector
+from tests.utils import (
+    arange_raster,
+    assert_rasters_similar,
+    assert_valid_raster,
+)
 
 
 @pytest.mark.parametrize(
@@ -245,3 +250,20 @@ def test_length(geoms, like, radius, truth, weight):
     assert np.allclose(result, truth)
     assert_rasters_similar(result, like)
     assert result.mask.compute().sum() == 0
+
+
+def test_length_with_radius_larger_than_chunk():
+    # Rechunk so that right most chunk's width is less than the radius
+    like = arange_raster((1, 100, 100)).chunk((1, 100, 90)).set_crs("5070")
+    geoms = gpd.GeoDataFrame(
+        # zero length
+        {"geometry": [LineString([(0, 3), (0, 3)])]},
+        crs="EPSG:5070",
+    )
+    expected = Raster(np.zeros((100, 100))).set_crs("5070")
+
+    result = line_stats.length(Vector(geoms), like, 20)
+    # Make sure actual chunk sizes match declared chunk sizes
+    assert_valid_raster(result)
+    assert np.allclose(result, expected)
+    assert result.data.chunks == ((1,), (100,), (80, 20))
