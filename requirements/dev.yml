@@ -7,7 +7,7 @@ dependencies:
   - affine
   - build
   - cfgrib
-  - dask
+  - dask<=2024.2
   - dask-geopandas
   - dask-image
   - fiona
