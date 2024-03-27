@@ -48,3 +48,16 @@ def dask_nanmax(x):
         keepdims=False,
         dtype=x.dtype,
     )
+
+
+def chunks_to_array_locations(dim_chunks):
+    """Return a list of range tuples for a dask dimension's chunks.
+
+    These range tuples can be used to create a range object.
+    """
+    spans = []
+    start = 0
+    for c in dim_chunks:
+        spans.append((start, start + c))
+        start += c
+    return spans

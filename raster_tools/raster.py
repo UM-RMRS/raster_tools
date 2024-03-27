@@ -13,9 +13,14 @@ import shapely
 import xarray as xr
 from affine import Affine
 from numba import jit
+from odc.geo.geobox import GeoBox
 from shapely.geometry import Point, box
 
-from raster_tools.dask_utils import dask_nanmax, dask_nanmin
+from raster_tools.dask_utils import (
+    chunks_to_array_locations,
+    dask_nanmax,
+    dask_nanmin,
+)
 from raster_tools.dtypes import (
     BOOL,
     DTYPE_INPUT_TO_DTYPE,
@@ -822,6 +827,36 @@ class Raster(_RasterBase):
             stacklevel=2,
         )
         return get_raster(self, null_to_nan=True)._ds.raster
+
+    @property
+    def geochunks(self):
+        """
+        Produce an array of GeoChunks that correspond to the underlying chunks
+        in the data.
+        """
+        affine = self.affine
+        data = self.data
+        chunks = data.chunks
+        chunks_shape = data.numblocks
+        geochunks = np.empty(chunks_shape, dtype=object)
+        band_locations = chunks_to_array_locations(chunks[0])
+        y_locations = chunks_to_array_locations(chunks[1])
+        x_locations = chunks_to_array_locations(chunks[2])
+        chunk_rasters = self.get_chunk_rasters()
+        for bi, yi, xi in np.ndindex(chunks_shape):
+            chunk_raster = chunk_rasters[bi, yi, xi]
+            geochunks[bi, yi, xi] = GeoChunk(
+                chunk_raster.shape,
+                chunk_raster.geobox,
+                affine,
+                [
+                    band_locations[bi],
+                    y_locations[yi],
+                    x_locations[xi],
+                ],
+                (bi, yi, xi),
+            )
+        return GeoChunkArray(geochunks)
 
     def chunk(self, chunks):
         """Rechunk the underlying raster
@@ -1996,6 +2031,257 @@ def _shapes_delayed(chunk, mask, neighbors, transform, band, crs):
         },
         crs=crs,
     )
+
+
+def _build_x_coord(affine, shape):
+    nx = shape[2]
+    # Cell size for x dim
+    a = affine.a
+    tmatrix = np.array(affine).reshape((3, 3))
+    xc = (tmatrix @ np.array([np.arange(nx), np.zeros(nx), np.ones(nx)]))[0]
+    xc += a / 2
+    # Copy to trim off excess base array
+    return xc.copy()
+
+
+def _build_y_coord(affine, shape):
+    ny = shape[1]
+    # Cell size for y dim (should be < 0)
+    e = affine.e
+    tmatrix = np.array(affine).reshape((3, 3))
+    yc = (tmatrix @ np.array([np.zeros(ny), np.arange(ny), np.ones(ny)]))[1]
+    yc += e / 2
+    # Copy to trim off excess base array
+    return yc.copy()
+
+
+def _build_coords(affine, shape):
+    return _build_x_coord(affine, shape), _build_y_coord(affine, shape)
+
+
+class GeoChunk:
+    """Object representing a geo-located chunk.
+
+    A GeoChunk encapsulates the metadata needed to geo-locate a chunk. It also
+    has helper methods for manipulating that metadata.
+
+    """
+
+    def __init__(
+        self,
+        shape,
+        geobox,
+        parent_affine,
+        array_location,
+        chunk_location,
+    ):
+        self.shape = shape
+        self.geobox = geobox
+        self.parent_affine = parent_affine
+        self.affine = geobox.affine
+        self.crs = geobox.crs
+        self.bbox = geobox.extent.geom
+        self.array_location = array_location
+        self.chunk_location = chunk_location
+
+    def __repr__(self):
+        return (
+            f"<{GeoChunk.__module__}.{GeoChunk.__name__}"
+            f" shape: {self.shape}, chunk_location: {self.chunk_location})>"
+        )
+
+    @property
+    def x(self):
+        return _build_x_coord(self.affine, self.shape)
+
+    @property
+    def y(self):
+        return _build_y_coord(self.affine, self.shape)
+
+    @property
+    def band(self):
+        return np.arange(*self.array_location[0])
+
+    def resize_dim(self, left, right, dim):
+        """Resize the given dimension in the left and right directions.
+
+        Parameters
+        ----------
+        left : int
+            if negative, the dimension is trimmed by the given value on its
+            left-hand or top side. If positive the dimension is expanded on its
+            left-hand or top side.
+        right : int
+            if negative, the dimension is trimmed by the given value on its
+            right-hand or bottom side. If positive the dimension is expanded on
+            its left-hand or bottom side.
+        dim : int {0, 1}
+            Can be 0 or 1. 0 indicates the y or row dimension. 1 indicates the
+            x or colomn dimension.
+
+        Returns
+        -------
+        GeoChunk
+            The resized GeoChunk.
+
+        """
+        if not is_int(left) or not is_int(right):
+            raise TypeError(
+                f"Cannot resize by a non-integer value: {left}, {right}"
+            )
+        dim += 1
+        assert dim > 0
+        new_shape = tuple(
+            self.shape[d] if d != dim else self.shape[d] + left + right
+            for d in range(len(self.shape))
+        )
+        new_affine = self.affine
+        if left != 0:
+            # translation(col, row) aka translation(xoffset, yoffset)
+            if dim == 1:
+                translation = Affine.translation(0, -left)
+            else:
+                translation = Affine.translation(-left, 0)
+            new_affine *= translation
+        new_geobox = GeoBox(new_shape[1:], new_affine, self.crs)
+        new_location = []
+        for i, loc in enumerate(self.array_location):
+            if i == dim:
+                nloc = (loc[0] - left, loc[1] + right)
+                new_location.append(nloc)
+            else:
+                new_location.append(loc)
+        return GeoChunk(
+            new_shape,
+            new_geobox,
+            self.parent_affine,
+            new_location,
+            self.chunk_location,
+        )
+
+    def pad_rows(self, nrows):
+        """Pad both sides of the chunk in the row dimension."""
+        return self.resize_dim(nrows, nrows, 0)
+
+    def pad_cols(self, ncols):
+        """Pad both sides of the chunk in the column dimension."""
+        return self.resize_dim(ncols, ncols, 1)
+
+    def pad(self, nrows, ncols=None):
+        """Pad both sides of the chunk in the x and y directions.
+
+        The size of the chunk along a given axis will grow by twice the
+        specified number because both sides of the chunk are padded.
+
+        """
+        if ncols is None:
+            ncols = nrows
+        return self.pad_rows(nrows).pad_cols(ncols)
+
+    def trim_left(self, ncols):
+        """Trim the chunk's left most columns by `ncols`."""
+        return self.resize_dim(-ncols, 0, 0)
+
+    def trim_right(self, ncols):
+        """Trim the chunk's right most columns by `ncols`."""
+        return self.resize_dim(0, -ncols, 0)
+
+    def trim_top(self, nrows):
+        """Trim the chunk's top rows by `nrows`."""
+        return self.resize_dim(-nrows, 0, 1)
+
+    def trim_bottom(self, nrows):
+        """Trim the chunk's bottom rows by `nrows`."""
+        return self.resize_dim(0, -nrows, 1)
+
+    def trim_rows(self, nrows):
+        """Trim the chunk's rows on both sides by `nrows`."""
+        return self.resize_dim(-nrows, -nrows, 0)
+
+    def trim_cols(self, ncols):
+        """Trim the chunk's columns on both sides by `ncols`."""
+        return self.resize_dim(-ncols, -ncols, 1)
+
+    def trim(self, nrows, ncols=None):
+        """
+        Trim the chunk's columns and rows on both sides by `nrows` and `ncols`.
+        """
+        if ncols is None:
+            ncols = nrows
+        return self.trim_rows(nrows).trim_cols(ncols)
+
+    def shift_rows(self, nrows):
+        """Shift the chunk up or down.
+
+        Negative values shift the chunk up.
+
+        """
+        return self.resize_dim(-nrows, nrows, 0)
+
+    def shift_cols(self, ncols):
+        """Shift the chunk left or right.
+
+        Negative values shift the chunk left.
+
+        """
+        return self.resize_dim(-ncols, ncols, 1)
+
+    def shift(self, nrows, ncols=None):
+        """Shift the chunk in both row and column dimensions."""
+        if ncols is None:
+            ncols = nrows
+        return self.shift_rows(nrows).shift_cols(ncols)
+
+
+class GeoChunkArray:
+    def __init__(self, geochunks):
+        self._array = geochunks
+
+    def __getitem__(self, idx):
+        result = self._array[idx]
+        if isinstance(result, GeoChunk):
+            return result
+        else:
+            return GeoChunkArray(result)
+
+    def __eq__(self, other):
+        if isinstance(other, GeoChunkArray):
+            return self._array is other._array
+        return NotImplemented
+
+    def __array__(self):
+        return self._array
+
+    def __repr__(self):
+        return (
+            f"<{GeoChunkArray.__module__}.{GeoChunkArray.__name__}"
+            f" (shape: {self.shape})>"
+        )
+
+    @property
+    def size(self):
+        return self._array.size
+
+    @property
+    def shape(self):
+        return self._array.shape
+
+    def ravel(self):
+        """Return the array as a flattened list of geochunks."""
+        return list(self._array.ravel())
+
+    def map(self, func, *args, **kwargs):
+        new = np.empty(self.shape, dtype=object)
+        for idx in np.ndindex(self.shape):
+            new[idx] = func(self._array[idx], *args, **kwargs)
+        return GeoChunkArray(new)
+
+    def to_numpy(self):
+        return self._array
+
+    def to_dask(self):
+        """Return as a dask array with chunksize of 1."""
+        return da.from_array(self.to_numpy(), chunks=1)
 
 
 def get_raster(src, strict=True, null_to_nan=False):
