@@ -11,6 +11,8 @@ import unittest
 import affine
 import dask
 import dask.array as da
+import dask.dataframe as dd
+import dask_geopandas as dgpd
 import geopandas as gpd
 import numpy as np
 import pandas as pd
@@ -20,7 +22,6 @@ import rioxarray as riox
 import shapely
 import xarray as xr
 from affine import Affine
-from dask_geopandas import GeoDataFrame
 from shapely.geometry import box
 
 from raster_tools import Raster, band_concat
@@ -1818,91 +1819,247 @@ def test_xy_to_rowcol():
     assert result[1].dtype == np.dtype(int)
 
 
-def _compare_raster_to_points(rs, points_df):
-    data = rs.to_numpy()
-    x = rs.xdata.x.to_numpy()
-    y = rs.xdata.y.to_numpy()
-    for dfrow in points_df.itertuples():
-        value = dfrow.value
-        band = dfrow.band
-        row = dfrow.row
-        col = dfrow.col
-        p = dfrow.geometry
-        assert band >= 1
-        assert value == data[band - 1, row, col]
-        assert x[col] == p.x
-        assert y[row] == p.y
+@pytest.mark.parametrize(
+    "raster,expected",
+    [
+        (
+            arange_raster((4, 4), dtype="float32")
+            .set_null(arange_raster((4, 4)) < 3)
+            .chunk((1, 2, 2))
+            .set_crs("5070"),
+            dd.concat(
+                [
+                    gpd.GeoDataFrame(
+                        {
+                            "value": np.array([4, 5], dtype="float32"),
+                            "band": np.array([1, 1], dtype="int64"),
+                            "row": np.array([1, 1], dtype="int64"),
+                            "col": np.array([0, 1], dtype="int64"),
+                            "geometry": gpd.points_from_xy(
+                                [0.5, 1.5], [2.5, 2.5], crs="5070"
+                            ),
+                        },
+                        crs="5070",
+                        index=np.array([4, 5], dtype="int64"),
+                    ),
+                    gpd.GeoDataFrame(
+                        {
+                            "value": np.array([3, 6, 7], dtype="float32"),
+                            "band": np.array([1, 1, 1], dtype="int64"),
+                            "row": np.array([0, 1, 1], dtype="int64"),
+                            "col": np.array([3, 2, 3], dtype="int64"),
+                            "geometry": gpd.points_from_xy(
+                                [3.5, 2.5, 3.5], [3.5, 2.5, 2.5], crs="5070"
+                            ),
+                        },
+                        crs="5070",
+                        index=np.array([3, 6, 7], dtype="int64"),
+                    ),
+                    gpd.GeoDataFrame(
+                        {
+                            "value": np.array([8, 9, 12, 13], dtype="float32"),
+                            "band": np.array([1, 1, 1, 1], dtype="int64"),
+                            "row": np.array([2, 2, 3, 3], dtype="int64"),
+                            "col": np.array([0, 1, 0, 1], dtype="int64"),
+                            "geometry": gpd.points_from_xy(
+                                [0.5, 1.5, 0.5, 1.5],
+                                [1.5, 1.5, 0.5, 0.5],
+                                crs="5070",
+                            ),
+                        },
+                        crs="5070",
+                        index=np.array([8, 9, 12, 13], dtype="int64"),
+                    ),
+                    gpd.GeoDataFrame(
+                        {
+                            "value": np.array(
+                                [10, 11, 14, 15], dtype="float32"
+                            ),
+                            "band": np.array([1, 1, 1, 1], dtype="int64"),
+                            "row": np.array([2, 2, 3, 3], dtype="int64"),
+                            "col": np.array([2, 3, 2, 3], dtype="int64"),
+                            "geometry": gpd.points_from_xy(
+                                [2.5, 3.5, 2.5, 3.5],
+                                [1.5, 1.5, 0.5, 0.5],
+                                crs="5070",
+                            ),
+                        },
+                        crs="5070",
+                        index=np.array([10, 11, 14, 15], dtype="int64"),
+                    ),
+                ]
+            ),
+        ),
+        (
+            arange_raster((2, 4, 4), dtype="int8")
+            .set_null(arange_raster((2, 4, 4)) < 3)
+            .chunk((1, 2, 2))
+            .set_crs("5070"),
+            dd.concat(
+                [
+                    gpd.GeoDataFrame(
+                        {
+                            "value": np.array([4, 5], dtype="int8"),
+                            "band": np.array([1, 1], dtype="int64"),
+                            "row": np.array([1, 1], dtype="int64"),
+                            "col": np.array([0, 1], dtype="int64"),
+                            "geometry": gpd.points_from_xy(
+                                [0.5, 1.5], [2.5, 2.5], crs="5070"
+                            ),
+                        },
+                        crs="5070",
+                        index=np.array([4, 5], dtype="int64"),
+                    ),
+                    gpd.GeoDataFrame(
+                        {
+                            "value": np.array([3, 6, 7], dtype="int8"),
+                            "band": np.array([1, 1, 1], dtype="int64"),
+                            "row": np.array([0, 1, 1], dtype="int64"),
+                            "col": np.array([3, 2, 3], dtype="int64"),
+                            "geometry": gpd.points_from_xy(
+                                [3.5, 2.5, 3.5], [3.5, 2.5, 2.5], crs="5070"
+                            ),
+                        },
+                        crs="5070",
+                        index=np.array([3, 6, 7], dtype="int64"),
+                    ),
+                    gpd.GeoDataFrame(
+                        {
+                            "value": np.array([8, 9, 12, 13], dtype="int8"),
+                            "band": np.array([1, 1, 1, 1], dtype="int64"),
+                            "row": np.array([2, 2, 3, 3], dtype="int64"),
+                            "col": np.array([0, 1, 0, 1], dtype="int64"),
+                            "geometry": gpd.points_from_xy(
+                                [0.5, 1.5, 0.5, 1.5],
+                                [1.5, 1.5, 0.5, 0.5],
+                                crs="5070",
+                            ),
+                        },
+                        crs="5070",
+                        index=np.array([8, 9, 12, 13], dtype="int64"),
+                    ),
+                    gpd.GeoDataFrame(
+                        {
+                            "value": np.array([10, 11, 14, 15], dtype="int8"),
+                            "band": np.array([1, 1, 1, 1], dtype="int64"),
+                            "row": np.array([2, 2, 3, 3], dtype="int64"),
+                            "col": np.array([2, 3, 2, 3], dtype="int64"),
+                            "geometry": gpd.points_from_xy(
+                                [2.5, 3.5, 2.5, 3.5],
+                                [1.5, 1.5, 0.5, 0.5],
+                                crs="5070",
+                            ),
+                        },
+                        crs="5070",
+                        index=np.array([10, 11, 14, 15], dtype="int64"),
+                    ),
+                    # next band
+                    gpd.GeoDataFrame(
+                        {
+                            "value": np.array([16, 17, 20, 21], dtype="int8"),
+                            "band": np.array([2, 2, 2, 2], dtype="int64"),
+                            "row": np.array([0, 0, 1, 1], dtype="int64"),
+                            "col": np.array([0, 1, 0, 1], dtype="int64"),
+                            "geometry": gpd.points_from_xy(
+                                [0.5, 1.5, 0.5, 1.5],
+                                [3.5, 3.5, 2.5, 2.5],
+                                crs="5070",
+                            ),
+                        },
+                        crs="5070",
+                        index=np.array([16, 17, 20, 21], dtype="int64"),
+                    ),
+                    gpd.GeoDataFrame(
+                        {
+                            "value": np.array([18, 19, 22, 23], dtype="int8"),
+                            "band": np.array([2, 2, 2, 2], dtype="int64"),
+                            "row": np.array([0, 0, 1, 1], dtype="int64"),
+                            "col": np.array([2, 3, 2, 3], dtype="int64"),
+                            "geometry": gpd.points_from_xy(
+                                [2.5, 3.5, 2.5, 3.5],
+                                [3.5, 3.5, 2.5, 2.5],
+                                crs="5070",
+                            ),
+                        },
+                        crs="5070",
+                        index=np.array([18, 19, 22, 23], dtype="int64"),
+                    ),
+                    gpd.GeoDataFrame(
+                        {
+                            "value": np.array([24, 25, 28, 29], dtype="int8"),
+                            "band": np.array([2, 2, 2, 2], dtype="int64"),
+                            "row": np.array([2, 2, 3, 3], dtype="int64"),
+                            "col": np.array([0, 1, 0, 1], dtype="int64"),
+                            "geometry": gpd.points_from_xy(
+                                [0.5, 1.5, 0.5, 1.5],
+                                [1.5, 1.5, 0.5, 0.5],
+                                crs="5070",
+                            ),
+                        },
+                        crs="5070",
+                        index=np.array([24, 25, 28, 29], dtype="int64"),
+                    ),
+                    gpd.GeoDataFrame(
+                        {
+                            "value": np.array([26, 27, 30, 31], dtype="int8"),
+                            "band": np.array([2, 2, 2, 2], dtype="int64"),
+                            "row": np.array([2, 2, 3, 3], dtype="int64"),
+                            "col": np.array([2, 3, 2, 3], dtype="int64"),
+                            "geometry": gpd.points_from_xy(
+                                [2.5, 3.5, 2.5, 3.5],
+                                [1.5, 1.5, 0.5, 0.5],
+                                crs="5070",
+                            ),
+                        },
+                        crs="5070",
+                        index=np.array([26, 27, 30, 31], dtype="int64"),
+                    ),
+                ]
+            ),
+        ),
+    ],
+)
+def test_to_points(raster, expected):
+    result = raster.to_points()
+    assert isinstance(result, dgpd.GeoDataFrame)
+    assert result.npartitions == raster.data.npartitions
+    assert result.crs == raster.crs
+    assert result.columns.tolist() == [
+        "value",
+        "band",
+        "row",
+        "col",
+        "geometry",
+    ]
+    assert result.dtypes.to_dict() == {
+        "value": raster.dtype,
+        "band": np.dtype("int64"),
+        "row": np.dtype("int64"),
+        "col": np.dtype("int64"),
+        "geometry": expected.geometry.dtype,
+    }
+    cresult = result.compute()
+    cexpected = expected.compute()
+    assert cresult.equals(cexpected)
 
-
-def test_to_points():
-    data = np.array(
-        [
-            [
-                [0, 1, 1, 2],
-                [0, 1, 2, 2],
-                [0, 0, 1, 0],
-                [0, 1, 3, 0],
-            ],
-            [
-                [3, 2, 2, 1],
-                [0, 1, 2, 1],
-                [0, 0, 2, 0],
-                [0, 2, 4, 5],
-            ],
-        ]
+    # Check that index is the flattened index from original array
+    index = np.array(sorted(cresult.index))
+    assert np.allclose(
+        index,
+        np.ravel_multi_index(np.nonzero(~raster.mask.compute()), raster.shape),
     )
-    count = np.sum(data > 0)
-    rs = Raster(data).set_null_value(0)
-    points_df_lazy = rs.to_points()
-    points_df = points_df_lazy.compute()
-
-    assert isinstance(points_df_lazy, GeoDataFrame)
-    assert points_df_lazy.crs == rs.crs
-    assert len(points_df) == count
-    assert np.all(
-        points_df_lazy.columns == ["value", "band", "row", "col", "geometry"]
+    band = cresult.band.to_numpy() - 1
+    row = cresult.row.to_numpy()
+    col = cresult.col.to_numpy()
+    assert np.allclose(
+        cresult.index.to_numpy(),
+        np.ravel_multi_index((band, row, col), raster.shape),
     )
-    _compare_raster_to_points(rs, points_df)
-
-    rs = testdata.raster.dem_small
-    rs = band_concat((rs, rs + 100))
-    data = rs.to_numpy()
-    rs = rs.chunk((1, 20, 20))
-    points_df_lazy = rs.to_points()
-    points_df = points_df_lazy.compute()
-
-    assert rs.data.npartitions == 50
-    assert rs._ds.mask.to_numpy().sum() == 0
-    assert points_df_lazy.npartitions == rs.data.npartitions
-    assert points_df_lazy.crs == rs.crs
-    assert len(points_df) == rs.data.size
-    assert np.all(
-        points_df_lazy.columns == ["value", "band", "row", "col", "geometry"]
-    )
-    _compare_raster_to_points(rs, points_df)
-
-    # make sure that empty (all-null) chunks are handled
-    data = np.array(
-        [
-            [
-                [0, 0, 1, 2],
-                [0, 0, 2, 2],
-                [0, 0, 1, 0],
-                [0, 1, 3, 0],
-            ]
-        ]
-    )
-    count = np.sum(data > 0)
-    rs = Raster(data).set_null_value(0).chunk((1, 2, 2))
-    points_df_lazy = rs.to_points()
-    points_df = points_df_lazy.compute()
-
-    assert len(points_df) == count
-    assert points_df["value"].dtype == data.dtype
-    assert points_df["band"].dtype == np.dtype(int)
-    assert points_df["row"].dtype == np.dtype(int)
-    assert points_df["col"].dtype == np.dtype(int)
-    _compare_raster_to_points(rs, points_df)
+    # Check that index is unique
+    assert np.allclose(np.unique(cresult.index), sorted(cexpected.index))
+    # Check that index values are independent of chunking
+    cresult = raster.chunk((1, 1, 1)).to_points().compute()
+    assert cresult.sort_index().equals(cexpected.sort_index())
 
 
 @pytest.mark.parametrize(
@@ -2214,12 +2371,14 @@ def test_geochunk_creation():
         chunk_raster.shape,
         geobox,
         raster.affine,
+        raster.shape,
         [(0, 1), (50, 100), (50, 100)],
         (0, 0, 1),
     )
     assert gc.shape == chunk_raster.shape
     assert gc.geobox == chunk_raster.geobox
     assert gc.parent_affine == raster.affine
+    assert gc.parent_shape == raster.shape
     assert gc.affine == chunk_raster.affine
     assert gc.crs == raster.crs
     assert gc.array_location == [(0, 1), (50, 100), (50, 100)]
@@ -2285,6 +2444,7 @@ def test_geochunk_resize_dim(
         raster.shape,
         geobox,
         raster.affine,
+        raster.shape,
         loc,
         (0, 0, 0),
     )
@@ -2294,6 +2454,7 @@ def test_geochunk_resize_dim(
     assert new_gc.shape == expected_shape
     assert new_gc.affine == expected_affine
     assert new_gc.parent_affine == raster.affine
+    assert new_gc.parent_shape == raster.shape
     assert new_gc.crs == raster.crs
     assert new_gc.array_location == expected_location
     assert new_gc.chunk_location == gc.chunk_location
@@ -2338,6 +2499,7 @@ def test_geochunk_pad(
         raster.shape,
         geobox,
         raster.affine,
+        raster.shape,
         loc,
         (0, 0, 0),
     )
@@ -2390,6 +2552,7 @@ def test_geochunk_trim(
         raster.shape,
         geobox,
         raster.affine,
+        raster.shape,
         loc,
         (0, 0, 0),
     )
@@ -2442,6 +2605,7 @@ def test_geochunk_shift(
         raster.shape,
         geobox,
         raster.affine,
+        raster.shape,
         loc,
         (0, 0, 0),
     )

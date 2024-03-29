@@ -14,7 +14,7 @@ import xarray as xr
 from affine import Affine
 from numba import jit
 from odc.geo.geobox import GeoBox
-from shapely.geometry import Point, box
+from shapely.geometry import box
 
 from raster_tools.dask_utils import (
     chunks_to_array_locations,
@@ -849,6 +849,7 @@ class Raster(_RasterBase):
                 chunk_raster.shape,
                 chunk_raster.geobox,
                 affine,
+                self.shape,
                 [
                     band_locations[bi],
                     y_locations[yi],
@@ -1586,6 +1587,10 @@ class Raster(_RasterBase):
         large number of polygons, i.e. data with high pixel-to-pixel
         variability, will cause a large amount of memory to be consumed.
 
+        See Also
+        --------
+        Raster.to_vector
+
         """
         if neighbors not in (4, 8):
             raise ValueError("neighbors can only be 4 or 8")
@@ -1637,7 +1642,7 @@ class Raster(_RasterBase):
             each polyon/mult-polygon is made up of like-valued cells. Null
             cells are ignored. :meth:`to_polygons` for more information. If
             ``False``, the raster is converted to points. Each non-null cell is
-            point in the output. See :meth:`to_points` for more information.
+            a point in the output. See :meth:`to_points` for more information.
             Default is ``False``.
         neighbors : {4, 8} int, optional
             Used when `as_polygons` is ``True``. This determines how many
@@ -1652,6 +1657,10 @@ class Raster(_RasterBase):
             dataframe with columns: value, band, geometry. The geometry column
             will contain polygons. If ``False``, the result has columns: value,
             band, row, col, geometry. The geometry column will contain points.
+
+        See Also
+        --------
+        Raster.to_points, Raster.to_polygons
 
         """
         if as_polygons:
@@ -1669,42 +1678,32 @@ class Raster(_RasterBase):
         dask_geopandas.GeoDataFrame
             The result is a dask_geopandas GeoDataFrame with the following
             columns: value, band, row, col, geometry. The value is the cell
-            value at the row and column in the raster.
+            value at the row and column in the raster. Each row has a unique
+            integer in the index. This is true across data frame partitions.
+
+        See Also
+        --------
+        Raster.to_vector
 
         """
         xrs = self._ds.raster
         mask = self._ds.mask.data
         data_delayed = xrs.data.to_delayed()
-        chunks_shape = data_delayed.shape
         data_delayed = data_delayed.ravel()
         mask_delayed = mask.to_delayed().ravel()
+        geochunks = self.geochunks.ravel()
 
-        xc = da.from_array(xrs.x.data, chunks=xrs.chunks[2])
-        xc_delayed = xc.to_delayed()
-        yc = da.from_array(xrs.y.data, chunks=xrs.chunks[1])
-        yc_delayed = yc.to_delayed()
         # See issue for inspiration: https://github.com/dask/dask/issues/7589
         # Group chunk data with corresponding coordinate data
-        chunks = []
-        for k, (d, m) in enumerate(zip(data_delayed, mask_delayed)):
-            # band index, chunk y index, chunk x index
-            b, i, j = np.unravel_index(k, chunks_shape)
-            xck = xc_delayed[j]
-            yck = yc_delayed[i]
-            # Pass affine as tuple because of how dask handles namedtuple
-            # subclasses.
-            # ref: https://github.com/rasterio/affine/issues/79
-            chunks.append(
-                (d, m, xck, yck, b + 1, self.crs, tuple(self.affine))
-            )
+        chunks = list(zip(data_delayed, mask_delayed, geochunks))
 
         meta = gpd.GeoDataFrame(
             {
-                "value": [self.dtype.type(1)],
-                "band": [1],
-                "row": [0],
-                "col": [0],
-                "geometry": [Point(xrs.x.data[0], xrs.y.data[0])],
+                "value": np.array((), dtype=self.dtype),
+                "band": np.array((), dtype="int64"),
+                "row": np.array((), dtype="int64"),
+                "col": np.array((), dtype="int64"),
+                "geometry": gpd.GeoSeries(),
             },
             crs=self.crs,
         )
@@ -1944,21 +1943,65 @@ def _extract_values(data, mask):
     return results
 
 
+@jit(nopython=True, nogil=True)
+def _extract(data, mask, band, x, y, inv_affine):
+    n = mask.size - np.sum(mask)
+
+    bands = np.empty(n, dtype="int64")
+    # x, y, 1 for each column
+    xy1 = np.ones((3, n), dtype="float64")
+    values = np.empty(n, dtype=data.dtype)
+    if n == 0:
+        return (
+            values,
+            bands,
+            np.array((), dtype="int64"),
+            np.array((), dtype="int64"),
+            np.array((), dtype="float64"),
+            np.array((), dtype="float64"),
+        )
+
+    k = 0
+    for idx in np.ndindex(data.shape):
+        if mask[idx]:
+            continue
+        values[k] = data[idx]
+        bands[k] = band[idx[0]]
+        xy1[1, k] = y[idx[1]]
+        xy1[0, k] = x[idx[2]]
+        k += 1
+    # Use the inverse affine matrix to generate column and row values
+    cr1 = inv_affine @ xy1
+    return (
+        values,
+        bands,
+        # rows
+        np.floor(cr1[1]).astype("int64"),
+        # cols
+        np.floor(cr1[0]).astype("int64"),
+        # x
+        xy1[0],
+        # y
+        xy1[1],
+    )
+
+
 @dask.delayed
-def _vectorize(data, mask, xc, yc, band, crs, affine_tuple):
-    affine = Affine(*affine_tuple[:6])
-    xpoints, ypoints = _extract_points(mask, xc, yc)
-    if len(xpoints):
-        values = _extract_values(data, mask)
-        points = gpd.GeoSeries.from_xy(xpoints, ypoints, crs=crs)
-        rows, cols = xy_to_rowcol(xpoints, ypoints, affine)
-        bands = [band] * len(values)
-    else:
-        values = []
-        points = gpd.GeoSeries([], crs=crs)
-        bands = []
-        rows = []
-        cols = []
+def _vectorize(data, mask, geochunk):
+    values, bands, rows, cols, xs, ys = _extract(
+        data,
+        mask,
+        geochunk.band,
+        geochunk.x,
+        geochunk.y,
+        # Inverse affine transform matrix
+        np.array(list(~geochunk.parent_affine), dtype=F64).reshape(3, 3),
+    )
+    # Use the index of each point in the flattened parent array as the pandas
+    # index.
+    index = np.ravel_multi_index((bands, rows, cols), geochunk.parent_shape)
+    bands += 1
+    points = gpd.points_from_xy(xs, ys, crs=geochunk.crs)
     vec = gpd.GeoDataFrame(
         {
             "value": values,
@@ -1967,15 +2010,10 @@ def _vectorize(data, mask, xc, yc, band, crs, affine_tuple):
             "col": cols,
             "geometry": points,
         },
-        crs=crs,
+        crs=geochunk.crs,
+        index=index,
     )
-    if len(xpoints):
-        return vec
-    # Add astype() as a workaround for
-    # https://github.com/geopandas/dask-geopandas/issues/190
-    return vec.astype(
-        {"value": data.dtype, "band": int, "row": int, "col": int}
-    )
+    return vec
 
 
 def _get_rio_shapes_dtype(dtype):
@@ -2062,8 +2100,10 @@ def _build_coords(affine, shape):
 class GeoChunk:
     """Object representing a geo-located chunk.
 
-    A GeoChunk encapsulates the metadata needed to geo-locate a chunk. It also
-    has helper methods for manipulating that metadata.
+    A GeoChunk contains information needed to geo-locate a chunk and locate it
+    within the parent array. It also has helper methods for manipulating that
+    information. It is meant to be used to provide information to raster
+    functions inside dask map operations.
 
     """
 
@@ -2072,6 +2112,7 @@ class GeoChunk:
         shape,
         geobox,
         parent_affine,
+        parent_shape,
         array_location,
         chunk_location,
     ):
@@ -2081,6 +2122,7 @@ class GeoChunk:
         self.affine = geobox.affine
         self.crs = geobox.crs
         self.bbox = geobox.extent.geom
+        self.parent_shape = parent_shape
         self.array_location = array_location
         self.chunk_location = chunk_location
 
@@ -2155,6 +2197,7 @@ class GeoChunk:
             new_shape,
             new_geobox,
             self.parent_affine,
+            self.shape,
             new_location,
             self.chunk_location,
         )
