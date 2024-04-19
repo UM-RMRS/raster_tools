@@ -4,6 +4,7 @@ import rioxarray as rxr
 import xarray as xr
 
 from raster_tools.creation import ones_like, zeros_like
+from raster_tools.general import band_concat
 from raster_tools.masking import get_default_null_value
 from raster_tools.raster import Raster, RasterNoDataError, get_raster
 from raster_tools.utils import make_raster_ds
@@ -56,6 +57,8 @@ def _clip(
 
     nv = rs.null_value if rs._masked else get_default_null_value(rs.dtype)
 
+    if rs.nbands > 1:
+        clip_mask = band_concat([clip_mask] * rs.nbands)
     xdata_out = xr.where(clip_mask.xdata, rs.xdata, nv)
     xmask_out = ~clip_mask.xdata
 
