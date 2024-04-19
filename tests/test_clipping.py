@@ -3,10 +3,11 @@ from unittest import TestCase
 import dask
 import numpy as np
 
+import raster_tools as rts
 from raster_tools import clipping
 from raster_tools.raster import Raster, RasterNoDataError
 from tests import testdata
-from tests.utils import assert_valid_raster
+from tests.utils import assert_rasters_similar, assert_valid_raster
 
 
 class TestClipping(TestCase):
@@ -103,3 +104,15 @@ class TestClipping(TestCase):
     def test_clip_out_of_bounds(self):
         with self.assertRaises(RasterNoDataError):
             clipping.clip_box(self.dem, (9e6, 9e6, 10e6, 10e6))
+
+
+def test_clip_multiband():
+    raster = testdata.raster.dem_small
+    raster2 = rts.band_concat([raster, raster])
+    vector = testdata.vector.pods_small
+    expected = rts.band_concat([clipping.clip(vector, raster)] * 2)
+
+    result = clipping.clip(vector, raster2)
+    assert_valid_raster(result)
+    assert_rasters_similar(result, expected)
+    assert np.allclose(result, expected)
