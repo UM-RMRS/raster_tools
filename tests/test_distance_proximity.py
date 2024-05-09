@@ -9,6 +9,7 @@ from raster_tools.dtypes import F32
 from raster_tools.masking import get_default_null_value
 from raster_tools.raster import Raster
 from tests import testdata
+from tests.utils import assert_valid_raster
 
 
 @pytest.mark.parametrize(
@@ -277,3 +278,69 @@ def test_proximity_great_circle():
     assert np.allclose(rprox, tprox)
     assert np.allclose(ralloc, talloc)
     assert np.allclose(rdirn, tdirn)
+
+
+def test_proximity_analysis_target_values():
+    src = Raster(
+        np.array(
+            [
+                [np.nan, np.nan, np.nan],
+                [np.nan, np.nan, np.nan],
+                [np.nan, 0, np.nan],
+                [np.nan, 1, np.nan],
+                [np.nan, 2, np.nan],
+                [np.nan, np.nan, np.nan],
+                [np.nan, np.nan, np.nan],
+            ]
+        )
+    ).set_null_value(np.nan)
+
+    prox, dire, alloc = prx.proximity_analysis(src, target_values=[0, 1, 2])
+    assert_valid_raster(prox)
+    assert_valid_raster(dire)
+    assert_valid_raster(alloc)
+
+    p_expected = np.array(
+        [
+            [
+                [2.236068, 2.0, 2.236068],
+                [1.4142135, 1.0, 1.4142135],
+                [1.0, 0.0, 1.0],
+                [1.0, 0.0, 1.0],
+                [1.0, 0.0, 1.0],
+                [1.4142135, 1.0, 1.4142135],
+                [2.236068, 2.0, 2.236068],
+            ]
+        ],
+        dtype=np.float32,
+    )
+    assert np.allclose(prox, p_expected)
+    d_expected = np.array(
+        [
+            [
+                [153.43495, 180.0, 206.56505],
+                [135.0, 180.0, 225.0],
+                [90.0, 0.0, 270.0],
+                [90.0, 0.0, 270.0],
+                [90.0, 0.0, 270.0],
+                [45.0, 360.0, 315.0],
+                [26.565052, 360.0, 333.43494],
+            ]
+        ],
+        dtype=np.float32,
+    )
+    assert np.allclose(dire, d_expected)
+    a_expected = np.array(
+        [
+            [
+                [0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0],
+                [1.0, 1.0, 1.0],
+                [2.0, 2.0, 2.0],
+                [2.0, 2.0, 2.0],
+                [2.0, 2.0, 2.0],
+            ],
+        ],
+    )
+    assert np.allclose(alloc, a_expected)

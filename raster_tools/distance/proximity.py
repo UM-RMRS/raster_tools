@@ -180,7 +180,7 @@ def _process_proximity_line(
         is_target = False
         if nt > 0:
             for j in range(nt):
-                is_target |= scan_line[j] == targets[j]
+                is_target |= scan_line[ipixel] == targets[j]
         else:
             # No targets so assume all finite and non-zero pixels are targets
             is_target = (scan_line[ipixel] != 0) & np.isfinite(
