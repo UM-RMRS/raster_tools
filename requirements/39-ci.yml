@@ -5,7 +5,7 @@ dependencies:
   - python=3.9
   - affine
   - cfgrib
-  - dask<=2024.2
+  - dask<=2024.2.1
   - dask-geopandas
   - dask-image
   - fiona
