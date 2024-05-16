@@ -715,18 +715,21 @@ def test_remap_range_f16():
 
 
 def test_remap_range_null_mapping():
-    raster = testdata.raster.dem_small
+    raster = testdata.raster.dem_small.set_null_value(None)
+    assert raster.null_value is None
+    nv = get_default_null_value(raster.dtype)
     mapping = (0, 1500, None)
-    truth_rast = xr.where(raster.xdata > 1500, raster.xdata, raster.null_value)
-    truth_mask = truth_rast == raster.null_value
+    truth_rast = xr.where(raster.xdata > 1500, raster.xdata, nv)
+    truth_mask = truth_rast == nv
 
     result = general.remap_range(raster, mapping)
     assert_valid_raster(result)
     assert result.dtype == raster.dtype
-    assert result.null_value == raster.null_value
+    assert result.null_value == get_default_null_value(result.dtype)
     assert np.allclose(result.xdata, truth_rast)
     assert np.allclose(result.xmask, truth_mask)
 
+    raster = raster.set_null_value(-999)
     mapping = [(0, 1500, None), (1500, 2000, 1)]
     truth_rast = xr.where(raster.xdata > 1500, raster.xdata, raster.null_value)
     truth_rast = xr.where(

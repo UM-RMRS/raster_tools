@@ -1104,7 +1104,8 @@ def remap_range(raster, mapping, inclusivity="left"):
         dtype=data.dtype,
         meta=np.array((), dtype=data.dtype),
     )
-    outrs.xmask.data = outrs.data == nv
+    if raster._masked or None in map_news:
+        outrs = outrs.set_null_value(nv)
     if f16_workaround:
         outrs = outrs.astype(F16)
     return outrs
