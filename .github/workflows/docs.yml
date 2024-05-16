@@ -1,0 +1,53 @@
+name: Publish Docs
+
+on:
+  push:
+    branches: [master]
+  release:
+    types: [created]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  docs:
+    name: Publish Docs
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentioals: false
+      - name: Setup Conda
+        uses: mamba-org/setup-micromamba@v1
+        with:
+          init-shell: bash
+          environment-name: rstools-docs
+          with:
+            environment-file: requirements/docs.yml
+
+      - name: Sphinx build
+        shell: bash
+        run: |
+          micromamba run -n rstools-docs sphinx-build -b html docs docs/_build/
+
+      - name: Deploy to GitHub Pages
+        uses: JamesIves/github-pages-deploy-action@v4
+        if: ${{ github.event_name == 'release' }}
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: gh-pages
+          folder: docs/_build/
+          clean: false
+          target-folder: ${{ github.ref }}
+
+      - name: Deploy to GitHub Pages
+        uses: JamesIves/github-pages-deploy-action@v4
+        if: ${{ github.event_name == 'push' }}
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: gh-pages
+          folder: docs/_build/
+          clean: false
+          target-folder: ${{ github.ref }}
