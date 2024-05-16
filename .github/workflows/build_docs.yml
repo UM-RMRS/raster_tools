@@ -24,8 +24,7 @@ jobs:
         with:
           init-shell: bash
           environment-name: rstools-docs
-          with:
-            environment-file: requirements/docs.yml
+          environment-file: requirements/docs.yml
 
       - name: Sphinx build
         shell: bash
