@@ -1,0 +1,1362 @@
+
+
+<!DOCTYPE html>
+
+
+<html >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>raster_tools.vector &#8212; raster_tools 0.8.3 documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "light";
+  </script>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../_static/styles/theme.css?digest=e353d410970836974a52" rel="stylesheet" />
+<link href="../../_static/styles/bootstrap.css?digest=e353d410970836974a52" rel="stylesheet" />
+<link href="../../_static/styles/pydata-sphinx-theme.css?digest=e353d410970836974a52" rel="stylesheet" />
+
+  
+  <link href="../../_static/vendor/fontawesome/6.1.2/css/all.min.css?digest=e353d410970836974a52" rel="stylesheet" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="../../_static/vendor/fontawesome/6.1.2/webfonts/fa-solid-900.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../../_static/vendor/fontawesome/6.1.2/webfonts/fa-brands-400.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../../_static/vendor/fontawesome/6.1.2/webfonts/fa-regular-400.woff2" />
+
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css" />
+    <link rel="stylesheet" href="../../_static/styles/sphinx-book-theme.css?digest=14f4ca6b54d191a8c7657f6c759bf11a5fb86285" type="text/css" />
+  
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=e353d410970836974a52" />
+<link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=e353d410970836974a52" />
+
+    <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+    <script src="../../_static/jquery.js"></script>
+    <script src="../../_static/underscore.js"></script>
+    <script src="../../_static/doctools.js"></script>
+    <script src="../../_static/scripts/sphinx-book-theme.js?digest=5a5c038af52cf7bc1a1ec88eea08e6366ee68824"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = '_modules/raster_tools/vector';</script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="None"/>
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          name="__primary"
+          id="__primary"/>
+  <label class="overlay overlay-primary" for="__primary"></label>
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          name="__secondary"
+          id="__secondary"/>
+  <label class="overlay overlay-secondary" for="__secondary"></label>
+  
+  <div class="search-button__wrapper">
+    <div class="search-button__overlay"></div>
+    <div class="search-button__search-container">
+<form class="bd-search d-flex align-items-center"
+      action="../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         id="search-input"
+         placeholder="Search..."
+         aria-label="Search..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form></div>
+  </div>
+  
+    <nav class="bd-header navbar navbar-expand-lg bd-navbar">
+    </nav>
+  
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      <div class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+  
+
+<a class="navbar-brand logo" href="../../index.html">
+  
+  
+  
+  
+  
+    <p class="title logo__title">raster_tools 0.8.3 documentation</p>
+  
+</a></div>
+        <div class="sidebar-primary-item"><nav class="bd-links" id="bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        <p aria-level="2" class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../reference/index.html">API Reference</a><input class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-1"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../reference/top_level.html">Top Level Functions</a><input class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-2"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.html">raster_tools.Raster</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.open_dataset.html">raster_tools.open_dataset</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.band_concat.html">raster_tools.band_concat</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.constant_raster.html">raster_tools.constant_raster</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.empty_like.html">raster_tools.empty_like</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.full_like.html">raster_tools.full_like</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.ones_like.html">raster_tools.ones_like</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.random_raster.html">raster_tools.random_raster</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.zeros_like.html">raster_tools.zeros_like</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.reclassify.html">raster_tools.reclassify</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.remap_range.html">raster_tools.remap_range</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Vector.html">raster_tools.Vector</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.count_layer_features.html">raster_tools.count_layer_features</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.list_layers.html">raster_tools.list_layers</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.open_vectors.html">raster_tools.open_vectors</a></li>
+</ul>
+</li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../reference/raster.html">Raster Objects</a><input class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-3"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.html">raster_tools.Raster</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.dtype.html">raster_tools.Raster.dtype</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.shape.html">raster_tools.Raster.shape</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.nbands.html">raster_tools.Raster.nbands</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.null_value.html">raster_tools.Raster.null_value</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.values.html">raster_tools.Raster.values</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.data.html">raster_tools.Raster.data</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.xdata.html">raster_tools.Raster.xdata</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.mask.html">raster_tools.Raster.mask</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.xmask.html">raster_tools.Raster.xmask</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.x.html">raster_tools.Raster.x</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.y.html">raster_tools.Raster.y</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.crs.html">raster_tools.Raster.crs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.affine.html">raster_tools.Raster.affine</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.resolution.html">raster_tools.Raster.resolution</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.bounds.html">raster_tools.Raster.bounds</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.bandwise.html">raster_tools.Raster.bandwise</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.pxrs.html">raster_tools.Raster.pxrs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.xrs.html">raster_tools.Raster.xrs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.round.html">raster_tools.Raster.round</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.all.html">raster_tools.Raster.all</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.any.html">raster_tools.Raster.any</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.max.html">raster_tools.Raster.max</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.mean.html">raster_tools.Raster.mean</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.min.html">raster_tools.Raster.min</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.prod.html">raster_tools.Raster.prod</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.std.html">raster_tools.Raster.std</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.sum.html">raster_tools.Raster.sum</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.var.html">raster_tools.Raster.var</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.chunk.html">raster_tools.Raster.chunk</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.get_bands.html">raster_tools.Raster.get_bands</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.get_chunk_rasters.html">raster_tools.Raster.get_chunk_rasters</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.to_quadrants.html">raster_tools.Raster.to_quadrants</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.burn_mask.html">raster_tools.Raster.burn_mask</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.reclassify.html">raster_tools.Raster.reclassify</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.replace_null.html">raster_tools.Raster.replace_null</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.remap_range.html">raster_tools.Raster.remap_range</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.set_null_value.html">raster_tools.Raster.set_null_value</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.set_null.html">raster_tools.Raster.set_null</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.to_null_mask.html">raster_tools.Raster.to_null_mask</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.where.html">raster_tools.Raster.where</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.astype.html">raster_tools.Raster.astype</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.copy.html">raster_tools.Raster.copy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.to_dataset.html">raster_tools.Raster.to_dataset</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.to_numpy.html">raster_tools.Raster.to_numpy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.to_vector.html">raster_tools.Raster.to_vector</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.index.html">raster_tools.Raster.index</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.set_crs.html">raster_tools.Raster.set_crs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.xy.html">raster_tools.Raster.xy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.reproject.html">raster_tools.Raster.reproject</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.close.html">raster_tools.Raster.close</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.eval.html">raster_tools.Raster.eval</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.load.html">raster_tools.Raster.load</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.save.html">raster_tools.Raster.save</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.explore.html">raster_tools.Raster.explore</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.plot.html">raster_tools.Raster.plot</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.get_chunk_bounding_boxes.html">raster_tools.Raster.get_chunk_bounding_boxes</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.get_chunked_coords.html">raster_tools.Raster.get_chunked_coords</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.model_predict.html">raster_tools.Raster.model_predict</a></li>
+</ul>
+</li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../reference/vector.html">Vector Objects</a><input class="toctree-checkbox" id="toctree-checkbox-4" name="toctree-checkbox-4" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-4"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.open_vectors.html">raster_tools.open_vectors</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Vector.bounds.html">raster_tools.Vector.bounds</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Vector.crs.html">raster_tools.Vector.crs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Vector.data.html">raster_tools.Vector.data</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Vector.field_dtypes.html">raster_tools.Vector.field_dtypes</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Vector.field_names.html">raster_tools.Vector.field_names</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Vector.field_schema.html">raster_tools.Vector.field_schema</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Vector.geometry.html">raster_tools.Vector.geometry</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Vector.shape.html">raster_tools.Vector.shape</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Vector.size.html">raster_tools.Vector.size</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Vector.table.html">raster_tools.Vector.table</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Vector.tasks.html">raster_tools.Vector.tasks</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Vector.eval.html">raster_tools.Vector.eval</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Vector.save.html">raster_tools.Vector.save</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Vector.to_crs.html">raster_tools.Vector.to_crs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Vector.to_dask.html">raster_tools.Vector.to_dask</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Vector.to_dataframe.html">raster_tools.Vector.to_dataframe</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Vector.to_lazy.html">raster_tools.Vector.to_lazy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Vector.to_raster.html">raster_tools.Vector.to_raster</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Vector.to_shapely.html">raster_tools.Vector.to_shapely</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Vector.cast_field.html">raster_tools.Vector.cast_field</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Vector.buffer.html">raster_tools.Vector.buffer</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Vector.simplify.html">raster_tools.Vector.simplify</a></li>
+</ul>
+</li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../reference/distance.html">Distance Analysis</a><input class="toctree-checkbox" id="toctree-checkbox-5" name="toctree-checkbox-5" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-5"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.distance.cost_distance_analysis.html">raster_tools.distance.cost_distance_analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.distance.cda_allocation.html">raster_tools.distance.cda_allocation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.distance.cda_cost_distance.html">raster_tools.distance.cda_cost_distance</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.distance.cda_traceback.html">raster_tools.distance.cda_traceback</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.distance.proximity_analysis.html">raster_tools.distance.proximity_analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.distance.pa_allocation.html">raster_tools.distance.pa_allocation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.distance.pa_direction.html">raster_tools.distance.pa_direction</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.distance.pa_proximity.html">raster_tools.distance.pa_proximity</a></li>
+</ul>
+</li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../reference/clipping.html">Clipping Operations</a><input class="toctree-checkbox" id="toctree-checkbox-6" name="toctree-checkbox-6" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-6"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.clipping.clip.html">raster_tools.clipping.clip</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.clipping.clip_box.html">raster_tools.clipping.clip_box</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.clipping.envelope.html">raster_tools.clipping.envelope</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.clipping.erase.html">raster_tools.clipping.erase</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.clipping.mask.html">raster_tools.clipping.mask</a></li>
+</ul>
+</li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../reference/focal.html">Focal Operations</a><input class="toctree-checkbox" id="toctree-checkbox-7" name="toctree-checkbox-7" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-7"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.focal.focal.html">raster_tools.focal.focal</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.focal.correlate.html">raster_tools.focal.correlate</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.focal.convolve.html">raster_tools.focal.convolve</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.focal.check_kernel.html">raster_tools.focal.check_kernel</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.focal.get_focal_window.html">raster_tools.focal.get_focal_window</a></li>
+</ul>
+</li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../reference/general.html">General Purpose Operations</a><input class="toctree-checkbox" id="toctree-checkbox-8" name="toctree-checkbox-8" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-8"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.general.ModelPredictAdaptor.html">raster_tools.general.ModelPredictAdaptor</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.general.aggregate.html">raster_tools.general.aggregate</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.general.band_concat.html">raster_tools.general.band_concat</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.general.dilate.html">raster_tools.general.dilate</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.general.erode.html">raster_tools.general.erode</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.general.local_stats.html">raster_tools.general.local_stats</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.general.model_predict_raster.html">raster_tools.general.model_predict_raster</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.general.model_predict_vector.html">raster_tools.general.model_predict_vector</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.general.reclassify.html">raster_tools.general.reclassify</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.general.regions.html">raster_tools.general.regions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.general.remap_range.html">raster_tools.general.remap_range</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.general.where.html">raster_tools.general.where</a></li>
+</ul>
+</li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../reference/rasterize.html">Rasterize</a><input class="toctree-checkbox" id="toctree-checkbox-9" name="toctree-checkbox-9" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-9"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.rasterize.rasterize.html">raster_tools.rasterize.rasterize</a></li>
+</ul>
+</li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../reference/surface.html">Surface Operations</a><input class="toctree-checkbox" id="toctree-checkbox-10" name="toctree-checkbox-10" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-10"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.surface.aspect.html">raster_tools.surface.aspect</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.surface.curvature.html">raster_tools.surface.curvature</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.surface.easting.html">raster_tools.surface.easting</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.surface.hillshade.html">raster_tools.surface.hillshade</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.surface.northing.html">raster_tools.surface.northing</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.surface.slope.html">raster_tools.surface.slope</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.surface.surface_area_3d.html">raster_tools.surface.surface_area_3d</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.surface.tpi.html">raster_tools.surface.tpi</a></li>
+</ul>
+</li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../reference/warp.html">Warp Operations</a><input class="toctree-checkbox" id="toctree-checkbox-11" name="toctree-checkbox-11" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-11"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.warp.reproject.html">raster_tools.warp.reproject</a></li>
+</ul>
+</li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../reference/zonal.html">Zonal Operations</a><input class="toctree-checkbox" id="toctree-checkbox-12" name="toctree-checkbox-12" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-12"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.zonal.extract_points_eager.html">raster_tools.zonal.extract_points_eager</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.zonal.zonal_stats.html">raster_tools.zonal.zonal_stats</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../modules.html">raster_tools</a><input class="toctree-checkbox" id="toctree-checkbox-13" name="toctree-checkbox-13" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-13"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../raster_tools.html">raster_tools package</a><input class="toctree-checkbox" id="toctree-checkbox-14" name="toctree-checkbox-14" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-14"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../raster_tools.distance.html">raster_tools.distance package</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference external" href="https://github.com/UM-RMRS/raster_tools">GitHub</a></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+  
+  <div id="rtd-footer-container"></div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><label class="sidebar-toggle primary-toggle btn btn-sm" for="__primary" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</label></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+<script>
+document.write(`
+  <button class="theme-switch-button btn btn-sm btn-outline-primary navbar-btn rounded-circle" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="theme-switch" data-mode="light"><i class="fa-solid fa-sun"></i></span>
+    <span class="theme-switch" data-mode="dark"><i class="fa-solid fa-moon"></i></span>
+    <span class="theme-switch" data-mode="auto"><i class="fa-solid fa-circle-half-stroke"></i></span>
+  </button>
+`);
+</script>
+
+<script>
+document.write(`
+  <button class="btn btn-sm navbar-btn search-button search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+  </button>
+`);
+</script>
+
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1></h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article" role="main">
+                  
+  <h1>Source code for raster_tools.vector</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">sys</span>
+
+<span class="kn">import</span> <span class="nn">dask</span>
+<span class="kn">import</span> <span class="nn">dask.dataframe</span> <span class="k">as</span> <span class="nn">dd</span>
+<span class="kn">import</span> <span class="nn">dask_geopandas</span> <span class="k">as</span> <span class="nn">dgpd</span>
+<span class="kn">import</span> <span class="nn">geopandas</span> <span class="k">as</span> <span class="nn">gpd</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">import</span> <span class="nn">rasterio</span> <span class="k">as</span> <span class="nn">rio</span>
+<span class="kn">from</span> <span class="nn">dask.delayed</span> <span class="kn">import</span> <span class="n">delayed</span>
+<span class="kn">from</span> <span class="nn">dask.diagnostics</span> <span class="kn">import</span> <span class="n">ProgressBar</span>
+
+<span class="kn">from</span> <span class="nn">raster_tools.dtypes</span> <span class="kn">import</span> <span class="n">I64</span><span class="p">,</span> <span class="n">is_int</span><span class="p">,</span> <span class="n">is_str</span>
+<span class="kn">from</span> <span class="nn">raster_tools.rasterize</span> <span class="kn">import</span> <span class="n">rasterize</span>
+
+<span class="n">PYOGRIO_SUPPORTED</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">version_info</span> <span class="o">&gt;=</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">8</span><span class="p">)</span>
+<span class="k">if</span> <span class="n">PYOGRIO_SUPPORTED</span><span class="p">:</span>
+    <span class="kn">import</span> <span class="nn">warnings</span>
+
+    <span class="kn">import</span> <span class="nn">pyogrio</span> <span class="k">as</span> <span class="nn">ogr</span>
+
+    <span class="n">warnings</span><span class="o">.</span><span class="n">filterwarnings</span><span class="p">(</span>
+        <span class="s2">&quot;ignore&quot;</span><span class="p">,</span>
+        <span class="n">message</span><span class="o">=</span><span class="s2">&quot;.*Measured </span><span class="se">\\</span><span class="s2">(M</span><span class="se">\\</span><span class="s2">) geometry types are not supported.*&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="kn">import</span> <span class="nn">fiona</span>
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="s2">&quot;Vector&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;add_objectid_column&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;count_layer_features&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;get_vector&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;list_layers&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;open_vectors&quot;</span><span class="p">,</span>
+<span class="p">]</span>
+
+
+<span class="k">class</span> <span class="nc">VectorError</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
+    <span class="k">pass</span>
+
+
+<span class="k">def</span> <span class="nf">_is_series</span><span class="p">(</span><span class="n">geo</span><span class="p">):</span>
+    <span class="k">return</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">geo</span><span class="p">,</span> <span class="p">(</span><span class="n">gpd</span><span class="o">.</span><span class="n">GeoSeries</span><span class="p">,</span> <span class="n">dgpd</span><span class="o">.</span><span class="n">GeoSeries</span><span class="p">))</span>
+
+
+<span class="k">def</span> <span class="nf">_is_frame</span><span class="p">(</span><span class="n">geo</span><span class="p">):</span>
+    <span class="k">return</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">geo</span><span class="p">,</span> <span class="p">(</span><span class="n">gpd</span><span class="o">.</span><span class="n">GeoDataFrame</span><span class="p">,</span> <span class="n">dgpd</span><span class="o">.</span><span class="n">GeoDataFrame</span><span class="p">))</span>
+
+
+<div class="viewcode-block" id="list_layers"><a class="viewcode-back" href="../../reference/generated/raster_tools.list_layers.html#raster_tools.vector.list_layers">[docs]</a><span class="k">def</span> <span class="nf">list_layers</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;List the layers in a vector source file.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">IOError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;No such file or directory: </span><span class="si">{</span><span class="n">path</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">PYOGRIO_SUPPORTED</span><span class="p">:</span>
+        <span class="n">layers</span> <span class="o">=</span> <span class="n">ogr</span><span class="o">.</span><span class="n">list_layers</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="n">layers</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">])</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">fiona</span><span class="o">.</span><span class="n">listlayers</span><span class="p">(</span><span class="n">path</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="count_layer_features"><a class="viewcode-back" href="../../reference/generated/raster_tools.count_layer_features.html#raster_tools.vector.count_layer_features">[docs]</a><span class="k">def</span> <span class="nf">count_layer_features</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">layer</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Count the number of features in a layer of a vector source file.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    path : str</span>
+<span class="sd">        The path to a vector source file.</span>
+<span class="sd">    layer : str, int</span>
+<span class="sd">        The layer to count features from. Can be the 0-based index or a string.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    int</span>
+<span class="sd">        The number of features.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">IOError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;No such file or directory: </span><span class="si">{</span><span class="n">path</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">is_int</span><span class="p">(</span><span class="n">layer</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">is_str</span><span class="p">(</span><span class="n">layer</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;The layer must be an int or string.&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">is_int</span><span class="p">(</span><span class="n">layer</span><span class="p">)</span> <span class="ow">and</span> <span class="n">layer</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;The layer must be positive.&quot;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">PYOGRIO_SUPPORTED</span><span class="p">:</span>
+        <span class="n">info</span> <span class="o">=</span> <span class="n">ogr</span><span class="o">.</span><span class="n">read_info</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">layer</span><span class="o">=</span><span class="n">layer</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">info</span><span class="p">[</span><span class="s2">&quot;features&quot;</span><span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">with</span> <span class="n">fiona</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">layer</span><span class="o">=</span><span class="n">layer</span><span class="p">)</span> <span class="k">as</span> <span class="n">src</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="n">src</span><span class="p">)</span></div>
+
+
+<span class="k">def</span> <span class="nf">_df_asign_index</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">index</span><span class="p">):</span>
+    <span class="n">df</span><span class="o">.</span><span class="n">index</span> <span class="o">=</span> <span class="n">index</span>
+    <span class="k">return</span> <span class="n">df</span>
+
+
+<span class="k">def</span> <span class="nf">_read_file_delayed</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">layer</span><span class="p">,</span> <span class="n">npartitions</span><span class="p">):</span>
+    <span class="n">total_size</span> <span class="o">=</span> <span class="n">count_layer_features</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">layer</span><span class="p">)</span>
+    <span class="n">batch_size</span> <span class="o">=</span> <span class="p">(</span><span class="n">total_size</span> <span class="o">//</span> <span class="n">npartitions</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span>
+
+    <span class="n">row_offset</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">parts</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">divs</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">while</span> <span class="n">row_offset</span> <span class="o">&lt;</span> <span class="n">total_size</span><span class="p">:</span>
+        <span class="n">left</span> <span class="o">=</span> <span class="n">row_offset</span>
+        <span class="n">right</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">row_offset</span> <span class="o">+</span> <span class="n">batch_size</span><span class="p">,</span> <span class="n">total_size</span><span class="p">)</span>
+        <span class="n">rows</span> <span class="o">=</span> <span class="nb">slice</span><span class="p">(</span><span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">)</span>
+        <span class="n">part</span> <span class="o">=</span> <span class="n">delayed</span><span class="p">(</span><span class="n">gpd</span><span class="o">.</span><span class="n">read_file</span><span class="p">)(</span><span class="n">path</span><span class="p">,</span> <span class="n">rows</span><span class="o">=</span><span class="n">rows</span><span class="p">,</span> <span class="n">layer</span><span class="o">=</span><span class="n">layer</span><span class="p">)</span>
+        <span class="n">index</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">RangeIndex</span><span class="p">(</span><span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">)</span>
+        <span class="n">part</span> <span class="o">=</span> <span class="n">delayed</span><span class="p">(</span><span class="n">_df_asign_index</span><span class="p">)(</span><span class="n">part</span><span class="p">,</span> <span class="n">index</span><span class="p">)</span>
+        <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">part</span><span class="p">)</span>
+        <span class="n">divs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">left</span><span class="p">)</span>
+        <span class="n">row_offset</span> <span class="o">+=</span> <span class="n">batch_size</span>
+    <span class="n">divs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">right</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="n">meta</span> <span class="o">=</span> <span class="n">gpd</span><span class="o">.</span><span class="n">read_file</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">layer</span><span class="o">=</span><span class="n">layer</span><span class="p">,</span> <span class="n">rows</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">divs</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">divs</span><span class="p">)</span>
+    <span class="c1"># Returns a dask_geopandas GeoDataFrame</span>
+    <span class="k">return</span> <span class="n">dd</span><span class="o">.</span><span class="n">from_delayed</span><span class="p">(</span><span class="n">parts</span><span class="p">,</span> <span class="n">meta</span><span class="p">,</span> <span class="n">divisions</span><span class="o">=</span><span class="n">divs</span><span class="p">),</span> <span class="n">total_size</span>
+
+
+<span class="k">def</span> <span class="nf">_normalize_layers_arg</span><span class="p">(</span><span class="n">layers</span><span class="p">):</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">layers</span><span class="p">,</span> <span class="p">(</span><span class="nb">list</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)):</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">layers</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Layers argument was empty&quot;</span><span class="p">)</span>
+        <span class="n">first</span> <span class="o">=</span> <span class="n">layers</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">is_ftype</span> <span class="o">=</span> <span class="n">is_str</span> <span class="k">if</span> <span class="n">is_str</span><span class="p">(</span><span class="n">first</span><span class="p">)</span> <span class="k">else</span> <span class="n">is_int</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span><span class="n">is_ftype</span><span class="p">(</span><span class="n">layer</span><span class="p">)</span> <span class="k">for</span> <span class="n">layer</span> <span class="ow">in</span> <span class="n">layers</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                <span class="s2">&quot;Layers must be all name strings or all integer indices&quot;</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">layers</span>
+    <span class="k">elif</span> <span class="n">is_int</span><span class="p">(</span><span class="n">layers</span><span class="p">)</span> <span class="ow">or</span> <span class="n">is_str</span><span class="p">(</span><span class="n">layers</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">layers</span><span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Could not understand layers argument: </span><span class="si">{</span><span class="n">layers</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+
+<span class="n">_TARGET_CHUNK_SIZE</span> <span class="o">=</span> <span class="mi">50_000</span>
+
+
+<div class="viewcode-block" id="open_vectors"><a class="viewcode-back" href="../../reference/generated/raster_tools.open_vectors.html#raster_tools.vector.open_vectors">[docs]</a><span class="k">def</span> <span class="nf">open_vectors</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">layers</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Open a vector source.</span>
+
+<span class="sd">    This can be any GDAL/OGR compatible source.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    path : str, Path</span>
+<span class="sd">        The vector source path.</span>
+<span class="sd">    layers : list of int, int, list of str, str, or None, optional</span>
+<span class="sd">        The layer(s) to read from the source. This can be a single layer</span>
+<span class="sd">        int or string, a list of layer ints/strings, or ``None``. If ``None``,</span>
+<span class="sd">        all layers are read in. If int(s) are given, they are treated as</span>
+<span class="sd">        0-based layer indices.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    Vector, list of Vector</span>
+<span class="sd">        If only a single layer was specified or found, a single Vector object</span>
+<span class="sd">        is returned. Otherwise, a list of Vector objects is returned.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">IOError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;No such file or directory: </span><span class="si">{</span><span class="n">path</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="n">src_layers</span> <span class="o">=</span> <span class="n">list_layers</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+    <span class="n">n_layers</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">src_layers</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">layers</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">layers</span> <span class="o">=</span> <span class="n">_normalize_layers_arg</span><span class="p">(</span><span class="n">layers</span><span class="p">)</span>
+        <span class="n">src_layers_set</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">src_layers</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">is_str</span><span class="p">(</span><span class="n">layers</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="ow">and</span> <span class="nb">any</span><span class="p">(</span>
+            <span class="n">layer</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">src_layers_set</span> <span class="k">for</span> <span class="n">layer</span> <span class="ow">in</span> <span class="n">layers</span>
+        <span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Invalid layer name&quot;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">is_int</span><span class="p">(</span><span class="n">layers</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="ow">and</span> <span class="nb">any</span><span class="p">(</span>
+            <span class="n">layer</span> <span class="o">&gt;=</span> <span class="n">n_layers</span> <span class="ow">or</span> <span class="n">layer</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="k">for</span> <span class="n">layer</span> <span class="ow">in</span> <span class="n">layers</span>
+        <span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Invalid layer index. Index either outside valid range or less&quot;</span>
+                <span class="s2">&quot; than 0&quot;</span>
+            <span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">layers</span> <span class="o">=</span> <span class="n">src_layers</span>
+
+    <span class="n">layer_vecs</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">layer</span> <span class="ow">in</span> <span class="n">layers</span><span class="p">:</span>
+        <span class="n">n</span> <span class="o">=</span> <span class="n">count_layer_features</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">layer</span><span class="o">=</span><span class="n">layer</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">PYOGRIO_SUPPORTED</span><span class="p">:</span>
+            <span class="n">layer_vec</span> <span class="o">=</span> <span class="n">dgpd</span><span class="o">.</span><span class="n">read_file</span><span class="p">(</span>
+                <span class="n">path</span><span class="p">,</span> <span class="n">layer</span><span class="o">=</span><span class="n">layer</span><span class="p">,</span> <span class="n">chunksize</span><span class="o">=</span><span class="n">_TARGET_CHUNK_SIZE</span>
+            <span class="p">)</span>
+            <span class="n">pair</span> <span class="o">=</span> <span class="p">(</span><span class="n">layer_vec</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">n_parts</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">n</span> <span class="o">//</span> <span class="n">_TARGET_CHUNK_SIZE</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="n">pair</span> <span class="o">=</span> <span class="n">_read_file_delayed</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">layer</span><span class="p">,</span> <span class="n">n_parts</span><span class="p">)</span>
+        <span class="n">layer_vecs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pair</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">layer_vecs</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">Vector</span><span class="p">(</span><span class="n">layer_vec</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span> <span class="k">for</span> <span class="n">layer_vec</span><span class="p">,</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">layer_vecs</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">Vector</span><span class="p">(</span><span class="o">*</span><span class="n">layer_vecs</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span></div>
+
+
+<div class="viewcode-block" id="get_vector"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.vector.get_vector">[docs]</a><span class="k">def</span> <span class="nf">get_vector</span><span class="p">(</span><span class="n">src</span><span class="p">):</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="n">Vector</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">src</span>
+    <span class="k">elif</span> <span class="n">is_str</span><span class="p">(</span><span class="n">src</span><span class="p">):</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">open_vectors</span><span class="p">(</span><span class="n">src</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">Vector</span><span class="p">):</span>
+            <span class="c1"># More than one layer was found</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Input source must only have 1 layer&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">result</span>
+    <span class="k">elif</span> <span class="n">_is_series</span><span class="p">(</span><span class="n">src</span><span class="p">)</span> <span class="ow">or</span> <span class="n">_is_frame</span><span class="p">(</span><span class="n">src</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">Vector</span><span class="p">(</span><span class="n">src</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Invalid vector input&quot;</span><span class="p">)</span></div>
+
+
+<span class="k">def</span> <span class="nf">get_dask_geodataframe</span><span class="p">(</span><span class="n">src</span><span class="p">):</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="n">Vector</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">src</span><span class="o">.</span><span class="n">data</span>
+    <span class="k">elif</span> <span class="n">is_str</span><span class="p">(</span><span class="n">src</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">get_vector</span><span class="p">(</span><span class="n">src</span><span class="p">)</span><span class="o">.</span><span class="n">data</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="n">gpd</span><span class="o">.</span><span class="n">GeoSeries</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">dgpd</span><span class="o">.</span><span class="n">from_geopandas</span><span class="p">(</span><span class="n">src</span><span class="o">.</span><span class="n">to_frame</span><span class="p">(</span><span class="s2">&quot;geometry&quot;</span><span class="p">),</span> <span class="n">npartitions</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="n">dgpd</span><span class="o">.</span><span class="n">GeoSeries</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">src</span><span class="o">.</span><span class="n">to_frame</span><span class="p">(</span><span class="s2">&quot;geometry&quot;</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="n">gpd</span><span class="o">.</span><span class="n">GeoDataFrame</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">dgpd</span><span class="o">.</span><span class="n">from_geopandas</span><span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="n">npartitions</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="n">dgpd</span><span class="o">.</span><span class="n">GeoDataFrame</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">src</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+            <span class="s2">&quot;Could not coerce input to a dask_geopandas.GeoDataFrame&quot;</span>
+        <span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_add_objid</span><span class="p">(</span><span class="n">feats</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">base</span><span class="p">,</span> <span class="n">partition_info</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="n">feats</span> <span class="o">=</span> <span class="n">feats</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="n">feats</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">feats</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">I64</span><span class="p">)</span> <span class="o">+</span> <span class="p">(</span>
+        <span class="n">partition_info</span><span class="p">[</span><span class="s2">&quot;number&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="n">base</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">feats</span>
+
+
+<span class="n">_OBJECTID_BASE</span> <span class="o">=</span> <span class="mi">10</span><span class="o">**</span><span class="mi">9</span>
+
+
+<div class="viewcode-block" id="add_objectid_column"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.vector.add_objectid_column">[docs]</a><span class="k">def</span> <span class="nf">add_objectid_column</span><span class="p">(</span><span class="n">features</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">_base</span><span class="o">=</span><span class="n">_OBJECTID_BASE</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Add a column of unique ID values to the set of features.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    features : Vector, str, GeoDataFrame, GeoSeries</span>
+<span class="sd">        The features to add the column to.</span>
+<span class="sd">    name : str, optional</span>
+<span class="sd">        The name for the column. If not given, the ESRI OBJECTID convention is</span>
+<span class="sd">        used. For example, if no name is given, &#39;OBJECTID&#39; will be used. If</span>
+<span class="sd">        &#39;OBJECTID&#39; is already present, &#39;OBJECTID_1&#39; is used.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    result : Vector, dask_geopandas.GeoDataFrame</span>
+<span class="sd">        The updated vector or dataframe with the new column of unique values.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">return_vector</span> <span class="o">=</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">features</span><span class="p">,</span> <span class="p">(</span><span class="n">Vector</span><span class="p">,</span> <span class="nb">str</span><span class="p">))</span>
+    <span class="n">feats</span> <span class="o">=</span> <span class="n">get_dask_geodataframe</span><span class="p">(</span><span class="n">features</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">feats</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;name already exists in dataframe: </span><span class="si">{</span><span class="n">name</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">prefix</span> <span class="o">=</span> <span class="s2">&quot;OBJECTID&quot;</span>
+        <span class="k">if</span> <span class="n">prefix</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">feats</span><span class="p">:</span>
+            <span class="n">name</span> <span class="o">=</span> <span class="n">prefix</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">n</span> <span class="o">=</span> <span class="mi">1</span>
+            <span class="c1"># Use ESRI convention of OBJECTID_{n} for duplicate OBJECTID</span>
+            <span class="n">name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">prefix</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="k">while</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">feats</span><span class="p">:</span>
+                <span class="n">n</span> <span class="o">+=</span> <span class="mi">1</span>
+                <span class="n">name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">prefix</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s2">&quot;</span>
+    <span class="n">meta</span> <span class="o">=</span> <span class="n">feats</span><span class="o">.</span><span class="n">_meta</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="n">meta</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">((),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">I64</span><span class="p">)</span>
+    <span class="n">df_new</span> <span class="o">=</span> <span class="n">feats</span><span class="o">.</span><span class="n">map_partitions</span><span class="p">(</span><span class="n">_add_objid</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">_base</span><span class="p">,</span> <span class="n">meta</span><span class="o">=</span><span class="n">meta</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">feats</span><span class="o">.</span><span class="n">spatial_partitions</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">df_new</span><span class="o">.</span><span class="n">spatial_partitions</span> <span class="o">=</span> <span class="n">feats</span><span class="o">.</span><span class="n">spatial_partitions</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">return_vector</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">Vector</span><span class="p">(</span><span class="n">df_new</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">df_new</span></div>
+
+
+<span class="k">def</span> <span class="nf">_get_len_from_divisions</span><span class="p">(</span><span class="n">divs</span><span class="p">):</span>
+    <span class="c1"># This should never overcount but may undercount by 1 because</span>
+    <span class="c1"># dask.dataframe special cases the last division when creating a dataframe.</span>
+    <span class="c1">#</span>
+    <span class="c1"># NOTE: Dask dataframes have a divisions property. This is a tuple of</span>
+    <span class="c1"># locations along the index where partitions start and stop. It looks like</span>
+    <span class="c1"># this: (0, 10, 20, 29) for a dataframe with 3 divisions and 30 elements.</span>
+    <span class="c1"># The first element is the start of the first partition and is inclusive.</span>
+    <span class="c1"># The next is the exclusive end of the first partition and the inclusive</span>
+    <span class="c1"># start of the second partition. This continues until the last partition</span>
+    <span class="c1"># where a monkey wrench is thrown in. The last division in the tuple is</span>
+    <span class="c1"># inclusive but dask treats it like every other division, which makes</span>
+    <span class="c1"># things less clear and potentially makes the size of the dataframe</span>
+    <span class="c1"># inexact. Because partitions can be merged etc., there is no way to tell</span>
+    <span class="c1"># if the last partition in a dataframe you have been given is actually the</span>
+    <span class="c1"># original last partition. Dask also does not make an effort to keep track</span>
+    <span class="c1"># of the total length. The best way I have found to get the length without</span>
+    <span class="c1"># computing it, is to go by the divisions. Because of the special case and</span>
+    <span class="c1"># the inability to differentiate it from other partitions, this func may</span>
+    <span class="c1"># undercount by 1. It will give the exact value only if the original last</span>
+    <span class="c1"># partition is no longer part of given dataframe. It is safer to undercount</span>
+    <span class="c1"># than overcount however.</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">divs</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">):</span>
+        <span class="n">left</span> <span class="o">=</span> <span class="n">divs</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+        <span class="n">right</span> <span class="o">=</span> <span class="n">divs</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+        <span class="n">n</span> <span class="o">+=</span> <span class="n">right</span> <span class="o">-</span> <span class="n">left</span>
+    <span class="k">return</span> <span class="n">n</span>
+
+
+<span class="k">def</span> <span class="nf">_guess_geo_len</span><span class="p">(</span><span class="n">geo</span><span class="p">):</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">dask</span><span class="o">.</span><span class="n">is_dask_collection</span><span class="p">(</span><span class="n">geo</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="n">geo</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">geo</span><span class="o">.</span><span class="n">known_divisions</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">_get_len_from_divisions</span><span class="p">(</span><span class="n">geo</span><span class="o">.</span><span class="n">divisions</span><span class="p">)</span>
+    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Divisions must be set.&quot;</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_get_best_effort_geo_len</span><span class="p">(</span><span class="n">geo</span><span class="p">):</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">dask</span><span class="o">.</span><span class="n">is_dask_collection</span><span class="p">(</span><span class="n">geo</span><span class="p">)</span> <span class="ow">or</span> <span class="n">geo</span><span class="o">.</span><span class="n">npartitions</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="n">geo</span><span class="p">)</span>
+
+    <span class="n">n</span> <span class="o">=</span> <span class="n">_guess_geo_len</span><span class="p">(</span><span class="n">geo</span><span class="o">.</span><span class="n">partitions</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+    <span class="c1"># Evaluate the last partition to get its exact size. Hopefully this is the</span>
+    <span class="c1"># special-cased partition. If it isn&#39;t, this will undercount by 1. See</span>
+    <span class="c1"># the note in _get_len_from_divisions.</span>
+    <span class="n">n</span> <span class="o">+=</span> <span class="nb">len</span><span class="p">(</span><span class="n">geo</span><span class="o">.</span><span class="n">partitions</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+    <span class="k">return</span> <span class="n">n</span>
+
+
+<span class="k">def</span> <span class="nf">_normalize_geo_data</span><span class="p">(</span><span class="n">geo</span><span class="p">):</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">_is_series</span><span class="p">(</span><span class="n">geo</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">_is_frame</span><span class="p">(</span><span class="n">geo</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+            <span class="s2">&quot;Invalid data type. Must be some type GeoDataFrame or&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot; GeoSeries. Got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">geo</span><span class="p">)</span><span class="si">}</span><span class="s2">.&quot;</span>
+        <span class="p">)</span>
+    <span class="k">if</span> <span class="n">_is_series</span><span class="p">(</span><span class="n">geo</span><span class="p">):</span>
+        <span class="n">geo</span> <span class="o">=</span> <span class="n">geo</span><span class="o">.</span><span class="n">to_frame</span><span class="p">(</span><span class="s2">&quot;geometry&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">dask</span><span class="o">.</span><span class="n">is_dask_collection</span><span class="p">(</span><span class="n">geo</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">geo</span><span class="o">.</span><span class="n">known_divisions</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">&quot;Unknown divisions set on input data. Divisions must be set.&quot;</span>
+        <span class="p">)</span>
+    <span class="k">return</span> <span class="n">geo</span>
+
+
+<span class="n">_GMTRY</span> <span class="o">=</span> <span class="s2">&quot;geometry&quot;</span>
+
+
+<div class="viewcode-block" id="Vector"><a class="viewcode-back" href="../../reference/generated/raster_tools.Vector.html#raster_tools.vector.Vector">[docs]</a><span class="k">class</span> <span class="nc">Vector</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;A class representing vector data.</span>
+
+<span class="sd">    Take care to provide the actual number of features in the data when</span>
+<span class="sd">    creating a new Vector.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="Vector.__init__"><a class="viewcode-back" href="../../reference/generated/raster_tools.Vector.html#raster_tools.vector.Vector.__init__">[docs]</a>    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">geo</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a `Vector` object.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        geo : GeoDataFrame or GeoSeries</span>
+<span class="sd">            The vector data to use. This can be a geopandas or dask_geopandas</span>
+<span class="sd">            object.</span>
+<span class="sd">        size : int, optional</span>
+<span class="sd">            The number of features. If not provided, A best effort will be made</span>
+<span class="sd">            to determine the number of features. Part of the data may be</span>
+<span class="sd">            temporarily loaded.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">geo</span> <span class="o">=</span> <span class="n">_normalize_geo_data</span><span class="p">(</span><span class="n">geo</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">dask</span><span class="o">.</span><span class="n">is_dask_collection</span><span class="p">(</span><span class="n">geo</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_size</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">geo</span><span class="p">)</span>
+            <span class="n">geo</span> <span class="o">=</span> <span class="n">dgpd</span><span class="o">.</span><span class="n">from_geopandas</span><span class="p">(</span><span class="n">geo</span><span class="p">,</span> <span class="n">npartitions</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_geo</span> <span class="o">=</span> <span class="n">geo</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_geo</span> <span class="o">=</span> <span class="n">geo</span>
+            <span class="c1"># NOTE: self._size is not data-dependant so when adding features</span>
+            <span class="c1"># that can affect length, care must be taken to properly update</span>
+            <span class="c1"># _size.</span>
+            <span class="k">if</span> <span class="n">size</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_size</span> <span class="o">=</span> <span class="n">_get_best_effort_geo_len</span><span class="p">(</span><span class="n">geo</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">is_int</span><span class="p">(</span><span class="n">size</span><span class="p">):</span>
+                    <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Size must be an int.&quot;</span><span class="p">)</span>
+
+                <span class="c1"># The guess will underestimate by 1 in most cases</span>
+                <span class="n">size_guess</span> <span class="o">=</span> <span class="n">_guess_geo_len</span><span class="p">(</span><span class="n">geo</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">size</span> <span class="o">==</span> <span class="n">size_guess</span> <span class="ow">or</span> <span class="n">size</span> <span class="o">==</span> <span class="p">(</span><span class="n">size_guess</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_size</span> <span class="o">=</span> <span class="n">size</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                        <span class="s2">&quot;Given size does not match divisions in data&quot;</span>
+                    <span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="fm">__len__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_size</span>
+
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">lazy</span> <span class="o">=</span> <span class="n">dask</span><span class="o">.</span><span class="n">is_dask_collection</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_geo</span><span class="p">)</span>
+        <span class="k">return</span> <span class="s2">&quot;&lt;Vector(shapes: </span><span class="si">{}</span><span class="s2">, fields: </span><span class="si">{}</span><span class="s2">, CRS: </span><span class="si">{}</span><span class="s2">, lazy:</span><span class="si">{}</span><span class="s2">)&gt;&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">crs</span><span class="p">,</span> <span class="n">lazy</span>
+        <span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">table</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The vector attribute table.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_geo</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="n">_GMTRY</span><span class="p">])</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">data</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_geo</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">size</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        The number of vectors contained. NaN is returned if the vector is lazy.</span>
+
+<span class="sd">        Use `len(vector)` to trigger computation of the length.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">shape</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The shape of the attribute table.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">dask</span><span class="o">.</span><span class="n">is_dask_collection</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_geo</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">table</span><span class="o">.</span><span class="n">shape</span>
+        <span class="k">return</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">field_names</span><span class="p">))</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">crs</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The vector CRS.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">rio</span><span class="o">.</span><span class="n">crs</span><span class="o">.</span><span class="n">CRS</span><span class="o">.</span><span class="n">from_wkt</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_geo</span><span class="o">.</span><span class="n">crs</span><span class="o">.</span><span class="n">to_wkt</span><span class="p">())</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">field_schema</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;A mapping of the field names to dtypes.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">table</span><span class="o">.</span><span class="n">dtypes</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">field_names</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The field names.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">field_schema</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">field_dtypes</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The field dtypes.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">field_schema</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">geometry</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The vector geometry series.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_geo</span><span class="o">.</span><span class="n">geometry</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">tasks</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The number of lazy operations left to be computed.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">dask</span><span class="o">.</span><span class="n">is_dask_collection</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_geo</span><span class="p">):</span>
+            <span class="c1"># TODO: take into account partitions?</span>
+            <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_geo</span><span class="o">.</span><span class="n">dask</span><span class="p">)</span>
+        <span class="k">return</span> <span class="mi">0</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">bounds</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a bounds array or dask array: (minx, miny, maxx, maxy).</span>
+
+<span class="sd">        If the vector is lazy, the output is a dask array.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">total_bounds</span>
+
+<div class="viewcode-block" id="Vector.copy"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.vector.Vector.copy">[docs]</a>    <span class="k">def</span> <span class="nf">copy</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Copies the vector.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">Vector</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_geo</span><span class="o">.</span><span class="n">copy</span><span class="p">())</span></div>
+
+<div class="viewcode-block" id="Vector.eval"><a class="viewcode-back" href="../../reference/generated/raster_tools.Vector.eval.html#raster_tools.vector.Vector.eval">[docs]</a>    <span class="k">def</span> <span class="nf">eval</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>  <span class="c1"># noqa: A003</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Computes the built-up chain of operations on the underlying data.&quot;&quot;&quot;</span>
+        <span class="c1"># TODO: deprecate in favor of load</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">load</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="Vector.load"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.vector.Vector.load">[docs]</a>    <span class="k">def</span> <span class="nf">load</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute delayed operations and load the result into memory.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">dask</span><span class="o">.</span><span class="n">is_dask_collection</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_geo</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">Vector</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_geo</span><span class="o">.</span><span class="n">compute</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">_size</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+<div class="viewcode-block" id="Vector.to_lazy"><a class="viewcode-back" href="../../reference/generated/raster_tools.Vector.to_lazy.html#raster_tools.vector.Vector.to_lazy">[docs]</a>    <span class="k">def</span> <span class="nf">to_lazy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">npartitions</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Converts to a lazy dask-backed Vector.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        npartitions : int</span>
+<span class="sd">            The number of partitions to use.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        Vector</span>
+<span class="sd">            A lazy copy of the vector.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">dask</span><span class="o">.</span><span class="n">is_dask_collection</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_geo</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">self</span>
+        <span class="k">if</span> <span class="n">npartitions</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># TODO: calculate better value based on df size</span>
+            <span class="n">npartitions</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="k">return</span> <span class="n">Vector</span><span class="p">(</span>
+            <span class="n">dgpd</span><span class="o">.</span><span class="n">from_geopandas</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_geo</span><span class="p">,</span> <span class="n">npartitions</span><span class="o">=</span><span class="n">npartitions</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">size</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="Vector.to_dask"><a class="viewcode-back" href="../../reference/generated/raster_tools.Vector.to_dask.html#raster_tools.vector.Vector.to_dask">[docs]</a>    <span class="k">def</span> <span class="nf">to_dask</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns the underlying data as a :obj:`dask_geopandas.GeoDataFrame`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">to_lazy</span><span class="p">()</span><span class="o">.</span><span class="n">_geo</span></div>
+
+<div class="viewcode-block" id="Vector.to_dataframe"><a class="viewcode-back" href="../../reference/generated/raster_tools.Vector.to_dataframe.html#raster_tools.vector.Vector.to_dataframe">[docs]</a>    <span class="k">def</span> <span class="nf">to_dataframe</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns the underlying GeoDataFrame.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span></div>
+
+<div class="viewcode-block" id="Vector.to_shapely"><a class="viewcode-back" href="../../reference/generated/raster_tools.Vector.to_shapely.html#raster_tools.vector.Vector.to_shapely">[docs]</a>    <span class="k">def</span> <span class="nf">to_shapely</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns the vector data as a list of shapely geometries objects.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">to_list</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="Vector.to_raster"><a class="viewcode-back" href="../../reference/generated/raster_tools.Vector.to_raster.html#raster_tools.vector.Vector.to_raster">[docs]</a>    <span class="k">def</span> <span class="nf">to_raster</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">like</span><span class="p">,</span>
+        <span class="n">field</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">overlap_resolve_method</span><span class="o">=</span><span class="s2">&quot;last&quot;</span><span class="p">,</span>
+        <span class="n">mask</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">mask_invert</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">null_value</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">all_touched</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">use_spatial_aware</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">show_progress</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Convert vector feature data to a raster.</span>
+
+<span class="sd">        This method can be used to either rasterize features using values from</span>
+<span class="sd">        a particular data field or to create a raster mask of zeros and ones.</span>
+<span class="sd">        Using values to rasterize is the default. Use `mask=True` to generate a</span>
+<span class="sd">        raster mask. If no data field is specified, the underlying dataframe&#39;s</span>
+<span class="sd">        index is used. NOTE: because of limitations in dask, dataframe index</span>
+<span class="sd">        values are not guaranteed to be unique across the dataframe. Cells that</span>
+<span class="sd">        do not touch or overlap any features are marked as null.</span>
+
+<span class="sd">        To add a column of unique IDs for each feature, see</span>
+<span class="sd">        :func:`raster_tools.vector.add_objectid_column` or</span>
+<span class="sd">        :meth:`raster_tools.vector.Vector.add_objectid_column`.</span>
+
+<span class="sd">        This operation can be greatly accelerated if the provided `features`</span>
+<span class="sd">        object has been spatially shuffled or had spatial partitions</span>
+<span class="sd">        calculated. There are a few ways to do this. For `Vector` or</span>
+<span class="sd">        `GeoDataFrame`/`GeoSeries` objects, you can use the `spatial_shuffle`</span>
+<span class="sd">        or `calculate_spatial_partitions` methods.</span>
+<span class="sd">        `calculate_spatial_partitions` simply computes the spatial bounds of</span>
+<span class="sd">        each partition in the data. `spatial_shuffle` shuffles the data into</span>
+<span class="sd">        partitions of spatially near groups and calculates the spatial bounds</span>
+<span class="sd">        at the same time. This second method is more expensive but provides a</span>
+<span class="sd">        potentially greater speed up for rasterization. The `use_spatial_aware`</span>
+<span class="sd">        flag can also be provided to this function. This causes the spatial</span>
+<span class="sd">        partitions to be calculated before rasterization.</span>
+
+<span class="sd">        .. note::</span>
+<span class="sd">            If the CRS for this vector does not match the CRS for `like`,</span>
+<span class="sd">            this vector will be transformed to `like`&#39;s CRS. This operation</span>
+<span class="sd">            causes spatial partition information to be lost. It is recommended</span>
+<span class="sd">            that the CRSs for both are matched ahead of time.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        like : Raster</span>
+<span class="sd">            A raster to use for grid and CRS information. The resulting raster</span>
+<span class="sd">            will be on the same grid as `like`.</span>
+<span class="sd">        field : str, optional</span>
+<span class="sd">            The name of a field to use for cell values when rasterizing the</span>
+<span class="sd">            vector features. If None or not specified, the underlying</span>
+<span class="sd">            dataframe&#39;s index is used. The default is to use the index.</span>
+<span class="sd">        overlap_resolve_method : str, optional</span>
+<span class="sd">            The method used to resolve overlaping features. Default is</span>
+<span class="sd">            `&quot;last&quot;`. The available methods are:</span>
+
+<span class="sd">            &#39;first&#39;</span>
+<span class="sd">                Cells with overlapping features will receive the value from the</span>
+<span class="sd">                feature that appears first in the feature table.</span>
+<span class="sd">            &#39;last&#39;</span>
+<span class="sd">                Cells with overlapping features will receive the value from the</span>
+<span class="sd">                feature that appears last in the feature table.</span>
+<span class="sd">            &#39;min&#39;</span>
+<span class="sd">                Cells with overlap will receive the value from the feature with</span>
+<span class="sd">                the smallest value.</span>
+<span class="sd">            &#39;max&#39;</span>
+<span class="sd">                Cells with overlap will receive the value from the feature with</span>
+<span class="sd">                the largest value.</span>
+
+<span class="sd">        mask : bool, optional</span>
+<span class="sd">            If ``True``, the features are rasterized as a mask. Cells that do</span>
+<span class="sd">            not touch a feature are masked out. Cells that touch the features</span>
+<span class="sd">            are set to ``1``. If `mask_invert` is also ``True``, this is</span>
+<span class="sd">            inverted. If `mask` is ``False``, the features are rasterized using</span>
+<span class="sd">            `field` to retrieve values from the underlying dataframe. `field`</span>
+<span class="sd">            is ignored, if this option is a used. Default is ``False``.</span>
+<span class="sd">        mask_invert : bool, optional</span>
+<span class="sd">            If ``True`` cells that are inside or touch a feature are masked</span>
+<span class="sd">            out. If ``False``, cells that do not touch a feature are masked</span>
+<span class="sd">            out. Default is ``False``.</span>
+<span class="sd">        null_value : scalar, optional</span>
+<span class="sd">            The value to use in cells with no feature data, when not masking.</span>
+<span class="sd">        all_touched : bool, optional</span>
+<span class="sd">            If ``True``, grid cells that the vector touches will be burned in.</span>
+<span class="sd">            If False, only cells with a center point inside of the vector</span>
+<span class="sd">            perimeter will be burned in.</span>
+<span class="sd">        use_spatial_aware : bool, optional</span>
+<span class="sd">            Force the use of spatial aware rasterization. If ``True`` and</span>
+<span class="sd">            `features` is not already spatially indexed, a spatial index will</span>
+<span class="sd">            be computed. Alternatively, if ``True`` and `features`&#39;s CRS</span>
+<span class="sd">            differs from `like`, a new spatial index in a common CRS will be</span>
+<span class="sd">            computed. If `features` already has a spatial index and its CRS</span>
+<span class="sd">            matches `like`, this argument is ignored. Default is ``False``.</span>
+<span class="sd">        show_progress : bool, optional</span>
+<span class="sd">            If `use_spatial_aware` is ``True``, this flag causes a progress bar</span>
+<span class="sd">            to be displayed for spatial indexing. Default is ``False``.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        Raster</span>
+<span class="sd">            The resulting single band raster of rasterized features. This</span>
+<span class="sd">            raster will be on the same grid as `like`.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">rasterize</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">like</span><span class="p">,</span>
+            <span class="n">field</span><span class="o">=</span><span class="n">field</span><span class="p">,</span>
+            <span class="n">overlap_resolve_method</span><span class="o">=</span><span class="n">overlap_resolve_method</span><span class="p">,</span>
+            <span class="n">mask</span><span class="o">=</span><span class="n">mask</span><span class="p">,</span>
+            <span class="n">mask_invert</span><span class="o">=</span><span class="n">mask_invert</span><span class="p">,</span>
+            <span class="n">null_value</span><span class="o">=</span><span class="n">null_value</span><span class="p">,</span>
+            <span class="n">all_touched</span><span class="o">=</span><span class="n">all_touched</span><span class="p">,</span>
+            <span class="n">use_spatial_aware</span><span class="o">=</span><span class="n">use_spatial_aware</span><span class="p">,</span>
+            <span class="n">show_progress</span><span class="o">=</span><span class="n">show_progress</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="Vector.to_crs"><a class="viewcode-back" href="../../reference/generated/raster_tools.Vector.to_crs.html#raster_tools.vector.Vector.to_crs">[docs]</a>    <span class="k">def</span> <span class="nf">to_crs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">crs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Transform the vector coordinates to the specified `crs`.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        crs : str, :obj:`pyproj.CRS`</span>
+<span class="sd">            The crs to transform the vector coordinates to. The value can be</span>
+<span class="sd">            anything accepted by</span>
+<span class="sd">            :meth:`pyproj.CRS.from_user_input()`,</span>
+<span class="sd">            such as an EPSG string (eg &quot;EPSG:4326&quot;) or a WKT string.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        The transformed vector(s).</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">Vector</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_geo</span><span class="o">.</span><span class="n">to_crs</span><span class="p">(</span><span class="n">crs</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="Vector.cast_field"><a class="viewcode-back" href="../../reference/generated/raster_tools.Vector.cast_field.html#raster_tools.vector.Vector.cast_field">[docs]</a>    <span class="k">def</span> <span class="nf">cast_field</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">dtype</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Cast a field to the specified `dtype`.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        name : str</span>
+<span class="sd">            The field name to cast.</span>
+<span class="sd">        dtype : str, type, or numpy.dtype</span>
+<span class="sd">            The dtype to cast to.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        Vector</span>
+<span class="sd">            A new vector with the updated attribute table.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">is_str</span><span class="p">(</span><span class="n">name</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Name must be a string&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_geo</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Inalid attribute name: </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">geo</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_geo</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">geo</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">geo</span><span class="p">[</span><span class="n">name</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">Vector</span><span class="p">(</span><span class="n">geo</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="fm">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">idx</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">idx</span><span class="p">,</span> <span class="nb">slice</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Slicing is not supported&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">is_int</span><span class="p">(</span><span class="n">idx</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid index type: </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">idx</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">idx</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">IndexError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Index </span><span class="si">{</span><span class="n">idx</span><span class="si">}</span><span class="s2"> is too large for vector with size </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+        <span class="c1"># Convert negative indices to positive because the index only handles +</span>
+        <span class="k">if</span> <span class="n">idx</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">old_idx</span> <span class="o">=</span> <span class="n">idx</span>
+            <span class="n">idx</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">size</span> <span class="o">+</span> <span class="n">idx</span>
+            <span class="k">if</span> <span class="n">idx</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">IndexError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Negative index </span><span class="si">{</span><span class="n">old_idx</span><span class="si">}</span><span class="s2"> is too small for vector with &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;size </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="si">}</span><span class="s2">.&quot;</span>
+                <span class="p">)</span>
+        <span class="c1"># [[idx]] forces loc to return a data frame. The new frames index is</span>
+        <span class="c1"># [idx], however. This breaks future iteration we reset it to [0] to</span>
+        <span class="c1"># allow iteration over the resulting Vector.</span>
+        <span class="n">subgeo</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_geo</span><span class="o">.</span><span class="n">loc</span><span class="p">[[</span><span class="n">idx</span><span class="p">]]</span>
+        <span class="n">subgeo</span><span class="o">.</span><span class="n">index</span> <span class="o">=</span> <span class="n">dask</span><span class="o">.</span><span class="n">array</span><span class="o">.</span><span class="n">from_array</span><span class="p">([</span><span class="mi">0</span><span class="p">])</span><span class="o">.</span><span class="n">to_dask_dataframe</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">Vector</span><span class="p">(</span><span class="n">subgeo</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Vector.buffer"><a class="viewcode-back" href="../../reference/generated/raster_tools.Vector.buffer.html#raster_tools.vector.Vector.buffer">[docs]</a>    <span class="k">def</span> <span class="nf">buffer</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply the buffer operation to the vector geometries.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        *args : positional args</span>
+<span class="sd">            Arguments to be passed on to GoePandas.</span>
+<span class="sd">        **kwargs : keyword args</span>
+<span class="sd">            Keyword arguments to be passed onto GeoPandas.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        Vector</span>
+<span class="sd">            The buffered vector.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">Vector</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_geo</span><span class="o">.</span><span class="n">buffer</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="Vector.simplify"><a class="viewcode-back" href="../../reference/generated/raster_tools.Vector.simplify.html#raster_tools.vector.Vector.simplify">[docs]</a>    <span class="k">def</span> <span class="nf">simplify</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Simplify the vector geometries.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        *args : positional args</span>
+<span class="sd">            Arguments to be passed on to GoePandas.</span>
+<span class="sd">        **kwargs : keyword args</span>
+<span class="sd">            Keyword arguments to be passed onto GeoPandas.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        Vector</span>
+<span class="sd">            The simplify vector.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">Vector</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_geo</span><span class="o">.</span><span class="n">simplify</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="Vector.save"><a class="viewcode-back" href="../../reference/generated/raster_tools.Vector.save.html#raster_tools.vector.Vector.save">[docs]</a>    <span class="k">def</span> <span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="o">**</span><span class="n">fiona_kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Save the vector data to a file.</span>
+
+<span class="sd">        By default, an ESRI shapefile is written.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        path : str</span>
+<span class="sd">            Output location to save the vector data to.</span>
+<span class="sd">        **fiona_kwargs : keyword args</span>
+<span class="sd">            Keyword arguments to pass on to :func:`fiona.open` such as</span>
+<span class="sd">            ``layer=&#39;name&#39;``, ``driver=&#39;GPKG&#39;``, or ``mode=&#39;a&#39;``</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        Vector</span>
+<span class="sd">            Returns a new vector pointing to the saved location.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="p">(</span><span class="n">geo</span><span class="p">,)</span> <span class="o">=</span> <span class="n">dask</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_geo</span><span class="p">)</span>
+        <span class="n">geo</span><span class="o">.</span><span class="n">to_file</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="o">**</span><span class="n">fiona_kwargs</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">open_vectors</span><span class="p">(</span><span class="n">path</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Vector.model_predict"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.vector.Vector.model_predict">[docs]</a>    <span class="k">def</span> <span class="nf">model_predict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">fields</span><span class="p">,</span> <span class="n">n_outputs</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">out_prefix</span><span class="o">=</span><span class="s2">&quot;pred_&quot;</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Predict new columns using a model.</span>
+
+<span class="sd">        `layer`&#39;s values are used as predictors for the model to produce new</span>
+<span class="sd">        predictions. The resulting predictions are used to create a new vector</span>
+<span class="sd">        with the results appended as new columns.</span>
+
+<span class="sd">        The `model` argument must provide a `predict` method. If the desired</span>
+<span class="sd">        model does not provide a `predict` function,</span>
+<span class="sd">        :class:`ModelPredictAdaptor` can be used to wrap it and make it</span>
+<span class="sd">        compatible with this function. information.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        layer : vector or path str</span>
+<span class="sd">            Vector with attribute columns.</span>
+<span class="sd">        model : object</span>
+<span class="sd">            The model used to estimate new values. It must have a `predict`</span>
+<span class="sd">            method that takes an array-like object of shape `(N, M)`, where `N`</span>
+<span class="sd">            is the number of samples and `M` is the number of</span>
+<span class="sd">            features/predictor variables. The `predict` method should return an</span>
+<span class="sd">            `(N, [n_outputs])` shape result. If only one variable is resurned,</span>
+<span class="sd">            then the `n_outputs` dimension is optional.</span>
+<span class="sd">        fields : list of str</span>
+<span class="sd">            The names of columns used in the model</span>
+<span class="sd">        n_outputs : int, optional</span>
+<span class="sd">            The number of output variables from the model. Each output variable</span>
+<span class="sd">            produced by the model is converted to a band in the output raster.</span>
+<span class="sd">            The default is ``1``.</span>
+<span class="sd">        out_prefix : str, optional</span>
+<span class="sd">            The prefix to use when naming the resulting column(s). The prefix</span>
+<span class="sd">            will be combined with the 1-based number of the output variable.</span>
+<span class="sd">            The Default is `&quot;pred_&quot;`.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        Vector</span>
+<span class="sd">            The resulting vector with estimated values appended as a columns</span>
+<span class="sd">            (pred_1, pred_2, pred_3 ...).</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">from</span> <span class="nn">raster_tools.general</span> <span class="kn">import</span> <span class="n">model_predict_vector</span>
+
+        <span class="k">return</span> <span class="n">model_predict_vector</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">fields</span><span class="p">,</span> <span class="n">n_outputs</span><span class="p">,</span> <span class="n">out_prefix</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Vector.add_objectid_column"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.vector.Vector.add_objectid_column">[docs]</a>    <span class="k">def</span> <span class="nf">add_objectid_column</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Add a column of unique ID values to the set of features.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        name : str, optional</span>
+<span class="sd">            The name for the column. If not given, the ESRI OBJECTID convention</span>
+<span class="sd">            is used. For example, if no name is given, &#39;OBJECTID&#39; will be used.</span>
+<span class="sd">            If &#39;OBJECTID&#39; is already present, &#39;OBJECTID_1&#39; is used, etc.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        result : Vector</span>
+<span class="sd">            The updated vector with the new column of unique values.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">add_objectid_column</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Vector.spatial_shuffle"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.vector.Vector.spatial_shuffle">[docs]</a>    <span class="k">def</span> <span class="nf">spatial_shuffle</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">show_progress</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Shuffle the features into spatially grouped partitions.</span>
+
+<span class="sd">        This sorts the features into partitions such that each partition</span>
+<span class="sd">        contains features that are near to one another. This has the added</span>
+<span class="sd">        benefit of computing the spatial extents of each partition.</span>
+
+<span class="sd">        .. note::</span>
+<span class="sd">            This causes partial computation to take place.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">show_progress</span><span class="p">:</span>
+            <span class="k">with</span> <span class="n">ProgressBar</span><span class="p">():</span>
+                <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_geo</span><span class="o">.</span><span class="n">spatial_shuffle</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_geo</span><span class="o">.</span><span class="n">spatial_shuffle</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">Vector</span><span class="p">(</span><span class="n">data</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Vector.calculate_spatial_partitions"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.vector.Vector.calculate_spatial_partitions">[docs]</a>    <span class="k">def</span> <span class="nf">calculate_spatial_partitions</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">show_progress</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Calculate the spatial bounds of the underlying data.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        show_progress : bool, optional</span>
+<span class="sd">            Show a progressbar for the calculation. This operation can take a</span>
+<span class="sd">            significant amount of time, so a progressbar may be helpful.</span>
+<span class="sd">            Default is ``False``.</span>
+
+<span class="sd">        .. note::</span>
+<span class="sd">            This causes partial computation to take place.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_geo</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">show_progress</span><span class="p">:</span>
+            <span class="k">with</span> <span class="n">ProgressBar</span><span class="p">():</span>
+                <span class="n">data</span><span class="o">.</span><span class="n">calculate_spatial_partitions</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">data</span><span class="o">.</span><span class="n">calculate_spatial_partitions</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">Vector</span><span class="p">(</span><span class="n">data</span><span class="p">)</span></div></div>
+</pre></div>
+
+                </article>
+              
+
+              
+              
+                <footer class="bd-footer-article">
+                  
+<div class="footer-article-items footer-article__inner">
+  
+    <div class="footer-article-item"><!-- Previous / next buttons -->
+<div class="prev-next-area">
+</div></div>
+  
+</div>
+
+                </footer>
+              
+            </div>
+            
+            
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+<p class="component-author">
+By raster_tools Contributors
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  <p class="copyright">
+    
+      © Copyright Notice: This is a work of the U.S. Government and is not subject to  copyright protection in the United States.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="../../_static/scripts/bootstrap.js?digest=e353d410970836974a52"></script>
+<script src="../../_static/scripts/pydata-sphinx-theme.js?digest=e353d410970836974a52"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>

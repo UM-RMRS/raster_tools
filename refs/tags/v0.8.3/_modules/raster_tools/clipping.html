@@ -1,0 +1,709 @@
+
+
+<!DOCTYPE html>
+
+
+<html >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>raster_tools.clipping &#8212; raster_tools 0.8.3 documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "light";
+  </script>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../_static/styles/theme.css?digest=e353d410970836974a52" rel="stylesheet" />
+<link href="../../_static/styles/bootstrap.css?digest=e353d410970836974a52" rel="stylesheet" />
+<link href="../../_static/styles/pydata-sphinx-theme.css?digest=e353d410970836974a52" rel="stylesheet" />
+
+  
+  <link href="../../_static/vendor/fontawesome/6.1.2/css/all.min.css?digest=e353d410970836974a52" rel="stylesheet" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="../../_static/vendor/fontawesome/6.1.2/webfonts/fa-solid-900.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../../_static/vendor/fontawesome/6.1.2/webfonts/fa-brands-400.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../../_static/vendor/fontawesome/6.1.2/webfonts/fa-regular-400.woff2" />
+
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css" />
+    <link rel="stylesheet" href="../../_static/styles/sphinx-book-theme.css?digest=14f4ca6b54d191a8c7657f6c759bf11a5fb86285" type="text/css" />
+  
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=e353d410970836974a52" />
+<link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=e353d410970836974a52" />
+
+    <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+    <script src="../../_static/jquery.js"></script>
+    <script src="../../_static/underscore.js"></script>
+    <script src="../../_static/doctools.js"></script>
+    <script src="../../_static/scripts/sphinx-book-theme.js?digest=5a5c038af52cf7bc1a1ec88eea08e6366ee68824"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = '_modules/raster_tools/clipping';</script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="None"/>
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          name="__primary"
+          id="__primary"/>
+  <label class="overlay overlay-primary" for="__primary"></label>
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          name="__secondary"
+          id="__secondary"/>
+  <label class="overlay overlay-secondary" for="__secondary"></label>
+  
+  <div class="search-button__wrapper">
+    <div class="search-button__overlay"></div>
+    <div class="search-button__search-container">
+<form class="bd-search d-flex align-items-center"
+      action="../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         id="search-input"
+         placeholder="Search..."
+         aria-label="Search..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form></div>
+  </div>
+  
+    <nav class="bd-header navbar navbar-expand-lg bd-navbar">
+    </nav>
+  
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      <div class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+  
+
+<a class="navbar-brand logo" href="../../index.html">
+  
+  
+  
+  
+  
+    <p class="title logo__title">raster_tools 0.8.3 documentation</p>
+  
+</a></div>
+        <div class="sidebar-primary-item"><nav class="bd-links" id="bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        <p aria-level="2" class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../reference/index.html">API Reference</a><input class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-1"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../reference/top_level.html">Top Level Functions</a><input class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-2"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.html">raster_tools.Raster</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.open_dataset.html">raster_tools.open_dataset</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.band_concat.html">raster_tools.band_concat</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.constant_raster.html">raster_tools.constant_raster</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.empty_like.html">raster_tools.empty_like</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.full_like.html">raster_tools.full_like</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.ones_like.html">raster_tools.ones_like</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.random_raster.html">raster_tools.random_raster</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.zeros_like.html">raster_tools.zeros_like</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.reclassify.html">raster_tools.reclassify</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.remap_range.html">raster_tools.remap_range</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Vector.html">raster_tools.Vector</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.count_layer_features.html">raster_tools.count_layer_features</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.list_layers.html">raster_tools.list_layers</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.open_vectors.html">raster_tools.open_vectors</a></li>
+</ul>
+</li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../reference/raster.html">Raster Objects</a><input class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-3"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.html">raster_tools.Raster</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.dtype.html">raster_tools.Raster.dtype</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.shape.html">raster_tools.Raster.shape</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.nbands.html">raster_tools.Raster.nbands</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.null_value.html">raster_tools.Raster.null_value</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.values.html">raster_tools.Raster.values</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.data.html">raster_tools.Raster.data</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.xdata.html">raster_tools.Raster.xdata</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.mask.html">raster_tools.Raster.mask</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.xmask.html">raster_tools.Raster.xmask</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.x.html">raster_tools.Raster.x</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.y.html">raster_tools.Raster.y</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.crs.html">raster_tools.Raster.crs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.affine.html">raster_tools.Raster.affine</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.resolution.html">raster_tools.Raster.resolution</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.bounds.html">raster_tools.Raster.bounds</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.bandwise.html">raster_tools.Raster.bandwise</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.pxrs.html">raster_tools.Raster.pxrs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.xrs.html">raster_tools.Raster.xrs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.round.html">raster_tools.Raster.round</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.all.html">raster_tools.Raster.all</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.any.html">raster_tools.Raster.any</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.max.html">raster_tools.Raster.max</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.mean.html">raster_tools.Raster.mean</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.min.html">raster_tools.Raster.min</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.prod.html">raster_tools.Raster.prod</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.std.html">raster_tools.Raster.std</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.sum.html">raster_tools.Raster.sum</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.var.html">raster_tools.Raster.var</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.chunk.html">raster_tools.Raster.chunk</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.get_bands.html">raster_tools.Raster.get_bands</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.get_chunk_rasters.html">raster_tools.Raster.get_chunk_rasters</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.to_quadrants.html">raster_tools.Raster.to_quadrants</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.burn_mask.html">raster_tools.Raster.burn_mask</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.reclassify.html">raster_tools.Raster.reclassify</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.replace_null.html">raster_tools.Raster.replace_null</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.remap_range.html">raster_tools.Raster.remap_range</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.set_null_value.html">raster_tools.Raster.set_null_value</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.set_null.html">raster_tools.Raster.set_null</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.to_null_mask.html">raster_tools.Raster.to_null_mask</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.where.html">raster_tools.Raster.where</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.astype.html">raster_tools.Raster.astype</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.copy.html">raster_tools.Raster.copy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.to_dataset.html">raster_tools.Raster.to_dataset</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.to_numpy.html">raster_tools.Raster.to_numpy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.to_vector.html">raster_tools.Raster.to_vector</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.index.html">raster_tools.Raster.index</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.set_crs.html">raster_tools.Raster.set_crs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.xy.html">raster_tools.Raster.xy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.reproject.html">raster_tools.Raster.reproject</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.close.html">raster_tools.Raster.close</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.eval.html">raster_tools.Raster.eval</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.load.html">raster_tools.Raster.load</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.save.html">raster_tools.Raster.save</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.explore.html">raster_tools.Raster.explore</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.plot.html">raster_tools.Raster.plot</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.get_chunk_bounding_boxes.html">raster_tools.Raster.get_chunk_bounding_boxes</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.get_chunked_coords.html">raster_tools.Raster.get_chunked_coords</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.model_predict.html">raster_tools.Raster.model_predict</a></li>
+</ul>
+</li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../reference/vector.html">Vector Objects</a><input class="toctree-checkbox" id="toctree-checkbox-4" name="toctree-checkbox-4" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-4"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.open_vectors.html">raster_tools.open_vectors</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Vector.bounds.html">raster_tools.Vector.bounds</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Vector.crs.html">raster_tools.Vector.crs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Vector.data.html">raster_tools.Vector.data</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Vector.field_dtypes.html">raster_tools.Vector.field_dtypes</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Vector.field_names.html">raster_tools.Vector.field_names</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Vector.field_schema.html">raster_tools.Vector.field_schema</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Vector.geometry.html">raster_tools.Vector.geometry</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Vector.shape.html">raster_tools.Vector.shape</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Vector.size.html">raster_tools.Vector.size</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Vector.table.html">raster_tools.Vector.table</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Vector.tasks.html">raster_tools.Vector.tasks</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Vector.eval.html">raster_tools.Vector.eval</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Vector.save.html">raster_tools.Vector.save</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Vector.to_crs.html">raster_tools.Vector.to_crs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Vector.to_dask.html">raster_tools.Vector.to_dask</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Vector.to_dataframe.html">raster_tools.Vector.to_dataframe</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Vector.to_lazy.html">raster_tools.Vector.to_lazy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Vector.to_raster.html">raster_tools.Vector.to_raster</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Vector.to_shapely.html">raster_tools.Vector.to_shapely</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Vector.cast_field.html">raster_tools.Vector.cast_field</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Vector.buffer.html">raster_tools.Vector.buffer</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Vector.simplify.html">raster_tools.Vector.simplify</a></li>
+</ul>
+</li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../reference/distance.html">Distance Analysis</a><input class="toctree-checkbox" id="toctree-checkbox-5" name="toctree-checkbox-5" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-5"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.distance.cost_distance_analysis.html">raster_tools.distance.cost_distance_analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.distance.cda_allocation.html">raster_tools.distance.cda_allocation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.distance.cda_cost_distance.html">raster_tools.distance.cda_cost_distance</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.distance.cda_traceback.html">raster_tools.distance.cda_traceback</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.distance.proximity_analysis.html">raster_tools.distance.proximity_analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.distance.pa_allocation.html">raster_tools.distance.pa_allocation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.distance.pa_direction.html">raster_tools.distance.pa_direction</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.distance.pa_proximity.html">raster_tools.distance.pa_proximity</a></li>
+</ul>
+</li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../reference/clipping.html">Clipping Operations</a><input class="toctree-checkbox" id="toctree-checkbox-6" name="toctree-checkbox-6" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-6"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.clipping.clip.html">raster_tools.clipping.clip</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.clipping.clip_box.html">raster_tools.clipping.clip_box</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.clipping.envelope.html">raster_tools.clipping.envelope</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.clipping.erase.html">raster_tools.clipping.erase</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.clipping.mask.html">raster_tools.clipping.mask</a></li>
+</ul>
+</li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../reference/focal.html">Focal Operations</a><input class="toctree-checkbox" id="toctree-checkbox-7" name="toctree-checkbox-7" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-7"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.focal.focal.html">raster_tools.focal.focal</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.focal.correlate.html">raster_tools.focal.correlate</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.focal.convolve.html">raster_tools.focal.convolve</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.focal.check_kernel.html">raster_tools.focal.check_kernel</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.focal.get_focal_window.html">raster_tools.focal.get_focal_window</a></li>
+</ul>
+</li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../reference/general.html">General Purpose Operations</a><input class="toctree-checkbox" id="toctree-checkbox-8" name="toctree-checkbox-8" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-8"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.general.ModelPredictAdaptor.html">raster_tools.general.ModelPredictAdaptor</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.general.aggregate.html">raster_tools.general.aggregate</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.general.band_concat.html">raster_tools.general.band_concat</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.general.dilate.html">raster_tools.general.dilate</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.general.erode.html">raster_tools.general.erode</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.general.local_stats.html">raster_tools.general.local_stats</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.general.model_predict_raster.html">raster_tools.general.model_predict_raster</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.general.model_predict_vector.html">raster_tools.general.model_predict_vector</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.general.reclassify.html">raster_tools.general.reclassify</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.general.regions.html">raster_tools.general.regions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.general.remap_range.html">raster_tools.general.remap_range</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.general.where.html">raster_tools.general.where</a></li>
+</ul>
+</li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../reference/rasterize.html">Rasterize</a><input class="toctree-checkbox" id="toctree-checkbox-9" name="toctree-checkbox-9" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-9"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.rasterize.rasterize.html">raster_tools.rasterize.rasterize</a></li>
+</ul>
+</li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../reference/surface.html">Surface Operations</a><input class="toctree-checkbox" id="toctree-checkbox-10" name="toctree-checkbox-10" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-10"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.surface.aspect.html">raster_tools.surface.aspect</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.surface.curvature.html">raster_tools.surface.curvature</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.surface.easting.html">raster_tools.surface.easting</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.surface.hillshade.html">raster_tools.surface.hillshade</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.surface.northing.html">raster_tools.surface.northing</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.surface.slope.html">raster_tools.surface.slope</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.surface.surface_area_3d.html">raster_tools.surface.surface_area_3d</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.surface.tpi.html">raster_tools.surface.tpi</a></li>
+</ul>
+</li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../reference/warp.html">Warp Operations</a><input class="toctree-checkbox" id="toctree-checkbox-11" name="toctree-checkbox-11" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-11"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.warp.reproject.html">raster_tools.warp.reproject</a></li>
+</ul>
+</li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../reference/zonal.html">Zonal Operations</a><input class="toctree-checkbox" id="toctree-checkbox-12" name="toctree-checkbox-12" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-12"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.zonal.extract_points_eager.html">raster_tools.zonal.extract_points_eager</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.zonal.zonal_stats.html">raster_tools.zonal.zonal_stats</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../modules.html">raster_tools</a><input class="toctree-checkbox" id="toctree-checkbox-13" name="toctree-checkbox-13" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-13"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../raster_tools.html">raster_tools package</a><input class="toctree-checkbox" id="toctree-checkbox-14" name="toctree-checkbox-14" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-14"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../raster_tools.distance.html">raster_tools.distance package</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference external" href="https://github.com/UM-RMRS/raster_tools">GitHub</a></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+  
+  <div id="rtd-footer-container"></div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><label class="sidebar-toggle primary-toggle btn btn-sm" for="__primary" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</label></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+<script>
+document.write(`
+  <button class="theme-switch-button btn btn-sm btn-outline-primary navbar-btn rounded-circle" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="theme-switch" data-mode="light"><i class="fa-solid fa-sun"></i></span>
+    <span class="theme-switch" data-mode="dark"><i class="fa-solid fa-moon"></i></span>
+    <span class="theme-switch" data-mode="auto"><i class="fa-solid fa-circle-half-stroke"></i></span>
+  </button>
+`);
+</script>
+
+<script>
+document.write(`
+  <button class="btn btn-sm navbar-btn search-button search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+  </button>
+`);
+</script>
+
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1></h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article" role="main">
+                  
+  <h1>Source code for raster_tools.clipping</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">dask</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">rioxarray</span> <span class="k">as</span> <span class="nn">rxr</span>
+<span class="kn">import</span> <span class="nn">xarray</span> <span class="k">as</span> <span class="nn">xr</span>
+
+<span class="kn">from</span> <span class="nn">raster_tools.creation</span> <span class="kn">import</span> <span class="n">ones_like</span><span class="p">,</span> <span class="n">zeros_like</span>
+<span class="kn">from</span> <span class="nn">raster_tools.general</span> <span class="kn">import</span> <span class="n">band_concat</span>
+<span class="kn">from</span> <span class="nn">raster_tools.masking</span> <span class="kn">import</span> <span class="n">get_default_null_value</span>
+<span class="kn">from</span> <span class="nn">raster_tools.raster</span> <span class="kn">import</span> <span class="n">Raster</span><span class="p">,</span> <span class="n">RasterNoDataError</span><span class="p">,</span> <span class="n">get_raster</span>
+<span class="kn">from</span> <span class="nn">raster_tools.utils</span> <span class="kn">import</span> <span class="n">make_raster_ds</span>
+<span class="kn">from</span> <span class="nn">raster_tools.vector</span> <span class="kn">import</span> <span class="n">get_vector</span>
+
+
+<span class="k">def</span> <span class="nf">_clip</span><span class="p">(</span>
+    <span class="n">feature</span><span class="p">,</span>
+    <span class="n">data_raster</span><span class="p">,</span>
+    <span class="n">invert</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="n">trim</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">bounds</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">envelope</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+<span class="p">):</span>
+    <span class="n">feat</span> <span class="o">=</span> <span class="n">get_vector</span><span class="p">(</span><span class="n">feature</span><span class="p">)</span>
+    <span class="n">rs</span> <span class="o">=</span> <span class="n">get_raster</span><span class="p">(</span><span class="n">data_raster</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">rs</span><span class="o">.</span><span class="n">crs</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Data raster has no CRS&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">bounds</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">bounds</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">4</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Invalid bounds. Must be a size 4 array or tuple.&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">envelope</span> <span class="ow">and</span> <span class="n">invert</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Envelope and invert cannot both be true&quot;</span><span class="p">)</span>
+
+    <span class="n">feat</span> <span class="o">=</span> <span class="n">feat</span><span class="o">.</span><span class="n">to_crs</span><span class="p">(</span><span class="n">rs</span><span class="o">.</span><span class="n">crs</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">trim</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">bounds</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="p">(</span><span class="n">bounds</span><span class="p">,)</span> <span class="o">=</span> <span class="n">dask</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span><span class="n">feat</span><span class="o">.</span><span class="n">bounds</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">bounds</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="n">bounds</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">rs</span> <span class="o">=</span> <span class="n">clip_box</span><span class="p">(</span><span class="n">rs</span><span class="p">,</span> <span class="n">bounds</span><span class="p">)</span>
+        <span class="k">except</span> <span class="n">RasterNoDataError</span> <span class="k">as</span> <span class="n">err</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                <span class="s2">&quot;No data in given bounds. Make sure that the bounds are in the&quot;</span>
+                <span class="s2">&quot; same CRS as the data raster.&quot;</span>
+            <span class="p">)</span> <span class="kn">from</span> <span class="nn">err</span>
+
+    <span class="n">feat_rs</span> <span class="o">=</span> <span class="n">feat</span><span class="o">.</span><span class="n">to_raster</span><span class="p">(</span><span class="n">rs</span><span class="p">,</span> <span class="n">mask</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">envelope</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">invert</span><span class="p">:</span>
+            <span class="n">clip_mask</span> <span class="o">=</span> <span class="n">feat_rs</span><span class="o">.</span><span class="n">to_null_mask</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">clip_mask</span> <span class="o">=</span> <span class="o">~</span><span class="n">feat_rs</span><span class="o">.</span><span class="n">to_null_mask</span><span class="p">()</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">invert</span><span class="p">:</span>
+            <span class="n">clip_mask</span> <span class="o">=</span> <span class="n">zeros_like</span><span class="p">(</span><span class="n">feat_rs</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">clip_mask</span> <span class="o">=</span> <span class="n">ones_like</span><span class="p">(</span><span class="n">feat_rs</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+
+    <span class="n">nv</span> <span class="o">=</span> <span class="n">rs</span><span class="o">.</span><span class="n">null_value</span> <span class="k">if</span> <span class="n">rs</span><span class="o">.</span><span class="n">_masked</span> <span class="k">else</span> <span class="n">get_default_null_value</span><span class="p">(</span><span class="n">rs</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">rs</span><span class="o">.</span><span class="n">nbands</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">clip_mask</span> <span class="o">=</span> <span class="n">band_concat</span><span class="p">([</span><span class="n">clip_mask</span><span class="p">]</span> <span class="o">*</span> <span class="n">rs</span><span class="o">.</span><span class="n">nbands</span><span class="p">)</span>
+    <span class="n">xdata_out</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">clip_mask</span><span class="o">.</span><span class="n">xdata</span><span class="p">,</span> <span class="n">rs</span><span class="o">.</span><span class="n">xdata</span><span class="p">,</span> <span class="n">nv</span><span class="p">)</span>
+    <span class="n">xmask_out</span> <span class="o">=</span> <span class="o">~</span><span class="n">clip_mask</span><span class="o">.</span><span class="n">xdata</span>
+
+    <span class="k">if</span> <span class="n">rs</span><span class="o">.</span><span class="n">_masked</span><span class="p">:</span>
+        <span class="n">xmask_out</span> <span class="o">|=</span> <span class="n">rs</span><span class="o">.</span><span class="n">xmask</span>
+        <span class="n">xdata_out</span> <span class="o">=</span> <span class="n">xdata_out</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_nodata</span><span class="p">(</span><span class="n">nv</span><span class="p">)</span>
+    <span class="n">ds_out</span> <span class="o">=</span> <span class="n">make_raster_ds</span><span class="p">(</span><span class="n">xdata_out</span><span class="p">,</span> <span class="n">xmask_out</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">rs</span><span class="o">.</span><span class="n">crs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">ds_out</span> <span class="o">=</span> <span class="n">ds_out</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_crs</span><span class="p">(</span><span class="n">rs</span><span class="o">.</span><span class="n">crs</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">Raster</span><span class="p">(</span><span class="n">ds_out</span><span class="p">,</span> <span class="n">_fast_path</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="clip"><a class="viewcode-back" href="../../reference/generated/raster_tools.clipping.clip.html#raster_tools.clipping.clip">[docs]</a><span class="k">def</span> <span class="nf">clip</span><span class="p">(</span><span class="n">feature</span><span class="p">,</span> <span class="n">data_raster</span><span class="p">,</span> <span class="n">bounds</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Clip the data raster using the given feature.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    feature : str, Vector</span>
+<span class="sd">        The feature to clip with. If a string, this is interpreted as a path.</span>
+<span class="sd">    data_raster : str, Raster</span>
+<span class="sd">        The data raster to be clipped. If a string, this is interpreted as a</span>
+<span class="sd">        path.</span>
+<span class="sd">    bounds : tuple, list, array, optional</span>
+<span class="sd">        The bounding box of the clip operation: (minx, miny, maxx, maxy). If</span>
+<span class="sd">        not provided, the bounds are computed from the feature. This will</span>
+<span class="sd">        trigger computation of the feature.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    Raster</span>
+<span class="sd">        The resulting clipped raster with dimensions that match the bounding</span>
+<span class="sd">        box provided or the bounds of the feature.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">_clip</span><span class="p">(</span>
+        <span class="n">feature</span><span class="p">,</span>
+        <span class="n">data_raster</span><span class="p">,</span>
+        <span class="n">trim</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">bounds</span><span class="o">=</span><span class="n">bounds</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="erase"><a class="viewcode-back" href="../../reference/generated/raster_tools.clipping.erase.html#raster_tools.clipping.erase">[docs]</a><span class="k">def</span> <span class="nf">erase</span><span class="p">(</span><span class="n">feature</span><span class="p">,</span> <span class="n">data_raster</span><span class="p">,</span> <span class="n">bounds</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Erase the data raster using the given feature. Inverse of :func:`clip`.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    feature : str, Vector</span>
+<span class="sd">        The feature to erase with. If a string, this is interpreted as a path.</span>
+<span class="sd">    data_raster : str, Raster</span>
+<span class="sd">        The data raster to be erased. If a string, this is interpreted as a</span>
+<span class="sd">        path.</span>
+<span class="sd">    bounds : tuple, list, array, optional</span>
+<span class="sd">        The bounding box of the clip operation: (minx, miny, maxx, maxy). If</span>
+<span class="sd">        not provided, the bounds are computed from the feature. This will</span>
+<span class="sd">        trigger computation of the feature.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    Raster</span>
+<span class="sd">        The resulting erased raster with dimensions that match the bounding</span>
+<span class="sd">        box provided or the bounds of the feature. The data inside the feature</span>
+<span class="sd">        is erased.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">_clip</span><span class="p">(</span>
+        <span class="n">feature</span><span class="p">,</span>
+        <span class="n">data_raster</span><span class="p">,</span>
+        <span class="n">trim</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">invert</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">bounds</span><span class="o">=</span><span class="n">bounds</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="mask"><a class="viewcode-back" href="../../reference/generated/raster_tools.clipping.mask.html#raster_tools.clipping.mask">[docs]</a><span class="k">def</span> <span class="nf">mask</span><span class="p">(</span><span class="n">feature</span><span class="p">,</span> <span class="n">data_raster</span><span class="p">,</span> <span class="n">invert</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Mask the data raster using the given feature.</span>
+
+<span class="sd">    Depending on `invert`, the area inside (``True``) or outside (``False``)</span>
+<span class="sd">    the feature is masked out. The default is to mask the area outside of the</span>
+<span class="sd">    feature.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    feature : str, Vector</span>
+<span class="sd">        The feature to mask with. If a string, this is interpreted as a path.</span>
+<span class="sd">    data_raster : str, Raster</span>
+<span class="sd">        The data raster to be erased. If a string, this is interpreted as a</span>
+<span class="sd">        path.</span>
+<span class="sd">    invert : bool, optional</span>
+<span class="sd">        If ``True``, the mask is inverted and the area inside of the feature is</span>
+<span class="sd">        set to masked out. Default ``False``.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    Raster</span>
+<span class="sd">        The resulting masked raster with the same dimensions as the original</span>
+<span class="sd">        data raster.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">_clip</span><span class="p">(</span>
+        <span class="n">feature</span><span class="p">,</span>
+        <span class="n">data_raster</span><span class="p">,</span>
+        <span class="n">trim</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">invert</span><span class="o">=</span><span class="n">invert</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="envelope"><a class="viewcode-back" href="../../reference/generated/raster_tools.clipping.envelope.html#raster_tools.clipping.envelope">[docs]</a><span class="k">def</span> <span class="nf">envelope</span><span class="p">(</span><span class="n">feature</span><span class="p">,</span> <span class="n">data_raster</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Clip the data raster using the bounds of the given feature.</span>
+
+<span class="sd">    This is the same as :func:`clip` but the bounding box of the feature is</span>
+<span class="sd">    used instead of the feature itself.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    feature : str, Vector</span>
+<span class="sd">        The feature to erase with. If a string, this is interpreted as a path.</span>
+<span class="sd">    data_raster : str, Raster</span>
+<span class="sd">        The data raster to be clipped. If a string, this is interpreted as a</span>
+<span class="sd">        path.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    Raster</span>
+<span class="sd">        The resulting clipped raster with dimensions that match the bounding</span>
+<span class="sd">        box of the feature.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">_clip</span><span class="p">(</span>
+        <span class="n">feature</span><span class="p">,</span>
+        <span class="n">data_raster</span><span class="p">,</span>
+        <span class="n">trim</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">envelope</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="clip_box"><a class="viewcode-back" href="../../reference/generated/raster_tools.clipping.clip_box.html#raster_tools.clipping.clip_box">[docs]</a><span class="k">def</span> <span class="nf">clip_box</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">bounds</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Clip the raster to the specified box.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    raster : str, Raster</span>
+<span class="sd">        The Raster or raster path string to clip.</span>
+<span class="sd">    bounds : tuple, list, array</span>
+<span class="sd">        The bounding box of the clip operation: (minx, miny, maxx, maxy).</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    Raster</span>
+<span class="sd">        The raster clipped to the given bounds.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">rs</span> <span class="o">=</span> <span class="n">get_raster</span><span class="p">(</span><span class="n">raster</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">bounds</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">4</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Invalid bounds. Must be a size 4 array or tuple.&quot;</span><span class="p">)</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">xrs</span> <span class="o">=</span> <span class="n">rs</span><span class="o">.</span><span class="n">xdata</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">clip_box</span><span class="p">(</span><span class="o">*</span><span class="n">bounds</span><span class="p">,</span> <span class="n">auto_expand</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">except</span> <span class="n">rxr</span><span class="o">.</span><span class="n">exceptions</span><span class="o">.</span><span class="n">NoDataInBounds</span> <span class="k">as</span> <span class="n">err</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">RasterNoDataError</span><span class="p">(</span>
+            <span class="s2">&quot;No data found within provided bounds&quot;</span>
+        <span class="p">)</span> <span class="kn">from</span> <span class="nn">err</span>
+    <span class="k">if</span> <span class="n">rs</span><span class="o">.</span><span class="n">_masked</span><span class="p">:</span>
+        <span class="n">xmask</span> <span class="o">=</span> <span class="n">rs</span><span class="o">.</span><span class="n">xmask</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">clip_box</span><span class="p">(</span><span class="o">*</span><span class="n">bounds</span><span class="p">,</span> <span class="n">auto_expand</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">xmask</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">xrs</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+    <span class="n">ds</span> <span class="o">=</span> <span class="n">make_raster_ds</span><span class="p">(</span><span class="n">xrs</span><span class="p">,</span> <span class="n">xmask</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">rs</span><span class="o">.</span><span class="n">crs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">ds</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_crs</span><span class="p">(</span><span class="n">rs</span><span class="o">.</span><span class="n">crs</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">Raster</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="n">_fast_path</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div>
+</pre></div>
+
+                </article>
+              
+
+              
+              
+                <footer class="bd-footer-article">
+                  
+<div class="footer-article-items footer-article__inner">
+  
+    <div class="footer-article-item"><!-- Previous / next buttons -->
+<div class="prev-next-area">
+</div></div>
+  
+</div>
+
+                </footer>
+              
+            </div>
+            
+            
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+<p class="component-author">
+By raster_tools Contributors
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  <p class="copyright">
+    
+      © Copyright Notice: This is a work of the U.S. Government and is not subject to  copyright protection in the United States.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="../../_static/scripts/bootstrap.js?digest=e353d410970836974a52"></script>
+<script src="../../_static/scripts/pydata-sphinx-theme.js?digest=e353d410970836974a52"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>
