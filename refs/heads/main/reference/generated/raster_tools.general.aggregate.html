@@ -1,0 +1,580 @@
+
+
+<!DOCTYPE html>
+
+
+<html >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+    <title>raster_tools.general.aggregate &#8212; raster_tools 0.8.3 documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "light";
+  </script>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../_static/styles/theme.css?digest=e353d410970836974a52" rel="stylesheet" />
+<link href="../../_static/styles/bootstrap.css?digest=e353d410970836974a52" rel="stylesheet" />
+<link href="../../_static/styles/pydata-sphinx-theme.css?digest=e353d410970836974a52" rel="stylesheet" />
+
+  
+  <link href="../../_static/vendor/fontawesome/6.1.2/css/all.min.css?digest=e353d410970836974a52" rel="stylesheet" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="../../_static/vendor/fontawesome/6.1.2/webfonts/fa-solid-900.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../../_static/vendor/fontawesome/6.1.2/webfonts/fa-brands-400.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../../_static/vendor/fontawesome/6.1.2/webfonts/fa-regular-400.woff2" />
+
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css" />
+    <link rel="stylesheet" href="../../_static/styles/sphinx-book-theme.css?digest=14f4ca6b54d191a8c7657f6c759bf11a5fb86285" type="text/css" />
+  
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=e353d410970836974a52" />
+<link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=e353d410970836974a52" />
+
+    <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+    <script src="../../_static/jquery.js"></script>
+    <script src="../../_static/underscore.js"></script>
+    <script src="../../_static/doctools.js"></script>
+    <script src="../../_static/scripts/sphinx-book-theme.js?digest=5a5c038af52cf7bc1a1ec88eea08e6366ee68824"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'reference/generated/raster_tools.general.aggregate';</script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="raster_tools.general.band_concat" href="raster_tools.general.band_concat.html" />
+    <link rel="prev" title="raster_tools.general.ModelPredictAdaptor" href="raster_tools.general.ModelPredictAdaptor.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="None"/>
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          name="__primary"
+          id="__primary"/>
+  <label class="overlay overlay-primary" for="__primary"></label>
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          name="__secondary"
+          id="__secondary"/>
+  <label class="overlay overlay-secondary" for="__secondary"></label>
+  
+  <div class="search-button__wrapper">
+    <div class="search-button__overlay"></div>
+    <div class="search-button__search-container">
+<form class="bd-search d-flex align-items-center"
+      action="../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         id="search-input"
+         placeholder="Search..."
+         aria-label="Search..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form></div>
+  </div>
+  
+    <nav class="bd-header navbar navbar-expand-lg bd-navbar">
+    </nav>
+  
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      <div class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+  
+
+<a class="navbar-brand logo" href="../../index.html">
+  
+  
+  
+  
+  
+    <p class="title logo__title">raster_tools 0.8.3 documentation</p>
+  
+</a></div>
+        <div class="sidebar-primary-item"><nav class="bd-links" id="bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item navbar-nav active">
+        <p aria-level="2" class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current nav bd-sidenav">
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="../index.html">API Reference</a><input checked="" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-1"><i class="fa-solid fa-chevron-down"></i></label><ul class="current">
+<li class="toctree-l2 has-children"><a class="reference internal" href="../top_level.html">Top Level Functions</a><input class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-2"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.html">raster_tools.Raster</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.open_dataset.html">raster_tools.open_dataset</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.band_concat.html">raster_tools.band_concat</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.constant_raster.html">raster_tools.constant_raster</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.empty_like.html">raster_tools.empty_like</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.full_like.html">raster_tools.full_like</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.ones_like.html">raster_tools.ones_like</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.random_raster.html">raster_tools.random_raster</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.zeros_like.html">raster_tools.zeros_like</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.reclassify.html">raster_tools.reclassify</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.remap_range.html">raster_tools.remap_range</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Vector.html">raster_tools.Vector</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.count_layer_features.html">raster_tools.count_layer_features</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.list_layers.html">raster_tools.list_layers</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.open_vectors.html">raster_tools.open_vectors</a></li>
+</ul>
+</li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../raster.html">Raster Objects</a><input class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-3"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.html">raster_tools.Raster</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.dtype.html">raster_tools.Raster.dtype</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.shape.html">raster_tools.Raster.shape</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.nbands.html">raster_tools.Raster.nbands</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.null_value.html">raster_tools.Raster.null_value</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.values.html">raster_tools.Raster.values</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.data.html">raster_tools.Raster.data</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.xdata.html">raster_tools.Raster.xdata</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.mask.html">raster_tools.Raster.mask</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.xmask.html">raster_tools.Raster.xmask</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.x.html">raster_tools.Raster.x</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.y.html">raster_tools.Raster.y</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.crs.html">raster_tools.Raster.crs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.affine.html">raster_tools.Raster.affine</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.resolution.html">raster_tools.Raster.resolution</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.bounds.html">raster_tools.Raster.bounds</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.bandwise.html">raster_tools.Raster.bandwise</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.pxrs.html">raster_tools.Raster.pxrs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.xrs.html">raster_tools.Raster.xrs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.round.html">raster_tools.Raster.round</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.all.html">raster_tools.Raster.all</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.any.html">raster_tools.Raster.any</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.max.html">raster_tools.Raster.max</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.mean.html">raster_tools.Raster.mean</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.min.html">raster_tools.Raster.min</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.prod.html">raster_tools.Raster.prod</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.std.html">raster_tools.Raster.std</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.sum.html">raster_tools.Raster.sum</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.var.html">raster_tools.Raster.var</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.chunk.html">raster_tools.Raster.chunk</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.get_bands.html">raster_tools.Raster.get_bands</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.get_chunk_rasters.html">raster_tools.Raster.get_chunk_rasters</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.to_quadrants.html">raster_tools.Raster.to_quadrants</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.burn_mask.html">raster_tools.Raster.burn_mask</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.reclassify.html">raster_tools.Raster.reclassify</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.replace_null.html">raster_tools.Raster.replace_null</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.remap_range.html">raster_tools.Raster.remap_range</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.set_null_value.html">raster_tools.Raster.set_null_value</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.set_null.html">raster_tools.Raster.set_null</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.to_null_mask.html">raster_tools.Raster.to_null_mask</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.where.html">raster_tools.Raster.where</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.astype.html">raster_tools.Raster.astype</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.copy.html">raster_tools.Raster.copy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.to_dataset.html">raster_tools.Raster.to_dataset</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.to_numpy.html">raster_tools.Raster.to_numpy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.to_vector.html">raster_tools.Raster.to_vector</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.index.html">raster_tools.Raster.index</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.set_crs.html">raster_tools.Raster.set_crs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.xy.html">raster_tools.Raster.xy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.reproject.html">raster_tools.Raster.reproject</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.close.html">raster_tools.Raster.close</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.eval.html">raster_tools.Raster.eval</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.load.html">raster_tools.Raster.load</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.save.html">raster_tools.Raster.save</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.explore.html">raster_tools.Raster.explore</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.plot.html">raster_tools.Raster.plot</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.get_chunk_bounding_boxes.html">raster_tools.Raster.get_chunk_bounding_boxes</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.get_chunked_coords.html">raster_tools.Raster.get_chunked_coords</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.model_predict.html">raster_tools.Raster.model_predict</a></li>
+</ul>
+</li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../vector.html">Vector Objects</a><input class="toctree-checkbox" id="toctree-checkbox-4" name="toctree-checkbox-4" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-4"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.open_vectors.html">raster_tools.open_vectors</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Vector.bounds.html">raster_tools.Vector.bounds</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Vector.crs.html">raster_tools.Vector.crs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Vector.data.html">raster_tools.Vector.data</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Vector.field_dtypes.html">raster_tools.Vector.field_dtypes</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Vector.field_names.html">raster_tools.Vector.field_names</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Vector.field_schema.html">raster_tools.Vector.field_schema</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Vector.geometry.html">raster_tools.Vector.geometry</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Vector.shape.html">raster_tools.Vector.shape</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Vector.size.html">raster_tools.Vector.size</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Vector.table.html">raster_tools.Vector.table</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Vector.tasks.html">raster_tools.Vector.tasks</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Vector.eval.html">raster_tools.Vector.eval</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Vector.save.html">raster_tools.Vector.save</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Vector.to_crs.html">raster_tools.Vector.to_crs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Vector.to_dask.html">raster_tools.Vector.to_dask</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Vector.to_dataframe.html">raster_tools.Vector.to_dataframe</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Vector.to_lazy.html">raster_tools.Vector.to_lazy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Vector.to_raster.html">raster_tools.Vector.to_raster</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Vector.to_shapely.html">raster_tools.Vector.to_shapely</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Vector.cast_field.html">raster_tools.Vector.cast_field</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Vector.buffer.html">raster_tools.Vector.buffer</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Vector.simplify.html">raster_tools.Vector.simplify</a></li>
+</ul>
+</li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../distance.html">Distance Analysis</a><input class="toctree-checkbox" id="toctree-checkbox-5" name="toctree-checkbox-5" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-5"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.distance.cost_distance_analysis.html">raster_tools.distance.cost_distance_analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.distance.cda_allocation.html">raster_tools.distance.cda_allocation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.distance.cda_cost_distance.html">raster_tools.distance.cda_cost_distance</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.distance.cda_traceback.html">raster_tools.distance.cda_traceback</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.distance.proximity_analysis.html">raster_tools.distance.proximity_analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.distance.pa_allocation.html">raster_tools.distance.pa_allocation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.distance.pa_direction.html">raster_tools.distance.pa_direction</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.distance.pa_proximity.html">raster_tools.distance.pa_proximity</a></li>
+</ul>
+</li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../clipping.html">Clipping Operations</a><input class="toctree-checkbox" id="toctree-checkbox-6" name="toctree-checkbox-6" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-6"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.clipping.clip.html">raster_tools.clipping.clip</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.clipping.clip_box.html">raster_tools.clipping.clip_box</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.clipping.envelope.html">raster_tools.clipping.envelope</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.clipping.erase.html">raster_tools.clipping.erase</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.clipping.mask.html">raster_tools.clipping.mask</a></li>
+</ul>
+</li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../focal.html">Focal Operations</a><input class="toctree-checkbox" id="toctree-checkbox-7" name="toctree-checkbox-7" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-7"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.focal.focal.html">raster_tools.focal.focal</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.focal.correlate.html">raster_tools.focal.correlate</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.focal.convolve.html">raster_tools.focal.convolve</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.focal.check_kernel.html">raster_tools.focal.check_kernel</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.focal.get_focal_window.html">raster_tools.focal.get_focal_window</a></li>
+</ul>
+</li>
+<li class="toctree-l2 current active has-children"><a class="reference internal" href="../general.html">General Purpose Operations</a><input checked="" class="toctree-checkbox" id="toctree-checkbox-8" name="toctree-checkbox-8" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-8"><i class="fa-solid fa-chevron-down"></i></label><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.general.ModelPredictAdaptor.html">raster_tools.general.ModelPredictAdaptor</a></li>
+<li class="toctree-l3 current active"><a class="current reference internal" href="#">raster_tools.general.aggregate</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.general.band_concat.html">raster_tools.general.band_concat</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.general.dilate.html">raster_tools.general.dilate</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.general.erode.html">raster_tools.general.erode</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.general.local_stats.html">raster_tools.general.local_stats</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.general.model_predict_raster.html">raster_tools.general.model_predict_raster</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.general.model_predict_vector.html">raster_tools.general.model_predict_vector</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.general.reclassify.html">raster_tools.general.reclassify</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.general.regions.html">raster_tools.general.regions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.general.remap_range.html">raster_tools.general.remap_range</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.general.where.html">raster_tools.general.where</a></li>
+</ul>
+</li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../rasterize.html">Rasterize</a><input class="toctree-checkbox" id="toctree-checkbox-9" name="toctree-checkbox-9" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-9"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.rasterize.rasterize.html">raster_tools.rasterize.rasterize</a></li>
+</ul>
+</li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../surface.html">Surface Operations</a><input class="toctree-checkbox" id="toctree-checkbox-10" name="toctree-checkbox-10" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-10"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.surface.aspect.html">raster_tools.surface.aspect</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.surface.curvature.html">raster_tools.surface.curvature</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.surface.easting.html">raster_tools.surface.easting</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.surface.hillshade.html">raster_tools.surface.hillshade</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.surface.northing.html">raster_tools.surface.northing</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.surface.slope.html">raster_tools.surface.slope</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.surface.surface_area_3d.html">raster_tools.surface.surface_area_3d</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.surface.tpi.html">raster_tools.surface.tpi</a></li>
+</ul>
+</li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../warp.html">Warp Operations</a><input class="toctree-checkbox" id="toctree-checkbox-11" name="toctree-checkbox-11" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-11"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.warp.reproject.html">raster_tools.warp.reproject</a></li>
+</ul>
+</li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../zonal.html">Zonal Operations</a><input class="toctree-checkbox" id="toctree-checkbox-12" name="toctree-checkbox-12" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-12"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.zonal.extract_points_eager.html">raster_tools.zonal.extract_points_eager</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.zonal.zonal_stats.html">raster_tools.zonal.zonal_stats</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../modules.html">raster_tools</a><input class="toctree-checkbox" id="toctree-checkbox-13" name="toctree-checkbox-13" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-13"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../raster_tools.html">raster_tools package</a><input class="toctree-checkbox" id="toctree-checkbox-14" name="toctree-checkbox-14" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-14"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../raster_tools.distance.html">raster_tools.distance package</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference external" href="https://github.com/UM-RMRS/raster_tools">GitHub</a></li>
+</ul>
+
+    </div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+  
+  <div id="rtd-footer-container"></div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main">
+        
+        
+
+<div class="sbt-scroll-pixel-helper"></div>
+
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item"><label class="sidebar-toggle primary-toggle btn btn-sm" for="__primary" title="Toggle primary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <span class="fa-solid fa-bars"></span>
+</label></div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+
+<div class="article-header-buttons">
+
+
+
+
+
+<div class="dropdown dropdown-download-buttons">
+  <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Download this page">
+    <i class="fas fa-download"></i>
+  </button>
+  <ul class="dropdown-menu">
+      
+      
+      
+      <li><a href="../../_sources/reference/generated/raster_tools.general.aggregate.rst" target="_blank"
+   class="btn btn-sm btn-download-source-button dropdown-item"
+   title="Download source file"
+   data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file"></i>
+  </span>
+<span class="btn__text-container">.rst</span>
+</a>
+</li>
+      
+      
+      
+      
+      <li>
+<button onclick="window.print()"
+  class="btn btn-sm btn-download-pdf-button dropdown-item"
+  title="Print to PDF"
+  data-bs-placement="left" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-file-pdf"></i>
+  </span>
+<span class="btn__text-container">.pdf</span>
+</button>
+</li>
+      
+  </ul>
+</div>
+
+
+
+
+<button onclick="toggleFullScreen()"
+  class="btn btn-sm btn-fullscreen-button"
+  title="Fullscreen mode"
+  data-bs-placement="bottom" data-bs-toggle="tooltip"
+>
+  
+
+<span class="btn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+
+<script>
+document.write(`
+  <button class="theme-switch-button btn btn-sm btn-outline-primary navbar-btn rounded-circle" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="theme-switch" data-mode="light"><i class="fa-solid fa-sun"></i></span>
+    <span class="theme-switch" data-mode="dark"><i class="fa-solid fa-moon"></i></span>
+    <span class="theme-switch" data-mode="auto"><i class="fa-solid fa-circle-half-stroke"></i></span>
+  </button>
+`);
+</script>
+
+<script>
+document.write(`
+  <button class="btn btn-sm navbar-btn search-button search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+  </button>
+`);
+</script>
+
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+
+<div id="jb-print-docs-body" class="onlyprint">
+    <h1>raster_tools.general.aggregate</h1>
+    <!-- Table of contents -->
+    <div id="print-main-content">
+        <div id="jb-print-toc">
+            
+        </div>
+    </div>
+</div>
+
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article" role="main">
+                  
+  <section id="raster-tools-general-aggregate">
+<h1>raster_tools.general.aggregate<a class="headerlink" href="#raster-tools-general-aggregate" title="Permalink to this headline">#</a></h1>
+<dl class="py function">
+<dt class="sig sig-object py" id="raster_tools.general.aggregate">
+<span class="sig-prename descclassname"><span class="pre">raster_tools.general.</span></span><span class="sig-name descname"><span class="pre">aggregate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">raster</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">expand_cells</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stype</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/raster_tools/general.html#aggregate"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.general.aggregate" title="Permalink to this definition">#</a></dt>
+<dd><p>Creates a Raster of aggregated cell values for a new resolution.</p>
+<p>The approach is based on ESRI’s aggregate and majority filter functions.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>raster</strong> (<em>Raster</em><em> or </em><em>path str</em>) – Input Raster object or path string</p></li>
+<li><p><strong>expand_cells</strong> (<em>2-tuple</em><em>, </em><em>list</em><em>, </em><em>array-like</em>) – Tuple, array, or list of the number of cells to expand in y and x
+directions. The first element corresponds to the y dimension and the
+second to the x dimension.</p></li>
+<li><p><strong>stype</strong> (<em>str</em>) – Summarization type. Valid opition are mean, std, var, max, min,
+unique prod, median, mode, sum, unique, entropy, asm.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>The resulting raster of aggregated values.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>Raster</p>
+</dd>
+</dl>
+<p class="rubric">References</p>
+<ul class="simple">
+<li><p><a class="reference external" href="https://pro.arcgis.com/en/pro-app/latest/tool-reference/spatial-analyst/aggregate.htm">ESRI aggregate</a></p></li>
+<li><p><a class="reference external" href="https://pro.arcgis.com/en/pro-app/latest/tool-reference/spatial-analyst/majority-filter.htm">ESRI majority filter</a></p></li>
+</ul>
+</dd></dl>
+
+</section>
+
+
+                </article>
+              
+
+              
+              
+                <footer class="bd-footer-article">
+                  
+<div class="footer-article-items footer-article__inner">
+  
+    <div class="footer-article-item"><!-- Previous / next buttons -->
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="raster_tools.general.ModelPredictAdaptor.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">raster_tools.general.ModelPredictAdaptor</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="raster_tools.general.band_concat.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">raster_tools.general.band_concat</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div></div>
+  
+</div>
+
+                </footer>
+              
+            </div>
+            
+            
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+<div class="bd-footer-content__inner container">
+  
+  <div class="footer-item">
+    
+<p class="component-author">
+By raster_tools Contributors
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  <p class="copyright">
+    
+      © Copyright Notice: This is a work of the U.S. Government and is not subject to  copyright protection in the United States.
+      <br/>
+    
+  </p>
+
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+          </footer>
+        
+
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="../../_static/scripts/bootstrap.js?digest=e353d410970836974a52"></script>
+<script src="../../_static/scripts/pydata-sphinx-theme.js?digest=e353d410970836974a52"></script>
+
+  <footer class="bd-footer">
+  </footer>
+  </body>
+</html>
