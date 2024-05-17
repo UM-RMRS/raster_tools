@@ -5,6 +5,7 @@ on:
     branches: [main]
   release:
     types: [created]
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
@@ -19,6 +20,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+
       - name: Setup Conda
         uses: mamba-org/setup-micromamba@v1
         with:
@@ -33,17 +35,7 @@ jobs:
 
       - name: Deploy to GitHub Pages
         uses: JamesIves/github-pages-deploy-action@v4
-        if: ${{ github.event_name == 'release' }}
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          branch: gh-pages
-          folder: docs/_build/
-          clean: false
-          target-folder: ${{ github.ref }}
-
-      - name: Deploy to GitHub Pages
-        uses: JamesIves/github-pages-deploy-action@v4
-        if: ${{ github.event_name == 'push' }}
+        if: ${{ (github.event_name == 'release') || (github.event_name == 'push') || (github.event_name == 'workflow_dispatch') }}
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           branch: gh-pages
