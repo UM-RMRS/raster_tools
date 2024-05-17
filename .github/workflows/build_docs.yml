@@ -40,5 +40,3 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           branch: gh-pages
           folder: docs/_build/
-          clean: false
-          target-folder: ${{ github.ref }}
