@@ -10,7 +10,7 @@ easy-to-use python based API.
 
 ## Helpful Links
 - [How to Contribute](./CONTRIBUTING.md)
-- [Documentation](./docs/README.md)
+- [Documentation](https://um-rmrs.github.io/raster_tools/)
 - [Notebooks & Tutorials](./notebooks/README.md)
 - [PyPi link](https://pypi.org/project/raster-tools/)
 - [Installation](./notebooks/install_raster_tools.md)
