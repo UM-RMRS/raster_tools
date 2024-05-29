@@ -9,7 +9,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
 
-    <title>raster_tools.general.where &#8212; raster_tools 0.8.3 documentation</title>
+    <title>raster_tools.general.where &#8212; raster_tools 0.8.4 documentation</title>
   
   
   
@@ -117,7 +117,7 @@
   
   
   
-    <p class="title logo__title">raster_tools 0.8.3 documentation</p>
+    <p class="title logo__title">raster_tools 0.8.4 documentation</p>
   
 </a></div>
         <div class="sidebar-primary-item"><nav class="bd-links" id="bd-docs-nav" aria-label="Main">
@@ -462,6 +462,16 @@ document.write(`
 <span class="sig-prename descclassname"><span class="pre">raster_tools.general.</span></span><span class="sig-name descname"><span class="pre">where</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">condition</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">true_rast</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">false_rast</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/raster_tools/general.html#where"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.general.where" title="Permalink to this definition">#</a></dt>
 <dd><p>Return elements chosen from <cite>true_rast</cite> or <cite>false_rast</cite> depending on
 <cite>condition</cite>.</p>
+<p>The mask for the result is a combination of all three raster inputs. Any
+cells that are masked in the condition raster will be masked in the output.
+The rest of the cells are masked based on which raster they were taken
+from, as determined by the condition raster, and if the cell in that raster
+was null. Effectively, the resulting mask is determined as follows:
+<cite>where(condition.mask, True, where(condition, true_rast.mask,
+false_rast.mask)</cite>.</p>
+<p><cite>true_rast</cite> and <cite>false_rast</cite> can both be <code class="docutils literal notranslate"><span class="pre">None</span></code> to indicate a null value
+but they cannot both be <code class="docutils literal notranslate"><span class="pre">None</span></code> at the same time. An error is raised in
+that case.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
@@ -470,10 +480,10 @@ should be selected from. If the condition is an int raster, it is
 coerced to bool using <cite>condition &gt; 0</cite>.  <code class="docutils literal notranslate"><span class="pre">True</span></code> cells pull values from
 <cite>true_rast</cite> and <code class="docutils literal notranslate"><span class="pre">False</span></code> cells pull from <cite>y</cite>. <em>str</em> is treated as a
 path to a raster.</p></li>
-<li><p><strong>true_rast</strong> (<em>scalar</em><em>, </em><em>Raster</em><em>, </em><em>str</em>) – Raster or scalar to pull from if the corresponding location in
-<cite>condition</cite> is <code class="docutils literal notranslate"><span class="pre">True</span></code>.</p></li>
-<li><p><strong>false_rast</strong> (<em>scalar</em><em>, </em><em>Raster</em><em>, </em><em>str</em>) – Raster or scalar to pull from if the corresponding location in
-<cite>condition</cite> is <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p></li>
+<li><p><strong>true_rast</strong> (<em>scalar</em><em>, </em><em>Raster</em><em>, </em><em>str</em><em>, </em><em>None</em>) – Raster or scalar to pull from if the corresponding location in
+<cite>condition</cite> is <code class="docutils literal notranslate"><span class="pre">True</span></code>. If None, this is treated as a null value.</p></li>
+<li><p><strong>false_rast</strong> (<em>scalar</em><em>, </em><em>Raster</em><em>, </em><em>str</em><em>, </em><em>None</em>) – Raster or scalar to pull from if the corresponding location in
+<cite>condition</cite> is <code class="docutils literal notranslate"><span class="pre">False</span></code>. If None, this is treated as a null value.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>

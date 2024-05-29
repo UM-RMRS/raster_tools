@@ -8,7 +8,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>raster_tools.general &#8212; raster_tools 0.8.3 documentation</title>
+    <title>raster_tools.general &#8212; raster_tools 0.8.4 documentation</title>
   
   
   
@@ -114,7 +114,7 @@
   
   
   
-    <p class="title logo__title">raster_tools 0.8.3 documentation</p>
+    <p class="title logo__title">raster_tools 0.8.4 documentation</p>
   
 </a></div>
         <div class="sidebar-primary-item"><nav class="bd-links" id="bd-docs-nav" aria-label="Main">
@@ -406,13 +406,14 @@ document.write(`
                   
   <h1>Source code for raster_tools.general</h1><div class="highlight"><pre>
 <span></span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">   Description: general module used to perform common spatial analyses</span>
-<span class="sd">   on Raster objects</span>
+<span class="sd">Description: general module used to perform common spatial analyses</span>
+<span class="sd">on Raster objects</span>
 
-<span class="sd">   * `ESRI Generalization Tools &lt;https://pro.arcgis.com/en/pro-app/latest/tool-reference/spatial-analyst/an-overview-of-the-generalization-tools.htm&gt;`_</span>
-<span class="sd">   * `ESRI Local Tools &lt;https://pro.arcgis.com/en/pro-app/latest/tool-reference/spatial-analyst/an-overview-of-the-local-tools.htm&gt;`_</span>
+<span class="sd">* `ESRI Generalization Tools &lt;https://pro.arcgis.com/en/pro-app/latest/tool-reference/spatial-analyst/an-overview-of-the-generalization-tools.htm&gt;`_</span>
+<span class="sd">* `ESRI Local Tools &lt;https://pro.arcgis.com/en/pro-app/latest/tool-reference/spatial-analyst/an-overview-of-the-local-tools.htm&gt;`_</span>
 
 <span class="sd">&quot;&quot;&quot;</span>  <span class="c1"># noqa: E501</span>
+
 <span class="kn">import</span> <span class="nn">os</span>
 <span class="kn">import</span> <span class="nn">re</span>
 <span class="kn">from</span> <span class="nn">collections.abc</span> <span class="kn">import</span> <span class="n">Iterable</span><span class="p">,</span> <span class="n">Sequence</span>
@@ -453,7 +454,6 @@ document.write(`
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">raster_tools.focal</span> <span class="kn">import</span> <span class="n">_get_offsets</span>
 <span class="kn">from</span> <span class="nn">raster_tools.masking</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">create_null_mask</span><span class="p">,</span>
     <span class="n">get_default_null_value</span><span class="p">,</span>
     <span class="n">reconcile_nullvalue_with_dtype</span><span class="p">,</span>
 <span class="p">)</span>
@@ -1518,10 +1518,40 @@ document.write(`
     <span class="k">return</span> <span class="n">outrs</span></div>
 
 
+<span class="k">def</span> <span class="nf">_get_where_nv</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">):</span>
+    <span class="k">assert</span> <span class="ow">not</span> <span class="p">((</span><span class="n">x</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span><span class="n">y</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">))</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">x</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">is_scalar</span><span class="p">(</span><span class="n">x</span><span class="p">))</span> <span class="ow">and</span> <span class="p">(</span><span class="n">y</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">is_scalar</span><span class="p">(</span><span class="n">y</span><span class="p">)):</span>
+        <span class="c1"># Both are either None or a scalar so get default</span>
+        <span class="k">return</span> <span class="n">get_default_null_value</span><span class="p">(</span>
+            <span class="n">get_common_dtype</span><span class="p">([</span><span class="n">a</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span> <span class="k">if</span> <span class="n">a</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">])</span>
+        <span class="p">)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">Raster</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">Raster</span><span class="p">):</span>
+        <span class="c1"># No easy way to pick so just get a default</span>
+        <span class="k">return</span> <span class="n">get_default_null_value</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">promote_types</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">y</span><span class="o">.</span><span class="n">dtype</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">x</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">is_scalar</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+        <span class="c1"># y cannot be None or a scalar here. y must be a raster</span>
+        <span class="k">return</span> <span class="n">y</span><span class="o">.</span><span class="n">null_value</span> <span class="k">if</span> <span class="n">y</span><span class="o">.</span><span class="n">_masked</span> <span class="k">else</span> <span class="n">get_default_null_value</span><span class="p">(</span><span class="n">y</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># x must be a raster but not y</span>
+        <span class="k">return</span> <span class="n">x</span><span class="o">.</span><span class="n">null_value</span> <span class="k">if</span> <span class="n">x</span><span class="o">.</span><span class="n">_masked</span> <span class="k">else</span> <span class="n">get_default_null_value</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+
+
 <div class="viewcode-block" id="where"><a class="viewcode-back" href="../../reference/generated/raster_tools.general.where.html#raster_tools.general.where">[docs]</a><span class="k">def</span> <span class="nf">where</span><span class="p">(</span><span class="n">condition</span><span class="p">,</span> <span class="n">true_rast</span><span class="p">,</span> <span class="n">false_rast</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Return elements chosen from `true_rast` or `false_rast` depending on</span>
 <span class="sd">    `condition`.</span>
+
+<span class="sd">    The mask for the result is a combination of all three raster inputs. Any</span>
+<span class="sd">    cells that are masked in the condition raster will be masked in the output.</span>
+<span class="sd">    The rest of the cells are masked based on which raster they were taken</span>
+<span class="sd">    from, as determined by the condition raster, and if the cell in that raster</span>
+<span class="sd">    was null. Effectively, the resulting mask is determined as follows:</span>
+<span class="sd">    `where(condition.mask, True, where(condition, true_rast.mask,</span>
+<span class="sd">    false_rast.mask)`.</span>
+
+<span class="sd">    `true_rast` and `false_rast` can both be ``None`` to indicate a null value</span>
+<span class="sd">    but they cannot both be ``None`` at the same time. An error is raised in</span>
+<span class="sd">    that case.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
@@ -1531,12 +1561,12 @@ document.write(`
 <span class="sd">        coerced to bool using `condition &gt; 0`.  ``True`` cells pull values from</span>
 <span class="sd">        `true_rast` and ``False`` cells pull from `y`. *str* is treated as a</span>
 <span class="sd">        path to a raster.</span>
-<span class="sd">    true_rast : scalar, Raster, str</span>
+<span class="sd">    true_rast : scalar, Raster, str, None</span>
 <span class="sd">        Raster or scalar to pull from if the corresponding location in</span>
-<span class="sd">        `condition` is ``True``.</span>
-<span class="sd">    false_rast : scalar, Raster, str</span>
+<span class="sd">        `condition` is ``True``. If None, this is treated as a null value.</span>
+<span class="sd">    false_rast : scalar, Raster, str, None</span>
 <span class="sd">        Raster or scalar to pull from if the corresponding location in</span>
-<span class="sd">        `condition` is ``False``.</span>
+<span class="sd">        `condition` is ``False``. If None, this is treated as a null value.</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
@@ -1551,7 +1581,7 @@ document.write(`
         <span class="p">)</span>
     <span class="n">args</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="k">for</span> <span class="n">r</span><span class="p">,</span> <span class="n">name</span> <span class="ow">in</span> <span class="p">[(</span><span class="n">true_rast</span><span class="p">,</span> <span class="s2">&quot;true_rast&quot;</span><span class="p">),</span> <span class="p">(</span><span class="n">false_rast</span><span class="p">,</span> <span class="s2">&quot;false_rast&quot;</span><span class="p">)]:</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">is_scalar</span><span class="p">(</span><span class="n">r</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">is_scalar</span><span class="p">(</span><span class="n">r</span><span class="p">)</span> <span class="ow">and</span> <span class="n">r</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">try</span><span class="p">:</span>
                 <span class="n">r</span> <span class="o">=</span> <span class="n">get_raster</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
             <span class="k">except</span> <span class="ne">TypeError</span> <span class="k">as</span> <span class="n">err</span><span class="p">:</span>
@@ -1559,53 +1589,57 @@ document.write(`
                     <span class="sa">f</span><span class="s2">&quot;Could not understand </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> argument. Got: </span><span class="si">{</span><span class="n">r</span><span class="si">!r}</span><span class="s2">&quot;</span>
                 <span class="p">)</span> <span class="kn">from</span> <span class="nn">err</span>
         <span class="n">args</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
-    <span class="n">true_rast</span><span class="p">,</span> <span class="n">false_rast</span> <span class="o">=</span> <span class="n">args</span>
+    <span class="k">if</span> <span class="nb">all</span><span class="p">(</span><span class="n">a</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">args</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;&#39;true_rast&#39; and &#39;false_rast&#39; cannot both be None&quot;</span><span class="p">)</span>
     <span class="n">out_crs</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="p">[</span><span class="n">condition</span><span class="p">,</span> <span class="n">true_rast</span><span class="p">,</span> <span class="n">false_rast</span><span class="p">]:</span>
         <span class="n">crs</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="s2">&quot;crs&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">crs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">out_crs</span> <span class="o">=</span> <span class="n">crs</span>
             <span class="k">break</span>
+    <span class="n">masked</span> <span class="o">=</span> <span class="n">condition</span><span class="o">.</span><span class="n">_masked</span>
+    <span class="n">masked</span> <span class="o">|=</span> <span class="nb">any</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">_masked</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">Raster</span><span class="p">)</span> <span class="k">else</span> <span class="kc">False</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">args</span><span class="p">)</span>
+    <span class="n">masked</span> <span class="o">|=</span> <span class="nb">any</span><span class="p">(</span><span class="n">a</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">args</span><span class="p">)</span>
 
-    <span class="n">xtrue</span><span class="p">,</span> <span class="n">xfalse</span> <span class="o">=</span> <span class="p">[</span><span class="n">r</span><span class="o">.</span><span class="n">xdata</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">Raster</span><span class="p">)</span> <span class="k">else</span> <span class="n">r</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">args</span><span class="p">]</span>
-    <span class="n">masked</span> <span class="o">=</span> <span class="nb">any</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">_masked</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">Raster</span><span class="p">)</span> <span class="k">else</span> <span class="kc">False</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">args</span><span class="p">)</span>
-    <span class="n">scalar_and_nan</span> <span class="o">=</span> <span class="nb">all</span><span class="p">(</span><span class="n">is_scalar</span><span class="p">(</span><span class="n">r</span><span class="p">)</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">args</span><span class="p">)</span> <span class="ow">and</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">args</span><span class="p">)</span><span class="o">.</span><span class="n">any</span><span class="p">()</span>
-    <span class="n">masked</span> <span class="o">|=</span> <span class="n">scalar_and_nan</span>
-    <span class="n">xcondition</span> <span class="o">=</span> <span class="n">condition</span><span class="o">.</span><span class="n">xdata</span>
+    <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">args</span>
+    <span class="n">cd</span> <span class="o">=</span> <span class="n">condition</span><span class="o">.</span><span class="n">xdata</span>
     <span class="k">if</span> <span class="n">is_int</span><span class="p">(</span><span class="n">condition</span><span class="o">.</span><span class="n">dtype</span><span class="p">):</span>
         <span class="c1"># if condition.dtype is not bool then must be an int raster so</span>
         <span class="c1"># assume that condition is raster of 0 and 1 values.</span>
         <span class="c1"># condition &gt; 0 will grab all 1/True values.</span>
-        <span class="n">xcondition</span> <span class="o">=</span> <span class="n">xcondition</span> <span class="o">&gt;</span> <span class="mi">0</span>
-
-    <span class="n">out_xrs</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">xcondition</span><span class="p">,</span> <span class="n">xtrue</span><span class="p">,</span> <span class="n">xfalse</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">masked</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">scalar_and_nan</span><span class="p">:</span>
-        <span class="n">xtrue_mask</span><span class="p">,</span> <span class="n">xfalse_mask</span> <span class="o">=</span> <span class="p">[</span>
-            <span class="n">r</span><span class="o">.</span><span class="n">xmask</span>
-            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">Raster</span><span class="p">)</span>
-            <span class="k">else</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">(</span>
-                <span class="n">create_null_mask</span><span class="p">(</span><span class="n">condition</span><span class="o">.</span><span class="n">xdata</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
-                <span class="n">dims</span><span class="o">=</span><span class="n">condition</span><span class="o">.</span><span class="n">xdata</span><span class="o">.</span><span class="n">dims</span><span class="p">,</span>
-                <span class="n">coords</span><span class="o">=</span><span class="n">condition</span><span class="o">.</span><span class="n">xdata</span><span class="o">.</span><span class="n">coords</span><span class="p">,</span>
-            <span class="p">)</span>
-            <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">args</span>
-        <span class="p">]</span>
-        <span class="n">xmask</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">xcondition</span><span class="p">,</span> <span class="n">xtrue_mask</span><span class="p">,</span> <span class="n">xfalse_mask</span><span class="p">)</span>
-    <span class="k">elif</span> <span class="n">scalar_and_nan</span><span class="p">:</span>
-        <span class="n">xmask</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">out_xrs</span><span class="p">)</span>
+        <span class="n">cd</span> <span class="o">=</span> <span class="n">cd</span> <span class="o">&gt;</span> <span class="mi">0</span>
+    <span class="k">if</span> <span class="n">masked</span><span class="p">:</span>
+        <span class="n">nv</span> <span class="o">=</span> <span class="n">_get_where_nv</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">x</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">nv</span>
+        <span class="k">if</span> <span class="n">y</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">y</span> <span class="o">=</span> <span class="n">nv</span>
+        <span class="k">if</span> <span class="nb">all</span><span class="p">(</span><span class="n">is_scalar</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)):</span>
+            <span class="n">dtype</span> <span class="o">=</span> <span class="n">get_common_dtype</span><span class="p">((</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">))</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">dtype</span><span class="o">.</span><span class="n">type</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+            <span class="n">y</span> <span class="o">=</span> <span class="n">dtype</span><span class="o">.</span><span class="n">type</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
+        <span class="n">cd</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">condition</span><span class="o">.</span><span class="n">xmask</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="n">cd</span><span class="p">)</span>
+        <span class="n">xd</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="s2">&quot;xdata&quot;</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+        <span class="n">yd</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="s2">&quot;xdata&quot;</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+        <span class="n">cm</span> <span class="o">=</span> <span class="n">condition</span><span class="o">.</span><span class="n">xmask</span>
+        <span class="n">xm</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="s2">&quot;xmask&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+        <span class="n">ym</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="s2">&quot;xmask&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">cd</span><span class="p">,</span> <span class="n">xd</span><span class="p">,</span> <span class="n">yd</span><span class="p">)</span>
+        <span class="n">mask</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">cd</span><span class="p">,</span> <span class="n">xm</span><span class="p">,</span> <span class="n">ym</span><span class="p">)</span>
+        <span class="n">mask</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">cm</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="n">mask</span><span class="p">)</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">mask</span><span class="p">,</span> <span class="n">nv</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
+        <span class="c1"># Pick up any new null values caused by x/y being None or equal to nv</span>
+        <span class="n">mask</span> <span class="o">=</span> <span class="n">data</span> <span class="o">==</span> <span class="n">nv</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">nv</span><span class="p">)</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_nodata</span><span class="p">(</span><span class="n">nv</span><span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="n">xmask</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">(</span>
-            <span class="n">create_null_mask</span><span class="p">(</span><span class="n">condition</span><span class="o">.</span><span class="n">xdata</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
-            <span class="n">dims</span><span class="o">=</span><span class="n">condition</span><span class="o">.</span><span class="n">xdata</span><span class="o">.</span><span class="n">dims</span><span class="p">,</span>
-            <span class="n">coords</span><span class="o">=</span><span class="n">condition</span><span class="o">.</span><span class="n">xdata</span><span class="o">.</span><span class="n">coords</span><span class="p">,</span>
-        <span class="p">)</span>
-    <span class="k">if</span> <span class="n">masked</span> <span class="ow">or</span> <span class="n">scalar_and_nan</span><span class="p">:</span>
-        <span class="n">nv</span> <span class="o">=</span> <span class="n">get_default_null_value</span><span class="p">(</span><span class="n">out_xrs</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
-        <span class="n">out_xrs</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">xmask</span><span class="p">,</span> <span class="n">nv</span><span class="p">,</span> <span class="n">out_xrs</span><span class="p">)</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_nodata</span><span class="p">(</span><span class="n">nv</span><span class="p">)</span>
-    <span class="n">out_ds</span> <span class="o">=</span> <span class="n">make_raster_ds</span><span class="p">(</span><span class="n">out_xrs</span><span class="p">,</span> <span class="n">xmask</span><span class="p">)</span>
+        <span class="n">xd</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="s2">&quot;xdata&quot;</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+        <span class="n">yd</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="s2">&quot;xdata&quot;</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">cd</span><span class="p">,</span> <span class="n">xd</span><span class="p">,</span> <span class="n">yd</span><span class="p">)</span>
+        <span class="n">mask</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+    <span class="n">ds</span> <span class="o">=</span> <span class="n">make_raster_ds</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">mask</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">out_crs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">out_ds</span> <span class="o">=</span> <span class="n">out_ds</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_crs</span><span class="p">(</span><span class="n">out_crs</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">Raster</span><span class="p">(</span><span class="n">out_ds</span><span class="p">,</span> <span class="n">_fast_path</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div>
+        <span class="n">ds</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_crs</span><span class="p">(</span><span class="n">out_crs</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">Raster</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="n">_fast_path</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div>
 
 
 <span class="nd">@nb</span><span class="o">.</span><span class="n">jit</span><span class="p">(</span><span class="n">nopython</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">nogil</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>

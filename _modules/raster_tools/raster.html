@@ -8,7 +8,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>raster_tools.raster &#8212; raster_tools 0.8.3 documentation</title>
+    <title>raster_tools.raster &#8212; raster_tools 0.8.4 documentation</title>
   
   
   
@@ -114,7 +114,7 @@
   
   
   
-    <p class="title logo__title">raster_tools 0.8.3 documentation</p>
+    <p class="title logo__title">raster_tools 0.8.4 documentation</p>
   
 </a></div>
         <div class="sidebar-primary-item"><nav class="bd-links" id="bd-docs-nav" aria-label="Main">
@@ -1680,6 +1680,14 @@ document.write(`
 <div class="viewcode-block" id="Raster.where"><a class="viewcode-back" href="../../reference/generated/raster_tools.Raster.where.html#raster_tools.raster.Raster.where">[docs]</a>    <span class="k">def</span> <span class="nf">where</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">condition</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Filter elements from this raster according to `condition`.</span>
 
+<span class="sd">        The mask for the result is a combination of all three rasters. Any</span>
+<span class="sd">        cells that are masked in the condition raster will be masked in the</span>
+<span class="sd">        output. The rest of the cells are masked based on which raster they</span>
+<span class="sd">        were taken from, as determined by the condition raster, and if the cell</span>
+<span class="sd">        in that raster was null. Effectively, the resulting mask is determined</span>
+<span class="sd">        as follows: `where(condition.mask, True, where(condition,</span>
+<span class="sd">        true_rast.mask, false_rast.mask)`.</span>
+
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        condition : str or Raster</span>
@@ -1689,9 +1697,10 @@ document.write(`
 <span class="sd">            `condition &gt; 0`.  ``True`` cells pull values from this raster and</span>
 <span class="sd">            ``False`` cells pull from `other`. *str* is treated as a path to a</span>
 <span class="sd">            raster.</span>
-<span class="sd">        other : scalar, str or Raster</span>
+<span class="sd">        other : scalar, str or Raster, None</span>
 <span class="sd">            A raster or value to use in locations where `condition` is</span>
-<span class="sd">            ``False``. *str* is treated as a path to a raster.</span>
+<span class="sd">            ``False``. *str* is treated as a path to a raster. If None, this is</span>
+<span class="sd">            treated as a null value.</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
