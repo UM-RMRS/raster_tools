@@ -1273,6 +1273,14 @@ class Raster(_RasterBase):
     def where(self, condition, other):
         """Filter elements from this raster according to `condition`.
 
+        The mask for the result is a combination of all three rasters. Any
+        cells that are masked in the condition raster will be masked in the
+        output. The rest of the cells are masked based on which raster they
+        were taken from, as determined by the condition raster, and if the cell
+        in that raster was null. Effectively, the resulting mask is determined
+        as follows: `where(condition.mask, True, where(condition,
+        true_rast.mask, false_rast.mask)`.
+
         Parameters
         ----------
         condition : str or Raster
@@ -1282,9 +1290,10 @@ class Raster(_RasterBase):
             `condition > 0`.  ``True`` cells pull values from this raster and
             ``False`` cells pull from `other`. *str* is treated as a path to a
             raster.
-        other : scalar, str or Raster
+        other : scalar, str or Raster, None
             A raster or value to use in locations where `condition` is
-            ``False``. *str* is treated as a path to a raster.
+            ``False``. *str* is treated as a path to a raster. If None, this is
+            treated as a null value.
 
         Returns
         -------
