@@ -32,7 +32,6 @@ from raster_tools.dtypes import (
     U8,
     U16,
     get_common_dtype,
-    is_scalar,
 )
 from raster_tools.masking import get_default_null_value
 from raster_tools.raster import Raster, get_raster
@@ -770,105 +769,137 @@ def test_remap_range_errors():
         general.remap_range(rs, ())
 
 
-def get_where_truth(cond, x, y):
-    if cond.dtype != np.dtype(bool):
-        cond = cond > 0
-
-    chunks = "auto"
-    if not is_scalar(x):
-        chunks = x.data.chunks
-    elif not is_scalar(y):
-        chunks = y.data.chunks
-    cond = np.array(cond)
-    nx = (
-        np.ma.array(x.data.compute(), mask=x.mask.compute())
-        if not is_scalar(x)
-        else x
-    )
-    ny = (
-        np.ma.array(y.data.compute(), mask=y.mask.compute())
-        if not is_scalar(y)
-        else y
-    )
-    masked = any(r._masked if isinstance(r, Raster) else False for r in (x, y))
-    scalar_and_nan = (
-        all(is_scalar(r) for r in (x, y)) and np.isnan((x, y)).any()
-    )
-    masked |= scalar_and_nan
-
-    xmask = x.mask.compute() if not is_scalar(x) else np.zeros_like(cond)
-    ymask = y.mask.compute() if not is_scalar(y) else np.zeros_like(cond)
-
-    result = np.ma.where(cond, nx, ny)
-    mask = np.isnan(result) if scalar_and_nan else np.where(cond, xmask, ymask)
-    result = Raster(np.array(result))
-    if chunks != "auto":
-        result = result.chunk(chunks)
-    if masked:
-        result.xmask.data = da.from_array(mask, chunks=chunks)
-        result._ds["raster"] = result.xdata.rio.write_nodata(
-            get_default_null_value(result.dtype)
-        )
-        result = result.burn_mask()
-    return result
-
-
-wshape = (10, 10)
-nwhere = np.prod(wshape)
-
-
-def create_rs(x):
-    x = Raster(x)
-    x._ds = x._ds.rio.write_crs("EPSG:3857")
-    return x
+def _make_raster(data, mask, dtype=None):
+    data = np.asarray(data)
+    mask = np.asarray(mask).astype(bool)
+    # Allow nan values as valid data. Raster() automatically converts nans to
+    # null.
+    nan_mask = np.isnan(data)
+    if mask.any():
+        nan_mask[mask] = False
+    sent = -99
+    if nan_mask.any():
+        data[nan_mask] = sent
+    r = Raster(data).set_crs("EPSG:3857")
+    if nan_mask.any():
+        r._ds.raster.data = da.where(nan_mask, np.nan, r._ds.raster.data)
+    mask = Raster(mask)
+    if mask is not None:
+        r = r.set_null(mask)
+    if dtype is not None:
+        r = r.astype(dtype, False)
+    return r
 
 
 @pytest.mark.parametrize(
-    "x,y",
+    "condition,x,y,expected",
     [
-        (0, 1),
-        (0, np.nan),
-        (0, create_rs(np.ones(wshape))),
-        (0, create_rs(np.ones(wshape)).set_null_value(1)),
-        (create_rs(np.ones(wshape)), 0),
-        (create_rs(np.zeros(wshape)), create_rs(np.ones(wshape))),
+        # 0
         (
-            create_rs(np.zeros(wshape)).set_null_value(0),
-            create_rs(np.ones(wshape)).set_null_value(1),
+            _make_raster([[0, 0], [1, 1]], np.zeros((2, 2)), bool),
+            _make_raster(np.ones((2, 2)), np.zeros((2, 2))),
+            _make_raster(np.full((2, 2), 2), np.zeros((2, 2))),
+            _make_raster([[2, 2], [1, 1]], np.zeros((2, 2))),
         ),
+        # 1
         (
-            create_rs(np.arange(nwhere).reshape(wshape)).set_null_value(10),
-            create_rs(np.arange(nwhere).reshape(wshape) + 20).set_null_value(
-                45
+            _make_raster([[0, 0], [1, 1]], [[1, 0], [0, 0]], bool),
+            _make_raster(np.ones((2, 2)), np.zeros((2, 2))),
+            _make_raster(np.full((2, 2), 2), np.zeros((2, 2))),
+            _make_raster([[0, 2], [1, 1]], [[1, 0], [0, 0]]),
+        ),
+        # 2
+        (
+            _make_raster([[0, 0], [1, 1]], [[1, 0], [0, 0]], bool),
+            _make_raster(np.ones((2, 2)), [[0, 1], [0, 0]]),
+            _make_raster(np.full((2, 2), 2), [[0, 0], [1, 0]]),
+            _make_raster([[0, 2], [1, 1]], [[1, 0], [0, 0]]),
+        ),
+        # 3
+        (
+            _make_raster([[0, 0], [1, 1]], [[1, 0], [0, 0]], bool),
+            _make_raster(np.ones((2, 2)), [[0, 0], [0, 1]]),
+            _make_raster(np.full((2, 2), 2), [[0, 1], [0, 0]]),
+            _make_raster([[2, 2], [1, 1]], [[1, 1], [0, 1]]),
+        ),
+        # 4
+        (
+            _make_raster([[0, 0], [1, 1]], [[1, 0], [0, 0]], bool),
+            _make_raster(np.ones((2, 2)), [[0, 0], [0, 1]]),
+            2,
+            _make_raster([[2, 2], [1, 1]], [[1, 0], [0, 1]]),
+        ),
+        # 5
+        (
+            _make_raster([[0, 0], [1, 1]], [[1, 0], [0, 0]], bool),
+            1,
+            _make_raster(np.full((2, 2), 2), [[0, 1], [0, 0]]),
+            _make_raster([[2, 2], [1, 1]], [[1, 1], [0, 0]]),
+        ),
+        # 6
+        (
+            _make_raster([[0, 0], [1, 1]], [[0, 0], [0, 0]], bool),
+            1,
+            2,
+            _make_raster([[2, 2], [1, 1]], [[0, 0], [0, 0]]),
+        ),
+        # 7
+        (
+            _make_raster([[0, 0], [1, 1]], [[1, 0], [0, 0]], bool),
+            1,
+            2,
+            _make_raster([[2, 2], [1, 1]], [[1, 0], [0, 0]], np.uint8),
+        ),
+        # 8
+        (
+            _make_raster([[0, 0], [1, 1]], [[1, 0], [0, 0]], bool),
+            1,
+            np.nan,
+            _make_raster(
+                [[np.nan, np.nan], [1, 1]], [[1, 0], [0, 0]], "float16"
             ),
         ),
+        # 9
+        (
+            _make_raster([[0, 0], [1, 1]], [[1, 0], [0, 0]], bool),
+            None,
+            _make_raster(np.full((2, 2), 2), [[0, 1], [0, 0]]),
+            _make_raster([[2, 2], [1, 1]], [[1, 1], [1, 1]]),
+        ),
+        # 10
+        (
+            _make_raster([[0, 0], [1, 1]], [[1, 0], [0, 0]], bool),
+            _make_raster(np.ones((2, 2)), [[0, 0], [0, 1]]),
+            None,
+            _make_raster([[2, 2], [1, 1]], [[1, 1], [0, 1]]),
+        ),
     ],
 )
-@pytest.mark.parametrize(
-    "cond",
-    [
-        create_rs(np.zeros(wshape, dtype=bool)),
-        create_rs(np.ones(wshape, dtype=bool)),
-        create_rs(np.arange(nwhere).reshape(wshape) > 40),
-        create_rs(np.arange(nwhere).reshape(wshape) % 10),
-        create_rs((np.arange(nwhere).reshape(wshape) % 10) > 0),
-        create_rs((np.arange(nwhere).reshape(wshape) % 4) > 0),
-    ],
-)
-def test_where(cond, x, y):
-    truth = get_where_truth(cond, x, y)
-    result = general.where(cond, x, y)
+def test_where(condition, x, y, expected):
+    masked = any(
+        v._masked for v in (condition, x, y) if isinstance(v, Raster)
+    ) or any(v is None for v in (x, y))
 
+    result = general.where(condition, x, y)
     assert_valid_raster(result)
-    assert np.allclose(result, truth, equal_nan=True)
-    assert result.dtype == result.dtype
-    if result._masked:
-        assert not np.isnan(result.null_value)
-    assert result.null_value == truth.null_value
-    assert np.allclose(result.xmask, truth.xmask)
-    assert result.data.chunks == truth.data.chunks
-    assert result.crs is not None
-    assert result.crs == "EPSG:3857"
+    assert_rasters_similar(result, condition)
+    assert result._masked == masked
+    assert np.allclose(result, expected, equal_nan=True)
+    assert np.allclose(result.mask.compute(), expected.mask.compute())
+
+    if isinstance(x, Raster):
+        result = x.where(condition, y)
+        assert_valid_raster(result)
+        assert_rasters_similar(result, condition)
+        assert result._masked == masked
+        assert np.allclose(result, expected, equal_nan=True)
+        assert np.allclose(result.mask.compute(), expected.mask.compute())
+
+
+def test_where_both_none():
+    with pytest.raises(ValueError):
+        cond = _make_raster([[0, 0], [1, 1]], [[1, 0], [0, 0]], bool)
+        general.where(cond, None, None)
 
 
 @pytest.mark.parametrize("unmapped_to_null", [True, False])
