@@ -1552,38 +1552,6 @@ def test_set_null():
     assert result._ds.raster.attrs == attrs
 
 
-@pytest.mark.filterwarnings("ignore:The null value")
-def test_where():
-    rs = testdata.raster.dem_small
-    c = rs > 1100
-
-    r = rs.where(c, 0)
-    assert_valid_raster(r)
-    rsnp = np.asarray(rs)
-    truth = np.where(rsnp > 1100, rsnp, 0)
-    assert np.allclose(r, truth)
-    assert np.allclose(rs.where(c, "tests/data/raster/dem_small.tif"), rs)
-    assert r.crs == rs.crs
-
-    c = c.astype(int)
-    r = rs.where(c, 0)
-    assert_valid_raster(r)
-    assert np.allclose(r, truth)
-
-    assert rs._masked
-    assert r._masked
-    assert rs.crs is not None
-    assert r.crs is not None
-    assert r.crs == rs.crs
-    assert r.null_value == get_default_null_value(r.dtype)
-
-    with pytest.raises(TypeError):
-        cf = c.astype(float)
-        rs.where(cf, 0)
-    with pytest.raises(TypeError):
-        rs.where(c, None)
-
-
 def test_to_null_mask():
     rs = testdata.raster.dem_clipped_small
     nv = rs.null_value

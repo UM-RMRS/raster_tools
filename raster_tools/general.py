@@ -1,11 +1,12 @@
 """
-   Description: general module used to perform common spatial analyses
-   on Raster objects
+Description: general module used to perform common spatial analyses
+on Raster objects
 
-   * `ESRI Generalization Tools <https://pro.arcgis.com/en/pro-app/latest/tool-reference/spatial-analyst/an-overview-of-the-generalization-tools.htm>`_
-   * `ESRI Local Tools <https://pro.arcgis.com/en/pro-app/latest/tool-reference/spatial-analyst/an-overview-of-the-local-tools.htm>`_
+* `ESRI Generalization Tools <https://pro.arcgis.com/en/pro-app/latest/tool-reference/spatial-analyst/an-overview-of-the-generalization-tools.htm>`_
+* `ESRI Local Tools <https://pro.arcgis.com/en/pro-app/latest/tool-reference/spatial-analyst/an-overview-of-the-local-tools.htm>`_
 
 """  # noqa: E501
+
 import os
 import re
 from collections.abc import Iterable, Sequence
@@ -46,7 +47,6 @@ from raster_tools.dtypes import (
 )
 from raster_tools.focal import _get_offsets
 from raster_tools.masking import (
-    create_null_mask,
     get_default_null_value,
     reconcile_nullvalue_with_dtype,
 )
@@ -1111,10 +1111,40 @@ def remap_range(raster, mapping, inclusivity="left"):
     return outrs
 
 
+def _get_where_nv(x, y):
+    assert not ((x is None) and (y is None))
+    if (x is None or is_scalar(x)) and (y is None or is_scalar(y)):
+        # Both are either None or a scalar so get default
+        return get_default_null_value(
+            get_common_dtype([a for a in (x, y) if a is not None])
+        )
+    if isinstance(x, Raster) and isinstance(y, Raster):
+        # No easy way to pick so just get a default
+        return get_default_null_value(np.promote_types(x.dtype, y.dtype))
+    if x is None or is_scalar(x):
+        # y cannot be None or a scalar here. y must be a raster
+        return y.null_value if y._masked else get_default_null_value(y.dtype)
+    else:
+        # x must be a raster but not y
+        return x.null_value if x._masked else get_default_null_value(x.dtype)
+
+
 def where(condition, true_rast, false_rast):
     """
     Return elements chosen from `true_rast` or `false_rast` depending on
     `condition`.
+
+    The mask for the result is a combination of all three raster inputs. Any
+    cells that are masked in the condition raster will be masked in the output.
+    The rest of the cells are masked based on which raster they were taken
+    from, as determined by the condition raster, and if the cell in that raster
+    was null. Effectively, the resulting mask is determined as follows:
+    `where(condition.mask, True, where(condition, true_rast.mask,
+    false_rast.mask)`.
+
+    `true_rast` and `false_rast` can both be ``None`` to indicate a null value
+    but they cannot both be ``None`` at the same time. An error is raised in
+    that case.
 
     Parameters
     ----------
@@ -1124,12 +1154,12 @@ def where(condition, true_rast, false_rast):
         coerced to bool using `condition > 0`.  ``True`` cells pull values from
         `true_rast` and ``False`` cells pull from `y`. *str* is treated as a
         path to a raster.
-    true_rast : scalar, Raster, str
+    true_rast : scalar, Raster, str, None
         Raster or scalar to pull from if the corresponding location in
-        `condition` is ``True``.
-    false_rast : scalar, Raster, str
+        `condition` is ``True``. If None, this is treated as a null value.
+    false_rast : scalar, Raster, str, None
         Raster or scalar to pull from if the corresponding location in
-        `condition` is ``False``.
+        `condition` is ``False``. If None, this is treated as a null value.
 
     Returns
     -------
@@ -1144,7 +1174,7 @@ def where(condition, true_rast, false_rast):
         )
     args = []
     for r, name in [(true_rast, "true_rast"), (false_rast, "false_rast")]:
-        if not is_scalar(r):
+        if not is_scalar(r) and r is not None:
             try:
                 r = get_raster(r)
             except TypeError as err:
@@ -1152,53 +1182,57 @@ def where(condition, true_rast, false_rast):
                     f"Could not understand {name} argument. Got: {r!r}"
                 ) from err
         args.append(r)
-    true_rast, false_rast = args
+    if all(a is None for a in args):
+        raise ValueError("'true_rast' and 'false_rast' cannot both be None")
     out_crs = None
     for r in [condition, true_rast, false_rast]:
         crs = getattr(r, "crs", None)
         if crs is not None:
             out_crs = crs
             break
+    masked = condition._masked
+    masked |= any(r._masked if isinstance(r, Raster) else False for r in args)
+    masked |= any(a is None for a in args)
 
-    xtrue, xfalse = [r.xdata if isinstance(r, Raster) else r for r in args]
-    masked = any(r._masked if isinstance(r, Raster) else False for r in args)
-    scalar_and_nan = all(is_scalar(r) for r in args) and np.isnan(args).any()
-    masked |= scalar_and_nan
-    xcondition = condition.xdata
+    x, y = args
+    cd = condition.xdata
     if is_int(condition.dtype):
         # if condition.dtype is not bool then must be an int raster so
         # assume that condition is raster of 0 and 1 values.
         # condition > 0 will grab all 1/True values.
-        xcondition = xcondition > 0
-
-    out_xrs = xr.where(xcondition, xtrue, xfalse)
-    if masked and not scalar_and_nan:
-        xtrue_mask, xfalse_mask = [
-            r.xmask
-            if isinstance(r, Raster)
-            else xr.DataArray(
-                create_null_mask(condition.xdata, None),
-                dims=condition.xdata.dims,
-                coords=condition.xdata.coords,
-            )
-            for r in args
-        ]
-        xmask = xr.where(xcondition, xtrue_mask, xfalse_mask)
-    elif scalar_and_nan:
-        xmask = np.isnan(out_xrs)
+        cd = cd > 0
+    if masked:
+        nv = _get_where_nv(x, y)
+        if x is None:
+            x = nv
+        if y is None:
+            y = nv
+        if all(is_scalar(a) for a in (x, y)):
+            dtype = get_common_dtype((x, y))
+            x = dtype.type(x)
+            y = dtype.type(y)
+        cd = xr.where(condition.xmask, False, cd)
+        xd = getattr(x, "xdata", x)
+        yd = getattr(y, "xdata", y)
+        cm = condition.xmask
+        xm = getattr(x, "xmask", False)
+        ym = getattr(y, "xmask", False)
+        data = xr.where(cd, xd, yd)
+        mask = xr.where(cd, xm, ym)
+        mask = xr.where(cm, True, mask)
+        data = xr.where(mask, nv, data)
+        # Pick up any new null values caused by x/y being None or equal to nv
+        mask = data == nv if not np.isnan(nv) else np.isnan(data)
+        data = data.rio.write_nodata(nv)
     else:
-        xmask = xr.DataArray(
-            create_null_mask(condition.xdata, None),
-            dims=condition.xdata.dims,
-            coords=condition.xdata.coords,
-        )
-    if masked or scalar_and_nan:
-        nv = get_default_null_value(out_xrs.dtype)
-        out_xrs = xr.where(xmask, nv, out_xrs).rio.write_nodata(nv)
-    out_ds = make_raster_ds(out_xrs, xmask)
+        xd = getattr(x, "xdata", x)
+        yd = getattr(y, "xdata", y)
+        data = xr.where(cd, xd, yd)
+        mask = xr.zeros_like(data, dtype=bool)
+    ds = make_raster_ds(data, mask)
     if out_crs is not None:
-        out_ds = out_ds.rio.write_crs(out_crs)
-    return Raster(out_ds, _fast_path=True)
+        ds = ds.rio.write_crs(out_crs)
+    return Raster(ds, _fast_path=True)
 
 
 @nb.jit(nopython=True, nogil=True)
