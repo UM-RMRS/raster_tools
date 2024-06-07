@@ -12,7 +12,6 @@ from dask.delayed import delayed
 from dask.diagnostics import ProgressBar
 
 from raster_tools.dtypes import I64, is_int, is_str
-from raster_tools.rasterize import rasterize
 
 PYOGRIO_SUPPORTED = sys.version_info >= (3, 8)
 if PYOGRIO_SUPPORTED:
@@ -640,6 +639,8 @@ class Vector:
             raster will be on the same grid as `like`.
 
         """
+        from raster_tools.rasterize import rasterize
+
         return rasterize(
             self,
             like,

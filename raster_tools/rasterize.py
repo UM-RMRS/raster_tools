@@ -17,6 +17,7 @@ from raster_tools.dtypes import F64, I8, I16, I64, U8, U64, is_float, is_int
 from raster_tools.masking import get_default_null_value
 from raster_tools.raster import Raster, get_raster
 from raster_tools.utils import list_reshape_2d, make_raster_ds
+from raster_tools.vector import get_vector
 
 __all__ = ["rasterize"]
 
@@ -626,8 +627,6 @@ def rasterize(
         will be on the same grid as `like`.
 
     """
-    from raster_tools.vector import get_vector
-
     gdf = get_vector(features).data
 
     like = get_raster(like)
