@@ -8,7 +8,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>raster_tools.zonal &#8212; raster_tools 0.8.4 documentation</title>
+    <title>raster_tools.zonal &#8212; raster_tools 0.9.0 documentation</title>
   
   
   
@@ -114,7 +114,7 @@
   
   
   
-    <p class="title logo__title">raster_tools 0.8.4 documentation</p>
+    <p class="title logo__title">raster_tools 0.9.0 documentation</p>
   
 </a></div>
         <div class="sidebar-primary-item"><nav class="bd-links" id="bd-docs-nav" aria-label="Main">
@@ -705,7 +705,12 @@ document.write(`
 
 
 <div class="viewcode-block" id="zonal_stats"><a class="viewcode-back" href="../../reference/generated/raster_tools.zonal.zonal_stats.html#raster_tools.zonal.zonal_stats">[docs]</a><span class="k">def</span> <span class="nf">zonal_stats</span><span class="p">(</span>
-    <span class="n">features</span><span class="p">,</span> <span class="n">data_raster</span><span class="p">,</span> <span class="n">stats</span><span class="p">,</span> <span class="n">features_field</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">wide_format</span><span class="o">=</span><span class="kc">True</span>
+    <span class="n">features</span><span class="p">,</span>
+    <span class="n">data_raster</span><span class="p">,</span>
+    <span class="n">stats</span><span class="p">,</span>
+    <span class="n">features_field</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">wide_format</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">handle_overlap</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
 <span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Apply stat functions to a raster based on a set of features.</span>
 
@@ -784,6 +789,14 @@ document.write(`
 <span class="sd">        specified stats.</span>
 
 <span class="sd">        The default is wide format.</span>
+<span class="sd">    handle_overlap: bool, optional</span>
+<span class="sd">        Normally, polygon inputs for `features` are converted to a raster. This</span>
+<span class="sd">        means that a cell can have only one value. In the case of overlapping</span>
+<span class="sd">        polygons, one polygon will trump the others and the resulting</span>
+<span class="sd">        statistics for all of the incident polygons may be affected. If</span>
+<span class="sd">        ``True``, overlapping polygons are accounted for and zonal statistics</span>
+<span class="sd">        will be calculated independent of overlap. Currently this will trigger</span>
+<span class="sd">        computation of `features`. The default is ``False``.</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
@@ -793,6 +806,7 @@ document.write(`
 <span class="sd">        description of the dataframe&#39;s structure.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">in_memory</span> <span class="o">=</span> <span class="kc">False</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span>
         <span class="n">features</span><span class="p">,</span>
         <span class="p">(</span>
@@ -804,7 +818,10 @@ document.write(`
             <span class="n">gpd</span><span class="o">.</span><span class="n">GeoSeries</span><span class="p">,</span>
         <span class="p">),</span>
     <span class="p">):</span>
+        <span class="n">in_memory</span> <span class="o">=</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">features</span><span class="p">,</span> <span class="p">(</span><span class="n">gpd</span><span class="o">.</span><span class="n">GeoDataFrame</span><span class="p">,</span> <span class="n">gpd</span><span class="o">.</span><span class="n">GeoSeries</span><span class="p">))</span>
         <span class="n">features</span> <span class="o">=</span> <span class="n">get_vector</span><span class="p">(</span><span class="n">features</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">in_memory</span><span class="p">:</span>
+            <span class="n">features</span> <span class="o">=</span> <span class="n">features</span><span class="o">.</span><span class="n">calculate_spatial_partitions</span><span class="p">()</span>
     <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">features</span><span class="p">,</span> <span class="n">Raster</span><span class="p">):</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">is_int</span><span class="p">(</span><span class="n">features</span><span class="o">.</span><span class="n">dtype</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Feature raster must be an integer type.&quot;</span><span class="p">)</span>
@@ -826,6 +843,27 @@ document.write(`
     <span class="k">for</span> <span class="n">stat</span> <span class="ow">in</span> <span class="n">stats</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">stat</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">ZONAL_STAT_FUNCS</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid stats function: </span><span class="si">{</span><span class="nb">repr</span><span class="p">(</span><span class="n">stat</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">handle_overlap</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">features</span><span class="p">,</span> <span class="n">Raster</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;&#39;features&#39; cannont be a raster when &#39;handle_overlap&#39; is True&quot;</span>
+            <span class="p">)</span>
+        <span class="n">features</span> <span class="o">=</span> <span class="n">features</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">compute</span><span class="p">()</span>
+        <span class="n">features</span> <span class="o">=</span> <span class="p">[</span><span class="n">features</span><span class="o">.</span><span class="n">iloc</span><span class="p">[[</span><span class="n">i</span><span class="p">]]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">features</span><span class="p">))]</span>
+        <span class="n">result_dfs</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="c1"># Recurse with single feature</span>
+            <span class="n">zonal_stats</span><span class="p">(</span>
+                <span class="n">f</span><span class="p">,</span>
+                <span class="n">data_raster</span><span class="p">,</span>
+                <span class="n">stats</span><span class="p">,</span>
+                <span class="n">features_field</span><span class="o">=</span><span class="n">features_field</span><span class="p">,</span>
+                <span class="n">wide_format</span><span class="o">=</span><span class="n">wide_format</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">features</span>
+        <span class="p">]</span>
+        <span class="k">return</span> <span class="n">dd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">result_dfs</span><span class="p">)</span><span class="o">.</span><span class="n">repartition</span><span class="p">(</span><span class="n">npartitions</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">features</span><span class="p">,</span> <span class="n">Raster</span><span class="p">):</span>
         <span class="k">if</span> <span class="n">features</span><span class="o">.</span><span class="n">crs</span> <span class="o">!=</span> <span class="n">data_raster</span><span class="o">.</span><span class="n">crs</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Feature raster CRS must match data raster&quot;</span><span class="p">)</span>
@@ -850,7 +888,11 @@ document.write(`
             <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span>
                 <span class="s2">&quot;features_field must be a field name in the features input&quot;</span>
             <span class="p">)</span>
-        <span class="n">features_raster</span> <span class="o">=</span> <span class="n">features</span><span class="o">.</span><span class="n">to_raster</span><span class="p">(</span><span class="n">data_raster</span><span class="p">,</span> <span class="n">field</span><span class="o">=</span><span class="n">features_field</span><span class="p">)</span>
+        <span class="n">features_raster</span> <span class="o">=</span> <span class="n">features</span><span class="o">.</span><span class="n">to_raster</span><span class="p">(</span>
+            <span class="n">data_raster</span><span class="p">,</span>
+            <span class="n">field</span><span class="o">=</span><span class="n">features_field</span><span class="p">,</span>
+            <span class="n">use_spatial_aware</span><span class="o">=</span><span class="n">in_memory</span><span class="p">,</span>
+        <span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">features</span><span class="o">.</span><span class="n">nbands</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;features raster must have a single band&quot;</span><span class="p">)</span>

@@ -9,7 +9,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
 
-    <title>raster_tools.zonal.zonal_stats &#8212; raster_tools 0.8.4 documentation</title>
+    <title>raster_tools.zonal.zonal_stats &#8212; raster_tools 0.9.0 documentation</title>
   
   
   
@@ -117,7 +117,7 @@
   
   
   
-    <p class="title logo__title">raster_tools 0.8.4 documentation</p>
+    <p class="title logo__title">raster_tools 0.9.0 documentation</p>
   
 </a></div>
         <div class="sidebar-primary-item"><nav class="bd-links" id="bd-docs-nav" aria-label="Main">
@@ -459,7 +459,7 @@ document.write(`
 <h1>raster_tools.zonal.zonal_stats<a class="headerlink" href="#raster-tools-zonal-zonal-stats" title="Permalink to this headline">#</a></h1>
 <dl class="py function">
 <dt class="sig sig-object py" id="raster_tools.zonal.zonal_stats">
-<span class="sig-prename descclassname"><span class="pre">raster_tools.zonal.</span></span><span class="sig-name descname"><span class="pre">zonal_stats</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">features</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_raster</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stats</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">features_field</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">wide_format</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/raster_tools/zonal.html#zonal_stats"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.zonal.zonal_stats" title="Permalink to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">raster_tools.zonal.</span></span><span class="sig-name descname"><span class="pre">zonal_stats</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">features</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_raster</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stats</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">features_field</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">wide_format</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">handle_overlap</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/raster_tools/zonal.html#zonal_stats"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.zonal.zonal_stats" title="Permalink to this definition">#</a></dt>
 <dd><p>Apply stat functions to a raster based on a set of features.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -532,6 +532,13 @@ integer band number. The rest of the columns correspond to the
 specified stats.</p>
 <p>The default is wide format.</p>
 </p></li>
+<li><p><strong>handle_overlap</strong> (<em>bool</em><em>, </em><em>optional</em>) – Normally, polygon inputs for <cite>features</cite> are converted to a raster. This
+means that a cell can have only one value. In the case of overlapping
+polygons, one polygon will trump the others and the resulting
+statistics for all of the incident polygons may be affected. If
+<code class="docutils literal notranslate"><span class="pre">True</span></code>, overlapping polygons are accounted for and zonal statistics
+will be calculated independent of overlap. Currently this will trigger
+computation of <cite>features</cite>. The default is <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
