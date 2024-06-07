@@ -233,6 +233,46 @@ def test_zonal_stats_long_format(raster):
     assert truth.equals(zdf)
 
 
+def test_zonal_stats_handle_overlap():
+    # 4 rectangles that overlap to form 4x4 square
+    features = gpd.GeoSeries(
+        [
+            shapely.geometry.box(0, 2, 4, 4),
+            shapely.geometry.box(0, 0, 2, 4),
+            shapely.geometry.box(0, 0, 4, 2),
+            shapely.geometry.box(2, 0, 4, 4),
+        ],
+        crs="EPSG:3857",
+    )
+    data_raster = arange_raster((4, 4)).set_crs("EPSG:3857")
+    # Confirm that first zone is dropped due to overlap and second &
+    # third zones are halved in area.
+    expected = pd.DataFrame(
+        {("band_1", "mean"): [2.5, 10.5, 8.5]},
+        index=pd.RangeIndex(2, 5, name="zone"),
+    )
+    result = zonal_stats(features, data_raster, "mean").compute()
+    assert result.equals(expected)
+
+    expected = pd.DataFrame(
+        {("band_1", "mean"): [3.5, 6.5, 11.5, 8.5]},
+        index=pd.RangeIndex(1, 5, name="zone"),
+    )
+    for feats in [
+        features,
+        features.to_crs("EPSG:4326"),
+        dgpd.from_geopandas(features, npartitions=1),
+        dgpd.from_geopandas(features, npartitions=4),
+        dgpd.from_geopandas(features, npartitions=4).to_crs("EPSG:4326"),
+        rts.Vector(features),
+    ]:
+        result = zonal_stats(feats, data_raster, "mean", handle_overlap=True)
+        assert isinstance(result, dd.DataFrame)
+        assert result.npartitions == 1
+        result = result.compute()
+        assert result.equals(expected)
+
+
 def get_random_points(n, nparts, dem):
     xmin, ymin, xmax, ymax = dem.bounds
     xspan = xmax - xmin

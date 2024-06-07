@@ -298,7 +298,12 @@ def _zonal_stats(features_raster, data_raster, stats):
 
 
 def zonal_stats(
-    features, data_raster, stats, features_field=None, wide_format=True
+    features,
+    data_raster,
+    stats,
+    features_field=None,
+    wide_format=True,
+    handle_overlap=False,
 ):
     """Apply stat functions to a raster based on a set of features.
 
@@ -377,6 +382,14 @@ def zonal_stats(
         specified stats.
 
         The default is wide format.
+    handle_overlap: bool, optional
+        Normally, polygon inputs for `features` are converted to a raster. This
+        means that a cell can have only one value. In the case of overlapping
+        polygons, one polygon will trump the others and the resulting
+        statistics for all of the incident polygons may be affected. If
+        ``True``, overlapping polygons are accounted for and zonal statistics
+        will be calculated independent of overlap. Currently this will trigger
+        computation of `features`. The default is ``False``.
 
     Returns
     -------
@@ -386,6 +399,7 @@ def zonal_stats(
         description of the dataframe's structure.
 
     """
+    in_memory = False
     if isinstance(
         features,
         (
@@ -397,7 +411,10 @@ def zonal_stats(
             gpd.GeoSeries,
         ),
     ):
+        in_memory = isinstance(features, (gpd.GeoDataFrame, gpd.GeoSeries))
         features = get_vector(features)
+        if in_memory:
+            features = features.calculate_spatial_partitions()
     elif isinstance(features, Raster):
         if not is_int(features.dtype):
             raise TypeError("Feature raster must be an integer type.")
@@ -419,6 +436,27 @@ def zonal_stats(
     for stat in stats:
         if stat not in ZONAL_STAT_FUNCS:
             raise ValueError(f"Invalid stats function: {repr(stat)}")
+
+    if handle_overlap:
+        if isinstance(features, Raster):
+            raise ValueError(
+                "'features' cannont be a raster when 'handle_overlap' is True"
+            )
+        features = features.data.compute()
+        features = [features.iloc[[i]] for i in range(len(features))]
+        result_dfs = [
+            # Recurse with single feature
+            zonal_stats(
+                f,
+                data_raster,
+                stats,
+                features_field=features_field,
+                wide_format=wide_format,
+            )
+            for f in features
+        ]
+        return dd.concat(result_dfs).repartition(npartitions=1)
+
     if isinstance(features, Raster):
         if features.crs != data_raster.crs:
             raise ValueError("Feature raster CRS must match data raster")
@@ -443,7 +481,11 @@ def zonal_stats(
             raise KeyError(
                 "features_field must be a field name in the features input"
             )
-        features_raster = features.to_raster(data_raster, field=features_field)
+        features_raster = features.to_raster(
+            data_raster,
+            field=features_field,
+            use_spatial_aware=in_memory,
+        )
     else:
         if features.nbands > 1:
             raise ValueError("features raster must have a single band")
