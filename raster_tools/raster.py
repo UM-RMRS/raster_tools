@@ -66,19 +66,6 @@ from .io import (
     write_raster,
 )
 
-
-class RasterDeviceMismatchError(BaseException):
-    pass
-
-
-class RasterDeviceError(BaseException):
-    pass
-
-
-class RasterNoDataError(BaseException):
-    pass
-
-
 _REDUCTION_FUNCS = (
     "all",
     "any",

@@ -5,7 +5,8 @@ import numpy as np
 
 import raster_tools as rts
 from raster_tools import clipping
-from raster_tools.raster import Raster, RasterNoDataError
+from raster_tools.exceptions import RasterNoDataError
+from raster_tools.raster import Raster
 from tests import testdata
 from tests.utils import assert_rasters_similar, assert_valid_raster
 

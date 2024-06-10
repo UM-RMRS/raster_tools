@@ -4,9 +4,10 @@ import rioxarray as rxr
 import xarray as xr
 
 from raster_tools.creation import ones_like, zeros_like
+from raster_tools.exceptions import RasterNoDataError
 from raster_tools.general import band_concat
 from raster_tools.masking import get_default_null_value
-from raster_tools.raster import Raster, RasterNoDataError, get_raster
+from raster_tools.raster import Raster, get_raster
 from raster_tools.utils import make_raster_ds
 from raster_tools.vector import get_vector
 
