@@ -54,6 +54,7 @@ select = [
     "Q",      # flake8-quotes
     "C4",     # flake8-comprehensions
     "PERF",   # perflint
+    "NPY201", # Numpy 2.0
 ]
 extend-select = ["I"]
 ignore = [
