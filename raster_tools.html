@@ -9,7 +9,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
 
-    <title>raster_tools package &#8212; raster_tools 0.9.0 documentation</title>
+    <title>raster_tools package &#8212; raster_tools 0.9.1 documentation</title>
   
   
   
@@ -117,7 +117,7 @@
   
   
   
-    <p class="title logo__title">raster_tools 0.9.0 documentation</p>
+    <p class="title logo__title">raster_tools 0.9.1 documentation</p>
   
 </a></div>
         <div class="sidebar-primary-item"><nav class="bd-links" id="bd-docs-nav" aria-label="Main">
@@ -455,7 +455,7 @@ document.write(`
                 <ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#subpackages">Subpackages</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#submodules">Submodules</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#module-raster_tools.batch">raster_tools.batch module</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#raster-tools-batch-module">raster_tools.batch module</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#module-raster_tools.clipping">raster_tools.clipping module</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#module-raster_tools.creation">raster_tools.creation module</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#module-raster_tools.dask_utils">raster_tools.dask_utils module</a></li>
@@ -504,19 +504,8 @@ document.write(`
 <section id="submodules">
 <h2>Submodules<a class="headerlink" href="#submodules" title="Permalink to this headline">#</a></h2>
 </section>
-<section id="module-raster_tools.batch">
-<span id="raster-tools-batch-module"></span><h2>raster_tools.batch module<a class="headerlink" href="#module-raster_tools.batch" title="Permalink to this headline">#</a></h2>
-<dl class="py exception">
-<dt class="sig sig-object py" id="raster_tools.batch.BatchScriptParseError">
-<em class="property"><span class="pre">exception</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">raster_tools.batch.</span></span><span class="sig-name descname"><span class="pre">BatchScriptParseError</span></span><a class="reference internal" href="_modules/raster_tools/batch.html#BatchScriptParseError"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.batch.BatchScriptParseError" title="Permalink to this definition">#</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">BaseException</span></code></p>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="raster_tools.batch.parse_batch_script">
-<span class="sig-prename descclassname"><span class="pre">raster_tools.batch.</span></span><span class="sig-name descname"><span class="pre">parse_batch_script</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/batch.html#parse_batch_script"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.batch.parse_batch_script" title="Permalink to this definition">#</a></dt>
-<dd></dd></dl>
-
+<section id="raster-tools-batch-module">
+<h2>raster_tools.batch module<a class="headerlink" href="#raster-tools-batch-module" title="Permalink to this headline">#</a></h2>
 </section>
 <section id="module-raster_tools.clipping">
 <span id="raster-tools-clipping-module"></span><h2>raster_tools.clipping module<a class="headerlink" href="#module-raster_tools.clipping" title="Permalink to this headline">#</a></h2>
@@ -1506,30 +1495,6 @@ path to a raster.</p></li>
 </section>
 <section id="module-raster_tools.io">
 <span id="raster-tools-io-module"></span><h2>raster_tools.io module<a class="headerlink" href="#module-raster_tools.io" title="Permalink to this headline">#</a></h2>
-<dl class="py exception">
-<dt class="sig sig-object py" id="raster_tools.io.AffineEncodingError">
-<em class="property"><span class="pre">exception</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">raster_tools.io.</span></span><span class="sig-name descname"><span class="pre">AffineEncodingError</span></span><a class="reference internal" href="_modules/raster_tools/io.html#AffineEncodingError"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.io.AffineEncodingError" title="Permalink to this definition">#</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Exception</span></code></p>
-</dd></dl>
-
-<dl class="py exception">
-<dt class="sig sig-object py" id="raster_tools.io.DimensionsError">
-<em class="property"><span class="pre">exception</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">raster_tools.io.</span></span><span class="sig-name descname"><span class="pre">DimensionsError</span></span><a class="reference internal" href="_modules/raster_tools/io.html#DimensionsError"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.io.DimensionsError" title="Permalink to this definition">#</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Exception</span></code></p>
-</dd></dl>
-
-<dl class="py exception">
-<dt class="sig sig-object py" id="raster_tools.io.RasterDataError">
-<em class="property"><span class="pre">exception</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">raster_tools.io.</span></span><span class="sig-name descname"><span class="pre">RasterDataError</span></span><a class="reference internal" href="_modules/raster_tools/io.html#RasterDataError"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.io.RasterDataError" title="Permalink to this definition">#</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">BaseException</span></code></p>
-</dd></dl>
-
-<dl class="py exception">
-<dt class="sig sig-object py" id="raster_tools.io.RasterIOError">
-<em class="property"><span class="pre">exception</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">raster_tools.io.</span></span><span class="sig-name descname"><span class="pre">RasterIOError</span></span><a class="reference internal" href="_modules/raster_tools/io.html#RasterIOError"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.io.RasterIOError" title="Permalink to this definition">#</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">BaseException</span></code></p>
-</dd></dl>
-
 <dl class="py function">
 <dt class="sig sig-object py" id="raster_tools.io.chunk">
 <span class="sig-prename descclassname"><span class="pre">raster_tools.io.</span></span><span class="sig-name descname"><span class="pre">chunk</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">xrs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">src_file</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/io.html#chunk"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.io.chunk" title="Permalink to this definition">#</a></dt>
@@ -1580,7 +1545,7 @@ file.</p></li>
 </dd>
 <dt class="field-even">Raises</dt>
 <dd class="field-even"><ul class="simple">
-<li><p><a class="reference internal" href="#raster_tools.io.AffineEncodingError" title="raster_tools.io.AffineEncodingError"><strong>raster_tools.io.AffineEncodingError</strong></a> – Raised if the affine matrix is improperly encoded.</p></li>
+<li><p><strong>raster_tools.io.AffineEncodingError</strong> – Raised if the affine matrix is improperly encoded.</p></li>
 <li><p><strong>ra</strong> – </p></li>
 </ul>
 </dd>
@@ -2805,24 +2770,6 @@ output values will be arrays.</p>
 <dd><p>The y (vertical) coordinate values.</p>
 </dd></dl>
 
-</dd></dl>
-
-<dl class="py exception">
-<dt class="sig sig-object py" id="raster_tools.raster.RasterDeviceError">
-<em class="property"><span class="pre">exception</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">raster_tools.raster.</span></span><span class="sig-name descname"><span class="pre">RasterDeviceError</span></span><a class="reference internal" href="_modules/raster_tools/raster.html#RasterDeviceError"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.raster.RasterDeviceError" title="Permalink to this definition">#</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">BaseException</span></code></p>
-</dd></dl>
-
-<dl class="py exception">
-<dt class="sig sig-object py" id="raster_tools.raster.RasterDeviceMismatchError">
-<em class="property"><span class="pre">exception</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">raster_tools.raster.</span></span><span class="sig-name descname"><span class="pre">RasterDeviceMismatchError</span></span><a class="reference internal" href="_modules/raster_tools/raster.html#RasterDeviceMismatchError"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.raster.RasterDeviceMismatchError" title="Permalink to this definition">#</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">BaseException</span></code></p>
-</dd></dl>
-
-<dl class="py exception">
-<dt class="sig sig-object py" id="raster_tools.raster.RasterNoDataError">
-<em class="property"><span class="pre">exception</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">raster_tools.raster.</span></span><span class="sig-name descname"><span class="pre">RasterNoDataError</span></span><a class="reference internal" href="_modules/raster_tools/raster.html#RasterNoDataError"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.raster.RasterNoDataError" title="Permalink to this definition">#</a></dt>
-<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">BaseException</span></code></p>
 </dd></dl>
 
 <dl class="py class">
@@ -5591,7 +5538,7 @@ file.</p></li>
 </dd>
 <dt class="field-even">Raises</dt>
 <dd class="field-even"><ul class="simple">
-<li><p><a class="reference internal" href="#raster_tools.io.AffineEncodingError" title="raster_tools.io.AffineEncodingError"><strong>raster_tools.io.AffineEncodingError</strong></a> – Raised if the affine matrix is improperly encoded.</p></li>
+<li><p><strong>raster_tools.io.AffineEncodingError</strong> – Raised if the affine matrix is improperly encoded.</p></li>
 <li><p><strong>ra</strong> – </p></li>
 </ul>
 </dd>
@@ -5889,7 +5836,7 @@ copied <cite>bands</cite> times.</p></li>
     <ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#subpackages">Subpackages</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#submodules">Submodules</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#module-raster_tools.batch">raster_tools.batch module</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#raster-tools-batch-module">raster_tools.batch module</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#module-raster_tools.clipping">raster_tools.clipping module</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#module-raster_tools.creation">raster_tools.creation module</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#module-raster_tools.dask_utils">raster_tools.dask_utils module</a></li>
