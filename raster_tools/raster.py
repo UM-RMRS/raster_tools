@@ -43,6 +43,7 @@ from raster_tools.dtypes import (
     promote_dtype_to_float,
     should_promote_to_fit,
 )
+from raster_tools.exceptions import RasterDataError, RasterIOError
 from raster_tools.masking import (
     create_null_mask,
     get_default_null_value,
@@ -57,27 +58,12 @@ from raster_tools.utils import (
 
 from .io import (
     IO_UNDERSTOOD_TYPES,
-    RasterDataError,
-    RasterIOError,
     chunk,
     is_batch_file,
     normalize_xarray_data,
     open_raster_from_path,
     write_raster,
 )
-
-
-class RasterDeviceMismatchError(BaseException):
-    pass
-
-
-class RasterDeviceError(BaseException):
-    pass
-
-
-class RasterNoDataError(BaseException):
-    pass
-
 
 _REDUCTION_FUNCS = (
     "all",

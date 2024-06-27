@@ -5,6 +5,7 @@ import raster_tools  # noqa: F401
 
 # isort: on
 
+import dask_geopandas as dgpd
 import geopandas as gpd
 import numpy as np
 import pytest
@@ -221,6 +222,37 @@ def like_template(template, data):
                     ],
                 },
                 crs="EPSG:5070",
+            ),
+            Raster(template_44).chunk((1, 2, 2)),
+            1,
+            Raster(
+                like_template(
+                    template_44,
+                    np.array(
+                        [
+                            [3, 6, 7, 0],
+                            [0, 0, 8, 0],
+                            [0, 0, 8, 0],
+                            [0, 0, 4, 0],
+                        ]
+                    ),
+                )
+            ),
+            True,
+        ),
+        (
+            dgpd.from_geopandas(
+                gpd.GeoDataFrame(
+                    {
+                        "weights": [3, 4],
+                        "geometry": [
+                            LineString([(0, 3), (2, 3)]),
+                            LineString([(2, 3), (2, 0)]),
+                        ],
+                    },
+                    crs="EPSG:5070",
+                ),
+                npartitions=2,
             ),
             Raster(template_44).chunk((1, 2, 2)),
             1,

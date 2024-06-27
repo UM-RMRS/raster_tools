@@ -10,6 +10,12 @@ from affine import Affine
 from dask.array.core import normalize_chunks as dask_chunks
 
 from raster_tools.dtypes import F32, F64, I64, U8, is_bool, is_float, is_int
+from raster_tools.exceptions import (
+    AffineEncodingError,
+    DimensionsError,
+    RasterDataError,
+    RasterIOError,
+)
 from raster_tools.masking import create_null_mask
 from raster_tools.utils import (
     is_strictly_decreasing,
@@ -17,14 +23,6 @@ from raster_tools.utils import (
     to_chunk_dict,
     validate_path,
 )
-
-
-class RasterIOError(BaseException):
-    pass
-
-
-class RasterDataError(BaseException):
-    pass
 
 
 def _get_extension(path):
@@ -216,14 +214,6 @@ def write_raster(xrs, path, no_data_value, **rio_gdal_kwargs):
     else:
         # TODO: populate
         raise NotImplementedError()
-
-
-class AffineEncodingError(Exception):
-    pass
-
-
-class DimensionsError(Exception):
-    pass
 
 
 def _get_valid_variables(meta, ignore_too_many_dims):

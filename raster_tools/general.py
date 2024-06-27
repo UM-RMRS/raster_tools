@@ -45,6 +45,7 @@ from raster_tools.dtypes import (
     is_scalar,
     is_str,
 )
+from raster_tools.exceptions import RemapFileParseError
 from raster_tools.focal import _get_offsets
 from raster_tools.masking import (
     get_default_null_value,
@@ -1257,10 +1258,6 @@ def _reclassify_chunk(
                 else:
                     out[b, i, j] = v
     return out
-
-
-class RemapFileParseError(Exception):
-    pass
 
 
 # Matches: 0, 0.0, .0, 12, 1.2, .2, 1.2e34, 1.2e-34, .2e+34, 0e+12, 1.2E23

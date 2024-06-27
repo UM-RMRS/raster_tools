@@ -36,10 +36,6 @@ __all__ = [
 ]
 
 
-class VectorError(Exception):
-    pass
-
-
 def _is_series(geo):
     return isinstance(geo, (gpd.GeoSeries, dgpd.GeoSeries))
 

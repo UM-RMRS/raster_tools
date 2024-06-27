@@ -34,6 +34,8 @@ exclude = [
     "node_modules",
     "venv",
 ]
+
+[tool.ruff.lint]
 select = [
     "E",      # Pycodestyle
     "W",      # Pycodestyle
@@ -52,9 +54,8 @@ select = [
     "Q",      # flake8-quotes
     "C4",     # flake8-comprehensions
     "PERF",   # perflint
+    "NPY201", # Numpy 2.0
 ]
-
-[tool.ruff.lint]
 extend-select = ["I"]
 ignore = [
     # Whitespace before ':'. flake8 is wrong when inside slice expressions.
