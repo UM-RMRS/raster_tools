@@ -346,8 +346,8 @@ def length(features, like_rast, radius, weighting_field=None):
     data = da.overlap.trim_internal(
         data, axes={0: 0, 1: ydepth, 2: xdepth}, boundary=1
     )
-    assert data.chunks == like_rast.data.chunks
     data = da.sum(data, axis=0, keepdims=True)
+    assert data.chunks == like_rast.data.chunks
     xrs = xr.DataArray(
         data, dims=("band", "y", "x"), coords=([1], like_rast.y, like_rast.x)
     )
