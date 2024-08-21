@@ -61,7 +61,7 @@ from .io import (
     chunk,
     is_batch_file,
     normalize_xarray_data,
-    open_raster_from_path,
+    open_raster_from_path_or_url,
     write_raster,
 )
 
@@ -568,7 +568,7 @@ def get_raster_ds(raster):
 
             ds = parse_batch_script(raster).final_raster._ds
         else:
-            rs, mask, nv = open_raster_from_path(raster)
+            rs, mask, nv = open_raster_from_path_or_url(raster)
             xmask = xr.DataArray(mask, dims=rs.dims, coords=rs.coords)
             ds = make_raster_ds(rs.rio.write_nodata(nv), xmask)
             ds = _xarray_to_raster_ds(ds)

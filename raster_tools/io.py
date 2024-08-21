@@ -1,4 +1,5 @@
 import os
+import urllib
 from pathlib import Path
 
 import dask
@@ -142,16 +143,20 @@ def normalize_null_value(nv, dtype):
     return nv
 
 
-def open_raster_from_path(path):
+def open_raster_from_path_or_url(path):
     if type(path) in IO_UNDERSTOOD_TYPES:
         path = str(path)
-        path = os.path.abspath(path)
     else:
         raise RasterIOError(
-            f"Could not resolve input to a raster path: '{path}'"
+            f"Could not resolve input to a raster path or URL: '{path}'"
         )
-    validate_path(path)
-    ext = _get_extension(path)
+    if urllib.parse.urlparse(path) == "":
+        # Assume file path
+        validate_path(path)
+        ext = _get_extension(path)
+    else:
+        # URL
+        ext = ""
 
     xrs = None
     # Try to let gdal open anything but NC, HDF, GRIB files
