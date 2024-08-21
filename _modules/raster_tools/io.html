@@ -8,7 +8,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>raster_tools.io &#8212; raster_tools 0.9.1 documentation</title>
+    <title>raster_tools.io &#8212; raster_tools 0.9.2 documentation</title>
   
   
   
@@ -114,7 +114,7 @@
   
   
   
-    <p class="title logo__title">raster_tools 0.9.1 documentation</p>
+    <p class="title logo__title">raster_tools 0.9.2 documentation</p>
   
 </a></div>
         <div class="sidebar-primary-item"><nav class="bd-links" id="bd-docs-nav" aria-label="Main">
@@ -406,6 +406,7 @@ document.write(`
                   
   <h1>Source code for raster_tools.io</h1><div class="highlight"><pre>
 <span></span><span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">urllib</span>
 <span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
 
 <span class="kn">import</span> <span class="nn">dask</span>
@@ -549,16 +550,20 @@ document.write(`
     <span class="k">return</span> <span class="n">nv</span></div>
 
 
-<div class="viewcode-block" id="open_raster_from_path"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.io.open_raster_from_path">[docs]</a><span class="k">def</span> <span class="nf">open_raster_from_path</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+<div class="viewcode-block" id="open_raster_from_path_or_url"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.io.open_raster_from_path_or_url">[docs]</a><span class="k">def</span> <span class="nf">open_raster_from_path_or_url</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
     <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">path</span><span class="p">)</span> <span class="ow">in</span> <span class="n">IO_UNDERSTOOD_TYPES</span><span class="p">:</span>
         <span class="n">path</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
-        <span class="n">path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="k">raise</span> <span class="n">RasterIOError</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;Could not resolve input to a raster path: &#39;</span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">&#39;&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;Could not resolve input to a raster path or URL: &#39;</span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">&#39;&quot;</span>
         <span class="p">)</span>
-    <span class="n">validate_path</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
-    <span class="n">ext</span> <span class="o">=</span> <span class="n">_get_extension</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">urllib</span><span class="o">.</span><span class="n">parse</span><span class="o">.</span><span class="n">urlparse</span><span class="p">(</span><span class="n">path</span><span class="p">)</span> <span class="o">==</span> <span class="s2">&quot;&quot;</span><span class="p">:</span>
+        <span class="c1"># Assume file path</span>
+        <span class="n">validate_path</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+        <span class="n">ext</span> <span class="o">=</span> <span class="n">_get_extension</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># URL</span>
+        <span class="n">ext</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
 
     <span class="n">xrs</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="c1"># Try to let gdal open anything but NC, HDF, GRIB files</span>
