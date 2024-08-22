@@ -18,9 +18,10 @@ easy-to-use python based API.
 ## Package Dependencies
 - [dask](https://dask.org/)
 - [dask_image](https://image.dask.org/en/latest/)
-- [dask-geopandas](https://github.com/geopandas/dask-geopandas)
+- [dask-geopandas](https://dask-geopandas.readthedocs.io/en/stable/)
 - [geopandas](https://geopandas.org/en/stable/)
 - [numba](https://numba.pydata.org/)
+- [odc-geo](https://odc-geo.readthedocs.io/en/latest/)
 - [rasterio](https://rasterio.readthedocs.io/en/latest/)
 - [rioxarray](https://corteva.github.io/rioxarray/stable/)
 - [shapely 2](https://shapely.readthedocs.io/en/stable/)
