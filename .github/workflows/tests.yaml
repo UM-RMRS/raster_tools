@@ -23,6 +23,7 @@ jobs:
           - requirements/39-ci.yml
           - requirements/310-ci.yml
           - requirements/311-ci.yml
+          - requirements/312-ci.yml
 
     steps:
       - uses: actions/checkout@v4

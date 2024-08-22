@@ -1,0 +1,27 @@
+name: test-rts
+channels:
+  - conda-forge
+dependencies:
+  - python=3.12
+  - affine
+  - cfgrib
+  - dask<=2024.2.1
+  - dask-geopandas
+  - dask-image
+  - fiona
+  - geopandas
+  - netcdf4
+  - numba
+  - numpy
+  - odc-geo
+  - pandas
+  - pyogrio
+  - pyproj
+  - pytest
+  - pytest-xdist
+  - pytest-mock
+  - rasterio
+  - rioxarray
+  - scipy
+  - shapely>=2.0
+  - xarray
