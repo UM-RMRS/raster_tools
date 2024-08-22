@@ -1,9 +1,9 @@
-name: rstools
+name: rts
 channels:
   - conda-forge
   - defaults
 dependencies:
-  - python=3.10
+  - python=3.12
   - affine
   - build
   - cfgrib
@@ -12,6 +12,8 @@ dependencies:
   - dask-image
   - fiona
   - geopandas
+  - ipython
+  - matplotlib
   - netcdf4
   - numba
   - numpy
@@ -19,6 +21,7 @@ dependencies:
   - pandas
   - pre-commit
   - pyarrow
+  - pynvim
   - pyogrio
   - pyproj
   - pytest
@@ -26,6 +29,7 @@ dependencies:
   - pytest-xdist
   - rasterio
   - rioxarray
+  - ruff
   - scipy
   - shapely>=2
   - twine

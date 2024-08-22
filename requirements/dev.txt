@@ -6,10 +6,9 @@ dask-geopandas
 dask-image
 fiona
 geopandas
-nose2
 netcdf4
 numba
-numpy>=1.22
+numpy
 odc-geo
 pandas
 pre-commit

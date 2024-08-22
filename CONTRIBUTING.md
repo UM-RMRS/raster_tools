@@ -15,7 +15,7 @@
 
     ```sh
     $ conda env create -f requirements/dev.yml
-    $ conda activate rstools
+    $ conda activate rts
     ```
 
     With python:
