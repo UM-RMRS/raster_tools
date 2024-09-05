@@ -1,11 +1,10 @@
 import dask.array as da
 import numba as nb
 import numpy as np
-import xarray as xr
 
 from raster_tools.dtypes import F16, F32, F64
 from raster_tools.masking import get_default_null_value
-from raster_tools.raster import Raster, get_raster
+from raster_tools.raster import Raster, data_to_raster_like, get_raster
 from raster_tools.utils import single_band_mappable
 
 __all__ = [
@@ -620,14 +619,7 @@ def _proximity_analysis(
         nodata=nodata,
         mode=mode,
     )
-    xout = xr.DataArray(
-        out_data,
-        coords=raster.xdata.coords,
-        dims=raster.xdata.dims,
-        attrs=raster.xdata.attrs,
-    ).rio.write_nodata(nodata)
-    rs_out = Raster(xout)
-    return rs_out
+    return data_to_raster_like(out_data, raster, nv=nodata)
 
 
 def pa_proximity(

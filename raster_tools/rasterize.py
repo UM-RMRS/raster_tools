@@ -6,7 +6,6 @@ import numba as nb
 import numpy as np
 import rasterio as rio
 import shapely
-import xarray as xr
 from dask.diagnostics import ProgressBar
 from packaging import version
 from rasterio.enums import MergeAlg
@@ -15,8 +14,8 @@ from rasterio.features import rasterize as rio_rasterize
 
 from raster_tools.dtypes import F64, I8, I16, I64, U8, U64, is_float, is_int
 from raster_tools.masking import get_default_null_value
-from raster_tools.raster import Raster, get_raster
-from raster_tools.utils import list_reshape_2d, make_raster_ds
+from raster_tools.raster import data_to_raster_like, get_raster
+from raster_tools.utils import list_reshape_2d
 from raster_tools.vector import get_vector
 
 __all__ = ["rasterize"]
@@ -476,14 +475,7 @@ def _rasterize_spatial_aware(
         mask=mask,
         mask_invert=mask_invert,
     )
-    xout = xr.DataArray(
-        out_data, dims=like.xdata.dims, coords=like.xdata.coords
-    ).rio.write_nodata(fill)
-    xmask = xout == fill
-    ds = make_raster_ds(xout, xmask)
-    if like.crs is not None:
-        ds = ds.rio.write_crs(like.crs)
-    return Raster(ds, _fast_path=True)
+    return data_to_raster_like(out_data, like, nv=fill)
 
 
 def _rasterize_spatial_naive(

@@ -45,13 +45,13 @@ from raster_tools.dtypes import (
 )
 from raster_tools.exceptions import RasterDataError, RasterIOError
 from raster_tools.masking import (
-    create_null_mask,
     get_default_null_value,
     reconcile_nullvalue_with_dtype,
 )
 from raster_tools.utils import (
     can_broadcast,
-    make_raster_ds,
+    is_strictly_decreasing,
+    is_strictly_increasing,
     merge_masks,
     to_chunk_dict,
 )
@@ -60,7 +60,6 @@ from .io import (
     IO_UNDERSTOOD_TYPES,
     chunk,
     is_batch_file,
-    normalize_xarray_data,
     open_raster_from_path_or_url,
     write_raster,
 )
@@ -195,7 +194,7 @@ def _apply_ufunc(ufunc, this, left, right=None, kwargs=None, out=None):
     xr_out = ufunc(*ufunc_args, **kwargs)
     multi_out = ufunc.nout > 1
     if not masked:
-        mask = create_null_mask(xr_out, None)
+        mask = get_mask_from_data(xr_out, None)
         if not multi_out:
             xmask = xr.DataArray(mask, dims=xr_out.dims, coords=xr_out.coords)
             xr_out = xr_out.rio.write_nodata(None)
@@ -415,29 +414,268 @@ class BandwiseOperationAdapter(np.lib.mixins.NDArrayOperatorsMixin):
         return ufunc(left, right, **kwargs)
 
 
-def _array_to_xarray(ar):
-    if len(ar.shape) > 3 or len(ar.shape) < 2:
-        raise ValueError(f"Invalid raster shape for numpy array: {ar.shape}")
-    if len(ar.shape) == 2:
+def xr_where_with_meta(cond, left, right, crs=None, nv=None):
+    result = xr.where(cond, left, right)
+    if crs is not None:
+        result = result.rio.write_crs(crs)
+    if nv is not None:
+        result = result.rio.write_nodata(nv)
+    return result
+
+
+def get_mask_from_data(data, nv=None):
+    if nv is None:
+        if isinstance(data, (list, np.ndarray)):
+            mod = np
+        elif isinstance(data, da.Array):
+            mod = da
+        elif isinstance(data, xr.DataArray):
+            mod = xr
+        else:
+            raise TypeError()
+        mask = mod.zeros_like(data, dtype=bool)
+    else:
+        mask = np.isnan(data) if np.isnan(nv) else data == nv
+    if isinstance(data, xr.DataArray):
+        mask = mask.rio.write_nodata(None)
+    return mask
+
+
+def normalize_data(data, yx_chunks=None):
+    """2d/3d np.ndarray or da.Array --> 3D da.Array."""
+    if not isinstance(data, (np.ndarray, da.Array)):
+        raise TypeError("data must be a numpy or dask array")
+    if data.ndim not in (2, 3):
+        raise ValueError("data must be 2d or 3d")
+
+    if data.ndim == 2:
+        data = data[None]
+    chunks = (1, "auto", "auto")
+    if yx_chunks is not None:
+        chunks = ((1,) * data.shape[0], *yx_chunks)
+    if not dask.is_dask_collection(data):
+        data = da.from_array(data, chunks=chunks)
+    elif data.chunksize[0] != 1 or yx_chunks is not None:
+        data = data.rechunk(chunks)
+    return data
+
+
+def normalize_xarray_data(xrs):
+    if not dask.is_dask_collection(xrs):
+        xrs = xrs.chunk()
+    if len(xrs.shape) > 3 or len(xrs.shape) < 2:
+        raise ValueError(
+            "Invalid shape. xarray.DataArray objects must have 2D or 3D "
+            "shapes."
+        )
+    if len(xrs.shape) == 2:
         # Add band dim
-        ar = ar[None]
+        xrs = xrs.expand_dims({"band": [1]})
+    dims = xrs.dims
+    if "lon" in dims:
+        xrs = xrs.rename({"lon": "x"})
+        dims = xrs.dims
+    if "lat" in dims:
+        xrs = xrs.rename({"lat": "y"})
+        dims = xrs.dims
+    if dims != ("band", "y", "x"):
+        # No easy way to figure out how best to transpose based on dim names so
+        # just assume the order is valid and rename.
+        xrs = xrs.rename(
+            {
+                d: new_d
+                for d, new_d in zip(dims, ("band", "y", "x"))
+                if d != new_d
+            }
+        )
+    if xrs.band.to_numpy()[0] != 1:
+        xrs["band"] = np.arange(1, len(xrs.band) + 1)
+    if any(dim not in xrs.coords for dim in xrs.dims):
+        raise ValueError(
+            "Invalid coordinates on xarray.DataArray object:\n{xrs!r}"
+        )
+    if (xrs.rio.x_dim, xrs.rio.y_dim) != ("x", "y"):
+        xrs = xrs.rio.set_spatial_dims(x_dim="x", y_dim="y")
+    if xrs.data.chunksize[0] != 1:
+        xrs = xrs.chunk({"band": 1, "y": "auto", "x": "auto"})
+    # Make sure that x is always increasing and y is always decreasing. xarray
+    # will auto align rasters but when a raster is converted to a numpy or dask
+    # array, the data may not be aligned. This ensures that rasters converted
+    # to non-georeferenecd formats will be oriented the same.
+    if is_strictly_decreasing(xrs.x):
+        xrs = xrs.isel(x=slice(None, None, -1))
+    if is_strictly_increasing(xrs.y):
+        xrs = xrs.isel(y=slice(None, None, -1))
+    # This MUST BE DONE. Need to recompute and write the transform so that
+    # rechunking to (N,1,1) doesn't cause the transform to be dropped. This
+    # only happens for hard to reproduce and test edge-cases far down the
+    # pipeline.
+    # TODO: Find test to check for just this. For right now,
+    # tests/test_raster.py::test_to_points catches it.
+    xrs = xrs.rio.write_transform(xrs.rio.transform(True))
+    return xrs
+
+
+def data_to_xr_raster(data, x=None, y=None, affine=None, crs=None, nv=None):
+    data = normalize_data(data)
+    if affine is None:
+        if x is None and y is None:
+            # Add 0.5 offset to move coords to center of cell
+            x = np.arange(data.shape[2]) + 0.5
+            y = np.arange(data.shape[1])[::-1] + 0.5
+        elif any(xi is None for xi in (x, y)):
+            raise ValueError("Must specify both x and y or neither.")
+        if not isinstance(x, np.ndarray) or not isinstance(x, np.ndarray):
+            raise TypeError("x and y must be numpy arrays")
+        x = x.ravel()
+        y = y.ravel()
+        if (y.size, x.size) != data.shape[1:]:
+            raise ValueError("x and y do not match data shape")
+    else:
+        x = _build_x_coord(affine, data.shape)
+        y = _build_y_coord(affine, data.shape)
+    # The band dimension needs to start at 1 to match raster conventions
+    band = np.arange(data.shape[0]) + 1
+    xdata = xr.DataArray(
+        data, dims=("band", "y", "x"), coords=(band, y, x)
+    ).rio.set_spatial_dims(y_dim="y", x_dim="x")
+    if crs is not None:
+        xdata = xdata.rio.write_crs(crs)
+    xdata = xdata.rio.write_nodata(nv)
+    return normalize_xarray_data(xdata)
+
+
+def data_to_xr_raster_like(
+    data, xlike, nv=None, match_band_dim=False, match_chunks=True
+):
+    yx_chunks = xlike.data.chunks[1:] if match_chunks else None
+    data = normalize_data(data, yx_chunks=yx_chunks)
+    if data.shape[-2:] != xlike.shape[1:]:
+        raise ValueError("data x/y dims did not match xlike")
+
+    if data.shape[0] == 1 and match_band_dim:
+        data = da.stack([data[0] for i in range(xlike.shape[0])], axis=0)
+    return data_to_xr_raster(
+        data,
+        x=xlike.x.to_numpy(),
+        y=xlike.y.to_numpy(),
+        crs=xlike.rio.crs,
+        nv=nv,
+    )
+
+
+def make_raster_ds(raster_dataarray, mask_dataarray):
+    return xr.Dataset({"raster": raster_dataarray, "mask": mask_dataarray})
+
+
+def data_to_xr_raster_ds(
+    data, mask=None, x=None, y=None, affine=None, crs=None, nv=None, burn=False
+):
+    data = normalize_data(data)
+    if mask is None:
+        mask = get_mask_from_data(data, nv)
+    else:
+        mask = normalize_data(mask)
+        if data.shape != mask.shape:
+            raise ValueError("data and mask dimensions do not match")
+        nv = get_default_null_value(data.dtype) if nv is None else nv
+        if burn:
+            data = da.where(mask, nv, data)
+    xdata = data_to_xr_raster(data, x=x, y=y, affine=affine, crs=crs, nv=nv)
+    xmask = data_to_xr_raster(mask, x=x, y=y, affine=affine, crs=crs, nv=None)
+    return make_raster_ds(xdata, xmask)
+
+
+def data_to_xr_raster_ds_like(
+    data, xlike, mask=None, nv=None, burn=False, match_chunks=True
+):
+    yx_chunks = xlike.data.chunks[1:] if match_chunks else None
+    data = normalize_data(data, yx_chunks=yx_chunks)
+    if data.shape[-2:] != xlike.shape[1:]:
+        raise ValueError("data x/y dims did not match xlike")
+    if mask is not None:
+        if nv is None:
+            nv = get_default_null_value(data.dtype)
+        mask = normalize_data(mask, yx_chunks=yx_chunks)
+        if mask.shape != data.shape:
+            raise ValueError("data and mask dimensions do not match")
+    return data_to_xr_raster_ds(
+        data,
+        mask=mask,
+        x=xlike.x.to_numpy(),
+        y=xlike.y.to_numpy(),
+        crs=xlike.rio.crs,
+        nv=nv,
+        burn=burn,
+    )
+
+
+def data_to_raster(
+    data, mask=None, x=None, y=None, affine=None, crs=None, nv=None, burn=False
+):
+    ds = data_to_xr_raster_ds(
+        data,
+        mask=mask,
+        x=x,
+        y=y,
+        affine=affine,
+        crs=crs,
+        nv=nv,
+        burn=burn,
+    )
+    return Raster(ds, _fast_path=True)
+
+
+def data_to_raster_like(
+    data, like, mask=None, nv=None, burn=False, match_chunks=True
+):
+    if isinstance(like, Raster):
+        like = like.xdata
+    ds = data_to_xr_raster_ds_like(
+        data, like, mask=mask, nv=nv, burn=burn, match_chunks=match_chunks
+    )
+    return Raster(ds, _fast_path=True)
+
+
+def dataarray_to_xr_raster(xdata):
+    return normalize_xarray_data(xdata)
+
+
+def dataarray_to_xr_raster_ds(xdata, xmask=None, crs=None):
+    xdata = dataarray_to_xr_raster(xdata)
+    if xmask is None:
+        xmask = get_mask_from_data(xdata, xdata.rio.nodata)
+    else:
+        xmask = dataarray_to_xr_raster(xmask)
+    ds = make_raster_ds(xdata, xmask)
+    if crs is not None:
+        ds = ds.rio.write_crs(crs)
+    return ds
+
+
+def dataarray_to_raster(xdata, xmask=None, crs=None):
+    return Raster(
+        dataarray_to_xr_raster_ds(xdata, xmask=xmask, crs=crs), _fast_path=True
+    )
+
+
+def _array_input_to_raster_ds(ar):
     if not isinstance(ar, da.Array):
         has_nan = is_float(ar.dtype) and np.isnan(ar).any()
     else:
         has_nan = is_float(ar.dtype)
-    # The band dimension needs to start at 1 to match raster conventions
-    coords = [np.arange(1, ar.shape[0] + 1)]
-    # Add 0.5 offset to move coords to center of cell
-    # y
-    coords.append(np.arange(ar.shape[1])[::-1] + 0.5)
-    coords.append(np.arange(ar.shape[2]) + 0.5)
-    xrs = xr.DataArray(ar, dims=["band", "y", "x"], coords=coords)
-    if has_nan:
-        xrs.attrs["_FillValue"] = np.nan
-    else:
-        # No way to know null value
-        xrs.attrs["_FillValue"] = None
-    return xrs
+    data = normalize_data(ar)
+    nv = np.nan if has_nan else None
+    ds = data_to_xr_raster_ds(data, nv=nv)
+
+    # Maintain compatibility
+    orig_nv = nv
+    nv = reconcile_nullvalue_with_dtype(nv, data.dtype)
+    if nv is not None and (np.isnan(orig_nv) or orig_nv != nv):
+        ds["raster"] = xr_where_with_meta(
+            ds.mask, nv, ds.raster
+        ).rio.write_nodata(nv)
+    return ds
 
 
 def _try_to_get_null_value_xarray(xrs):
@@ -470,86 +708,70 @@ def _try_to_get_null_value_xarray(xrs):
     return nv1 if nv1 is not None else nv2
 
 
-def _dataarry_to_raster_ds(xin):
-    nv = _try_to_get_null_value_xarray(xin)
-    xin = normalize_xarray_data(xin)
-    if not dask.is_dask_collection(xin) or xin.data.chunksize[0] != 1:
-        xin = chunk(xin)
+def _dataarray_input_to_raster_ds(xdata):
+    nv = _try_to_get_null_value_xarray(xdata)
+    xdata = normalize_xarray_data(xdata)
+    if not dask.is_dask_collection(xdata) or xdata.data.chunksize[0] != 1:
+        xdata = chunk(xdata)
 
-    if nv is None:
-        mask = create_null_mask(xin, nv)
-        mask = xr.DataArray(
-            create_null_mask(xin, nv), dims=xin.dims, coords=xin.coords
-        )
-        if xin.rio.crs is not None:
-            mask = mask.rio.write_crs(xin.rio.crs)
-    elif np.isnan(nv):
-        mask = np.isnan(xin)
-    else:
-        mask = xin == nv
-
+    xmask = get_mask_from_data(xdata, nv)
     orig_nv = nv
-    nv = reconcile_nullvalue_with_dtype(nv, xin.dtype)
-    crs = xin.rio.crs
+    nv = reconcile_nullvalue_with_dtype(nv, xdata.dtype)
+    crs = xdata.rio.crs
     if nv is not None and (np.isnan(orig_nv) or orig_nv != nv):
-        xin = xr.where(mask, nv, xin)
-        if crs is not None:
-            xin = xin.rio.write_crs(crs)
-    xin = xin.rio.write_nodata(nv)
-    return make_raster_ds(xin, mask)
+        xdata = xr_where_with_meta(xmask, nv, xdata, crs=crs)
+    xdata = xdata.rio.write_nodata(nv)
+    return dataarray_to_xr_raster_ds(xdata, xmask=xmask, crs=crs)
 
 
-def _dataset_to_raster_ds(xin):
+def _dataset_to_raster_ds(ds_in):
     if (
-        dask.is_dask_collection(xin)
-        and set(xin.data_vars) == {"raster", "mask"}
-        and dask.is_dask_collection(xin.raster)
-        and dask.is_dask_collection(xin.mask)
-        and is_bool(xin.mask.dtype)
-        and xin.raster.dims == ("band", "y", "x")
-        and xin.mask.dims == ("band", "y", "x")
-        and xin.raster.chunks == xin.mask.chunks
-        and xin.raster.rio.crs == xin.mask.rio.crs
+        dask.is_dask_collection(ds_in)
+        and set(ds_in.data_vars) == {"raster", "mask"}
+        and dask.is_dask_collection(ds_in.raster)
+        and dask.is_dask_collection(ds_in.mask)
+        and is_bool(ds_in.mask.dtype)
+        and ds_in.raster.dims == ("band", "y", "x")
+        and ds_in.mask.dims == ("band", "y", "x")
+        and ds_in.raster.chunks == ds_in.mask.chunks
+        and ds_in.raster.rio.crs == ds_in.mask.rio.crs
     ):
-        return xin
+        return ds_in
 
-    nvars = len(xin.data_vars)
-    if nvars < 2 or nvars > 2 or set(xin.data_vars) != {"raster", "mask"}:
+    nvars = len(ds_in.data_vars)
+    if nvars < 2 or nvars > 2 or set(ds_in.data_vars) != {"raster", "mask"}:
         raise ValueError(
             "Dataset input must have only 'raster' and 'mask' variables"
         )
 
-    raster = xin.raster
-    mask = xin.mask
-    if not is_bool(mask.dtype):
+    xdata = ds_in.raster
+    xmask = ds_in.mask
+    crs = ds_in.rio.crs
+    if not is_bool(xmask.dtype):
         raise TypeError("mask must have boolean dtype")
 
-    raster = normalize_xarray_data(raster)
-    if not dask.is_dask_collection(raster):
-        raster = chunk(raster)
-    mask = normalize_xarray_data(mask)
-    if mask.shape != raster.shape:
+    xdata = normalize_xarray_data(xdata)
+    if not dask.is_dask_collection(xdata):
+        xdata = chunk(xdata)
+    xmask = normalize_xarray_data(xmask)
+    if xmask.shape != xdata.shape:
         raise ValueError("raster and mask dimensions do not match")
-    if not dask.is_dask_collection(mask):
-        mask = mask.chunk(chunks=to_chunk_dict(raster.chunks))
+    if not dask.is_dask_collection(xmask):
+        xmask = xmask.chunk(chunks=to_chunk_dict(xdata.chunks))
 
-    nv = _try_to_get_null_value_xarray(raster)
+    nv = _try_to_get_null_value_xarray(xdata)
     if nv is None:
-        nv = get_default_null_value(raster.dtype)
+        nv = get_default_null_value(xdata.dtype)
     else:
-        nv = reconcile_nullvalue_with_dtype(nv, raster.dtype)
+        nv = reconcile_nullvalue_with_dtype(nv, xdata.dtype)
     if nv is not None:
-        raster.data = xr.where(mask, nv, raster.data)
-    raster = raster.rio.write_nodata(nv)
-    crs = raster.rio.crs
-    if crs != mask.rio.crs:
-        mask = mask.rio.write_crs(crs)
-    return make_raster_ds(raster, mask)
+        xdata = xr_where_with_meta(xmask, nv, xdata, nv=nv)
+    return dataarray_to_xr_raster_ds(xdata, xmask, crs=crs)
 
 
-def _xarray_to_raster_ds(xin):
+def _xarray_input_to_raster_ds(xin):
     if isinstance(xin, xr.DataArray):
-        return _dataarry_to_raster_ds(xin)
+        return _dataarray_input_to_raster_ds(xin)
     return _dataset_to_raster_ds(xin)
 
 
@@ -558,9 +780,9 @@ def get_raster_ds(raster):
     if isinstance(raster, Raster):
         ds = raster._ds.copy(deep=True)
     elif isinstance(raster, (xr.DataArray, xr.Dataset)):
-        ds = _xarray_to_raster_ds(raster.copy())
+        ds = _xarray_input_to_raster_ds(raster.copy())
     elif isinstance(raster, (np.ndarray, da.Array)):
-        ds = _xarray_to_raster_ds(_array_to_xarray(raster.copy()))
+        ds = _array_input_to_raster_ds(raster.copy())
     elif type(raster) in IO_UNDERSTOOD_TYPES:
         if is_batch_file(raster):
             # Import here to avoid circular import errors
@@ -568,10 +790,8 @@ def get_raster_ds(raster):
 
             ds = parse_batch_script(raster).final_raster._ds
         else:
-            rs, mask, nv = open_raster_from_path_or_url(raster)
-            xmask = xr.DataArray(mask, dims=rs.dims, coords=rs.coords)
-            ds = make_raster_ds(rs.rio.write_nodata(nv), xmask)
-            ds = _xarray_to_raster_ds(ds)
+            xdata = open_raster_from_path_or_url(raster)
+            ds = dataarray_to_xr_raster_ds(xdata)
     else:
         raise TypeError(f"Could not resolve input to a raster: {raster!r}")
     return ds
@@ -1138,7 +1358,7 @@ class Raster(_RasterBase):
 
         # Update mask
         mask = self._ds.mask
-        temp_mask = np.isnan(xrs) if np.isnan(value) else xrs == value
+        temp_mask = get_mask_from_data(xrs, value)
         mask = mask | temp_mask if self._masked else temp_mask
         xrs = xrs.rio.write_nodata(value)
         return Raster(make_raster_ds(xrs, mask), _fast_path=True).burn_mask()
@@ -2066,8 +2286,8 @@ def _shapes_delayed(chunk, mask, neighbors, transform, band, crs):
     )
 
 
-def _build_x_coord(affine, shape):
-    nx = shape[2]
+def _build_x_coord(affine, shape_3d):
+    nx = shape_3d[2]
     # Cell size for x dim
     a = affine.a
     tmatrix = np.array(affine).reshape((3, 3))
@@ -2077,8 +2297,8 @@ def _build_x_coord(affine, shape):
     return xc.copy()
 
 
-def _build_y_coord(affine, shape):
-    ny = shape[1]
+def _build_y_coord(affine, shape_3d):
+    ny = shape_3d[1]
     # Cell size for y dim (should be < 0)
     e = affine.e
     tmatrix = np.array(affine).reshape((3, 3))

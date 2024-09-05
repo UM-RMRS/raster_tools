@@ -33,6 +33,9 @@ def assert_valid_raster(raster):
     assert "raster" in raster._ds
     assert "mask" in raster._ds
     assert raster._ds.raster.shape == raster._ds.mask.shape
+    # RIO encoding
+    assert raster._ds.rio.x_dim == "x"
+    assert raster._ds.rio.y_dim == "y"
     # Coords and dims
     # xr.Dataset seems to sort dims alphabetically (sometimes)
     assert set(raster._ds.dims) == {"band", "y", "x"}
@@ -112,6 +115,39 @@ def assert_rasters_similar(left, right, check_nbands=True, check_chunks=True):
         assert left.nbands == right.nbands
     if check_chunks:
         assert left.data.chunks[1:] == right.data.chunks[1:]
+
+
+def assert_dataarrays_similar(
+    left, right, check_nbands=True, check_chunks=True
+):
+    assert isinstance(left, xr.DataArray) and isinstance(right, xr.DataArray)
+    if left is right:
+        return
+
+    assert set(left.dims) == set(right.dims)
+    assert np.allclose(left.x, right.x)
+    assert np.allclose(left.y, right.y)
+    assert left.rio.crs == right.rio.crs
+    assert left.rio.transform(True) == right.rio.transform(True)
+    if check_nbands:
+        assert np.allclose(left.band, right.band)
+    if check_chunks:
+        assert left.data.chunks[1:] == right.data.chunks[1:]
+
+
+def assert_datasets_similar(left, right, check_nbands=True, check_chunks=True):
+    assert isinstance(left, xr.Dataset) and isinstance(right, xr.Dataset)
+    if left is right:
+        return
+
+    assert sorted(left.data_vars) == sorted(right.data_Vars)
+    for v in list(left.data_vars):
+        assert_dataarrays_similar(
+            left.data_vars[v],
+            right.data_vars[v],
+            check_nbands=check_nbands,
+            check_chunks=check_chunks,
+        )
 
 
 def arange_nd(shape, dtype=None, mod=np):
