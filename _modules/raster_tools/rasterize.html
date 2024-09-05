@@ -413,7 +413,6 @@ document.write(`
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">import</span> <span class="nn">rasterio</span> <span class="k">as</span> <span class="nn">rio</span>
 <span class="kn">import</span> <span class="nn">shapely</span>
-<span class="kn">import</span> <span class="nn">xarray</span> <span class="k">as</span> <span class="nn">xr</span>
 <span class="kn">from</span> <span class="nn">dask.diagnostics</span> <span class="kn">import</span> <span class="n">ProgressBar</span>
 <span class="kn">from</span> <span class="nn">packaging</span> <span class="kn">import</span> <span class="n">version</span>
 <span class="kn">from</span> <span class="nn">rasterio.enums</span> <span class="kn">import</span> <span class="n">MergeAlg</span>
@@ -422,8 +421,8 @@ document.write(`
 
 <span class="kn">from</span> <span class="nn">raster_tools.dtypes</span> <span class="kn">import</span> <span class="n">F64</span><span class="p">,</span> <span class="n">I8</span><span class="p">,</span> <span class="n">I16</span><span class="p">,</span> <span class="n">I64</span><span class="p">,</span> <span class="n">U8</span><span class="p">,</span> <span class="n">U64</span><span class="p">,</span> <span class="n">is_float</span><span class="p">,</span> <span class="n">is_int</span>
 <span class="kn">from</span> <span class="nn">raster_tools.masking</span> <span class="kn">import</span> <span class="n">get_default_null_value</span>
-<span class="kn">from</span> <span class="nn">raster_tools.raster</span> <span class="kn">import</span> <span class="n">Raster</span><span class="p">,</span> <span class="n">get_raster</span>
-<span class="kn">from</span> <span class="nn">raster_tools.utils</span> <span class="kn">import</span> <span class="n">list_reshape_2d</span><span class="p">,</span> <span class="n">make_raster_ds</span>
+<span class="kn">from</span> <span class="nn">raster_tools.raster</span> <span class="kn">import</span> <span class="n">data_to_raster_like</span><span class="p">,</span> <span class="n">get_raster</span>
+<span class="kn">from</span> <span class="nn">raster_tools.utils</span> <span class="kn">import</span> <span class="n">list_reshape_2d</span>
 <span class="kn">from</span> <span class="nn">raster_tools.vector</span> <span class="kn">import</span> <span class="n">get_vector</span>
 
 <span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;rasterize&quot;</span><span class="p">]</span>
@@ -883,14 +882,7 @@ document.write(`
         <span class="n">mask</span><span class="o">=</span><span class="n">mask</span><span class="p">,</span>
         <span class="n">mask_invert</span><span class="o">=</span><span class="n">mask_invert</span><span class="p">,</span>
     <span class="p">)</span>
-    <span class="n">xout</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">(</span>
-        <span class="n">out_data</span><span class="p">,</span> <span class="n">dims</span><span class="o">=</span><span class="n">like</span><span class="o">.</span><span class="n">xdata</span><span class="o">.</span><span class="n">dims</span><span class="p">,</span> <span class="n">coords</span><span class="o">=</span><span class="n">like</span><span class="o">.</span><span class="n">xdata</span><span class="o">.</span><span class="n">coords</span>
-    <span class="p">)</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_nodata</span><span class="p">(</span><span class="n">fill</span><span class="p">)</span>
-    <span class="n">xmask</span> <span class="o">=</span> <span class="n">xout</span> <span class="o">==</span> <span class="n">fill</span>
-    <span class="n">ds</span> <span class="o">=</span> <span class="n">make_raster_ds</span><span class="p">(</span><span class="n">xout</span><span class="p">,</span> <span class="n">xmask</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">like</span><span class="o">.</span><span class="n">crs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">ds</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_crs</span><span class="p">(</span><span class="n">like</span><span class="o">.</span><span class="n">crs</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">Raster</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="n">_fast_path</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">data_to_raster_like</span><span class="p">(</span><span class="n">out_data</span><span class="p">,</span> <span class="n">like</span><span class="p">,</span> <span class="n">nv</span><span class="o">=</span><span class="n">fill</span><span class="p">)</span>
 
 
 <span class="k">def</span> <span class="nf">_rasterize_spatial_naive</span><span class="p">(</span>

@@ -452,13 +452,13 @@ document.write(`
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">raster_tools.exceptions</span> <span class="kn">import</span> <span class="n">RasterDataError</span><span class="p">,</span> <span class="n">RasterIOError</span>
 <span class="kn">from</span> <span class="nn">raster_tools.masking</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">create_null_mask</span><span class="p">,</span>
     <span class="n">get_default_null_value</span><span class="p">,</span>
     <span class="n">reconcile_nullvalue_with_dtype</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">raster_tools.utils</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">can_broadcast</span><span class="p">,</span>
-    <span class="n">make_raster_ds</span><span class="p">,</span>
+    <span class="n">is_strictly_decreasing</span><span class="p">,</span>
+    <span class="n">is_strictly_increasing</span><span class="p">,</span>
     <span class="n">merge_masks</span><span class="p">,</span>
     <span class="n">to_chunk_dict</span><span class="p">,</span>
 <span class="p">)</span>
@@ -467,7 +467,6 @@ document.write(`
     <span class="n">IO_UNDERSTOOD_TYPES</span><span class="p">,</span>
     <span class="n">chunk</span><span class="p">,</span>
     <span class="n">is_batch_file</span><span class="p">,</span>
-    <span class="n">normalize_xarray_data</span><span class="p">,</span>
     <span class="n">open_raster_from_path_or_url</span><span class="p">,</span>
     <span class="n">write_raster</span><span class="p">,</span>
 <span class="p">)</span>
@@ -602,7 +601,7 @@ document.write(`
     <span class="n">xr_out</span> <span class="o">=</span> <span class="n">ufunc</span><span class="p">(</span><span class="o">*</span><span class="n">ufunc_args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
     <span class="n">multi_out</span> <span class="o">=</span> <span class="n">ufunc</span><span class="o">.</span><span class="n">nout</span> <span class="o">&gt;</span> <span class="mi">1</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">masked</span><span class="p">:</span>
-        <span class="n">mask</span> <span class="o">=</span> <span class="n">create_null_mask</span><span class="p">(</span><span class="n">xr_out</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="n">mask</span> <span class="o">=</span> <span class="n">get_mask_from_data</span><span class="p">(</span><span class="n">xr_out</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">multi_out</span><span class="p">:</span>
             <span class="n">xmask</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">(</span><span class="n">mask</span><span class="p">,</span> <span class="n">dims</span><span class="o">=</span><span class="n">xr_out</span><span class="o">.</span><span class="n">dims</span><span class="p">,</span> <span class="n">coords</span><span class="o">=</span><span class="n">xr_out</span><span class="o">.</span><span class="n">coords</span><span class="p">)</span>
             <span class="n">xr_out</span> <span class="o">=</span> <span class="n">xr_out</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_nodata</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
@@ -822,29 +821,268 @@ document.write(`
         <span class="k">return</span> <span class="n">ufunc</span><span class="p">(</span><span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
 
 
-<span class="k">def</span> <span class="nf">_array_to_xarray</span><span class="p">(</span><span class="n">ar</span><span class="p">):</span>
-    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">ar</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">3</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">ar</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid raster shape for numpy array: </span><span class="si">{</span><span class="n">ar</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">ar</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+<div class="viewcode-block" id="xr_where_with_meta"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.xr_where_with_meta">[docs]</a><span class="k">def</span> <span class="nf">xr_where_with_meta</span><span class="p">(</span><span class="n">cond</span><span class="p">,</span> <span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">,</span> <span class="n">crs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">nv</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">cond</span><span class="p">,</span> <span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">crs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_crs</span><span class="p">(</span><span class="n">crs</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">nv</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_nodata</span><span class="p">(</span><span class="n">nv</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">result</span></div>
+
+
+<div class="viewcode-block" id="get_mask_from_data"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.get_mask_from_data">[docs]</a><span class="k">def</span> <span class="nf">get_mask_from_data</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">nv</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">nv</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="p">(</span><span class="nb">list</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)):</span>
+            <span class="n">mod</span> <span class="o">=</span> <span class="n">np</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">da</span><span class="o">.</span><span class="n">Array</span><span class="p">):</span>
+            <span class="n">mod</span> <span class="o">=</span> <span class="n">da</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">):</span>
+            <span class="n">mod</span> <span class="o">=</span> <span class="n">xr</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">()</span>
+        <span class="n">mask</span> <span class="o">=</span> <span class="n">mod</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">mask</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">data</span><span class="p">)</span> <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">nv</span><span class="p">)</span> <span class="k">else</span> <span class="n">data</span> <span class="o">==</span> <span class="n">nv</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">):</span>
+        <span class="n">mask</span> <span class="o">=</span> <span class="n">mask</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_nodata</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">mask</span></div>
+
+
+<div class="viewcode-block" id="normalize_data"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.normalize_data">[docs]</a><span class="k">def</span> <span class="nf">normalize_data</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">yx_chunks</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;2d/3d np.ndarray or da.Array --&gt; 3D da.Array.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">da</span><span class="o">.</span><span class="n">Array</span><span class="p">)):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;data must be a numpy or dask array&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">data</span><span class="o">.</span><span class="n">ndim</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;data must be 2d or 3d&quot;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">data</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="kc">None</span><span class="p">]</span>
+    <span class="n">chunks</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;auto&quot;</span><span class="p">,</span> <span class="s2">&quot;auto&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">yx_chunks</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">chunks</span> <span class="o">=</span> <span class="p">((</span><span class="mi">1</span><span class="p">,)</span> <span class="o">*</span> <span class="n">data</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="o">*</span><span class="n">yx_chunks</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">dask</span><span class="o">.</span><span class="n">is_dask_collection</span><span class="p">(</span><span class="n">data</span><span class="p">):</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">da</span><span class="o">.</span><span class="n">from_array</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">chunks</span><span class="o">=</span><span class="n">chunks</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">data</span><span class="o">.</span><span class="n">chunksize</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="mi">1</span> <span class="ow">or</span> <span class="n">yx_chunks</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">rechunk</span><span class="p">(</span><span class="n">chunks</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">data</span></div>
+
+
+<div class="viewcode-block" id="normalize_xarray_data"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.normalize_xarray_data">[docs]</a><span class="k">def</span> <span class="nf">normalize_xarray_data</span><span class="p">(</span><span class="n">xrs</span><span class="p">):</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">dask</span><span class="o">.</span><span class="n">is_dask_collection</span><span class="p">(</span><span class="n">xrs</span><span class="p">):</span>
+        <span class="n">xrs</span> <span class="o">=</span> <span class="n">xrs</span><span class="o">.</span><span class="n">chunk</span><span class="p">()</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">xrs</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">3</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">xrs</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">&quot;Invalid shape. xarray.DataArray objects must have 2D or 3D &quot;</span>
+            <span class="s2">&quot;shapes.&quot;</span>
+        <span class="p">)</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">xrs</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
         <span class="c1"># Add band dim</span>
-        <span class="n">ar</span> <span class="o">=</span> <span class="n">ar</span><span class="p">[</span><span class="kc">None</span><span class="p">]</span>
+        <span class="n">xrs</span> <span class="o">=</span> <span class="n">xrs</span><span class="o">.</span><span class="n">expand_dims</span><span class="p">({</span><span class="s2">&quot;band&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">]})</span>
+    <span class="n">dims</span> <span class="o">=</span> <span class="n">xrs</span><span class="o">.</span><span class="n">dims</span>
+    <span class="k">if</span> <span class="s2">&quot;lon&quot;</span> <span class="ow">in</span> <span class="n">dims</span><span class="p">:</span>
+        <span class="n">xrs</span> <span class="o">=</span> <span class="n">xrs</span><span class="o">.</span><span class="n">rename</span><span class="p">({</span><span class="s2">&quot;lon&quot;</span><span class="p">:</span> <span class="s2">&quot;x&quot;</span><span class="p">})</span>
+        <span class="n">dims</span> <span class="o">=</span> <span class="n">xrs</span><span class="o">.</span><span class="n">dims</span>
+    <span class="k">if</span> <span class="s2">&quot;lat&quot;</span> <span class="ow">in</span> <span class="n">dims</span><span class="p">:</span>
+        <span class="n">xrs</span> <span class="o">=</span> <span class="n">xrs</span><span class="o">.</span><span class="n">rename</span><span class="p">({</span><span class="s2">&quot;lat&quot;</span><span class="p">:</span> <span class="s2">&quot;y&quot;</span><span class="p">})</span>
+        <span class="n">dims</span> <span class="o">=</span> <span class="n">xrs</span><span class="o">.</span><span class="n">dims</span>
+    <span class="k">if</span> <span class="n">dims</span> <span class="o">!=</span> <span class="p">(</span><span class="s2">&quot;band&quot;</span><span class="p">,</span> <span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="s2">&quot;x&quot;</span><span class="p">):</span>
+        <span class="c1"># No easy way to figure out how best to transpose based on dim names so</span>
+        <span class="c1"># just assume the order is valid and rename.</span>
+        <span class="n">xrs</span> <span class="o">=</span> <span class="n">xrs</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span>
+            <span class="p">{</span>
+                <span class="n">d</span><span class="p">:</span> <span class="n">new_d</span>
+                <span class="k">for</span> <span class="n">d</span><span class="p">,</span> <span class="n">new_d</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">dims</span><span class="p">,</span> <span class="p">(</span><span class="s2">&quot;band&quot;</span><span class="p">,</span> <span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="s2">&quot;x&quot;</span><span class="p">))</span>
+                <span class="k">if</span> <span class="n">d</span> <span class="o">!=</span> <span class="n">new_d</span>
+            <span class="p">}</span>
+        <span class="p">)</span>
+    <span class="k">if</span> <span class="n">xrs</span><span class="o">.</span><span class="n">band</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">xrs</span><span class="p">[</span><span class="s2">&quot;band&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">xrs</span><span class="o">.</span><span class="n">band</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">dim</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">xrs</span><span class="o">.</span><span class="n">coords</span> <span class="k">for</span> <span class="n">dim</span> <span class="ow">in</span> <span class="n">xrs</span><span class="o">.</span><span class="n">dims</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">&quot;Invalid coordinates on xarray.DataArray object:</span><span class="se">\n</span><span class="si">{xrs!r}</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">xrs</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">x_dim</span><span class="p">,</span> <span class="n">xrs</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">y_dim</span><span class="p">)</span> <span class="o">!=</span> <span class="p">(</span><span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="s2">&quot;y&quot;</span><span class="p">):</span>
+        <span class="n">xrs</span> <span class="o">=</span> <span class="n">xrs</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">set_spatial_dims</span><span class="p">(</span><span class="n">x_dim</span><span class="o">=</span><span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="n">y_dim</span><span class="o">=</span><span class="s2">&quot;y&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">xrs</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">chunksize</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">xrs</span> <span class="o">=</span> <span class="n">xrs</span><span class="o">.</span><span class="n">chunk</span><span class="p">({</span><span class="s2">&quot;band&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;y&quot;</span><span class="p">:</span> <span class="s2">&quot;auto&quot;</span><span class="p">,</span> <span class="s2">&quot;x&quot;</span><span class="p">:</span> <span class="s2">&quot;auto&quot;</span><span class="p">})</span>
+    <span class="c1"># Make sure that x is always increasing and y is always decreasing. xarray</span>
+    <span class="c1"># will auto align rasters but when a raster is converted to a numpy or dask</span>
+    <span class="c1"># array, the data may not be aligned. This ensures that rasters converted</span>
+    <span class="c1"># to non-georeferenecd formats will be oriented the same.</span>
+    <span class="k">if</span> <span class="n">is_strictly_decreasing</span><span class="p">(</span><span class="n">xrs</span><span class="o">.</span><span class="n">x</span><span class="p">):</span>
+        <span class="n">xrs</span> <span class="o">=</span> <span class="n">xrs</span><span class="o">.</span><span class="n">isel</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="nb">slice</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">is_strictly_increasing</span><span class="p">(</span><span class="n">xrs</span><span class="o">.</span><span class="n">y</span><span class="p">):</span>
+        <span class="n">xrs</span> <span class="o">=</span> <span class="n">xrs</span><span class="o">.</span><span class="n">isel</span><span class="p">(</span><span class="n">y</span><span class="o">=</span><span class="nb">slice</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+    <span class="c1"># This MUST BE DONE. Need to recompute and write the transform so that</span>
+    <span class="c1"># rechunking to (N,1,1) doesn&#39;t cause the transform to be dropped. This</span>
+    <span class="c1"># only happens for hard to reproduce and test edge-cases far down the</span>
+    <span class="c1"># pipeline.</span>
+    <span class="c1"># TODO: Find test to check for just this. For right now,</span>
+    <span class="c1"># tests/test_raster.py::test_to_points catches it.</span>
+    <span class="n">xrs</span> <span class="o">=</span> <span class="n">xrs</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_transform</span><span class="p">(</span><span class="n">xrs</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="kc">True</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">xrs</span></div>
+
+
+<div class="viewcode-block" id="data_to_xr_raster"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.data_to_xr_raster">[docs]</a><span class="k">def</span> <span class="nf">data_to_xr_raster</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">x</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">affine</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">crs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">nv</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">normalize_data</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">affine</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">x</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">y</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># Add 0.5 offset to move coords to center of cell</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span> <span class="o">+</span> <span class="mf">0.5</span>
+            <span class="n">y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="mf">0.5</span>
+        <span class="k">elif</span> <span class="nb">any</span><span class="p">(</span><span class="n">xi</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">for</span> <span class="n">xi</span> <span class="ow">in</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Must specify both x and y or neither.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;x and y must be numpy arrays&quot;</span><span class="p">)</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="n">y</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">y</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="n">x</span><span class="o">.</span><span class="n">size</span><span class="p">)</span> <span class="o">!=</span> <span class="n">data</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">:]:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;x and y do not match data shape&quot;</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">_build_x_coord</span><span class="p">(</span><span class="n">affine</span><span class="p">,</span> <span class="n">data</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="n">_build_y_coord</span><span class="p">(</span><span class="n">affine</span><span class="p">,</span> <span class="n">data</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+    <span class="c1"># The band dimension needs to start at 1 to match raster conventions</span>
+    <span class="n">band</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">+</span> <span class="mi">1</span>
+    <span class="n">xdata</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">(</span>
+        <span class="n">data</span><span class="p">,</span> <span class="n">dims</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;band&quot;</span><span class="p">,</span> <span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="s2">&quot;x&quot;</span><span class="p">),</span> <span class="n">coords</span><span class="o">=</span><span class="p">(</span><span class="n">band</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+    <span class="p">)</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">set_spatial_dims</span><span class="p">(</span><span class="n">y_dim</span><span class="o">=</span><span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="n">x_dim</span><span class="o">=</span><span class="s2">&quot;x&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">crs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">xdata</span> <span class="o">=</span> <span class="n">xdata</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_crs</span><span class="p">(</span><span class="n">crs</span><span class="p">)</span>
+    <span class="n">xdata</span> <span class="o">=</span> <span class="n">xdata</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_nodata</span><span class="p">(</span><span class="n">nv</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">normalize_xarray_data</span><span class="p">(</span><span class="n">xdata</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="data_to_xr_raster_like"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.data_to_xr_raster_like">[docs]</a><span class="k">def</span> <span class="nf">data_to_xr_raster_like</span><span class="p">(</span>
+    <span class="n">data</span><span class="p">,</span> <span class="n">xlike</span><span class="p">,</span> <span class="n">nv</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">match_band_dim</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">match_chunks</span><span class="o">=</span><span class="kc">True</span>
+<span class="p">):</span>
+    <span class="n">yx_chunks</span> <span class="o">=</span> <span class="n">xlike</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">chunks</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="k">if</span> <span class="n">match_chunks</span> <span class="k">else</span> <span class="kc">None</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">normalize_data</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">yx_chunks</span><span class="o">=</span><span class="n">yx_chunks</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">data</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">:]</span> <span class="o">!=</span> <span class="n">xlike</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">:]:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;data x/y dims did not match xlike&quot;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">data</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">match_band_dim</span><span class="p">:</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">da</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">xlike</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">data_to_xr_raster</span><span class="p">(</span>
+        <span class="n">data</span><span class="p">,</span>
+        <span class="n">x</span><span class="o">=</span><span class="n">xlike</span><span class="o">.</span><span class="n">x</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(),</span>
+        <span class="n">y</span><span class="o">=</span><span class="n">xlike</span><span class="o">.</span><span class="n">y</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(),</span>
+        <span class="n">crs</span><span class="o">=</span><span class="n">xlike</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">crs</span><span class="p">,</span>
+        <span class="n">nv</span><span class="o">=</span><span class="n">nv</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="make_raster_ds"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.make_raster_ds">[docs]</a><span class="k">def</span> <span class="nf">make_raster_ds</span><span class="p">(</span><span class="n">raster_dataarray</span><span class="p">,</span> <span class="n">mask_dataarray</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">xr</span><span class="o">.</span><span class="n">Dataset</span><span class="p">({</span><span class="s2">&quot;raster&quot;</span><span class="p">:</span> <span class="n">raster_dataarray</span><span class="p">,</span> <span class="s2">&quot;mask&quot;</span><span class="p">:</span> <span class="n">mask_dataarray</span><span class="p">})</span></div>
+
+
+<div class="viewcode-block" id="data_to_xr_raster_ds"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.data_to_xr_raster_ds">[docs]</a><span class="k">def</span> <span class="nf">data_to_xr_raster_ds</span><span class="p">(</span>
+    <span class="n">data</span><span class="p">,</span> <span class="n">mask</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">x</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">affine</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">crs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">nv</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">burn</span><span class="o">=</span><span class="kc">False</span>
+<span class="p">):</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">normalize_data</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">mask</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">mask</span> <span class="o">=</span> <span class="n">get_mask_from_data</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">nv</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">mask</span> <span class="o">=</span> <span class="n">normalize_data</span><span class="p">(</span><span class="n">mask</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">data</span><span class="o">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="n">mask</span><span class="o">.</span><span class="n">shape</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;data and mask dimensions do not match&quot;</span><span class="p">)</span>
+        <span class="n">nv</span> <span class="o">=</span> <span class="n">get_default_null_value</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span> <span class="k">if</span> <span class="n">nv</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">nv</span>
+        <span class="k">if</span> <span class="n">burn</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">da</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">mask</span><span class="p">,</span> <span class="n">nv</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
+    <span class="n">xdata</span> <span class="o">=</span> <span class="n">data_to_xr_raster</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">x</span><span class="o">=</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="n">y</span><span class="p">,</span> <span class="n">affine</span><span class="o">=</span><span class="n">affine</span><span class="p">,</span> <span class="n">crs</span><span class="o">=</span><span class="n">crs</span><span class="p">,</span> <span class="n">nv</span><span class="o">=</span><span class="n">nv</span><span class="p">)</span>
+    <span class="n">xmask</span> <span class="o">=</span> <span class="n">data_to_xr_raster</span><span class="p">(</span><span class="n">mask</span><span class="p">,</span> <span class="n">x</span><span class="o">=</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="n">y</span><span class="p">,</span> <span class="n">affine</span><span class="o">=</span><span class="n">affine</span><span class="p">,</span> <span class="n">crs</span><span class="o">=</span><span class="n">crs</span><span class="p">,</span> <span class="n">nv</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">make_raster_ds</span><span class="p">(</span><span class="n">xdata</span><span class="p">,</span> <span class="n">xmask</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="data_to_xr_raster_ds_like"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.data_to_xr_raster_ds_like">[docs]</a><span class="k">def</span> <span class="nf">data_to_xr_raster_ds_like</span><span class="p">(</span>
+    <span class="n">data</span><span class="p">,</span> <span class="n">xlike</span><span class="p">,</span> <span class="n">mask</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">nv</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">burn</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">match_chunks</span><span class="o">=</span><span class="kc">True</span>
+<span class="p">):</span>
+    <span class="n">yx_chunks</span> <span class="o">=</span> <span class="n">xlike</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">chunks</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="k">if</span> <span class="n">match_chunks</span> <span class="k">else</span> <span class="kc">None</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">normalize_data</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">yx_chunks</span><span class="o">=</span><span class="n">yx_chunks</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">data</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">:]</span> <span class="o">!=</span> <span class="n">xlike</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">:]:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;data x/y dims did not match xlike&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">mask</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">nv</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">nv</span> <span class="o">=</span> <span class="n">get_default_null_value</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+        <span class="n">mask</span> <span class="o">=</span> <span class="n">normalize_data</span><span class="p">(</span><span class="n">mask</span><span class="p">,</span> <span class="n">yx_chunks</span><span class="o">=</span><span class="n">yx_chunks</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">mask</span><span class="o">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="n">data</span><span class="o">.</span><span class="n">shape</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;data and mask dimensions do not match&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">data_to_xr_raster_ds</span><span class="p">(</span>
+        <span class="n">data</span><span class="p">,</span>
+        <span class="n">mask</span><span class="o">=</span><span class="n">mask</span><span class="p">,</span>
+        <span class="n">x</span><span class="o">=</span><span class="n">xlike</span><span class="o">.</span><span class="n">x</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(),</span>
+        <span class="n">y</span><span class="o">=</span><span class="n">xlike</span><span class="o">.</span><span class="n">y</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(),</span>
+        <span class="n">crs</span><span class="o">=</span><span class="n">xlike</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">crs</span><span class="p">,</span>
+        <span class="n">nv</span><span class="o">=</span><span class="n">nv</span><span class="p">,</span>
+        <span class="n">burn</span><span class="o">=</span><span class="n">burn</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="data_to_raster"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.data_to_raster">[docs]</a><span class="k">def</span> <span class="nf">data_to_raster</span><span class="p">(</span>
+    <span class="n">data</span><span class="p">,</span> <span class="n">mask</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">x</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">affine</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">crs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">nv</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">burn</span><span class="o">=</span><span class="kc">False</span>
+<span class="p">):</span>
+    <span class="n">ds</span> <span class="o">=</span> <span class="n">data_to_xr_raster_ds</span><span class="p">(</span>
+        <span class="n">data</span><span class="p">,</span>
+        <span class="n">mask</span><span class="o">=</span><span class="n">mask</span><span class="p">,</span>
+        <span class="n">x</span><span class="o">=</span><span class="n">x</span><span class="p">,</span>
+        <span class="n">y</span><span class="o">=</span><span class="n">y</span><span class="p">,</span>
+        <span class="n">affine</span><span class="o">=</span><span class="n">affine</span><span class="p">,</span>
+        <span class="n">crs</span><span class="o">=</span><span class="n">crs</span><span class="p">,</span>
+        <span class="n">nv</span><span class="o">=</span><span class="n">nv</span><span class="p">,</span>
+        <span class="n">burn</span><span class="o">=</span><span class="n">burn</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">Raster</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="n">_fast_path</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="data_to_raster_like"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.data_to_raster_like">[docs]</a><span class="k">def</span> <span class="nf">data_to_raster_like</span><span class="p">(</span>
+    <span class="n">data</span><span class="p">,</span> <span class="n">like</span><span class="p">,</span> <span class="n">mask</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">nv</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">burn</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">match_chunks</span><span class="o">=</span><span class="kc">True</span>
+<span class="p">):</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">like</span><span class="p">,</span> <span class="n">Raster</span><span class="p">):</span>
+        <span class="n">like</span> <span class="o">=</span> <span class="n">like</span><span class="o">.</span><span class="n">xdata</span>
+    <span class="n">ds</span> <span class="o">=</span> <span class="n">data_to_xr_raster_ds_like</span><span class="p">(</span>
+        <span class="n">data</span><span class="p">,</span> <span class="n">like</span><span class="p">,</span> <span class="n">mask</span><span class="o">=</span><span class="n">mask</span><span class="p">,</span> <span class="n">nv</span><span class="o">=</span><span class="n">nv</span><span class="p">,</span> <span class="n">burn</span><span class="o">=</span><span class="n">burn</span><span class="p">,</span> <span class="n">match_chunks</span><span class="o">=</span><span class="n">match_chunks</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">Raster</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="n">_fast_path</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="dataarray_to_xr_raster"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.dataarray_to_xr_raster">[docs]</a><span class="k">def</span> <span class="nf">dataarray_to_xr_raster</span><span class="p">(</span><span class="n">xdata</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">normalize_xarray_data</span><span class="p">(</span><span class="n">xdata</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="dataarray_to_xr_raster_ds"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.dataarray_to_xr_raster_ds">[docs]</a><span class="k">def</span> <span class="nf">dataarray_to_xr_raster_ds</span><span class="p">(</span><span class="n">xdata</span><span class="p">,</span> <span class="n">xmask</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">crs</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="n">xdata</span> <span class="o">=</span> <span class="n">dataarray_to_xr_raster</span><span class="p">(</span><span class="n">xdata</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">xmask</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">xmask</span> <span class="o">=</span> <span class="n">get_mask_from_data</span><span class="p">(</span><span class="n">xdata</span><span class="p">,</span> <span class="n">xdata</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">nodata</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">xmask</span> <span class="o">=</span> <span class="n">dataarray_to_xr_raster</span><span class="p">(</span><span class="n">xmask</span><span class="p">)</span>
+    <span class="n">ds</span> <span class="o">=</span> <span class="n">make_raster_ds</span><span class="p">(</span><span class="n">xdata</span><span class="p">,</span> <span class="n">xmask</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">crs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">ds</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_crs</span><span class="p">(</span><span class="n">crs</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">ds</span></div>
+
+
+<div class="viewcode-block" id="dataarray_to_raster"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.dataarray_to_raster">[docs]</a><span class="k">def</span> <span class="nf">dataarray_to_raster</span><span class="p">(</span><span class="n">xdata</span><span class="p">,</span> <span class="n">xmask</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">crs</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">Raster</span><span class="p">(</span>
+        <span class="n">dataarray_to_xr_raster_ds</span><span class="p">(</span><span class="n">xdata</span><span class="p">,</span> <span class="n">xmask</span><span class="o">=</span><span class="n">xmask</span><span class="p">,</span> <span class="n">crs</span><span class="o">=</span><span class="n">crs</span><span class="p">),</span> <span class="n">_fast_path</span><span class="o">=</span><span class="kc">True</span>
+    <span class="p">)</span></div>
+
+
+<span class="k">def</span> <span class="nf">_array_input_to_raster_ds</span><span class="p">(</span><span class="n">ar</span><span class="p">):</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">ar</span><span class="p">,</span> <span class="n">da</span><span class="o">.</span><span class="n">Array</span><span class="p">):</span>
         <span class="n">has_nan</span> <span class="o">=</span> <span class="n">is_float</span><span class="p">(</span><span class="n">ar</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span> <span class="ow">and</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">ar</span><span class="p">)</span><span class="o">.</span><span class="n">any</span><span class="p">()</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="n">has_nan</span> <span class="o">=</span> <span class="n">is_float</span><span class="p">(</span><span class="n">ar</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
-    <span class="c1"># The band dimension needs to start at 1 to match raster conventions</span>
-    <span class="n">coords</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">ar</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)]</span>
-    <span class="c1"># Add 0.5 offset to move coords to center of cell</span>
-    <span class="c1"># y</span>
-    <span class="n">coords</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">ar</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="mf">0.5</span><span class="p">)</span>
-    <span class="n">coords</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">ar</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span> <span class="o">+</span> <span class="mf">0.5</span><span class="p">)</span>
-    <span class="n">xrs</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">(</span><span class="n">ar</span><span class="p">,</span> <span class="n">dims</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;band&quot;</span><span class="p">,</span> <span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="s2">&quot;x&quot;</span><span class="p">],</span> <span class="n">coords</span><span class="o">=</span><span class="n">coords</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">has_nan</span><span class="p">:</span>
-        <span class="n">xrs</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;_FillValue&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="c1"># No way to know null value</span>
-        <span class="n">xrs</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;_FillValue&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="k">return</span> <span class="n">xrs</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">normalize_data</span><span class="p">(</span><span class="n">ar</span><span class="p">)</span>
+    <span class="n">nv</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span> <span class="k">if</span> <span class="n">has_nan</span> <span class="k">else</span> <span class="kc">None</span>
+    <span class="n">ds</span> <span class="o">=</span> <span class="n">data_to_xr_raster_ds</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">nv</span><span class="o">=</span><span class="n">nv</span><span class="p">)</span>
+
+    <span class="c1"># Maintain compatibility</span>
+    <span class="n">orig_nv</span> <span class="o">=</span> <span class="n">nv</span>
+    <span class="n">nv</span> <span class="o">=</span> <span class="n">reconcile_nullvalue_with_dtype</span><span class="p">(</span><span class="n">nv</span><span class="p">,</span> <span class="n">data</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">nv</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">orig_nv</span><span class="p">)</span> <span class="ow">or</span> <span class="n">orig_nv</span> <span class="o">!=</span> <span class="n">nv</span><span class="p">):</span>
+        <span class="n">ds</span><span class="p">[</span><span class="s2">&quot;raster&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">xr_where_with_meta</span><span class="p">(</span>
+            <span class="n">ds</span><span class="o">.</span><span class="n">mask</span><span class="p">,</span> <span class="n">nv</span><span class="p">,</span> <span class="n">ds</span><span class="o">.</span><span class="n">raster</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_nodata</span><span class="p">(</span><span class="n">nv</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">ds</span>
 
 
 <span class="k">def</span> <span class="nf">_try_to_get_null_value_xarray</span><span class="p">(</span><span class="n">xrs</span><span class="p">):</span>
@@ -877,86 +1115,70 @@ document.write(`
     <span class="k">return</span> <span class="n">nv1</span> <span class="k">if</span> <span class="n">nv1</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">nv2</span>
 
 
-<span class="k">def</span> <span class="nf">_dataarry_to_raster_ds</span><span class="p">(</span><span class="n">xin</span><span class="p">):</span>
-    <span class="n">nv</span> <span class="o">=</span> <span class="n">_try_to_get_null_value_xarray</span><span class="p">(</span><span class="n">xin</span><span class="p">)</span>
-    <span class="n">xin</span> <span class="o">=</span> <span class="n">normalize_xarray_data</span><span class="p">(</span><span class="n">xin</span><span class="p">)</span>
-    <span class="k">if</span> <span class="ow">not</span> <span class="n">dask</span><span class="o">.</span><span class="n">is_dask_collection</span><span class="p">(</span><span class="n">xin</span><span class="p">)</span> <span class="ow">or</span> <span class="n">xin</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">chunksize</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
-        <span class="n">xin</span> <span class="o">=</span> <span class="n">chunk</span><span class="p">(</span><span class="n">xin</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">_dataarray_input_to_raster_ds</span><span class="p">(</span><span class="n">xdata</span><span class="p">):</span>
+    <span class="n">nv</span> <span class="o">=</span> <span class="n">_try_to_get_null_value_xarray</span><span class="p">(</span><span class="n">xdata</span><span class="p">)</span>
+    <span class="n">xdata</span> <span class="o">=</span> <span class="n">normalize_xarray_data</span><span class="p">(</span><span class="n">xdata</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">dask</span><span class="o">.</span><span class="n">is_dask_collection</span><span class="p">(</span><span class="n">xdata</span><span class="p">)</span> <span class="ow">or</span> <span class="n">xdata</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">chunksize</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">xdata</span> <span class="o">=</span> <span class="n">chunk</span><span class="p">(</span><span class="n">xdata</span><span class="p">)</span>
 
-    <span class="k">if</span> <span class="n">nv</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">mask</span> <span class="o">=</span> <span class="n">create_null_mask</span><span class="p">(</span><span class="n">xin</span><span class="p">,</span> <span class="n">nv</span><span class="p">)</span>
-        <span class="n">mask</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">(</span>
-            <span class="n">create_null_mask</span><span class="p">(</span><span class="n">xin</span><span class="p">,</span> <span class="n">nv</span><span class="p">),</span> <span class="n">dims</span><span class="o">=</span><span class="n">xin</span><span class="o">.</span><span class="n">dims</span><span class="p">,</span> <span class="n">coords</span><span class="o">=</span><span class="n">xin</span><span class="o">.</span><span class="n">coords</span>
-        <span class="p">)</span>
-        <span class="k">if</span> <span class="n">xin</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">crs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">mask</span> <span class="o">=</span> <span class="n">mask</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_crs</span><span class="p">(</span><span class="n">xin</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">crs</span><span class="p">)</span>
-    <span class="k">elif</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">nv</span><span class="p">):</span>
-        <span class="n">mask</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">xin</span><span class="p">)</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="n">mask</span> <span class="o">=</span> <span class="n">xin</span> <span class="o">==</span> <span class="n">nv</span>
-
+    <span class="n">xmask</span> <span class="o">=</span> <span class="n">get_mask_from_data</span><span class="p">(</span><span class="n">xdata</span><span class="p">,</span> <span class="n">nv</span><span class="p">)</span>
     <span class="n">orig_nv</span> <span class="o">=</span> <span class="n">nv</span>
-    <span class="n">nv</span> <span class="o">=</span> <span class="n">reconcile_nullvalue_with_dtype</span><span class="p">(</span><span class="n">nv</span><span class="p">,</span> <span class="n">xin</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
-    <span class="n">crs</span> <span class="o">=</span> <span class="n">xin</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">crs</span>
+    <span class="n">nv</span> <span class="o">=</span> <span class="n">reconcile_nullvalue_with_dtype</span><span class="p">(</span><span class="n">nv</span><span class="p">,</span> <span class="n">xdata</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+    <span class="n">crs</span> <span class="o">=</span> <span class="n">xdata</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">crs</span>
     <span class="k">if</span> <span class="n">nv</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">orig_nv</span><span class="p">)</span> <span class="ow">or</span> <span class="n">orig_nv</span> <span class="o">!=</span> <span class="n">nv</span><span class="p">):</span>
-        <span class="n">xin</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">mask</span><span class="p">,</span> <span class="n">nv</span><span class="p">,</span> <span class="n">xin</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">crs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">xin</span> <span class="o">=</span> <span class="n">xin</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_crs</span><span class="p">(</span><span class="n">crs</span><span class="p">)</span>
-    <span class="n">xin</span> <span class="o">=</span> <span class="n">xin</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_nodata</span><span class="p">(</span><span class="n">nv</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">make_raster_ds</span><span class="p">(</span><span class="n">xin</span><span class="p">,</span> <span class="n">mask</span><span class="p">)</span>
+        <span class="n">xdata</span> <span class="o">=</span> <span class="n">xr_where_with_meta</span><span class="p">(</span><span class="n">xmask</span><span class="p">,</span> <span class="n">nv</span><span class="p">,</span> <span class="n">xdata</span><span class="p">,</span> <span class="n">crs</span><span class="o">=</span><span class="n">crs</span><span class="p">)</span>
+    <span class="n">xdata</span> <span class="o">=</span> <span class="n">xdata</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_nodata</span><span class="p">(</span><span class="n">nv</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">dataarray_to_xr_raster_ds</span><span class="p">(</span><span class="n">xdata</span><span class="p">,</span> <span class="n">xmask</span><span class="o">=</span><span class="n">xmask</span><span class="p">,</span> <span class="n">crs</span><span class="o">=</span><span class="n">crs</span><span class="p">)</span>
 
 
-<span class="k">def</span> <span class="nf">_dataset_to_raster_ds</span><span class="p">(</span><span class="n">xin</span><span class="p">):</span>
+<span class="k">def</span> <span class="nf">_dataset_to_raster_ds</span><span class="p">(</span><span class="n">ds_in</span><span class="p">):</span>
     <span class="k">if</span> <span class="p">(</span>
-        <span class="n">dask</span><span class="o">.</span><span class="n">is_dask_collection</span><span class="p">(</span><span class="n">xin</span><span class="p">)</span>
-        <span class="ow">and</span> <span class="nb">set</span><span class="p">(</span><span class="n">xin</span><span class="o">.</span><span class="n">data_vars</span><span class="p">)</span> <span class="o">==</span> <span class="p">{</span><span class="s2">&quot;raster&quot;</span><span class="p">,</span> <span class="s2">&quot;mask&quot;</span><span class="p">}</span>
-        <span class="ow">and</span> <span class="n">dask</span><span class="o">.</span><span class="n">is_dask_collection</span><span class="p">(</span><span class="n">xin</span><span class="o">.</span><span class="n">raster</span><span class="p">)</span>
-        <span class="ow">and</span> <span class="n">dask</span><span class="o">.</span><span class="n">is_dask_collection</span><span class="p">(</span><span class="n">xin</span><span class="o">.</span><span class="n">mask</span><span class="p">)</span>
-        <span class="ow">and</span> <span class="n">is_bool</span><span class="p">(</span><span class="n">xin</span><span class="o">.</span><span class="n">mask</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
-        <span class="ow">and</span> <span class="n">xin</span><span class="o">.</span><span class="n">raster</span><span class="o">.</span><span class="n">dims</span> <span class="o">==</span> <span class="p">(</span><span class="s2">&quot;band&quot;</span><span class="p">,</span> <span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="s2">&quot;x&quot;</span><span class="p">)</span>
-        <span class="ow">and</span> <span class="n">xin</span><span class="o">.</span><span class="n">mask</span><span class="o">.</span><span class="n">dims</span> <span class="o">==</span> <span class="p">(</span><span class="s2">&quot;band&quot;</span><span class="p">,</span> <span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="s2">&quot;x&quot;</span><span class="p">)</span>
-        <span class="ow">and</span> <span class="n">xin</span><span class="o">.</span><span class="n">raster</span><span class="o">.</span><span class="n">chunks</span> <span class="o">==</span> <span class="n">xin</span><span class="o">.</span><span class="n">mask</span><span class="o">.</span><span class="n">chunks</span>
-        <span class="ow">and</span> <span class="n">xin</span><span class="o">.</span><span class="n">raster</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">crs</span> <span class="o">==</span> <span class="n">xin</span><span class="o">.</span><span class="n">mask</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">crs</span>
+        <span class="n">dask</span><span class="o">.</span><span class="n">is_dask_collection</span><span class="p">(</span><span class="n">ds_in</span><span class="p">)</span>
+        <span class="ow">and</span> <span class="nb">set</span><span class="p">(</span><span class="n">ds_in</span><span class="o">.</span><span class="n">data_vars</span><span class="p">)</span> <span class="o">==</span> <span class="p">{</span><span class="s2">&quot;raster&quot;</span><span class="p">,</span> <span class="s2">&quot;mask&quot;</span><span class="p">}</span>
+        <span class="ow">and</span> <span class="n">dask</span><span class="o">.</span><span class="n">is_dask_collection</span><span class="p">(</span><span class="n">ds_in</span><span class="o">.</span><span class="n">raster</span><span class="p">)</span>
+        <span class="ow">and</span> <span class="n">dask</span><span class="o">.</span><span class="n">is_dask_collection</span><span class="p">(</span><span class="n">ds_in</span><span class="o">.</span><span class="n">mask</span><span class="p">)</span>
+        <span class="ow">and</span> <span class="n">is_bool</span><span class="p">(</span><span class="n">ds_in</span><span class="o">.</span><span class="n">mask</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+        <span class="ow">and</span> <span class="n">ds_in</span><span class="o">.</span><span class="n">raster</span><span class="o">.</span><span class="n">dims</span> <span class="o">==</span> <span class="p">(</span><span class="s2">&quot;band&quot;</span><span class="p">,</span> <span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="s2">&quot;x&quot;</span><span class="p">)</span>
+        <span class="ow">and</span> <span class="n">ds_in</span><span class="o">.</span><span class="n">mask</span><span class="o">.</span><span class="n">dims</span> <span class="o">==</span> <span class="p">(</span><span class="s2">&quot;band&quot;</span><span class="p">,</span> <span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="s2">&quot;x&quot;</span><span class="p">)</span>
+        <span class="ow">and</span> <span class="n">ds_in</span><span class="o">.</span><span class="n">raster</span><span class="o">.</span><span class="n">chunks</span> <span class="o">==</span> <span class="n">ds_in</span><span class="o">.</span><span class="n">mask</span><span class="o">.</span><span class="n">chunks</span>
+        <span class="ow">and</span> <span class="n">ds_in</span><span class="o">.</span><span class="n">raster</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">crs</span> <span class="o">==</span> <span class="n">ds_in</span><span class="o">.</span><span class="n">mask</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">crs</span>
     <span class="p">):</span>
-        <span class="k">return</span> <span class="n">xin</span>
+        <span class="k">return</span> <span class="n">ds_in</span>
 
-    <span class="n">nvars</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">xin</span><span class="o">.</span><span class="n">data_vars</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">nvars</span> <span class="o">&lt;</span> <span class="mi">2</span> <span class="ow">or</span> <span class="n">nvars</span> <span class="o">&gt;</span> <span class="mi">2</span> <span class="ow">or</span> <span class="nb">set</span><span class="p">(</span><span class="n">xin</span><span class="o">.</span><span class="n">data_vars</span><span class="p">)</span> <span class="o">!=</span> <span class="p">{</span><span class="s2">&quot;raster&quot;</span><span class="p">,</span> <span class="s2">&quot;mask&quot;</span><span class="p">}:</span>
+    <span class="n">nvars</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">ds_in</span><span class="o">.</span><span class="n">data_vars</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">nvars</span> <span class="o">&lt;</span> <span class="mi">2</span> <span class="ow">or</span> <span class="n">nvars</span> <span class="o">&gt;</span> <span class="mi">2</span> <span class="ow">or</span> <span class="nb">set</span><span class="p">(</span><span class="n">ds_in</span><span class="o">.</span><span class="n">data_vars</span><span class="p">)</span> <span class="o">!=</span> <span class="p">{</span><span class="s2">&quot;raster&quot;</span><span class="p">,</span> <span class="s2">&quot;mask&quot;</span><span class="p">}:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
             <span class="s2">&quot;Dataset input must have only &#39;raster&#39; and &#39;mask&#39; variables&quot;</span>
         <span class="p">)</span>
 
-    <span class="n">raster</span> <span class="o">=</span> <span class="n">xin</span><span class="o">.</span><span class="n">raster</span>
-    <span class="n">mask</span> <span class="o">=</span> <span class="n">xin</span><span class="o">.</span><span class="n">mask</span>
-    <span class="k">if</span> <span class="ow">not</span> <span class="n">is_bool</span><span class="p">(</span><span class="n">mask</span><span class="o">.</span><span class="n">dtype</span><span class="p">):</span>
+    <span class="n">xdata</span> <span class="o">=</span> <span class="n">ds_in</span><span class="o">.</span><span class="n">raster</span>
+    <span class="n">xmask</span> <span class="o">=</span> <span class="n">ds_in</span><span class="o">.</span><span class="n">mask</span>
+    <span class="n">crs</span> <span class="o">=</span> <span class="n">ds_in</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">crs</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">is_bool</span><span class="p">(</span><span class="n">xmask</span><span class="o">.</span><span class="n">dtype</span><span class="p">):</span>
         <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;mask must have boolean dtype&quot;</span><span class="p">)</span>
 
-    <span class="n">raster</span> <span class="o">=</span> <span class="n">normalize_xarray_data</span><span class="p">(</span><span class="n">raster</span><span class="p">)</span>
-    <span class="k">if</span> <span class="ow">not</span> <span class="n">dask</span><span class="o">.</span><span class="n">is_dask_collection</span><span class="p">(</span><span class="n">raster</span><span class="p">):</span>
-        <span class="n">raster</span> <span class="o">=</span> <span class="n">chunk</span><span class="p">(</span><span class="n">raster</span><span class="p">)</span>
-    <span class="n">mask</span> <span class="o">=</span> <span class="n">normalize_xarray_data</span><span class="p">(</span><span class="n">mask</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">mask</span><span class="o">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="n">raster</span><span class="o">.</span><span class="n">shape</span><span class="p">:</span>
+    <span class="n">xdata</span> <span class="o">=</span> <span class="n">normalize_xarray_data</span><span class="p">(</span><span class="n">xdata</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">dask</span><span class="o">.</span><span class="n">is_dask_collection</span><span class="p">(</span><span class="n">xdata</span><span class="p">):</span>
+        <span class="n">xdata</span> <span class="o">=</span> <span class="n">chunk</span><span class="p">(</span><span class="n">xdata</span><span class="p">)</span>
+    <span class="n">xmask</span> <span class="o">=</span> <span class="n">normalize_xarray_data</span><span class="p">(</span><span class="n">xmask</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">xmask</span><span class="o">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="n">xdata</span><span class="o">.</span><span class="n">shape</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;raster and mask dimensions do not match&quot;</span><span class="p">)</span>
-    <span class="k">if</span> <span class="ow">not</span> <span class="n">dask</span><span class="o">.</span><span class="n">is_dask_collection</span><span class="p">(</span><span class="n">mask</span><span class="p">):</span>
-        <span class="n">mask</span> <span class="o">=</span> <span class="n">mask</span><span class="o">.</span><span class="n">chunk</span><span class="p">(</span><span class="n">chunks</span><span class="o">=</span><span class="n">to_chunk_dict</span><span class="p">(</span><span class="n">raster</span><span class="o">.</span><span class="n">chunks</span><span class="p">))</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">dask</span><span class="o">.</span><span class="n">is_dask_collection</span><span class="p">(</span><span class="n">xmask</span><span class="p">):</span>
+        <span class="n">xmask</span> <span class="o">=</span> <span class="n">xmask</span><span class="o">.</span><span class="n">chunk</span><span class="p">(</span><span class="n">chunks</span><span class="o">=</span><span class="n">to_chunk_dict</span><span class="p">(</span><span class="n">xdata</span><span class="o">.</span><span class="n">chunks</span><span class="p">))</span>
 
-    <span class="n">nv</span> <span class="o">=</span> <span class="n">_try_to_get_null_value_xarray</span><span class="p">(</span><span class="n">raster</span><span class="p">)</span>
+    <span class="n">nv</span> <span class="o">=</span> <span class="n">_try_to_get_null_value_xarray</span><span class="p">(</span><span class="n">xdata</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">nv</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">nv</span> <span class="o">=</span> <span class="n">get_default_null_value</span><span class="p">(</span><span class="n">raster</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+        <span class="n">nv</span> <span class="o">=</span> <span class="n">get_default_null_value</span><span class="p">(</span><span class="n">xdata</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="n">nv</span> <span class="o">=</span> <span class="n">reconcile_nullvalue_with_dtype</span><span class="p">(</span><span class="n">nv</span><span class="p">,</span> <span class="n">raster</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+        <span class="n">nv</span> <span class="o">=</span> <span class="n">reconcile_nullvalue_with_dtype</span><span class="p">(</span><span class="n">nv</span><span class="p">,</span> <span class="n">xdata</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">nv</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">raster</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">mask</span><span class="p">,</span> <span class="n">nv</span><span class="p">,</span> <span class="n">raster</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
-    <span class="n">raster</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_nodata</span><span class="p">(</span><span class="n">nv</span><span class="p">)</span>
-    <span class="n">crs</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">crs</span>
-    <span class="k">if</span> <span class="n">crs</span> <span class="o">!=</span> <span class="n">mask</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">crs</span><span class="p">:</span>
-        <span class="n">mask</span> <span class="o">=</span> <span class="n">mask</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_crs</span><span class="p">(</span><span class="n">crs</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">make_raster_ds</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">mask</span><span class="p">)</span>
+        <span class="n">xdata</span> <span class="o">=</span> <span class="n">xr_where_with_meta</span><span class="p">(</span><span class="n">xmask</span><span class="p">,</span> <span class="n">nv</span><span class="p">,</span> <span class="n">xdata</span><span class="p">,</span> <span class="n">nv</span><span class="o">=</span><span class="n">nv</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">dataarray_to_xr_raster_ds</span><span class="p">(</span><span class="n">xdata</span><span class="p">,</span> <span class="n">xmask</span><span class="p">,</span> <span class="n">crs</span><span class="o">=</span><span class="n">crs</span><span class="p">)</span>
 
 
-<span class="k">def</span> <span class="nf">_xarray_to_raster_ds</span><span class="p">(</span><span class="n">xin</span><span class="p">):</span>
+<span class="k">def</span> <span class="nf">_xarray_input_to_raster_ds</span><span class="p">(</span><span class="n">xin</span><span class="p">):</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">xin</span><span class="p">,</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">):</span>
-        <span class="k">return</span> <span class="n">_dataarry_to_raster_ds</span><span class="p">(</span><span class="n">xin</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">_dataarray_input_to_raster_ds</span><span class="p">(</span><span class="n">xin</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">_dataset_to_raster_ds</span><span class="p">(</span><span class="n">xin</span><span class="p">)</span>
 
 
@@ -965,9 +1187,9 @@ document.write(`
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">Raster</span><span class="p">):</span>
         <span class="n">ds</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">_ds</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">deep</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
     <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="p">(</span><span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">,</span> <span class="n">xr</span><span class="o">.</span><span class="n">Dataset</span><span class="p">)):</span>
-        <span class="n">ds</span> <span class="o">=</span> <span class="n">_xarray_to_raster_ds</span><span class="p">(</span><span class="n">raster</span><span class="o">.</span><span class="n">copy</span><span class="p">())</span>
+        <span class="n">ds</span> <span class="o">=</span> <span class="n">_xarray_input_to_raster_ds</span><span class="p">(</span><span class="n">raster</span><span class="o">.</span><span class="n">copy</span><span class="p">())</span>
     <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">da</span><span class="o">.</span><span class="n">Array</span><span class="p">)):</span>
-        <span class="n">ds</span> <span class="o">=</span> <span class="n">_xarray_to_raster_ds</span><span class="p">(</span><span class="n">_array_to_xarray</span><span class="p">(</span><span class="n">raster</span><span class="o">.</span><span class="n">copy</span><span class="p">()))</span>
+        <span class="n">ds</span> <span class="o">=</span> <span class="n">_array_input_to_raster_ds</span><span class="p">(</span><span class="n">raster</span><span class="o">.</span><span class="n">copy</span><span class="p">())</span>
     <span class="k">elif</span> <span class="nb">type</span><span class="p">(</span><span class="n">raster</span><span class="p">)</span> <span class="ow">in</span> <span class="n">IO_UNDERSTOOD_TYPES</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">is_batch_file</span><span class="p">(</span><span class="n">raster</span><span class="p">):</span>
             <span class="c1"># Import here to avoid circular import errors</span>
@@ -975,10 +1197,8 @@ document.write(`
 
             <span class="n">ds</span> <span class="o">=</span> <span class="n">parse_batch_script</span><span class="p">(</span><span class="n">raster</span><span class="p">)</span><span class="o">.</span><span class="n">final_raster</span><span class="o">.</span><span class="n">_ds</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">rs</span><span class="p">,</span> <span class="n">mask</span><span class="p">,</span> <span class="n">nv</span> <span class="o">=</span> <span class="n">open_raster_from_path_or_url</span><span class="p">(</span><span class="n">raster</span><span class="p">)</span>
-            <span class="n">xmask</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">(</span><span class="n">mask</span><span class="p">,</span> <span class="n">dims</span><span class="o">=</span><span class="n">rs</span><span class="o">.</span><span class="n">dims</span><span class="p">,</span> <span class="n">coords</span><span class="o">=</span><span class="n">rs</span><span class="o">.</span><span class="n">coords</span><span class="p">)</span>
-            <span class="n">ds</span> <span class="o">=</span> <span class="n">make_raster_ds</span><span class="p">(</span><span class="n">rs</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_nodata</span><span class="p">(</span><span class="n">nv</span><span class="p">),</span> <span class="n">xmask</span><span class="p">)</span>
-            <span class="n">ds</span> <span class="o">=</span> <span class="n">_xarray_to_raster_ds</span><span class="p">(</span><span class="n">ds</span><span class="p">)</span>
+            <span class="n">xdata</span> <span class="o">=</span> <span class="n">open_raster_from_path_or_url</span><span class="p">(</span><span class="n">raster</span><span class="p">)</span>
+            <span class="n">ds</span> <span class="o">=</span> <span class="n">dataarray_to_xr_raster_ds</span><span class="p">(</span><span class="n">xdata</span><span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Could not resolve input to a raster: </span><span class="si">{</span><span class="n">raster</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">ds</span></div>
@@ -1545,7 +1765,7 @@ document.write(`
 
         <span class="c1"># Update mask</span>
         <span class="n">mask</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ds</span><span class="o">.</span><span class="n">mask</span>
-        <span class="n">temp_mask</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">xrs</span><span class="p">)</span> <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="k">else</span> <span class="n">xrs</span> <span class="o">==</span> <span class="n">value</span>
+        <span class="n">temp_mask</span> <span class="o">=</span> <span class="n">get_mask_from_data</span><span class="p">(</span><span class="n">xrs</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
         <span class="n">mask</span> <span class="o">=</span> <span class="n">mask</span> <span class="o">|</span> <span class="n">temp_mask</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_masked</span> <span class="k">else</span> <span class="n">temp_mask</span>
         <span class="n">xrs</span> <span class="o">=</span> <span class="n">xrs</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_nodata</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">Raster</span><span class="p">(</span><span class="n">make_raster_ds</span><span class="p">(</span><span class="n">xrs</span><span class="p">,</span> <span class="n">mask</span><span class="p">),</span> <span class="n">_fast_path</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">burn_mask</span><span class="p">()</span></div>
@@ -2473,8 +2693,8 @@ document.write(`
     <span class="p">)</span>
 
 
-<span class="k">def</span> <span class="nf">_build_x_coord</span><span class="p">(</span><span class="n">affine</span><span class="p">,</span> <span class="n">shape</span><span class="p">):</span>
-    <span class="n">nx</span> <span class="o">=</span> <span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+<span class="k">def</span> <span class="nf">_build_x_coord</span><span class="p">(</span><span class="n">affine</span><span class="p">,</span> <span class="n">shape_3d</span><span class="p">):</span>
+    <span class="n">nx</span> <span class="o">=</span> <span class="n">shape_3d</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
     <span class="c1"># Cell size for x dim</span>
     <span class="n">a</span> <span class="o">=</span> <span class="n">affine</span><span class="o">.</span><span class="n">a</span>
     <span class="n">tmatrix</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">affine</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>
@@ -2484,8 +2704,8 @@ document.write(`
     <span class="k">return</span> <span class="n">xc</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
 
 
-<span class="k">def</span> <span class="nf">_build_y_coord</span><span class="p">(</span><span class="n">affine</span><span class="p">,</span> <span class="n">shape</span><span class="p">):</span>
-    <span class="n">ny</span> <span class="o">=</span> <span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+<span class="k">def</span> <span class="nf">_build_y_coord</span><span class="p">(</span><span class="n">affine</span><span class="p">,</span> <span class="n">shape_3d</span><span class="p">):</span>
+    <span class="n">ny</span> <span class="o">=</span> <span class="n">shape_3d</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
     <span class="c1"># Cell size for y dim (should be &lt; 0)</span>
     <span class="n">e</span> <span class="o">=</span> <span class="n">affine</span><span class="o">.</span><span class="n">e</span>
     <span class="n">tmatrix</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">affine</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>

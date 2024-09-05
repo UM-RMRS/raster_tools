@@ -411,16 +411,16 @@ document.write(`
 <span class="sd">ref: https://pro.arcgis.com/en/pro-app/latest/tool-reference/spatial-analyst/an-overview-of-the-surface-tools.htm</span>
 <span class="sd">ref: https://github.com/makepath/xarray-spatial</span>
 <span class="sd">&quot;&quot;&quot;</span>  <span class="c1"># noqa: E501</span>
+
 <span class="kn">import</span> <span class="nn">dask.array</span> <span class="k">as</span> <span class="nn">da</span>
 <span class="kn">import</span> <span class="nn">numba</span> <span class="k">as</span> <span class="nn">nb</span>
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="kn">import</span> <span class="nn">xarray</span> <span class="k">as</span> <span class="nn">xr</span>
 
 <span class="kn">from</span> <span class="nn">raster_tools</span> <span class="kn">import</span> <span class="n">focal</span>
 <span class="kn">from</span> <span class="nn">raster_tools.dtypes</span> <span class="kn">import</span> <span class="n">F32</span><span class="p">,</span> <span class="n">F64</span><span class="p">,</span> <span class="n">I32</span><span class="p">,</span> <span class="n">U8</span><span class="p">,</span> <span class="n">is_int</span>
 <span class="kn">from</span> <span class="nn">raster_tools.masking</span> <span class="kn">import</span> <span class="n">get_default_null_value</span>
-<span class="kn">from</span> <span class="nn">raster_tools.raster</span> <span class="kn">import</span> <span class="n">Raster</span><span class="p">,</span> <span class="n">get_raster</span>
-<span class="kn">from</span> <span class="nn">raster_tools.utils</span> <span class="kn">import</span> <span class="n">make_raster_ds</span><span class="p">,</span> <span class="n">single_band_mappable</span>
+<span class="kn">from</span> <span class="nn">raster_tools.raster</span> <span class="kn">import</span> <span class="n">Raster</span><span class="p">,</span> <span class="n">data_to_xr_raster_ds_like</span><span class="p">,</span> <span class="n">get_raster</span>
+<span class="kn">from</span> <span class="nn">raster_tools.utils</span> <span class="kn">import</span> <span class="n">single_band_mappable</span>
 
 <span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
     <span class="s2">&quot;aspect&quot;</span><span class="p">,</span>
@@ -437,22 +437,17 @@ document.write(`
 <span class="n">DEGREES_TO_RADIANS</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">/</span> <span class="mi">180</span>
 
 
-<span class="k">def</span> <span class="nf">_finalize_rs</span><span class="p">(</span><span class="n">rs</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
+<span class="k">def</span> <span class="nf">_finalize</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">like</span><span class="p">):</span>
     <span class="c1"># Invalidate edges</span>
-    <span class="n">mask</span> <span class="o">=</span> <span class="n">rs</span><span class="o">.</span><span class="n">mask</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="n">mask</span> <span class="o">=</span> <span class="n">like</span><span class="o">.</span><span class="n">mask</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
     <span class="n">mask</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="kc">True</span>
     <span class="n">mask</span><span class="p">[:,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="kc">True</span>
     <span class="n">mask</span><span class="p">[:,</span> <span class="p">:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
     <span class="n">mask</span><span class="p">[:,</span> <span class="p">:,</span> <span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
-    <span class="n">coords</span> <span class="o">=</span> <span class="n">rs</span><span class="o">.</span><span class="n">xdata</span><span class="o">.</span><span class="n">coords</span>
-    <span class="n">dims</span> <span class="o">=</span> <span class="n">rs</span><span class="o">.</span><span class="n">xdata</span><span class="o">.</span><span class="n">dims</span>
-    <span class="n">xdata</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">coords</span><span class="o">=</span><span class="n">coords</span><span class="p">,</span> <span class="n">dims</span><span class="o">=</span><span class="n">dims</span><span class="p">)</span>
-    <span class="n">xmask</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">(</span><span class="n">mask</span><span class="p">,</span> <span class="n">coords</span><span class="o">=</span><span class="n">coords</span><span class="p">,</span> <span class="n">dims</span><span class="o">=</span><span class="n">dims</span><span class="p">)</span>
     <span class="n">nv</span> <span class="o">=</span> <span class="n">get_default_null_value</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
-    <span class="n">xdata</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">xmask</span><span class="p">,</span> <span class="n">nv</span><span class="p">,</span> <span class="n">xdata</span><span class="p">)</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_nodata</span><span class="p">(</span><span class="n">nv</span><span class="p">)</span>
-    <span class="n">ds</span> <span class="o">=</span> <span class="n">make_raster_ds</span><span class="p">(</span><span class="n">xdata</span><span class="p">,</span> <span class="n">xmask</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">rs</span><span class="o">.</span><span class="n">crs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">ds</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_crs</span><span class="p">(</span><span class="n">rs</span><span class="o">.</span><span class="n">crs</span><span class="p">)</span>
+    <span class="n">ds</span> <span class="o">=</span> <span class="n">data_to_xr_raster_ds_like</span><span class="p">(</span>
+        <span class="n">data</span><span class="p">,</span> <span class="n">like</span><span class="o">.</span><span class="n">xdata</span><span class="p">,</span> <span class="n">mask</span><span class="o">=</span><span class="n">mask</span><span class="p">,</span> <span class="n">nv</span><span class="o">=</span><span class="n">nv</span><span class="p">,</span> <span class="n">burn</span><span class="o">=</span><span class="kc">True</span>
+    <span class="p">)</span>
     <span class="k">return</span> <span class="n">Raster</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="n">_fast_path</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
 
@@ -534,18 +529,18 @@ document.write(`
 <span class="sd">    * `Jense, 2004 &lt;https://www.fs.usda.gov/treesearch/pubs/20437&gt;`_</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">rs</span> <span class="o">=</span> <span class="n">get_raster</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">null_to_nan</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">rs</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="s2">&quot;float16&quot;</span><span class="p">):</span>
-        <span class="n">rs</span> <span class="o">=</span> <span class="n">rs</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">F32</span><span class="p">)</span>
-    <span class="n">out_data</span> <span class="o">=</span> <span class="n">rs</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">map_overlap</span><span class="p">(</span>
+    <span class="n">raster</span> <span class="o">=</span> <span class="n">get_raster</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">null_to_nan</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">raster</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="s2">&quot;float16&quot;</span><span class="p">):</span>
+        <span class="n">raster</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">F32</span><span class="p">)</span>
+    <span class="n">out_data</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">map_overlap</span><span class="p">(</span>
         <span class="n">_surface_area_3d</span><span class="p">,</span>
         <span class="n">depth</span><span class="o">=</span><span class="p">{</span><span class="mi">0</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">:</span> <span class="mi">1</span><span class="p">},</span>
         <span class="n">boundary</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span>
         <span class="n">dtype</span><span class="o">=</span><span class="n">F64</span><span class="p">,</span>
         <span class="n">meta</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">((),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">F64</span><span class="p">),</span>
-        <span class="n">res</span><span class="o">=</span><span class="n">rs</span><span class="o">.</span><span class="n">resolution</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+        <span class="n">res</span><span class="o">=</span><span class="n">raster</span><span class="o">.</span><span class="n">resolution</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
     <span class="p">)</span>
-    <span class="k">return</span> <span class="n">_finalize_rs</span><span class="p">(</span><span class="n">rs</span><span class="p">,</span> <span class="n">out_data</span><span class="p">)</span></div>
+    <span class="k">return</span> <span class="n">_finalize</span><span class="p">(</span><span class="n">out_data</span><span class="p">,</span> <span class="n">raster</span><span class="p">)</span></div>
 
 
 <span class="nd">@single_band_mappable</span>
@@ -602,20 +597,20 @@ document.write(`
 <span class="sd">    * `ESRI slope &lt;https://pro.arcgis.com/en/pro-app/latest/tool-reference/3d-analyst/how-slope-works.htm&gt;`_</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>  <span class="c1"># noqa: E501</span>
-    <span class="n">rs</span> <span class="o">=</span> <span class="n">get_raster</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">null_to_nan</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">rs</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="s2">&quot;float16&quot;</span><span class="p">):</span>
-        <span class="n">rs</span> <span class="o">=</span> <span class="n">rs</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">F32</span><span class="p">)</span>
+    <span class="n">raster</span> <span class="o">=</span> <span class="n">get_raster</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">null_to_nan</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">raster</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="s2">&quot;float16&quot;</span><span class="p">):</span>
+        <span class="n">raster</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">F32</span><span class="p">)</span>
     <span class="c1"># Leave resolution sign as is</span>
-    <span class="n">out_data</span> <span class="o">=</span> <span class="n">rs</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">map_overlap</span><span class="p">(</span>
+    <span class="n">out_data</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">map_overlap</span><span class="p">(</span>
         <span class="n">_slope</span><span class="p">,</span>
         <span class="n">depth</span><span class="o">=</span><span class="p">{</span><span class="mi">0</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">:</span> <span class="mi">1</span><span class="p">},</span>
         <span class="n">boundary</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span>
         <span class="n">dtype</span><span class="o">=</span><span class="n">F64</span><span class="p">,</span>
         <span class="n">meta</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">((),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">F64</span><span class="p">),</span>
-        <span class="n">res</span><span class="o">=</span><span class="n">rs</span><span class="o">.</span><span class="n">resolution</span><span class="p">,</span>
+        <span class="n">res</span><span class="o">=</span><span class="n">raster</span><span class="o">.</span><span class="n">resolution</span><span class="p">,</span>
         <span class="n">degrees</span><span class="o">=</span><span class="nb">bool</span><span class="p">(</span><span class="n">degrees</span><span class="p">),</span>
     <span class="p">)</span>
-    <span class="k">return</span> <span class="n">_finalize_rs</span><span class="p">(</span><span class="n">rs</span><span class="p">,</span> <span class="n">out_data</span><span class="p">)</span></div>
+    <span class="k">return</span> <span class="n">_finalize</span><span class="p">(</span><span class="n">out_data</span><span class="p">,</span> <span class="n">raster</span><span class="p">)</span></div>
 
 
 <span class="nd">@single_band_mappable</span>
@@ -676,17 +671,17 @@ document.write(`
 <span class="sd">    * `ESRI aspect &lt;https://pro.arcgis.com/en/pro-app/latest/tool-reference/3d-analyst/how-aspect-works.htm&gt;`_</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>  <span class="c1"># noqa: E501</span>
-    <span class="n">rs</span> <span class="o">=</span> <span class="n">get_raster</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">null_to_nan</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">rs</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="s2">&quot;float16&quot;</span><span class="p">):</span>
-        <span class="n">rs</span> <span class="o">=</span> <span class="n">rs</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">F32</span><span class="p">)</span>
-    <span class="n">out_data</span> <span class="o">=</span> <span class="n">rs</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">map_overlap</span><span class="p">(</span>
+    <span class="n">raster</span> <span class="o">=</span> <span class="n">get_raster</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">null_to_nan</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">raster</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="s2">&quot;float16&quot;</span><span class="p">):</span>
+        <span class="n">raster</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">F32</span><span class="p">)</span>
+    <span class="n">out_data</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">map_overlap</span><span class="p">(</span>
         <span class="n">_aspect</span><span class="p">,</span>
         <span class="n">depth</span><span class="o">=</span><span class="p">{</span><span class="mi">0</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">:</span> <span class="mi">1</span><span class="p">},</span>
         <span class="n">boundary</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span>
         <span class="n">dtype</span><span class="o">=</span><span class="n">F64</span><span class="p">,</span>
         <span class="n">meta</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">((),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">F64</span><span class="p">),</span>
     <span class="p">)</span>
-    <span class="k">return</span> <span class="n">_finalize_rs</span><span class="p">(</span><span class="n">rs</span><span class="p">,</span> <span class="n">out_data</span><span class="p">)</span></div>
+    <span class="k">return</span> <span class="n">_finalize</span><span class="p">(</span><span class="n">out_data</span><span class="p">,</span> <span class="n">raster</span><span class="p">)</span></div>
 
 
 <span class="nd">@single_band_mappable</span>
@@ -735,30 +730,30 @@ document.write(`
 <span class="sd">    * `ESRI curvature &lt;https://pro.arcgis.com/en/pro-app/latest/tool-reference/3d-analyst/how-curvature-works.htm&gt;`_</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>  <span class="c1"># noqa: E501</span>
-    <span class="n">rs</span> <span class="o">=</span> <span class="n">get_raster</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">null_to_nan</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">rs</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="s2">&quot;float16&quot;</span><span class="p">):</span>
-        <span class="n">rs</span> <span class="o">=</span> <span class="n">rs</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">F32</span><span class="p">)</span>
-    <span class="n">out_data</span> <span class="o">=</span> <span class="n">rs</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">map_overlap</span><span class="p">(</span>
+    <span class="n">raster</span> <span class="o">=</span> <span class="n">get_raster</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">null_to_nan</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">raster</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="s2">&quot;float16&quot;</span><span class="p">):</span>
+        <span class="n">raster</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">F32</span><span class="p">)</span>
+    <span class="n">out_data</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">map_overlap</span><span class="p">(</span>
         <span class="n">_curv</span><span class="p">,</span>
         <span class="n">depth</span><span class="o">=</span><span class="p">{</span><span class="mi">0</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">:</span> <span class="mi">1</span><span class="p">},</span>
         <span class="n">boundary</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span>
         <span class="n">dtype</span><span class="o">=</span><span class="n">F64</span><span class="p">,</span>
         <span class="n">meta</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">((),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">F64</span><span class="p">),</span>
-        <span class="n">res</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">rs</span><span class="o">.</span><span class="n">resolution</span><span class="p">),</span>
+        <span class="n">res</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">raster</span><span class="o">.</span><span class="n">resolution</span><span class="p">),</span>
     <span class="p">)</span>
-    <span class="k">return</span> <span class="n">_finalize_rs</span><span class="p">(</span><span class="n">rs</span><span class="p">,</span> <span class="n">out_data</span><span class="p">)</span></div>
+    <span class="k">return</span> <span class="n">_finalize</span><span class="p">(</span><span class="n">out_data</span><span class="p">,</span> <span class="n">raster</span><span class="p">)</span></div>
 
 
-<span class="k">def</span> <span class="nf">_northing_easting</span><span class="p">(</span><span class="n">rs</span><span class="p">,</span> <span class="n">do_northing</span><span class="p">):</span>
+<span class="k">def</span> <span class="nf">_northing_easting</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">do_northing</span><span class="p">):</span>
     <span class="n">trig</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span> <span class="k">if</span> <span class="n">do_northing</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span>
-    <span class="n">data</span> <span class="o">=</span> <span class="n">rs</span><span class="o">.</span><span class="n">data</span>
-    <span class="c1"># Operate on rs.data rather than rs.xdata to avoid xarray&#39;s annoying</span>
-    <span class="c1"># habit of dropping meta data.</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">data</span>
+    <span class="c1"># Operate on raster.data rather than raster.xdata to avoid xarray&#39;s</span>
+    <span class="c1"># annoying habit of dropping meta data.</span>
     <span class="n">data</span> <span class="o">=</span> <span class="n">trig</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">radians</span><span class="p">(</span><span class="n">data</span><span class="p">))</span>
-    <span class="k">if</span> <span class="n">rs</span><span class="o">.</span><span class="n">_masked</span><span class="p">:</span>
-        <span class="n">data</span> <span class="o">=</span> <span class="n">da</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">rs</span><span class="o">.</span><span class="n">mask</span><span class="p">,</span> <span class="n">rs</span><span class="o">.</span><span class="n">null_value</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
-    <span class="n">rs</span><span class="o">.</span><span class="n">xdata</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">data</span>
-    <span class="k">return</span> <span class="n">rs</span>
+    <span class="k">if</span> <span class="n">raster</span><span class="o">.</span><span class="n">_masked</span><span class="p">:</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">da</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">raster</span><span class="o">.</span><span class="n">mask</span><span class="p">,</span> <span class="n">raster</span><span class="o">.</span><span class="n">null_value</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
+    <span class="n">raster</span><span class="o">.</span><span class="n">xdata</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">data</span>
+    <span class="k">return</span> <span class="n">raster</span>
 
 
 <div class="viewcode-block" id="northing"><a class="viewcode-back" href="../../reference/generated/raster_tools.surface.northing.html#raster_tools.surface.northing">[docs]</a><span class="k">def</span> <span class="nf">northing</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">is_aspect</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
@@ -783,10 +778,10 @@ document.write(`
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">is_aspect</span><span class="p">:</span>
         <span class="n">raster</span> <span class="o">=</span> <span class="n">aspect</span><span class="p">(</span><span class="n">raster</span><span class="p">)</span>
-    <span class="n">rs</span> <span class="o">=</span> <span class="n">get_raster</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">null_to_nan</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
-    <span class="k">if</span> <span class="n">rs</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="s2">&quot;float16&quot;</span><span class="p">):</span>
-        <span class="n">rs</span> <span class="o">=</span> <span class="n">rs</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">F32</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">_northing_easting</span><span class="p">(</span><span class="n">rs</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span></div>
+    <span class="n">raster</span> <span class="o">=</span> <span class="n">get_raster</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">null_to_nan</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">raster</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="s2">&quot;float16&quot;</span><span class="p">):</span>
+        <span class="n">raster</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">F32</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">_northing_easting</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="easting"><a class="viewcode-back" href="../../reference/generated/raster_tools.surface.easting.html#raster_tools.surface.easting">[docs]</a><span class="k">def</span> <span class="nf">easting</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">is_aspect</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
@@ -812,10 +807,10 @@ document.write(`
     <span class="k">if</span> <span class="ow">not</span> <span class="n">is_aspect</span><span class="p">:</span>
         <span class="n">raster</span> <span class="o">=</span> <span class="n">aspect</span><span class="p">(</span><span class="n">raster</span><span class="p">)</span>
 
-    <span class="n">rs</span> <span class="o">=</span> <span class="n">get_raster</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">null_to_nan</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
-    <span class="k">if</span> <span class="n">rs</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="s2">&quot;float16&quot;</span><span class="p">):</span>
-        <span class="n">rs</span> <span class="o">=</span> <span class="n">rs</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">F32</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">_northing_easting</span><span class="p">(</span><span class="n">rs</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span></div>
+    <span class="n">raster</span> <span class="o">=</span> <span class="n">get_raster</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">null_to_nan</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">raster</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="s2">&quot;float16&quot;</span><span class="p">):</span>
+        <span class="n">raster</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">F32</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">_northing_easting</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span></div>
 
 
 <span class="nd">@single_band_mappable</span>
@@ -891,28 +886,27 @@ document.write(`
 <span class="sd">    * `ESRI hillshade &lt;https://pro.arcgis.com/en/pro-app/latest/tool-reference/spatial-analyst/how-hillshade-works.htm&gt;`_</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>  <span class="c1"># noqa: E501</span>
-    <span class="n">rs</span> <span class="o">=</span> <span class="n">get_raster</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">null_to_nan</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">rs</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="s2">&quot;float16&quot;</span><span class="p">):</span>
-        <span class="n">rs</span> <span class="o">=</span> <span class="n">rs</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">F32</span><span class="p">)</span>
+    <span class="n">raster</span> <span class="o">=</span> <span class="n">get_raster</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">null_to_nan</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">raster</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="s2">&quot;float16&quot;</span><span class="p">):</span>
+        <span class="n">raster</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">F32</span><span class="p">)</span>
     <span class="c1"># Specifically leave resolution sign as is</span>
-    <span class="n">out_data</span> <span class="o">=</span> <span class="n">rs</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">map_overlap</span><span class="p">(</span>
+    <span class="n">out_data</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">map_overlap</span><span class="p">(</span>
         <span class="n">_hillshade</span><span class="p">,</span>
         <span class="n">depth</span><span class="o">=</span><span class="p">{</span><span class="mi">0</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">:</span> <span class="mi">1</span><span class="p">},</span>
         <span class="n">boundary</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span>
         <span class="n">dtype</span><span class="o">=</span><span class="n">F32</span><span class="p">,</span>
         <span class="n">meta</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">((),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">F32</span><span class="p">),</span>
-        <span class="n">res</span><span class="o">=</span><span class="n">rs</span><span class="o">.</span><span class="n">resolution</span><span class="p">,</span>
+        <span class="n">res</span><span class="o">=</span><span class="n">raster</span><span class="o">.</span><span class="n">resolution</span><span class="p">,</span>
         <span class="n">azimuth</span><span class="o">=</span><span class="n">azimuth</span><span class="p">,</span>
         <span class="n">altitude</span><span class="o">=</span><span class="n">altitude</span><span class="p">,</span>
     <span class="p">)</span>
 
-    <span class="n">rs</span> <span class="o">=</span> <span class="p">(</span>
-        <span class="n">_finalize_rs</span><span class="p">(</span><span class="n">rs</span><span class="p">,</span> <span class="n">out_data</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">(</span>
+        <span class="n">_finalize</span><span class="p">(</span><span class="n">out_data</span><span class="p">,</span> <span class="n">raster</span><span class="p">)</span>
         <span class="o">.</span><span class="n">replace_null</span><span class="p">(</span><span class="mi">255</span><span class="p">)</span>
         <span class="o">.</span><span class="n">set_null_value</span><span class="p">(</span><span class="mi">255</span><span class="p">)</span>
         <span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">U8</span><span class="p">)</span>
-    <span class="p">)</span>
-    <span class="k">return</span> <span class="n">rs</span></div>
+    <span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="tpi"><a class="viewcode-back" href="../../reference/generated/raster_tools.surface.tpi.html#raster_tools.surface.tpi">[docs]</a><span class="k">def</span> <span class="nf">tpi</span><span class="p">(</span><span class="n">dem</span><span class="p">,</span> <span class="n">annulus_inner</span><span class="p">,</span> <span class="n">annulus_outer</span><span class="p">):</span>

@@ -405,13 +405,11 @@ document.write(`
                 <article class="bd-article" role="main">
                   
   <h1>Source code for raster_tools.warp</h1><div class="highlight"><pre>
-<span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="kn">import</span> <span class="nn">rasterio</span> <span class="k">as</span> <span class="nn">rio</span>
+<span></span><span class="kn">import</span> <span class="nn">rasterio</span> <span class="k">as</span> <span class="nn">rio</span>
 <span class="kn">from</span> <span class="nn">odc.geo.geobox</span> <span class="kn">import</span> <span class="n">GeoBox</span>
 
 <span class="kn">from</span> <span class="nn">raster_tools.masking</span> <span class="kn">import</span> <span class="n">get_default_null_value</span>
-<span class="kn">from</span> <span class="nn">raster_tools.raster</span> <span class="kn">import</span> <span class="n">Raster</span><span class="p">,</span> <span class="n">get_raster</span>
-<span class="kn">from</span> <span class="nn">raster_tools.utils</span> <span class="kn">import</span> <span class="n">make_raster_ds</span>
+<span class="kn">from</span> <span class="nn">raster_tools.raster</span> <span class="kn">import</span> <span class="n">Raster</span><span class="p">,</span> <span class="n">dataarray_to_xr_raster_ds</span><span class="p">,</span> <span class="n">get_raster</span>
 
 <span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
     <span class="s2">&quot;reproject&quot;</span><span class="p">,</span>
@@ -511,15 +509,14 @@ document.write(`
         <span class="k">if</span> <span class="n">raster</span><span class="o">.</span><span class="n">_masked</span>
         <span class="k">else</span> <span class="n">get_default_null_value</span><span class="p">(</span><span class="n">raster</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
     <span class="p">)</span>
-    <span class="n">reprojected</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">_ds</span><span class="o">.</span><span class="n">raster</span><span class="o">.</span><span class="n">odc</span><span class="o">.</span><span class="n">reproject</span><span class="p">(</span>
+    <span class="n">reprojected</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">xdata</span><span class="o">.</span><span class="n">odc</span><span class="o">.</span><span class="n">reproject</span><span class="p">(</span>
         <span class="n">dst_gb</span><span class="p">,</span> <span class="n">resampling</span><span class="o">=</span><span class="n">resample_method</span><span class="p">,</span> <span class="n">dst_nodata</span><span class="o">=</span><span class="n">nv</span>
     <span class="p">)</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_nodata</span><span class="p">(</span><span class="n">nv</span><span class="p">)</span>
     <span class="k">if</span> <span class="s2">&quot;longitude&quot;</span> <span class="ow">in</span> <span class="n">reprojected</span><span class="o">.</span><span class="n">dims</span><span class="p">:</span>
         <span class="c1"># odc-geo will rename x/y to lon/lat for lon/lat based projections, so</span>
         <span class="c1"># revert to x/y</span>
         <span class="n">reprojected</span> <span class="o">=</span> <span class="n">reprojected</span><span class="o">.</span><span class="n">rename</span><span class="p">({</span><span class="s2">&quot;longitude&quot;</span><span class="p">:</span> <span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="s2">&quot;latitude&quot;</span><span class="p">:</span> <span class="s2">&quot;y&quot;</span><span class="p">})</span>
-    <span class="n">mask</span> <span class="o">=</span> <span class="n">reprojected</span> <span class="o">==</span> <span class="n">nv</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">nv</span><span class="p">)</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">reprojected</span><span class="p">)</span>
-    <span class="n">ds</span> <span class="o">=</span> <span class="n">make_raster_ds</span><span class="p">(</span><span class="n">reprojected</span><span class="p">,</span> <span class="n">mask</span><span class="p">)</span>
+    <span class="n">ds</span> <span class="o">=</span> <span class="n">dataarray_to_xr_raster_ds</span><span class="p">(</span><span class="n">reprojected</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">Raster</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="n">_fast_path</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div>
 </pre></div>
 

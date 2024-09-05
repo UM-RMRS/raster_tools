@@ -408,11 +408,10 @@ document.write(`
 <span></span><span class="kn">import</span> <span class="nn">dask.array</span> <span class="k">as</span> <span class="nn">da</span>
 <span class="kn">import</span> <span class="nn">numba</span> <span class="k">as</span> <span class="nn">nb</span>
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="kn">import</span> <span class="nn">xarray</span> <span class="k">as</span> <span class="nn">xr</span>
 
 <span class="kn">from</span> <span class="nn">raster_tools.dtypes</span> <span class="kn">import</span> <span class="n">F16</span><span class="p">,</span> <span class="n">F32</span><span class="p">,</span> <span class="n">F64</span>
 <span class="kn">from</span> <span class="nn">raster_tools.masking</span> <span class="kn">import</span> <span class="n">get_default_null_value</span>
-<span class="kn">from</span> <span class="nn">raster_tools.raster</span> <span class="kn">import</span> <span class="n">Raster</span><span class="p">,</span> <span class="n">get_raster</span>
+<span class="kn">from</span> <span class="nn">raster_tools.raster</span> <span class="kn">import</span> <span class="n">Raster</span><span class="p">,</span> <span class="n">data_to_raster_like</span><span class="p">,</span> <span class="n">get_raster</span>
 <span class="kn">from</span> <span class="nn">raster_tools.utils</span> <span class="kn">import</span> <span class="n">single_band_mappable</span>
 
 <span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
@@ -1027,14 +1026,7 @@ document.write(`
         <span class="n">nodata</span><span class="o">=</span><span class="n">nodata</span><span class="p">,</span>
         <span class="n">mode</span><span class="o">=</span><span class="n">mode</span><span class="p">,</span>
     <span class="p">)</span>
-    <span class="n">xout</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">(</span>
-        <span class="n">out_data</span><span class="p">,</span>
-        <span class="n">coords</span><span class="o">=</span><span class="n">raster</span><span class="o">.</span><span class="n">xdata</span><span class="o">.</span><span class="n">coords</span><span class="p">,</span>
-        <span class="n">dims</span><span class="o">=</span><span class="n">raster</span><span class="o">.</span><span class="n">xdata</span><span class="o">.</span><span class="n">dims</span><span class="p">,</span>
-        <span class="n">attrs</span><span class="o">=</span><span class="n">raster</span><span class="o">.</span><span class="n">xdata</span><span class="o">.</span><span class="n">attrs</span><span class="p">,</span>
-    <span class="p">)</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_nodata</span><span class="p">(</span><span class="n">nodata</span><span class="p">)</span>
-    <span class="n">rs_out</span> <span class="o">=</span> <span class="n">Raster</span><span class="p">(</span><span class="n">xout</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">rs_out</span>
+    <span class="k">return</span> <span class="n">data_to_raster_like</span><span class="p">(</span><span class="n">out_data</span><span class="p">,</span> <span class="n">raster</span><span class="p">,</span> <span class="n">nv</span><span class="o">=</span><span class="n">nodata</span><span class="p">)</span>
 
 
 <div class="viewcode-block" id="pa_proximity"><a class="viewcode-back" href="../../../reference/generated/raster_tools.distance.pa_proximity.html#raster_tools.distance.proximity.pa_proximity">[docs]</a><span class="k">def</span> <span class="nf">pa_proximity</span><span class="p">(</span>

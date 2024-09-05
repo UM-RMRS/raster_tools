@@ -424,13 +424,7 @@ document.write(`
     <span class="n">RasterDataError</span><span class="p">,</span>
     <span class="n">RasterIOError</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">raster_tools.masking</span> <span class="kn">import</span> <span class="n">create_null_mask</span>
-<span class="kn">from</span> <span class="nn">raster_tools.utils</span> <span class="kn">import</span> <span class="p">(</span>
-    <span class="n">is_strictly_decreasing</span><span class="p">,</span>
-    <span class="n">is_strictly_increasing</span><span class="p">,</span>
-    <span class="n">to_chunk_dict</span><span class="p">,</span>
-    <span class="n">validate_path</span><span class="p">,</span>
-<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">raster_tools.utils</span> <span class="kn">import</span> <span class="n">to_chunk_dict</span><span class="p">,</span> <span class="n">validate_path</span>
 
 
 <span class="k">def</span> <span class="nf">_get_extension</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
@@ -489,51 +483,6 @@ document.write(`
     <span class="k">return</span> <span class="n">_get_extension</span><span class="p">(</span><span class="n">path</span><span class="p">)</span> <span class="ow">in</span> <span class="n">BATCH_EXTS</span></div>
 
 
-<div class="viewcode-block" id="normalize_xarray_data"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.io.normalize_xarray_data">[docs]</a><span class="k">def</span> <span class="nf">normalize_xarray_data</span><span class="p">(</span><span class="n">xrs</span><span class="p">):</span>
-    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">xrs</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">3</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">xrs</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-            <span class="s2">&quot;Invalid shape. xarray.DataArray objects must have 2D or 3D &quot;</span>
-            <span class="s2">&quot;shapes.&quot;</span>
-        <span class="p">)</span>
-    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">xrs</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
-        <span class="c1"># Add band dim</span>
-        <span class="n">xrs</span> <span class="o">=</span> <span class="n">xrs</span><span class="o">.</span><span class="n">expand_dims</span><span class="p">({</span><span class="s2">&quot;band&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">]})</span>
-    <span class="n">dims</span> <span class="o">=</span> <span class="n">xrs</span><span class="o">.</span><span class="n">dims</span>
-    <span class="k">if</span> <span class="s2">&quot;lon&quot;</span> <span class="ow">in</span> <span class="n">dims</span><span class="p">:</span>
-        <span class="n">xrs</span> <span class="o">=</span> <span class="n">xrs</span><span class="o">.</span><span class="n">rename</span><span class="p">({</span><span class="s2">&quot;lon&quot;</span><span class="p">:</span> <span class="s2">&quot;x&quot;</span><span class="p">})</span>
-        <span class="n">dims</span> <span class="o">=</span> <span class="n">xrs</span><span class="o">.</span><span class="n">dims</span>
-    <span class="k">if</span> <span class="s2">&quot;lat&quot;</span> <span class="ow">in</span> <span class="n">dims</span><span class="p">:</span>
-        <span class="n">xrs</span> <span class="o">=</span> <span class="n">xrs</span><span class="o">.</span><span class="n">rename</span><span class="p">({</span><span class="s2">&quot;lat&quot;</span><span class="p">:</span> <span class="s2">&quot;y&quot;</span><span class="p">})</span>
-        <span class="n">dims</span> <span class="o">=</span> <span class="n">xrs</span><span class="o">.</span><span class="n">dims</span>
-    <span class="k">if</span> <span class="n">dims</span> <span class="o">!=</span> <span class="p">(</span><span class="s2">&quot;band&quot;</span><span class="p">,</span> <span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="s2">&quot;x&quot;</span><span class="p">):</span>
-        <span class="c1"># No easy way to figure out how best to transpose based on dim names so</span>
-        <span class="c1"># just assume the order is valid and rename.</span>
-        <span class="n">xrs</span> <span class="o">=</span> <span class="n">xrs</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span>
-            <span class="p">{</span>
-                <span class="n">d</span><span class="p">:</span> <span class="n">new_d</span>
-                <span class="k">for</span> <span class="n">d</span><span class="p">,</span> <span class="n">new_d</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">dims</span><span class="p">,</span> <span class="p">(</span><span class="s2">&quot;band&quot;</span><span class="p">,</span> <span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="s2">&quot;x&quot;</span><span class="p">))</span>
-                <span class="k">if</span> <span class="n">d</span> <span class="o">!=</span> <span class="n">new_d</span>
-            <span class="p">}</span>
-        <span class="p">)</span>
-    <span class="k">if</span> <span class="n">xrs</span><span class="o">.</span><span class="n">band</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
-        <span class="n">xrs</span><span class="p">[</span><span class="s2">&quot;band&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">xrs</span><span class="o">.</span><span class="n">band</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
-    <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">dim</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">xrs</span><span class="o">.</span><span class="n">coords</span> <span class="k">for</span> <span class="n">dim</span> <span class="ow">in</span> <span class="n">xrs</span><span class="o">.</span><span class="n">dims</span><span class="p">):</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-            <span class="s2">&quot;Invalid coordinates on xarray.DataArray object:</span><span class="se">\n</span><span class="si">{xrs!r}</span><span class="s2">&quot;</span>
-        <span class="p">)</span>
-    <span class="c1"># Make sure that x and y are always increasing. xarray will auto align</span>
-    <span class="c1"># rasters but when a raster is converted to a numpy or dask array, the</span>
-    <span class="c1"># data may not be aligned. This ensures that rasters converted to</span>
-    <span class="c1"># non-georeferenecd formats will be oriented the same.</span>
-    <span class="k">if</span> <span class="n">is_strictly_decreasing</span><span class="p">(</span><span class="n">xrs</span><span class="o">.</span><span class="n">x</span><span class="p">):</span>
-        <span class="n">xrs</span> <span class="o">=</span> <span class="n">xrs</span><span class="o">.</span><span class="n">isel</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="nb">slice</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">))</span>
-    <span class="k">if</span> <span class="n">is_strictly_increasing</span><span class="p">(</span><span class="n">xrs</span><span class="o">.</span><span class="n">y</span><span class="p">):</span>
-        <span class="n">xrs</span> <span class="o">=</span> <span class="n">xrs</span><span class="o">.</span><span class="n">isel</span><span class="p">(</span><span class="n">y</span><span class="o">=</span><span class="nb">slice</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">))</span>
-    <span class="n">tf</span> <span class="o">=</span> <span class="n">xrs</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
-    <span class="n">xrs</span> <span class="o">=</span> <span class="n">xrs</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_transform</span><span class="p">(</span><span class="n">tf</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">xrs</span></div>
-
-
 <span class="n">ESRI_DEFAULT_F32_NV</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">finfo</span><span class="p">(</span><span class="n">F32</span><span class="p">)</span><span class="o">.</span><span class="n">min</span>
 
 
@@ -551,6 +500,11 @@ document.write(`
 
 
 <div class="viewcode-block" id="open_raster_from_path_or_url"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.io.open_raster_from_path_or_url">[docs]</a><span class="k">def</span> <span class="nf">open_raster_from_path_or_url</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+    <span class="kn">from</span> <span class="nn">raster_tools.raster</span> <span class="kn">import</span> <span class="p">(</span>
+        <span class="n">_try_to_get_null_value_xarray</span><span class="p">,</span>
+        <span class="n">normalize_xarray_data</span><span class="p">,</span>
+    <span class="p">)</span>
+
     <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">path</span><span class="p">)</span> <span class="ow">in</span> <span class="n">IO_UNDERSTOOD_TYPES</span><span class="p">:</span>
         <span class="n">path</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
@@ -591,10 +545,10 @@ document.write(`
 
     <span class="n">xrs</span> <span class="o">=</span> <span class="n">normalize_xarray_data</span><span class="p">(</span><span class="n">xrs</span><span class="p">)</span>
 
-    <span class="n">nv</span> <span class="o">=</span> <span class="n">xrs</span><span class="o">.</span><span class="n">attrs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;_FillValue&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="n">nv</span> <span class="o">=</span> <span class="n">_try_to_get_null_value_xarray</span><span class="p">(</span><span class="n">xrs</span><span class="p">)</span>
     <span class="n">nv</span> <span class="o">=</span> <span class="n">normalize_null_value</span><span class="p">(</span><span class="n">nv</span><span class="p">,</span> <span class="n">xrs</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
-    <span class="n">mask</span> <span class="o">=</span> <span class="n">create_null_mask</span><span class="p">(</span><span class="n">xrs</span><span class="p">,</span> <span class="n">nv</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">xrs</span><span class="p">,</span> <span class="n">mask</span><span class="p">,</span> <span class="n">nv</span></div>
+    <span class="n">xrs</span> <span class="o">=</span> <span class="n">xrs</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_nodata</span><span class="p">(</span><span class="n">nv</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">xrs</span></div>
 
 
 <div class="viewcode-block" id="write_raster"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.io.write_raster">[docs]</a><span class="k">def</span> <span class="nf">write_raster</span><span class="p">(</span><span class="n">xrs</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">no_data_value</span><span class="p">,</span> <span class="o">**</span><span class="n">rio_gdal_kwargs</span><span class="p">):</span>

@@ -432,7 +432,7 @@ document.write(`
     <span class="n">grey_erosion</span><span class="p">,</span>
 <span class="p">)</span>
 
-<span class="kn">from</span> <span class="nn">raster_tools.creation</span> <span class="kn">import</span> <span class="n">empty_like</span><span class="p">,</span> <span class="n">zeros_like</span>
+<span class="kn">from</span> <span class="nn">raster_tools.creation</span> <span class="kn">import</span> <span class="n">empty_like</span>
 <span class="kn">from</span> <span class="nn">raster_tools.dtypes</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">BOOL</span><span class="p">,</span>
     <span class="n">F16</span><span class="p">,</span>
@@ -458,7 +458,14 @@ document.write(`
     <span class="n">get_default_null_value</span><span class="p">,</span>
     <span class="n">reconcile_nullvalue_with_dtype</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">raster_tools.raster</span> <span class="kn">import</span> <span class="n">Raster</span><span class="p">,</span> <span class="n">get_raster</span>
+<span class="kn">from</span> <span class="nn">raster_tools.raster</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">Raster</span><span class="p">,</span>
+    <span class="n">data_to_raster_like</span><span class="p">,</span>
+    <span class="n">data_to_xr_raster_ds_like</span><span class="p">,</span>
+    <span class="n">dataarray_to_xr_raster_ds</span><span class="p">,</span>
+    <span class="n">get_raster</span><span class="p">,</span>
+    <span class="n">xr_where_with_meta</span><span class="p">,</span>
+<span class="p">)</span>
 <span class="kn">from</span> <span class="nn">raster_tools.stat_common</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">nan_unique_count_jit</span><span class="p">,</span>
     <span class="n">nanargmax_jit</span><span class="p">,</span>
@@ -467,7 +474,6 @@ document.write(`
     <span class="n">nanentropy_jit</span><span class="p">,</span>
     <span class="n">nanmode_jit</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">raster_tools.utils</span> <span class="kn">import</span> <span class="n">make_raster_ds</span>
 
 <span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
     <span class="s2">&quot;ModelPredictAdaptor&quot;</span><span class="p">,</span>
@@ -494,7 +500,7 @@ document.write(`
     <span class="n">uarr</span> <span class="o">=</span> <span class="n">uarr</span><span class="p">[</span><span class="n">uarr</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">]</span>
 
     <span class="n">cum_num</span> <span class="o">=</span> <span class="mi">0</span>
-    <span class="n">result</span> <span class="o">=</span> <span class="n">da</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">xarr</span><span class="p">)</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">da</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">xarr</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">U64</span><span class="p">)</span>
     <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">uarr</span><span class="p">:</span>
         <span class="n">labeled_array</span><span class="p">,</span> <span class="n">num_features</span> <span class="o">=</span> <span class="n">ndm</span><span class="o">.</span><span class="n">label</span><span class="p">((</span><span class="n">xarr</span> <span class="o">==</span> <span class="n">v</span><span class="p">),</span> <span class="n">structure</span><span class="o">=</span><span class="n">wd</span><span class="p">)</span>
         <span class="n">result</span> <span class="o">+=</span> <span class="n">da</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
@@ -538,7 +544,6 @@ document.write(`
 
 <span class="sd">    &quot;&quot;&quot;</span>  <span class="c1"># noqa: E501</span>
     <span class="n">raster</span> <span class="o">=</span> <span class="n">get_raster</span><span class="p">(</span><span class="n">raster</span><span class="p">)</span>
-    <span class="n">rs_out</span> <span class="o">=</span> <span class="n">zeros_like</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">U64</span><span class="p">)</span>
 
     <span class="k">if</span> <span class="ow">not</span> <span class="n">is_int</span><span class="p">(</span><span class="n">neighbors</span><span class="p">):</span>
         <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
@@ -560,19 +565,19 @@ document.write(`
             <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Invalid type for unique_values parameter&quot;</span><span class="p">)</span>
 
     <span class="n">data</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">data</span>
-    <span class="n">dout</span> <span class="o">=</span> <span class="n">rs_out</span><span class="o">.</span><span class="n">data</span>
+    <span class="c1"># Copy to prevent input and output rasters from having same reference</span>
+    <span class="n">mask</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">mask</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
     <span class="k">if</span> <span class="n">raster</span><span class="o">.</span><span class="n">_masked</span><span class="p">:</span>
         <span class="c1"># Set null values to 0 to skip them in the labeling phase</span>
-        <span class="n">data</span> <span class="o">=</span> <span class="n">da</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">raster</span><span class="o">.</span><span class="n">_ds</span><span class="o">.</span><span class="n">mask</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
-
-    <span class="k">for</span> <span class="n">bnd</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
-        <span class="n">dout</span><span class="p">[</span><span class="n">bnd</span><span class="p">]</span> <span class="o">=</span> <span class="n">_create_labels</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="n">bnd</span><span class="p">],</span> <span class="n">wd</span><span class="p">,</span> <span class="n">unique_values</span><span class="p">)</span>
-
-    <span class="n">nv</span> <span class="o">=</span> <span class="n">reconcile_nullvalue_with_dtype</span><span class="p">(</span><span class="n">raster</span><span class="o">.</span><span class="n">null_value</span><span class="p">,</span> <span class="n">rs_out</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">da</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">raster</span><span class="o">.</span><span class="n">mask</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
+    <span class="n">data_out</span> <span class="o">=</span> <span class="p">[</span><span class="n">_create_labels</span><span class="p">(</span><span class="n">band</span><span class="p">,</span> <span class="n">wd</span><span class="p">,</span> <span class="n">unique_values</span><span class="p">)</span> <span class="k">for</span> <span class="n">band</span> <span class="ow">in</span> <span class="n">data</span><span class="p">]</span>
+    <span class="n">data_out</span> <span class="o">=</span> <span class="n">da</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="n">data_out</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">nv</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="k">if</span> <span class="n">raster</span><span class="o">.</span><span class="n">_masked</span><span class="p">:</span>
-        <span class="n">dout</span> <span class="o">=</span> <span class="n">da</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">raster</span><span class="o">.</span><span class="n">_ds</span><span class="o">.</span><span class="n">mask</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">nv</span><span class="p">,</span> <span class="n">dout</span><span class="p">)</span>
-    <span class="n">rs_out</span><span class="o">.</span><span class="n">_ds</span><span class="o">.</span><span class="n">raster</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">dout</span>
-    <span class="k">return</span> <span class="n">rs_out</span><span class="o">.</span><span class="n">set_null_value</span><span class="p">(</span><span class="n">nv</span><span class="p">)</span></div>
+        <span class="n">nv</span> <span class="o">=</span> <span class="n">reconcile_nullvalue_with_dtype</span><span class="p">(</span><span class="n">raster</span><span class="o">.</span><span class="n">null_value</span><span class="p">,</span> <span class="n">U64</span><span class="p">)</span>
+        <span class="n">data_out</span> <span class="o">=</span> <span class="n">da</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">mask</span><span class="p">,</span> <span class="n">nv</span><span class="p">,</span> <span class="n">data_out</span><span class="p">)</span>
+    <span class="n">ds</span> <span class="o">=</span> <span class="n">data_to_xr_raster_ds_like</span><span class="p">(</span><span class="n">data_out</span><span class="p">,</span> <span class="n">raster</span><span class="o">.</span><span class="n">xdata</span><span class="p">,</span> <span class="n">mask</span><span class="o">=</span><span class="n">mask</span><span class="p">,</span> <span class="n">nv</span><span class="o">=</span><span class="n">nv</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">Raster</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="n">_fast_path</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div>
 
 
 <span class="nd">@nb</span><span class="o">.</span><span class="n">jit</span><span class="p">(</span><span class="n">nopython</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">nogil</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">parallel</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
@@ -694,14 +699,14 @@ document.write(`
     <span class="p">):</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid stype argument: </span><span class="si">{</span><span class="nb">repr</span><span class="p">(</span><span class="n">stype</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
     <span class="n">orig_dtype</span> <span class="o">=</span> <span class="n">get_raster</span><span class="p">(</span><span class="n">raster</span><span class="p">)</span><span class="o">.</span><span class="n">dtype</span>
-    <span class="n">rs</span> <span class="o">=</span> <span class="n">get_raster</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">null_to_nan</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">raster</span> <span class="o">=</span> <span class="n">get_raster</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">null_to_nan</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
-    <span class="n">xda</span> <span class="o">=</span> <span class="n">rs</span><span class="o">.</span><span class="n">xdata</span>
-    <span class="n">xmask</span> <span class="o">=</span> <span class="n">rs</span><span class="o">.</span><span class="n">xmask</span>
+    <span class="n">xdata</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">xdata</span>
+    <span class="n">xmask</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">xmask</span>
     <span class="n">dim_map</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;y&quot;</span><span class="p">:</span> <span class="n">expand_cells</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="s2">&quot;x&quot;</span><span class="p">:</span> <span class="n">expand_cells</span><span class="p">[</span><span class="mi">1</span><span class="p">]}</span>
-    <span class="n">xdac</span> <span class="o">=</span> <span class="n">xda</span><span class="o">.</span><span class="n">coarsen</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="n">dim_map</span><span class="p">,</span> <span class="n">boundary</span><span class="o">=</span><span class="s2">&quot;trim&quot;</span><span class="p">)</span>
+    <span class="n">xdatac</span> <span class="o">=</span> <span class="n">xdata</span><span class="o">.</span><span class="n">coarsen</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="n">dim_map</span><span class="p">,</span> <span class="n">boundary</span><span class="o">=</span><span class="s2">&quot;trim&quot;</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">stype</span> <span class="ow">in</span> <span class="n">_COARSEN_STYPE_TO_FUNC</span><span class="p">:</span>
-        <span class="n">xda</span> <span class="o">=</span> <span class="n">_COARSEN_STYPE_TO_FUNC</span><span class="p">[</span><span class="n">stype</span><span class="p">](</span><span class="n">xdac</span><span class="p">)</span>
+        <span class="n">xdata</span> <span class="o">=</span> <span class="n">_COARSEN_STYPE_TO_FUNC</span><span class="p">[</span><span class="n">stype</span><span class="p">](</span><span class="n">xdatac</span><span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="n">custom_stat_func</span> <span class="o">=</span> <span class="n">_COARSEN_STYPE_TO_CUSTOM_FUNC</span><span class="p">[</span><span class="n">stype</span><span class="p">]</span>
         <span class="n">check_nan</span> <span class="o">=</span> <span class="n">stype</span> <span class="o">==</span> <span class="s2">&quot;mode&quot;</span>
@@ -710,7 +715,7 @@ document.write(`
         <span class="p">)</span>
         <span class="c1"># Use partial because reduce seems to be bugged and grabs kwargs that</span>
         <span class="c1"># it shouldn&#39;t.</span>
-        <span class="n">xda</span> <span class="o">=</span> <span class="n">xdac</span><span class="o">.</span><span class="n">reduce</span><span class="p">(</span>
+        <span class="n">xdata</span> <span class="o">=</span> <span class="n">xdatac</span><span class="o">.</span><span class="n">reduce</span><span class="p">(</span>
             <span class="n">partial</span><span class="p">(</span>
                 <span class="n">_coarsen_block_map</span><span class="p">,</span>
                 <span class="n">agg_func</span><span class="o">=</span><span class="n">custom_stat_func</span><span class="p">,</span>
@@ -718,29 +723,22 @@ document.write(`
                 <span class="n">check_nan</span><span class="o">=</span><span class="n">check_nan</span><span class="p">,</span>
             <span class="p">)</span>
         <span class="p">)</span>
-    <span class="c1"># Coarsen mask as well</span>
-    <span class="k">if</span> <span class="n">rs</span><span class="o">.</span><span class="n">_masked</span><span class="p">:</span>
-        <span class="n">xmask</span> <span class="o">=</span> <span class="n">rs</span><span class="o">.</span><span class="n">xmask</span><span class="o">.</span><span class="n">coarsen</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="n">dim_map</span><span class="p">,</span> <span class="n">boundary</span><span class="o">=</span><span class="s2">&quot;trim&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">raster</span><span class="o">.</span><span class="n">_masked</span><span class="p">:</span>
+        <span class="c1"># Coarsen mask as well</span>
+        <span class="n">xmask</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">xmask</span><span class="o">.</span><span class="n">coarsen</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="n">dim_map</span><span class="p">,</span> <span class="n">boundary</span><span class="o">=</span><span class="s2">&quot;trim&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
 
-    <span class="n">ds_out</span> <span class="o">=</span> <span class="n">make_raster_ds</span><span class="p">(</span><span class="n">xda</span><span class="p">,</span> <span class="n">xmask</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">rs</span><span class="o">.</span><span class="n">_masked</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">stype</span> <span class="o">==</span> <span class="s2">&quot;unique&quot;</span><span class="p">:</span>
-            <span class="n">ds_out</span><span class="p">[</span><span class="s2">&quot;raster&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">ds_out</span><span class="o">.</span><span class="n">raster</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span>
-                <span class="n">_get_unique_dtype</span><span class="p">(</span><span class="n">ds_out</span><span class="o">.</span><span class="n">raster</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
-            <span class="p">)</span>
+            <span class="n">xdata</span> <span class="o">=</span> <span class="n">xdata</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">_get_unique_dtype</span><span class="p">(</span><span class="n">xdata</span><span class="o">.</span><span class="n">dtype</span><span class="p">))</span>
         <span class="k">elif</span> <span class="n">stype</span> <span class="o">==</span> <span class="s2">&quot;mode&quot;</span><span class="p">:</span>
             <span class="c1"># Cast back to original dtype. Original null value will work</span>
-            <span class="n">ds_out</span><span class="p">[</span><span class="s2">&quot;raster&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">ds_out</span><span class="o">.</span><span class="n">raster</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">orig_dtype</span><span class="p">)</span>
+            <span class="n">xdata</span> <span class="o">=</span> <span class="n">xdata</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">orig_dtype</span><span class="p">)</span>
         <span class="c1"># Replace null cells with null value acording to mask</span>
-        <span class="n">nv</span> <span class="o">=</span> <span class="n">get_default_null_value</span><span class="p">(</span><span class="n">ds_out</span><span class="o">.</span><span class="n">raster</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
-        <span class="n">ds_out</span><span class="p">[</span><span class="s2">&quot;raster&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">xmask</span><span class="p">,</span> <span class="n">nv</span><span class="p">,</span> <span class="n">ds_out</span><span class="o">.</span><span class="n">raster</span><span class="p">)</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_nodata</span><span class="p">(</span>
-            <span class="n">nv</span>
-        <span class="p">)</span>
+        <span class="n">nv</span> <span class="o">=</span> <span class="n">get_default_null_value</span><span class="p">(</span><span class="n">xdata</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+        <span class="n">xdata</span> <span class="o">=</span> <span class="n">xr_where_with_meta</span><span class="p">(</span><span class="n">xmask</span><span class="p">,</span> <span class="n">nv</span><span class="p">,</span> <span class="n">xdata</span><span class="p">,</span> <span class="n">nv</span><span class="o">=</span><span class="n">nv</span><span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="n">ds_out</span><span class="p">[</span><span class="s2">&quot;mask&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">rs</span><span class="o">.</span><span class="n">get_bands</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">xmask</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">rs</span><span class="o">.</span><span class="n">crs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">ds_out</span> <span class="o">=</span> <span class="n">ds_out</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_crs</span><span class="p">(</span><span class="n">rs</span><span class="o">.</span><span class="n">crs</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">Raster</span><span class="p">(</span><span class="n">ds_out</span><span class="p">,</span> <span class="n">_fast_path</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div>
+        <span class="n">xmask</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">xdata</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+    <span class="n">ds</span> <span class="o">=</span> <span class="n">dataarray_to_xr_raster_ds</span><span class="p">(</span><span class="n">xdata</span><span class="p">,</span> <span class="n">xmask</span><span class="p">,</span> <span class="n">crs</span><span class="o">=</span><span class="n">raster</span><span class="o">.</span><span class="n">crs</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">Raster</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="n">_fast_path</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="ModelPredictAdaptor"><a class="viewcode-back" href="../../reference/generated/raster_tools.general.ModelPredictAdaptor.html#raster_tools.general.ModelPredictAdaptor">[docs]</a><span class="k">class</span> <span class="nc">ModelPredictAdaptor</span><span class="p">:</span>
@@ -891,7 +889,7 @@ document.write(`
         <span class="n">xdata</span> <span class="o">=</span> <span class="n">xdata</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_nodata</span><span class="p">(</span><span class="n">get_default_null_value</span><span class="p">(</span><span class="n">xdata</span><span class="o">.</span><span class="n">dtype</span><span class="p">))</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="n">xmask</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">xdata</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
-    <span class="n">ds</span> <span class="o">=</span> <span class="n">make_raster_ds</span><span class="p">(</span><span class="n">xdata</span><span class="p">,</span> <span class="n">xmask</span><span class="p">)</span>
+    <span class="n">ds</span> <span class="o">=</span> <span class="n">dataarray_to_xr_raster_ds</span><span class="p">(</span><span class="n">xdata</span><span class="p">,</span> <span class="n">xmask</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">in_raster</span><span class="o">.</span><span class="n">crs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">ds</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_crs</span><span class="p">(</span><span class="n">in_raster</span><span class="o">.</span><span class="n">crs</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">Raster</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="n">_fast_path</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">burn_mask</span><span class="p">()</span></div>
@@ -1111,19 +1109,19 @@ document.write(`
     <span class="p">):</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid stype aregument: </span><span class="si">{</span><span class="nb">repr</span><span class="p">(</span><span class="n">stype</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
     <span class="n">orig_dtype</span> <span class="o">=</span> <span class="n">get_raster</span><span class="p">(</span><span class="n">raster</span><span class="p">)</span><span class="o">.</span><span class="n">dtype</span>
-    <span class="n">rs</span> <span class="o">=</span> <span class="n">get_raster</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">null_to_nan</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">raster</span> <span class="o">=</span> <span class="n">get_raster</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">null_to_nan</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
-    <span class="n">xda</span> <span class="o">=</span> <span class="n">rs</span><span class="o">.</span><span class="n">xdata</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
-    <span class="n">xmask</span> <span class="o">=</span> <span class="n">rs</span><span class="o">.</span><span class="n">xmask</span>
+    <span class="n">xdata</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">xdata</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="n">xmask</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">xmask</span>
     <span class="k">if</span> <span class="n">stype</span> <span class="ow">in</span> <span class="n">_LOCAL_STYPE_TO_NUMPY_FUNC</span><span class="p">:</span>
-        <span class="n">xndata</span> <span class="o">=</span> <span class="n">xda</span><span class="o">.</span><span class="n">reduce</span><span class="p">(</span>
+        <span class="n">xdata</span> <span class="o">=</span> <span class="n">xdata</span><span class="o">.</span><span class="n">reduce</span><span class="p">(</span>
             <span class="n">_LOCAL_STYPE_TO_NUMPY_FUNC</span><span class="p">[</span><span class="n">stype</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="s2">&quot;band&quot;</span><span class="p">,</span> <span class="n">keepdims</span><span class="o">=</span><span class="kc">True</span>
         <span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="n">data</span> <span class="o">=</span> <span class="n">xda</span><span class="o">.</span><span class="n">data</span>
-        <span class="n">xndata</span> <span class="o">=</span> <span class="n">empty_like</span><span class="p">(</span><span class="n">rs</span><span class="o">.</span><span class="n">get_bands</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span><span class="o">.</span><span class="n">xdata</span>
-        <span class="n">xndata</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">_local</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">stype</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">rs</span><span class="o">.</span><span class="n">_masked</span><span class="p">:</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">xdata</span><span class="o">.</span><span class="n">data</span>
+        <span class="n">xdata</span> <span class="o">=</span> <span class="n">empty_like</span><span class="p">(</span><span class="n">raster</span><span class="o">.</span><span class="n">get_bands</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span><span class="o">.</span><span class="n">xdata</span>
+        <span class="n">xdata</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">_local</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">stype</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">raster</span><span class="o">.</span><span class="n">_masked</span><span class="p">:</span>
         <span class="n">xmask</span> <span class="o">=</span> <span class="n">xmask</span><span class="o">.</span><span class="n">reduce</span><span class="p">(</span>
             <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">,</span>
             <span class="n">dim</span><span class="o">=</span><span class="s2">&quot;band&quot;</span><span class="p">,</span>
@@ -1132,20 +1130,16 @@ document.write(`
     <span class="k">else</span><span class="p">:</span>
         <span class="n">xmask</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">xmask</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
 
-    <span class="n">ds_out</span> <span class="o">=</span> <span class="n">make_raster_ds</span><span class="p">(</span><span class="n">xndata</span><span class="p">,</span> <span class="n">xmask</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">rs</span><span class="o">.</span><span class="n">_masked</span><span class="p">:</span>
+    <span class="n">ds_out</span> <span class="o">=</span> <span class="n">dataarray_to_xr_raster_ds</span><span class="p">(</span><span class="n">xdata</span><span class="p">,</span> <span class="n">xmask</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">raster</span><span class="o">.</span><span class="n">_masked</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">stype</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;unique&quot;</span><span class="p">,</span> <span class="s2">&quot;minband&quot;</span><span class="p">,</span> <span class="s2">&quot;maxband&quot;</span><span class="p">):</span>
-            <span class="n">ds_out</span><span class="p">[</span><span class="s2">&quot;raster&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">ds_out</span><span class="o">.</span><span class="n">raster</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span>
-                <span class="n">_get_unique_dtype</span><span class="p">(</span><span class="n">ds_out</span><span class="o">.</span><span class="n">raster</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
-            <span class="p">)</span>
+            <span class="n">xdata</span> <span class="o">=</span> <span class="n">xdata</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">_get_unique_dtype</span><span class="p">(</span><span class="n">xdata</span><span class="o">.</span><span class="n">dtype</span><span class="p">))</span>
         <span class="k">elif</span> <span class="n">stype</span> <span class="o">==</span> <span class="s2">&quot;mode&quot;</span><span class="p">:</span>
             <span class="c1"># Cast back to original dtype. Original null value will work</span>
-            <span class="n">ds_out</span><span class="p">[</span><span class="s2">&quot;raster&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">ds_out</span><span class="o">.</span><span class="n">raster</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">orig_dtype</span><span class="p">)</span>
-        <span class="n">nv</span> <span class="o">=</span> <span class="n">get_default_null_value</span><span class="p">(</span><span class="n">ds_out</span><span class="o">.</span><span class="n">raster</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
-        <span class="n">ds_out</span><span class="p">[</span><span class="s2">&quot;raster&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">ds_out</span><span class="o">.</span><span class="n">raster</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_nodata</span><span class="p">(</span><span class="n">nv</span><span class="p">)</span>
-        <span class="n">ds_out</span><span class="o">.</span><span class="n">raster</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">da</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">ds_out</span><span class="o">.</span><span class="n">mask</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">nv</span><span class="p">,</span> <span class="n">ds_out</span><span class="o">.</span><span class="n">raster</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">rs</span><span class="o">.</span><span class="n">crs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">ds_out</span> <span class="o">=</span> <span class="n">ds_out</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_crs</span><span class="p">(</span><span class="n">rs</span><span class="o">.</span><span class="n">crs</span><span class="p">)</span>
+            <span class="n">xdata</span> <span class="o">=</span> <span class="n">xdata</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">orig_dtype</span><span class="p">)</span>
+        <span class="n">nv</span> <span class="o">=</span> <span class="n">get_default_null_value</span><span class="p">(</span><span class="n">xdata</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+        <span class="n">xdata</span> <span class="o">=</span> <span class="n">xr_where_with_meta</span><span class="p">(</span><span class="n">xmask</span><span class="p">,</span> <span class="n">nv</span><span class="p">,</span> <span class="n">xdata</span><span class="p">,</span> <span class="n">nv</span><span class="o">=</span><span class="n">nv</span><span class="p">)</span>
+    <span class="n">ds_out</span> <span class="o">=</span> <span class="n">dataarray_to_xr_raster_ds</span><span class="p">(</span><span class="n">xdata</span><span class="p">,</span> <span class="n">xmask</span><span class="p">,</span> <span class="n">crs</span><span class="o">=</span><span class="n">raster</span><span class="o">.</span><span class="n">crs</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">Raster</span><span class="p">(</span><span class="n">ds_out</span><span class="p">,</span> <span class="n">_fast_path</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div>
 
 
@@ -1187,11 +1181,11 @@ document.write(`
     <span class="k">return</span> <span class="n">type_info</span><span class="o">.</span><span class="n">max</span> <span class="k">if</span> <span class="n">op</span> <span class="o">==</span> <span class="s2">&quot;erosion&quot;</span> <span class="k">else</span> <span class="n">type_info</span><span class="o">.</span><span class="n">min</span>
 
 
-<span class="k">def</span> <span class="nf">_erosion_or_dilation_filter</span><span class="p">(</span><span class="n">rs</span><span class="p">,</span> <span class="n">footprint</span><span class="p">,</span> <span class="n">op</span><span class="p">):</span>
-    <span class="n">data</span> <span class="o">=</span> <span class="n">rs</span><span class="o">.</span><span class="n">data</span>
-    <span class="n">fill</span> <span class="o">=</span> <span class="n">_get_fill</span><span class="p">(</span><span class="n">rs</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">op</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">rs</span><span class="o">.</span><span class="n">_masked</span><span class="p">:</span>
-        <span class="n">data</span> <span class="o">=</span> <span class="n">da</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">rs</span><span class="o">.</span><span class="n">mask</span><span class="p">,</span> <span class="n">fill</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">_erosion_or_dilation_filter</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">footprint</span><span class="p">,</span> <span class="n">op</span><span class="p">):</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">data</span>
+    <span class="n">fill</span> <span class="o">=</span> <span class="n">_get_fill</span><span class="p">(</span><span class="n">raster</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">op</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">raster</span><span class="o">.</span><span class="n">_masked</span><span class="p">:</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">da</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">raster</span><span class="o">.</span><span class="n">mask</span><span class="p">,</span> <span class="n">fill</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
     <span class="n">rpad</span><span class="p">,</span> <span class="n">cpad</span> <span class="o">=</span> <span class="n">_get_offsets</span><span class="p">(</span><span class="n">footprint</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
     <span class="c1"># Take max because map_overlap does not support asymmetrical overlaps when</span>
     <span class="c1"># a boundary value is given</span>
@@ -1206,11 +1200,11 @@ document.write(`
         <span class="n">data</span><span class="p">,</span>
         <span class="n">depth</span><span class="o">=</span><span class="n">depth</span><span class="p">,</span>
         <span class="n">boundary</span><span class="o">=</span><span class="n">fill</span><span class="p">,</span>
-        <span class="n">dtype</span><span class="o">=</span><span class="n">rs</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span>
-        <span class="n">meta</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">((),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">rs</span><span class="o">.</span><span class="n">dtype</span><span class="p">),</span>
+        <span class="n">dtype</span><span class="o">=</span><span class="n">raster</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span>
+        <span class="n">meta</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">((),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">raster</span><span class="o">.</span><span class="n">dtype</span><span class="p">),</span>
     <span class="p">)</span>
-    <span class="n">mask</span> <span class="o">=</span> <span class="n">rs</span><span class="o">.</span><span class="n">mask</span>
-    <span class="k">if</span> <span class="n">rs</span><span class="o">.</span><span class="n">_masked</span><span class="p">:</span>
+    <span class="n">mask</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">mask</span>
+    <span class="k">if</span> <span class="n">raster</span><span class="o">.</span><span class="n">_masked</span><span class="p">:</span>
         <span class="n">mask</span> <span class="o">=</span> <span class="n">da</span><span class="o">.</span><span class="n">map_overlap</span><span class="p">(</span>
             <span class="n">partial</span><span class="p">(</span>
                 <span class="n">_morph_op_chunk</span><span class="p">,</span>
@@ -1226,15 +1220,12 @@ document.write(`
             <span class="n">meta</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">((),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">BOOL</span><span class="p">),</span>
         <span class="p">)</span>
         <span class="n">mask</span> <span class="o">=</span> <span class="o">~</span><span class="n">mask</span>
-        <span class="n">data</span> <span class="o">=</span> <span class="n">da</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">mask</span><span class="p">,</span> <span class="n">rs</span><span class="o">.</span><span class="n">null_value</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">da</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">mask</span><span class="p">,</span> <span class="n">raster</span><span class="o">.</span><span class="n">null_value</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="n">mask</span> <span class="o">=</span> <span class="n">mask</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
-    <span class="n">xrs_out</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">rs</span><span class="o">.</span><span class="n">xdata</span><span class="p">)</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_nodata</span><span class="p">(</span><span class="n">rs</span><span class="o">.</span><span class="n">null_value</span><span class="p">)</span>
-    <span class="n">xrs_out</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">data</span>
-    <span class="n">xmask</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">(</span><span class="n">mask</span><span class="p">,</span> <span class="n">coords</span><span class="o">=</span><span class="n">xrs_out</span><span class="o">.</span><span class="n">coords</span><span class="p">,</span> <span class="n">dims</span><span class="o">=</span><span class="n">xrs_out</span><span class="o">.</span><span class="n">dims</span><span class="p">)</span>
-    <span class="n">ds_out</span> <span class="o">=</span> <span class="n">make_raster_ds</span><span class="p">(</span><span class="n">xrs_out</span><span class="p">,</span> <span class="n">xmask</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">rs</span><span class="o">.</span><span class="n">crs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">ds_out</span> <span class="o">=</span> <span class="n">ds_out</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_crs</span><span class="p">(</span><span class="n">rs</span><span class="o">.</span><span class="n">crs</span><span class="p">)</span>
+    <span class="n">ds_out</span> <span class="o">=</span> <span class="n">data_to_xr_raster_ds_like</span><span class="p">(</span>
+        <span class="n">data</span><span class="p">,</span> <span class="n">raster</span><span class="o">.</span><span class="n">xdata</span><span class="p">,</span> <span class="n">mask</span><span class="o">=</span><span class="n">mask</span><span class="p">,</span> <span class="n">nv</span><span class="o">=</span><span class="n">raster</span><span class="o">.</span><span class="n">null_value</span>
+    <span class="p">)</span>
     <span class="k">return</span> <span class="n">Raster</span><span class="p">(</span><span class="n">ds_out</span><span class="p">,</span> <span class="n">_fast_path</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
 
@@ -1344,11 +1335,11 @@ document.write(`
         <span class="k">return</span> <span class="n">rasters</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
 
     <span class="c1"># TODO: make join a user option or set join=&quot;exact&quot;?</span>
-    <span class="n">ds</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">r</span><span class="o">.</span><span class="n">_ds</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">rasters</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="s2">&quot;band&quot;</span><span class="p">,</span> <span class="n">join</span><span class="o">=</span><span class="s2">&quot;inner&quot;</span><span class="p">)</span>
+    <span class="n">ds</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">r</span><span class="o">.</span><span class="n">to_dataset</span><span class="p">()</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">rasters</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="s2">&quot;band&quot;</span><span class="p">,</span> <span class="n">join</span><span class="o">=</span><span class="s2">&quot;inner&quot;</span><span class="p">)</span>
     <span class="n">ds</span><span class="p">[</span><span class="s2">&quot;band&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">([</span><span class="n">r</span><span class="o">.</span><span class="n">nbands</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">rasters</span><span class="p">]))</span> <span class="o">+</span> <span class="mi">1</span>
     <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">_masked</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">rasters</span><span class="p">):</span>
         <span class="n">nv</span> <span class="o">=</span> <span class="n">get_default_null_value</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">raster</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
-        <span class="n">ds</span><span class="p">[</span><span class="s2">&quot;raster&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">mask</span><span class="p">,</span> <span class="n">nv</span><span class="p">,</span> <span class="n">ds</span><span class="o">.</span><span class="n">raster</span><span class="p">)</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_nodata</span><span class="p">(</span><span class="n">nv</span><span class="p">)</span>
+        <span class="n">ds</span><span class="p">[</span><span class="s2">&quot;raster&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">xr_where_with_meta</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">mask</span><span class="p">,</span> <span class="n">nv</span><span class="p">,</span> <span class="n">ds</span><span class="o">.</span><span class="n">raster</span><span class="p">,</span> <span class="n">nv</span><span class="o">=</span><span class="n">nv</span><span class="p">)</span>
     <span class="n">crs</span> <span class="o">=</span> <span class="p">([</span><span class="kc">None</span><span class="p">]</span> <span class="o">+</span> <span class="p">[</span><span class="n">r</span><span class="o">.</span><span class="n">crs</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">rasters</span> <span class="k">if</span> <span class="n">r</span><span class="o">.</span><span class="n">crs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">])</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span>
     <span class="k">if</span> <span class="n">ds</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">crs</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">crs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">ds</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_crs</span><span class="p">(</span><span class="n">crs</span><span class="p">)</span>
@@ -1357,8 +1348,8 @@ document.write(`
 
 
 <span class="nd">@nb</span><span class="o">.</span><span class="n">jit</span><span class="p">(</span><span class="n">nopython</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">nogil</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<span class="k">def</span> <span class="nf">_remap_values</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">mask</span><span class="p">,</span> <span class="n">start_end_values</span><span class="p">,</span> <span class="n">new_values</span><span class="p">,</span> <span class="n">inclusivity</span><span class="p">):</span>
-    <span class="n">outx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">_remap_values</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">mask</span><span class="p">,</span> <span class="n">null</span><span class="p">,</span> <span class="n">start_end_values</span><span class="p">,</span> <span class="n">new_values</span><span class="p">,</span> <span class="n">inclusivity</span><span class="p">):</span>
+    <span class="n">outx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full_like</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">null</span><span class="p">)</span>
     <span class="n">bands</span><span class="p">,</span> <span class="n">rows</span><span class="p">,</span> <span class="n">columns</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span>
     <span class="n">rngs</span> <span class="o">=</span> <span class="n">start_end_values</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
     <span class="k">for</span> <span class="n">bnd</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">bands</span><span class="p">):</span>
@@ -1406,7 +1397,7 @@ document.write(`
         <span class="p">)</span> <span class="kn">from</span> <span class="kc">None</span>
     <span class="n">starts</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="n">ends</span> <span class="o">=</span> <span class="p">[]</span>
-    <span class="n">news</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">outs</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">mappings</span><span class="p">:</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">m</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">3</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
@@ -1429,8 +1420,8 @@ document.write(`
             <span class="p">)</span>
         <span class="n">starts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">m</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
         <span class="n">ends</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">m</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
-        <span class="n">news</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">m</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span>
-    <span class="k">return</span> <span class="n">starts</span><span class="p">,</span> <span class="n">ends</span><span class="p">,</span> <span class="n">news</span>
+        <span class="n">outs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">m</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span>
+    <span class="k">return</span> <span class="n">starts</span><span class="p">,</span> <span class="n">ends</span><span class="p">,</span> <span class="n">outs</span>
 
 
 <div class="viewcode-block" id="remap_range"><a class="viewcode-back" href="../../reference/generated/raster_tools.remap_range.html#raster_tools.general.remap_range">[docs]</a><span class="k">def</span> <span class="nf">remap_range</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">mapping</span><span class="p">,</span> <span class="n">inclusivity</span><span class="o">=</span><span class="s2">&quot;left&quot;</span><span class="p">):</span>
@@ -1470,7 +1461,7 @@ document.write(`
 
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">raster</span> <span class="o">=</span> <span class="n">get_raster</span><span class="p">(</span><span class="n">raster</span><span class="p">)</span>
-    <span class="n">map_starts</span><span class="p">,</span> <span class="n">map_ends</span><span class="p">,</span> <span class="n">map_news</span> <span class="o">=</span> <span class="n">_normalize_mappings</span><span class="p">(</span><span class="n">mapping</span><span class="p">)</span>
+    <span class="n">map_starts</span><span class="p">,</span> <span class="n">map_ends</span><span class="p">,</span> <span class="n">map_outs</span> <span class="o">=</span> <span class="n">_normalize_mappings</span><span class="p">(</span><span class="n">mapping</span><span class="p">)</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">is_str</span><span class="p">(</span><span class="n">inclusivity</span><span class="p">):</span>
         <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
             <span class="sa">f</span><span class="s2">&quot;inclusivity must be a str. Got type: </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">inclusivity</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
@@ -1478,9 +1469,9 @@ document.write(`
     <span class="n">inc_map</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="nb">zip</span><span class="p">((</span><span class="s2">&quot;left&quot;</span><span class="p">,</span> <span class="s2">&quot;right&quot;</span><span class="p">,</span> <span class="s2">&quot;both&quot;</span><span class="p">,</span> <span class="s2">&quot;none&quot;</span><span class="p">),</span> <span class="nb">range</span><span class="p">(</span><span class="mi">4</span><span class="p">)))</span>
     <span class="k">if</span> <span class="n">inclusivity</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">inc_map</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid inclusivity value. Got: </span><span class="si">{</span><span class="n">inclusivity</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
-    <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span><span class="n">m</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">map_news</span><span class="p">):</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span><span class="n">m</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">map_outs</span><span class="p">):</span>
         <span class="n">mappings_common_dtype</span> <span class="o">=</span> <span class="n">get_common_dtype</span><span class="p">(</span>
-            <span class="p">[</span><span class="n">m</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">map_news</span> <span class="k">if</span> <span class="n">m</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">]</span>
+            <span class="p">[</span><span class="n">m</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">map_outs</span> <span class="k">if</span> <span class="n">m</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">]</span>
         <span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="n">mappings_common_dtype</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">dtype</span>
@@ -1489,34 +1480,37 @@ document.write(`
     <span class="n">f16_workaround</span> <span class="o">=</span> <span class="n">out_dtype</span> <span class="o">==</span> <span class="n">F16</span>
     <span class="k">if</span> <span class="n">raster</span><span class="o">.</span><span class="n">_masked</span><span class="p">:</span>
         <span class="n">nv</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">null_value</span>
-    <span class="k">else</span><span class="p">:</span>
+    <span class="k">elif</span> <span class="kc">None</span> <span class="ow">in</span> <span class="n">map_outs</span><span class="p">:</span>
         <span class="n">nv</span> <span class="o">=</span> <span class="n">get_default_null_value</span><span class="p">(</span><span class="n">out_dtype</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">nv</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">start_end_values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="n">s</span><span class="p">,</span> <span class="n">e</span><span class="p">]</span> <span class="k">for</span> <span class="n">s</span><span class="p">,</span> <span class="n">e</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">map_starts</span><span class="p">,</span> <span class="n">map_ends</span><span class="p">)])</span>
-    <span class="n">new_values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">v</span> <span class="k">if</span> <span class="n">v</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">nv</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">map_news</span><span class="p">])</span>
+    <span class="n">new_values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">v</span> <span class="k">if</span> <span class="n">v</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">nv</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">map_outs</span><span class="p">])</span>
 
-    <span class="n">outrs</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
-    <span class="k">if</span> <span class="n">out_dtype</span> <span class="o">!=</span> <span class="n">outrs</span><span class="o">.</span><span class="n">dtype</span><span class="p">:</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">data</span>
+    <span class="n">mask</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">mask</span>
+    <span class="k">if</span> <span class="n">out_dtype</span> <span class="o">!=</span> <span class="n">data</span><span class="o">.</span><span class="n">dtype</span><span class="p">:</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">f16_workaround</span><span class="p">:</span>
-            <span class="n">outrs</span> <span class="o">=</span> <span class="n">outrs</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">out_dtype</span><span class="p">)</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">out_dtype</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">outrs</span> <span class="o">=</span> <span class="n">outrs</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">F32</span><span class="p">)</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">F32</span><span class="p">)</span>
     <span class="k">elif</span> <span class="n">f16_workaround</span><span class="p">:</span>
-        <span class="n">outrs</span> <span class="o">=</span> <span class="n">outrs</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">F32</span><span class="p">)</span>
-    <span class="n">data</span> <span class="o">=</span> <span class="n">outrs</span><span class="o">.</span><span class="n">data</span>
-    <span class="n">outrs</span><span class="o">.</span><span class="n">xdata</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">map_blocks</span><span class="p">(</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">F32</span><span class="p">)</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">da</span><span class="o">.</span><span class="n">map_blocks</span><span class="p">(</span>
         <span class="n">_remap_values</span><span class="p">,</span>
-        <span class="n">raster</span><span class="o">.</span><span class="n">mask</span><span class="p">,</span>
+        <span class="n">data</span><span class="p">,</span>
+        <span class="n">mask</span><span class="p">,</span>
+        <span class="c1"># Can&#39;t pass None object to numba code</span>
+        <span class="n">null</span><span class="o">=</span><span class="mi">0</span> <span class="k">if</span> <span class="n">nv</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">nv</span><span class="p">,</span>
         <span class="n">start_end_values</span><span class="o">=</span><span class="n">start_end_values</span><span class="p">,</span>
         <span class="n">new_values</span><span class="o">=</span><span class="n">new_values</span><span class="p">,</span>
         <span class="n">inclusivity</span><span class="o">=</span><span class="n">inc_map</span><span class="p">[</span><span class="n">inclusivity</span><span class="p">],</span>
         <span class="n">dtype</span><span class="o">=</span><span class="n">data</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span>
         <span class="n">meta</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">((),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">data</span><span class="o">.</span><span class="n">dtype</span><span class="p">),</span>
     <span class="p">)</span>
-    <span class="k">if</span> <span class="n">raster</span><span class="o">.</span><span class="n">_masked</span> <span class="ow">or</span> <span class="kc">None</span> <span class="ow">in</span> <span class="n">map_news</span><span class="p">:</span>
-        <span class="n">outrs</span> <span class="o">=</span> <span class="n">outrs</span><span class="o">.</span><span class="n">set_null_value</span><span class="p">(</span><span class="n">nv</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">f16_workaround</span><span class="p">:</span>
-        <span class="n">outrs</span> <span class="o">=</span> <span class="n">outrs</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">F16</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">outrs</span></div>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">F16</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">data_to_raster_like</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">raster</span><span class="p">,</span> <span class="n">nv</span><span class="o">=</span><span class="n">nv</span><span class="p">)</span></div>
 
 
 <span class="k">def</span> <span class="nf">_get_where_nv</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">):</span>
@@ -1637,7 +1631,7 @@ document.write(`
         <span class="n">yd</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="s2">&quot;xdata&quot;</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
         <span class="n">data</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">cd</span><span class="p">,</span> <span class="n">xd</span><span class="p">,</span> <span class="n">yd</span><span class="p">)</span>
         <span class="n">mask</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
-    <span class="n">ds</span> <span class="o">=</span> <span class="n">make_raster_ds</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">mask</span><span class="p">)</span>
+    <span class="n">ds</span> <span class="o">=</span> <span class="n">dataarray_to_xr_raster_ds</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">mask</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">out_crs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">ds</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_crs</span><span class="p">(</span><span class="n">out_crs</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">Raster</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="n">_fast_path</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div>
@@ -1762,9 +1756,11 @@ document.write(`
         <span class="n">nv</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">null_value</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="n">nv</span> <span class="o">=</span> <span class="n">get_default_null_value</span><span class="p">(</span><span class="n">out_dtype</span><span class="p">)</span>
+    <span class="n">masked</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">_masked</span> <span class="ow">or</span> <span class="n">unmapped_to_null</span>
     <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">remapping</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">remapping</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">remapping</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">nv</span>
+            <span class="n">masked</span> <span class="o">=</span> <span class="kc">True</span>
 
     <span class="n">mapping_from</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">remapping</span><span class="p">))</span>
     <span class="n">mapping_to</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">remapping</span><span class="o">.</span><span class="n">values</span><span class="p">()))</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">out_dtype</span><span class="p">)</span>
@@ -1780,14 +1776,9 @@ document.write(`
         <span class="n">dtype</span><span class="o">=</span><span class="n">out_dtype</span><span class="p">,</span>
         <span class="n">meta</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">((),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">out_dtype</span><span class="p">),</span>
     <span class="p">)</span>
-    <span class="n">xdata</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">(</span>
-        <span class="n">data</span><span class="p">,</span> <span class="n">coords</span><span class="o">=</span><span class="n">raster</span><span class="o">.</span><span class="n">xdata</span><span class="o">.</span><span class="n">coords</span><span class="p">,</span> <span class="n">dims</span><span class="o">=</span><span class="n">raster</span><span class="o">.</span><span class="n">xdata</span><span class="o">.</span><span class="n">dims</span>
-    <span class="p">)</span>
-    <span class="k">if</span> <span class="n">raster</span><span class="o">.</span><span class="n">_masked</span> <span class="ow">or</span> <span class="n">unmapped_to_null</span><span class="p">:</span>
-        <span class="n">xdata</span> <span class="o">=</span> <span class="n">xdata</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_nodata</span><span class="p">(</span><span class="n">nv</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">raster</span><span class="o">.</span><span class="n">crs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">xdata</span> <span class="o">=</span> <span class="n">xdata</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_crs</span><span class="p">(</span><span class="n">raster</span><span class="o">.</span><span class="n">crs</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">Raster</span><span class="p">(</span><span class="n">xdata</span><span class="p">)</span></div>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">masked</span><span class="p">:</span>
+        <span class="n">nv</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">return</span> <span class="n">data_to_raster_like</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">raster</span><span class="p">,</span> <span class="n">nv</span><span class="o">=</span><span class="n">nv</span><span class="p">)</span></div>
 </pre></div>
 
                 </article>
