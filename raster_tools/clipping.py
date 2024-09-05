@@ -7,8 +7,12 @@ from raster_tools.creation import ones_like, zeros_like
 from raster_tools.exceptions import RasterNoDataError
 from raster_tools.general import band_concat
 from raster_tools.masking import get_default_null_value
-from raster_tools.raster import Raster, get_raster
-from raster_tools.utils import make_raster_ds
+from raster_tools.raster import (
+    Raster,
+    dataarray_to_xr_raster_ds,
+    get_raster,
+    xr_where_with_meta,
+)
 from raster_tools.vector import get_vector
 
 
@@ -21,54 +25,56 @@ def _clip(
     envelope=False,
 ):
     feat = get_vector(feature)
-    rs = get_raster(data_raster)
-    if rs.crs is None:
+    data_raster = get_raster(data_raster)
+    if data_raster.crs is None:
         raise ValueError("Data raster has no CRS")
     if bounds is not None and len(bounds) != 4:
         raise ValueError("Invalid bounds. Must be a size 4 array or tuple.")
     if envelope and invert:
         raise ValueError("Envelope and invert cannot both be true")
 
-    feat = feat.to_crs(rs.crs)
-
+    crs = data_raster.crs
+    feat = feat.to_crs(crs)
     if trim:
         if bounds is None:
             (bounds,) = dask.compute(feat.bounds)
         else:
-            bounds = np.atleast_1d(bounds)
+            bounds = np.atleast_1d(bounds).ravel()
         try:
-            rs = clip_box(rs, bounds)
+            data_raster = clip_box(data_raster, bounds)
         except RasterNoDataError as err:
             raise RuntimeError(
                 "No data in given bounds. Make sure that the bounds are in the"
                 " same CRS as the data raster."
             ) from err
 
-    feat_rs = feat.to_raster(rs, mask=True)
+    feature_raster = feat.to_raster(data_raster, mask=True)
     if not envelope:
         if invert:
-            clip_mask = feat_rs.to_null_mask()
+            clip_mask = feature_raster.to_null_mask()
         else:
-            clip_mask = ~feat_rs.to_null_mask()
+            clip_mask = ~feature_raster.to_null_mask()
     else:
         if invert:
-            clip_mask = zeros_like(feat_rs, dtype=bool)
+            clip_mask = zeros_like(feature_raster, dtype=bool)
         else:
-            clip_mask = ones_like(feat_rs, dtype=bool)
+            clip_mask = ones_like(feature_raster, dtype=bool)
 
-    nv = rs.null_value if rs._masked else get_default_null_value(rs.dtype)
-
-    if rs.nbands > 1:
-        clip_mask = band_concat([clip_mask] * rs.nbands)
-    xdata_out = xr.where(clip_mask.xdata, rs.xdata, nv)
+    nv = (
+        data_raster.null_value
+        if data_raster._masked
+        else get_default_null_value(data_raster.dtype)
+    )
+    if data_raster.nbands > 1:
+        clip_mask = band_concat([clip_mask] * data_raster.nbands)
+    xdata_out = xr_where_with_meta(
+        clip_mask.xdata, data_raster.xdata, nv, crs=crs, nv=nv
+    )
     xmask_out = ~clip_mask.xdata
-
-    if rs._masked:
-        xmask_out |= rs.xmask
+    if data_raster._masked:
+        xmask_out |= data_raster.xmask
         xdata_out = xdata_out.rio.write_nodata(nv)
-    ds_out = make_raster_ds(xdata_out, xmask_out)
-    if rs.crs is not None:
-        ds_out = ds_out.rio.write_crs(rs.crs)
+    ds_out = dataarray_to_xr_raster_ds(xdata_out, xmask=xmask_out, crs=crs)
     return Raster(ds_out, _fast_path=True)
 
 
@@ -212,20 +218,18 @@ def clip_box(raster, bounds):
         The raster clipped to the given bounds.
 
     """
-    rs = get_raster(raster)
+    raster = get_raster(raster)
     if len(bounds) != 4:
         raise ValueError("Invalid bounds. Must be a size 4 array or tuple.")
     try:
-        xrs = rs.xdata.rio.clip_box(*bounds, auto_expand=True)
+        xdata = raster.xdata.rio.clip_box(*bounds, auto_expand=True)
     except rxr.exceptions.NoDataInBounds as err:
         raise RasterNoDataError(
             "No data found within provided bounds"
         ) from err
-    if rs._masked:
-        xmask = rs.xmask.rio.clip_box(*bounds, auto_expand=True)
+    if raster._masked:
+        xmask = raster.xmask.rio.clip_box(*bounds, auto_expand=True)
     else:
-        xmask = xr.zeros_like(xrs, dtype=bool)
-    ds = make_raster_ds(xrs, xmask)
-    if rs.crs is not None:
-        ds = ds.rio.write_crs(rs.crs)
+        xmask = xr.zeros_like(xdata, dtype=bool)
+    ds = dataarray_to_xr_raster_ds(xdata, xmask=xmask, crs=raster.crs)
     return Raster(ds, _fast_path=True)

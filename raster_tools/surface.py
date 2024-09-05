@@ -4,16 +4,16 @@ Surface module used to perform common surface analyses on Raster objects.
 ref: https://pro.arcgis.com/en/pro-app/latest/tool-reference/spatial-analyst/an-overview-of-the-surface-tools.htm
 ref: https://github.com/makepath/xarray-spatial
 """  # noqa: E501
+
 import dask.array as da
 import numba as nb
 import numpy as np
-import xarray as xr
 
 from raster_tools import focal
 from raster_tools.dtypes import F32, F64, I32, U8, is_int
 from raster_tools.masking import get_default_null_value
-from raster_tools.raster import Raster, get_raster
-from raster_tools.utils import make_raster_ds, single_band_mappable
+from raster_tools.raster import Raster, data_to_xr_raster_ds_like, get_raster
+from raster_tools.utils import single_band_mappable
 
 __all__ = [
     "aspect",
@@ -30,22 +30,17 @@ RADIANS_TO_DEGREES = 180 / np.pi
 DEGREES_TO_RADIANS = np.pi / 180
 
 
-def _finalize_rs(rs, data):
+def _finalize(data, like):
     # Invalidate edges
-    mask = rs.mask.copy()
+    mask = like.mask.copy()
     mask[:, 0, :] = True
     mask[:, -1, :] = True
     mask[:, :, 0] = True
     mask[:, :, -1] = True
-    coords = rs.xdata.coords
-    dims = rs.xdata.dims
-    xdata = xr.DataArray(data, coords=coords, dims=dims)
-    xmask = xr.DataArray(mask, coords=coords, dims=dims)
     nv = get_default_null_value(data.dtype)
-    xdata = xr.where(xmask, nv, xdata).rio.write_nodata(nv)
-    ds = make_raster_ds(xdata, xmask)
-    if rs.crs is not None:
-        ds = ds.rio.write_crs(rs.crs)
+    ds = data_to_xr_raster_ds_like(
+        data, like.xdata, mask=mask, nv=nv, burn=True
+    )
     return Raster(ds, _fast_path=True)
 
 
@@ -127,18 +122,18 @@ def surface_area_3d(raster):
     * `Jense, 2004 <https://www.fs.usda.gov/treesearch/pubs/20437>`_
 
     """
-    rs = get_raster(raster, null_to_nan=True)
-    if rs.dtype == np.dtype("float16"):
-        rs = rs.astype(F32)
-    out_data = rs.data.map_overlap(
+    raster = get_raster(raster, null_to_nan=True)
+    if raster.dtype == np.dtype("float16"):
+        raster = raster.astype(F32)
+    out_data = raster.data.map_overlap(
         _surface_area_3d,
         depth={0: 0, 1: 1, 2: 1},
         boundary=np.nan,
         dtype=F64,
         meta=np.array((), dtype=F64),
-        res=rs.resolution[0],
+        res=raster.resolution[0],
     )
-    return _finalize_rs(rs, out_data)
+    return _finalize(out_data, raster)
 
 
 @single_band_mappable
@@ -195,20 +190,20 @@ def slope(raster, degrees=True):
     * `ESRI slope <https://pro.arcgis.com/en/pro-app/latest/tool-reference/3d-analyst/how-slope-works.htm>`_
 
     """  # noqa: E501
-    rs = get_raster(raster, null_to_nan=True)
-    if rs.dtype == np.dtype("float16"):
-        rs = rs.astype(F32)
+    raster = get_raster(raster, null_to_nan=True)
+    if raster.dtype == np.dtype("float16"):
+        raster = raster.astype(F32)
     # Leave resolution sign as is
-    out_data = rs.data.map_overlap(
+    out_data = raster.data.map_overlap(
         _slope,
         depth={0: 0, 1: 1, 2: 1},
         boundary=np.nan,
         dtype=F64,
         meta=np.array((), dtype=F64),
-        res=rs.resolution,
+        res=raster.resolution,
         degrees=bool(degrees),
     )
-    return _finalize_rs(rs, out_data)
+    return _finalize(out_data, raster)
 
 
 @single_band_mappable
@@ -269,17 +264,17 @@ def aspect(raster):
     * `ESRI aspect <https://pro.arcgis.com/en/pro-app/latest/tool-reference/3d-analyst/how-aspect-works.htm>`_
 
     """  # noqa: E501
-    rs = get_raster(raster, null_to_nan=True)
-    if rs.dtype == np.dtype("float16"):
-        rs = rs.astype(F32)
-    out_data = rs.data.map_overlap(
+    raster = get_raster(raster, null_to_nan=True)
+    if raster.dtype == np.dtype("float16"):
+        raster = raster.astype(F32)
+    out_data = raster.data.map_overlap(
         _aspect,
         depth={0: 0, 1: 1, 2: 1},
         boundary=np.nan,
         dtype=F64,
         meta=np.array((), dtype=F64),
     )
-    return _finalize_rs(rs, out_data)
+    return _finalize(out_data, raster)
 
 
 @single_band_mappable
@@ -328,30 +323,30 @@ def curvature(raster):
     * `ESRI curvature <https://pro.arcgis.com/en/pro-app/latest/tool-reference/3d-analyst/how-curvature-works.htm>`_
 
     """  # noqa: E501
-    rs = get_raster(raster, null_to_nan=True)
-    if rs.dtype == np.dtype("float16"):
-        rs = rs.astype(F32)
-    out_data = rs.data.map_overlap(
+    raster = get_raster(raster, null_to_nan=True)
+    if raster.dtype == np.dtype("float16"):
+        raster = raster.astype(F32)
+    out_data = raster.data.map_overlap(
         _curv,
         depth={0: 0, 1: 1, 2: 1},
         boundary=np.nan,
         dtype=F64,
         meta=np.array((), dtype=F64),
-        res=np.abs(rs.resolution),
+        res=np.abs(raster.resolution),
     )
-    return _finalize_rs(rs, out_data)
+    return _finalize(out_data, raster)
 
 
-def _northing_easting(rs, do_northing):
+def _northing_easting(raster, do_northing):
     trig = np.cos if do_northing else np.sin
-    data = rs.data
-    # Operate on rs.data rather than rs.xdata to avoid xarray's annoying
-    # habit of dropping meta data.
+    data = raster.data
+    # Operate on raster.data rather than raster.xdata to avoid xarray's
+    # annoying habit of dropping meta data.
     data = trig(np.radians(data))
-    if rs._masked:
-        data = da.where(rs.mask, rs.null_value, data)
-    rs.xdata.data = data
-    return rs
+    if raster._masked:
+        data = da.where(raster.mask, raster.null_value, data)
+    raster.xdata.data = data
+    return raster
 
 
 def northing(raster, is_aspect=False):
@@ -376,10 +371,10 @@ def northing(raster, is_aspect=False):
     """
     if not is_aspect:
         raster = aspect(raster)
-    rs = get_raster(raster, null_to_nan=True).copy()
-    if rs.dtype == np.dtype("float16"):
-        rs = rs.astype(F32)
-    return _northing_easting(rs, True)
+    raster = get_raster(raster, null_to_nan=True).copy()
+    if raster.dtype == np.dtype("float16"):
+        raster = raster.astype(F32)
+    return _northing_easting(raster, True)
 
 
 def easting(raster, is_aspect=False):
@@ -405,10 +400,10 @@ def easting(raster, is_aspect=False):
     if not is_aspect:
         raster = aspect(raster)
 
-    rs = get_raster(raster, null_to_nan=True).copy()
-    if rs.dtype == np.dtype("float16"):
-        rs = rs.astype(F32)
-    return _northing_easting(rs, False)
+    raster = get_raster(raster, null_to_nan=True).copy()
+    if raster.dtype == np.dtype("float16"):
+        raster = raster.astype(F32)
+    return _northing_easting(raster, False)
 
 
 @single_band_mappable
@@ -484,28 +479,27 @@ def hillshade(raster, azimuth=315, altitude=45):
     * `ESRI hillshade <https://pro.arcgis.com/en/pro-app/latest/tool-reference/spatial-analyst/how-hillshade-works.htm>`_
 
     """  # noqa: E501
-    rs = get_raster(raster, null_to_nan=True)
-    if rs.dtype == np.dtype("float16"):
-        rs = rs.astype(F32)
+    raster = get_raster(raster, null_to_nan=True)
+    if raster.dtype == np.dtype("float16"):
+        raster = raster.astype(F32)
     # Specifically leave resolution sign as is
-    out_data = rs.data.map_overlap(
+    out_data = raster.data.map_overlap(
         _hillshade,
         depth={0: 0, 1: 1, 2: 1},
         boundary=np.nan,
         dtype=F32,
         meta=np.array((), dtype=F32),
-        res=rs.resolution,
+        res=raster.resolution,
         azimuth=azimuth,
         altitude=altitude,
     )
 
-    rs = (
-        _finalize_rs(rs, out_data)
+    return (
+        _finalize(out_data, raster)
         .replace_null(255)
         .set_null_value(255)
         .astype(U8)
     )
-    return rs
 
 
 def tpi(dem, annulus_inner, annulus_outer):

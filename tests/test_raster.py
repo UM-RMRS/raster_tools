@@ -24,6 +24,7 @@ import xarray as xr
 from affine import Affine
 from shapely.geometry import box
 
+import raster_tools.raster
 from raster_tools import Raster, band_concat
 from raster_tools.dtypes import (
     DTYPE_INPUT_TO_DTYPE,
@@ -50,22 +51,159 @@ from raster_tools.masking import (
 from raster_tools.raster import (
     GeoChunk,
     RasterQuadrantsResult,
+    data_to_raster,
     rowcol_to_xy,
     xy_to_rowcol,
 )
-from raster_tools.utils import (
-    is_strictly_decreasing,
-    is_strictly_increasing,
-    make_raster,
-)
+from raster_tools.utils import is_strictly_decreasing, is_strictly_increasing
 from raster_tools.vector import Vector
 from tests import testdata
 from tests.utils import (
     arange_nd,
     arange_raster,
+    assert_dataarrays_similar,
     assert_rasters_similar,
     assert_valid_raster,
 )
+
+
+def dummy_dataarray(data, dtype=None):
+    data = np.asarray(data, dtype=dtype)
+    dims = [f"d{i}" for i in range(data.ndim)]
+    coords = [np.arange(n) for n in data.shape]
+    return xr.DataArray(data, dims=dims, coords=coords)
+
+
+@pytest.mark.parametrize(
+    "data,nv,expected",
+    [
+        (np.arange(4), 0, np.array([1, 0, 0, 0])),
+        (np.arange(4), np.nan, np.array([0, 0, 0, 0])),
+        (np.arange(4), None, np.array([0, 0, 0, 0])),
+        ([1, np.nan, 2, 3], np.nan, np.array([0, 1, 0, 0])),
+        ([1, np.nan, 2, 3], None, np.array([0, 0, 0, 0])),
+        (da.arange(4), 0, da.from_array([1, 0, 0, 0])),
+        (
+            da.from_array([0, np.nan, 1, 2]),
+            np.nan,
+            da.from_array([0, 1, 0, 0]),
+        ),
+        (da.from_array([0, np.nan, 1, 2]), None, da.from_array([0, 0, 0, 0])),
+        (dummy_dataarray([1, 2, 3]), 1, dummy_dataarray([1, 0, 0])),
+        (
+            dummy_dataarray([1, 2, 3]).chunk(),
+            1,
+            dummy_dataarray([1, 0, 0]).chunk(),
+        ),
+        (dummy_dataarray([1, 2, 3]), np.nan, dummy_dataarray([0, 0, 0])),
+        (dummy_dataarray([1, np.nan, 3]), np.nan, dummy_dataarray([0, 1, 0])),
+        (dummy_dataarray([1, np.nan, 3]), None, dummy_dataarray([0, 0, 0])),
+    ],
+)
+def test_get_mask_from_data(data, nv, expected):
+    expected = expected.astype(bool)
+    result = raster_tools.raster.get_mask_from_data(data, nv)
+    if dask.is_dask_collection(expected):
+        assert dask.is_dask_collection(result)
+    assert np.allclose(result, expected)
+
+
+@pytest.mark.parametrize("nv", [None, np.nan, 0])
+@pytest.mark.parametrize(
+    "data",
+    [
+        arange_nd((1, 100, 100)).astype(float),
+        arange_nd((3, 100, 100)).astype(float),
+        arange_nd((100, 100)).astype(float),
+        da.from_array(arange_nd((3, 100, 100))).astype(float),
+        da.from_array(arange_nd((3, 100, 100)), chunks=(1, 10, 10)).astype(
+            float
+        ),
+    ],
+)
+def test_data_to_xr_raster(data, xdem_small, nv):
+    xlike = xdem_small
+    expected = xlike.copy()
+    nbands = 1 if data.ndim == 2 or data.shape[0] == 1 else data.shape[0]
+    if nbands > 1:
+        expected = xr.concat(
+            [expected for i in range(nbands)], dim="band", join="inner"
+        )
+        expected["band"] = np.arange(nbands) + 1
+    data_copy = data.copy()
+    if data_copy.ndim == 2:
+        data_copy = data_copy[None]
+    expected.data = da.asarray(data_copy).rechunk(xlike.data.chunksize)
+
+    # Check using x/y
+    result1 = raster_tools.raster.data_to_xr_raster(
+        data,
+        x=xlike.x.to_numpy(),
+        y=xlike.y.to_numpy(),
+        crs=xlike.rio.crs,
+        nv=nv,
+    )
+    # Check using affine
+    result2 = raster_tools.raster.data_to_xr_raster(
+        data, affine=xlike.rio.transform(True), crs=xlike.rio.crs, nv=nv
+    )
+    results = [result1, result2]
+    for result in results:
+        assert_dataarrays_similar(
+            result, xlike, check_nbands=False, check_chunks=False
+        )
+        assert np.allclose(result, expected)
+        assert np.allclose(result.band, np.arange(nbands) + 1)
+        assert dask.is_dask_collection(result)
+        if nv is None:
+            assert result.rio.nodata is None
+        elif np.isnan(nv):
+            assert np.isnan(result.rio.nodata)
+        else:
+            assert result.rio.nodata == nv
+
+
+@pytest.mark.parametrize("nv", [None, np.nan, 0])
+@pytest.mark.parametrize(
+    "data",
+    [
+        arange_nd((1, 100, 100)).astype(float),
+        arange_nd((3, 100, 100)).astype(float),
+        arange_nd((100, 100)).astype(float),
+        da.from_array(arange_nd((3, 100, 100))).astype(float),
+        da.from_array(arange_nd((3, 100, 100)), chunks=(1, 10, 10)).astype(
+            float
+        ),
+    ],
+)
+def test_data_to_xr_raster_like(data, xdem_small, nv):
+    xlike = xdem_small.chunk(chunks=(1, 15, 15))
+    expected = xlike.copy()
+    nbands = 1 if data.ndim == 2 or data.shape[0] == 1 else data.shape[0]
+    if nbands > 1:
+        expected = xr.concat(
+            [expected for i in range(nbands)], dim="band", join="inner"
+        )
+        expected["band"] = np.arange(nbands) + 1
+    data_copy = data.copy()
+    if data_copy.ndim == 2:
+        data_copy = data_copy[None]
+    expected.data = da.asarray(data_copy).rechunk(xlike.data.chunksize)
+
+    result = raster_tools.raster.data_to_xr_raster_like(data, xlike, nv=nv)
+    assert_dataarrays_similar(
+        result, xlike, check_nbands=False, check_chunks=True
+    )
+    assert np.allclose(result, expected)
+    assert np.allclose(result.band, np.arange(nbands) + 1)
+    assert dask.is_dask_collection(result)
+    if nv is None:
+        assert result.rio.nodata is None
+    elif np.isnan(nv):
+        assert np.isnan(result.rio.nodata)
+    else:
+        assert result.rio.nodata == nv
+
 
 TEST_ARRAY = np.array(
     [
@@ -154,17 +292,17 @@ def test_raster_from_dask_array(data):
     assert raster.dtype == data.dtype
     assert dask.is_dask_collection(raster._ds.raster)
     assert dask.is_dask_collection(raster._ds.mask)
-    if not is_float(data.dtype):
-        assert raster.null_value is None
-        assert not raster.mask.any().compute()
-        assert np.allclose(raster, data.compute())
-    else:
+    if is_float(data.dtype):
         mask = np.isnan(data)
         assert np.allclose(raster._ds.mask.data.compute(), mask.compute())
         data_cp = data.copy()
         data_cp[mask] = get_default_null_value(data.dtype)
         assert raster.null_value == get_default_null_value(data.dtype)
         assert np.allclose(raster, data_cp.compute())
+    else:
+        assert raster.null_value is None
+        assert not raster.mask.any().compute()
+        assert np.allclose(raster, data.compute())
     assert raster._ds.raster.dims == ("band", "y", "x")
     assert raster._ds.mask.dims == ("band", "y", "x")
     # Band dim starts at 1
@@ -2135,17 +2273,17 @@ def test_get_chunk_rasters():
     raster = arange_raster((6, 6)).chunk((1, 3, 3)).set_crs("EPSG:5070")
     blocks = raster.data.blocks
     truth = np.empty((1, 2, 2), dtype="O")
-    truth[0, 0, 0] = make_raster(
-        blocks[0, 0, 0], raster.x[:3], raster.y[:3], crs=raster.crs
+    truth[0, 0, 0] = data_to_raster(
+        blocks[0, 0, 0], x=raster.x[:3], y=raster.y[:3], crs=raster.crs
     )
-    truth[0, 0, 1] = make_raster(
-        blocks[0, 0, 1], raster.x[3:], raster.y[:3], crs=raster.crs
+    truth[0, 0, 1] = data_to_raster(
+        blocks[0, 0, 1], x=raster.x[3:], y=raster.y[:3], crs=raster.crs
     )
-    truth[0, 1, 0] = make_raster(
-        blocks[0, 1, 0], raster.x[:3], raster.y[3:], crs=raster.crs
+    truth[0, 1, 0] = data_to_raster(
+        blocks[0, 1, 0], x=raster.x[:3], y=raster.y[3:], crs=raster.crs
     )
-    truth[0, 1, 1] = make_raster(
-        blocks[0, 1, 1], raster.x[3:], raster.y[3:], crs=raster.crs
+    truth[0, 1, 1] = data_to_raster(
+        blocks[0, 1, 1], x=raster.x[3:], y=raster.y[3:], crs=raster.crs
     )
     rasters = raster.get_chunk_rasters()
     assert rasters.shape == truth.shape
@@ -2159,33 +2297,33 @@ def test_get_chunk_rasters():
 
     raster = raster.set_null_value(0).set_null_value(3).set_null_value(6)
     blocks = raster.data.blocks
-    truth[0, 0, 0] = make_raster(
+    truth[0, 0, 0] = data_to_raster(
         blocks[0, 0, 0],
-        raster.x[:3],
-        raster.y[:3],
+        x=raster.x[:3],
+        y=raster.y[:3],
         crs=raster.crs,
-        null_value=6,
+        nv=6,
     )
-    truth[0, 0, 1] = make_raster(
+    truth[0, 0, 1] = data_to_raster(
         blocks[0, 0, 1],
-        raster.x[3:],
-        raster.y[:3],
+        x=raster.x[3:],
+        y=raster.y[:3],
         crs=raster.crs,
-        null_value=6,
+        nv=6,
     )
-    truth[0, 1, 0] = make_raster(
+    truth[0, 1, 0] = data_to_raster(
         blocks[0, 1, 0],
-        raster.x[:3],
-        raster.y[3:],
+        x=raster.x[:3],
+        y=raster.y[3:],
         crs=raster.crs,
-        null_value=6,
+        nv=6,
     )
-    truth[0, 1, 1] = make_raster(
+    truth[0, 1, 1] = data_to_raster(
         blocks[0, 1, 1],
-        raster.x[3:],
-        raster.y[3:],
+        x=raster.x[3:],
+        y=raster.y[3:],
         crs=raster.crs,
-        null_value=6,
+        nv=6,
     )
     rasters = raster.get_chunk_rasters()
     assert rasters.shape == truth.shape
@@ -2201,33 +2339,33 @@ def test_get_chunk_rasters():
     blocks = raster.data.blocks
     truth = np.empty((2, 2, 2), dtype="O")
     for i in range(2):
-        truth[i, 0, 0] = make_raster(
+        truth[i, 0, 0] = data_to_raster(
             blocks[i, 0, 0],
-            raster.x[:3],
-            raster.y[:3],
+            x=raster.x[:3],
+            y=raster.y[:3],
             crs=raster.crs,
-            null_value=6,
+            nv=6,
         )
-        truth[i, 0, 1] = make_raster(
+        truth[i, 0, 1] = data_to_raster(
             blocks[i, 0, 1],
-            raster.x[3:],
-            raster.y[:3],
+            x=raster.x[3:],
+            y=raster.y[:3],
             crs=raster.crs,
-            null_value=6,
+            nv=6,
         )
-        truth[i, 1, 0] = make_raster(
+        truth[i, 1, 0] = data_to_raster(
             blocks[i, 1, 0],
-            raster.x[:3],
-            raster.y[3:],
+            x=raster.x[:3],
+            y=raster.y[3:],
             crs=raster.crs,
-            null_value=6,
+            nv=6,
         )
-        truth[i, 1, 1] = make_raster(
+        truth[i, 1, 1] = data_to_raster(
             blocks[i, 1, 1],
-            raster.x[3:],
-            raster.y[3:],
+            x=raster.x[3:],
+            y=raster.y[3:],
             crs=raster.crs,
-            null_value=6,
+            nv=6,
         )
     rasters = raster.get_chunk_rasters()
     assert rasters.shape == truth.shape

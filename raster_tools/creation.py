@@ -2,12 +2,10 @@ from collections.abc import Sequence
 
 import dask.array as da
 import numpy as np
-import xarray as xr
 
 from raster_tools.dtypes import is_int, is_scalar
 from raster_tools.masking import get_default_null_value
-from raster_tools.raster import Raster, get_raster
-from raster_tools.utils import make_raster_ds
+from raster_tools.raster import data_to_raster_like, get_raster
 
 __all__ = [
     "constant_raster",
@@ -60,28 +58,28 @@ def _get_dtype(dtype):
 
 def _copy_mask(template, out_bands):
     if out_bands == template.nbands:
-        return template.xmask.copy()
-    mask = template.get_bands(1).xmask
-    mask = xr.concat([mask] * out_bands, "band")
-    mask["band"] = np.arange(out_bands) + 1
+        return template.mask.copy()
+    mask = template.mask[0]
+    mask = da.stack([mask] * out_bands, axis=0)
     return mask
 
 
-def _build_result(template, xdata, nbands, copy_mask, copy_nv):
+def _build_result(template, data, nbands, copy_mask, copy_nv):
     if template._masked and copy_mask:
-        xmask = _copy_mask(template, nbands)
+        mask = _copy_mask(template, nbands)
         nv = (
             template.null_value
             if copy_nv
-            else get_default_null_value(xdata.dtype)
+            else get_default_null_value(data.dtype)
         )
-        xdata = xdata.rio.write_nodata(nv)
+        burn_mask = True
     else:
-        xmask = xr.zeros_like(xdata, dtype=bool)
-    ds = make_raster_ds(xdata, xmask)
-    if template.crs is not None:
-        ds = ds.rio.write_crs(template.crs)
-    return Raster(ds, _fast_path=True).burn_mask()
+        mask = None
+        nv = None
+        burn_mask = False
+    return data_to_raster_like(
+        data, template, mask=mask, nv=nv, burn=burn_mask
+    )
 
 
 def random_raster(
@@ -136,7 +134,7 @@ def random_raster(
         The resulting raster of random values pulled from the distribution.
 
     """
-    rst = get_raster(raster_template)
+    raster_template = get_raster(raster_template)
     bands = _get_bands(bands)
     if not isinstance(params, Sequence):
         try:
@@ -148,8 +146,8 @@ def random_raster(
     else:
         params = list(params)
 
-    shape = (bands,) + rst.shape[1:]
-    chunks = ((1,) * bands,) + rst.data.chunks[1:]
+    shape = (bands,) + raster_template.shape[1:]
+    chunks = ((1,) * bands,) + raster_template.data.chunks[1:]
 
     dist = distribution.lower()
     if dist not in _VALID_RANDOM_DISTRIBUTIONS:
@@ -183,11 +181,7 @@ def random_raster(
         ndata = da.random.random(size=shape, chunks=chunks)
     # TODO: add more distributions
 
-    cband = np.arange(bands) + 1
-    xdata = xr.DataArray(
-        ndata, coords=(cband, rst.y, rst.x), dims=("band", "y", "x")
-    )
-    return _build_result(rst, xdata, bands, copy_mask, False)
+    return _build_result(raster_template, ndata, bands, copy_mask, False)
 
 
 def empty_like(raster_template, bands=1, dtype=None, copy_mask=False):
@@ -219,13 +213,8 @@ def empty_like(raster_template, bands=1, dtype=None, copy_mask=False):
     shape = (bands,) + rst.shape[1:]
     chunks = ((1,) * bands,) + rst.data.chunks[1:]
     ndata = da.empty(shape, chunks=chunks, dtype=dtype)
-    xdata = xr.DataArray(
-        ndata,
-        coords=(np.arange(bands) + 1, rst.y, rst.x),
-        dims=("band", "y", "x"),
-    )
     copy_null = dtype is None or np.dtype(dtype) == rst.dtype
-    return _build_result(rst, xdata, bands, copy_mask, copy_null)
+    return _build_result(rst, ndata, bands, copy_mask, copy_null)
 
 
 def full_like(raster_template, value, bands=1, dtype=None, copy_mask=False):
@@ -266,13 +255,8 @@ def full_like(raster_template, value, bands=1, dtype=None, copy_mask=False):
     shape = (bands,) + rst.shape[1:]
     chunks = ((1,) * bands,) + rst.data.chunks[1:]
     ndata = da.full(shape, value, chunks=chunks, dtype=dtype)
-    xdata = xr.DataArray(
-        ndata,
-        coords=(np.arange(bands) + 1, rst.y, rst.x),
-        dims=("band", "y", "x"),
-    )
     copy_null = dtype is None or np.dtype(dtype) == rst.dtype
-    return _build_result(rst, xdata, bands, copy_mask, copy_null)
+    return _build_result(rst, ndata, bands, copy_mask, copy_null)
 
 
 def constant_raster(raster_template, value=1, bands=1, copy_mask=False):

@@ -25,7 +25,7 @@ from scipy.ndimage import (
     grey_erosion,
 )
 
-from raster_tools.creation import empty_like, zeros_like
+from raster_tools.creation import empty_like
 from raster_tools.dtypes import (
     BOOL,
     F16,
@@ -51,7 +51,14 @@ from raster_tools.masking import (
     get_default_null_value,
     reconcile_nullvalue_with_dtype,
 )
-from raster_tools.raster import Raster, get_raster
+from raster_tools.raster import (
+    Raster,
+    data_to_raster_like,
+    data_to_xr_raster_ds_like,
+    dataarray_to_xr_raster_ds,
+    get_raster,
+    xr_where_with_meta,
+)
 from raster_tools.stat_common import (
     nan_unique_count_jit,
     nanargmax_jit,
@@ -60,7 +67,6 @@ from raster_tools.stat_common import (
     nanentropy_jit,
     nanmode_jit,
 )
-from raster_tools.utils import make_raster_ds
 
 __all__ = [
     "ModelPredictAdaptor",
@@ -87,7 +93,7 @@ def _create_labels(xarr, wd, uarr=None):
     uarr = uarr[uarr != 0]
 
     cum_num = 0
-    result = da.zeros_like(xarr)
+    result = da.zeros_like(xarr, dtype=U64)
     for v in uarr:
         labeled_array, num_features = ndm.label((xarr == v), structure=wd)
         result += da.where(
@@ -131,7 +137,6 @@ def regions(raster, neighbors=4, unique_values=None):
 
     """  # noqa: E501
     raster = get_raster(raster)
-    rs_out = zeros_like(raster, dtype=U64)
 
     if not is_int(neighbors):
         raise TypeError(
@@ -153,19 +158,19 @@ def regions(raster, neighbors=4, unique_values=None):
             raise TypeError("Invalid type for unique_values parameter")
 
     data = raster.data
-    dout = rs_out.data
+    # Copy to prevent input and output rasters from having same reference
+    mask = raster.mask.copy()
     if raster._masked:
         # Set null values to 0 to skip them in the labeling phase
-        data = da.where(raster._ds.mask.data, 0, data)
-
-    for bnd in range(data.shape[0]):
-        dout[bnd] = _create_labels(data[bnd], wd, unique_values)
-
-    nv = reconcile_nullvalue_with_dtype(raster.null_value, rs_out.dtype)
+        data = da.where(raster.mask, 0, data)
+    data_out = [_create_labels(band, wd, unique_values) for band in data]
+    data_out = da.stack(data_out, axis=0)
+    nv = None
     if raster._masked:
-        dout = da.where(raster._ds.mask.data, nv, dout)
-    rs_out._ds.raster.data = dout
-    return rs_out.set_null_value(nv)
+        nv = reconcile_nullvalue_with_dtype(raster.null_value, U64)
+        data_out = da.where(mask, nv, data_out)
+    ds = data_to_xr_raster_ds_like(data_out, raster.xdata, mask=mask, nv=nv)
+    return Raster(ds, _fast_path=True)
 
 
 @nb.jit(nopython=True, nogil=True, parallel=True)
@@ -287,14 +292,14 @@ def aggregate(raster, expand_cells, stype):
     ):
         raise ValueError(f"Invalid stype argument: {repr(stype)}")
     orig_dtype = get_raster(raster).dtype
-    rs = get_raster(raster, null_to_nan=True)
+    raster = get_raster(raster, null_to_nan=True)
 
-    xda = rs.xdata
-    xmask = rs.xmask
+    xdata = raster.xdata
+    xmask = raster.xmask
     dim_map = {"y": expand_cells[0], "x": expand_cells[1]}
-    xdac = xda.coarsen(dim=dim_map, boundary="trim")
+    xdatac = xdata.coarsen(dim=dim_map, boundary="trim")
     if stype in _COARSEN_STYPE_TO_FUNC:
-        xda = _COARSEN_STYPE_TO_FUNC[stype](xdac)
+        xdata = _COARSEN_STYPE_TO_FUNC[stype](xdatac)
     else:
         custom_stat_func = _COARSEN_STYPE_TO_CUSTOM_FUNC[stype]
         check_nan = stype == "mode"
@@ -303,7 +308,7 @@ def aggregate(raster, expand_cells, stype):
         )
         # Use partial because reduce seems to be bugged and grabs kwargs that
         # it shouldn't.
-        xda = xdac.reduce(
+        xdata = xdatac.reduce(
             partial(
                 _coarsen_block_map,
                 agg_func=custom_stat_func,
@@ -311,29 +316,22 @@ def aggregate(raster, expand_cells, stype):
                 check_nan=check_nan,
             )
         )
-    # Coarsen mask as well
-    if rs._masked:
-        xmask = rs.xmask.coarsen(dim=dim_map, boundary="trim").all()
+    if raster._masked:
+        # Coarsen mask as well
+        xmask = raster.xmask.coarsen(dim=dim_map, boundary="trim").all()
 
-    ds_out = make_raster_ds(xda, xmask)
-    if rs._masked:
         if stype == "unique":
-            ds_out["raster"] = ds_out.raster.astype(
-                _get_unique_dtype(ds_out.raster.dtype)
-            )
+            xdata = xdata.astype(_get_unique_dtype(xdata.dtype))
         elif stype == "mode":
             # Cast back to original dtype. Original null value will work
-            ds_out["raster"] = ds_out.raster.astype(orig_dtype)
+            xdata = xdata.astype(orig_dtype)
         # Replace null cells with null value acording to mask
-        nv = get_default_null_value(ds_out.raster.dtype)
-        ds_out["raster"] = xr.where(xmask, nv, ds_out.raster).rio.write_nodata(
-            nv
-        )
+        nv = get_default_null_value(xdata.dtype)
+        xdata = xr_where_with_meta(xmask, nv, xdata, nv=nv)
     else:
-        ds_out["mask"] = xr.zeros_like(rs.get_bands(1).xmask)
-    if rs.crs is not None:
-        ds_out = ds_out.rio.write_crs(rs.crs)
-    return Raster(ds_out, _fast_path=True)
+        xmask = xr.zeros_like(xdata, dtype=bool)
+    ds = dataarray_to_xr_raster_ds(xdata, xmask, crs=raster.crs)
+    return Raster(ds, _fast_path=True)
 
 
 class ModelPredictAdaptor:
@@ -484,7 +482,7 @@ def model_predict_raster(raster, model, n_outputs=1):
         xdata = xdata.rio.write_nodata(get_default_null_value(xdata.dtype))
     else:
         xmask = xr.zeros_like(xdata, dtype=bool)
-    ds = make_raster_ds(xdata, xmask)
+    ds = dataarray_to_xr_raster_ds(xdata, xmask)
     if in_raster.crs is not None:
         ds = ds.rio.write_crs(in_raster.crs)
     return Raster(ds, _fast_path=True).burn_mask()
@@ -704,19 +702,19 @@ def local_stats(raster, stype):
     ):
         raise ValueError(f"Invalid stype aregument: {repr(stype)}")
     orig_dtype = get_raster(raster).dtype
-    rs = get_raster(raster, null_to_nan=True)
+    raster = get_raster(raster, null_to_nan=True)
 
-    xda = rs.xdata.copy()
-    xmask = rs.xmask
+    xdata = raster.xdata.copy()
+    xmask = raster.xmask
     if stype in _LOCAL_STYPE_TO_NUMPY_FUNC:
-        xndata = xda.reduce(
+        xdata = xdata.reduce(
             _LOCAL_STYPE_TO_NUMPY_FUNC[stype], dim="band", keepdims=True
         )
     else:
-        data = xda.data
-        xndata = empty_like(rs.get_bands(1)).xdata
-        xndata.data = _local(data, stype)
-    if rs._masked:
+        data = xdata.data
+        xdata = empty_like(raster.get_bands(1)).xdata
+        xdata.data = _local(data, stype)
+    if raster._masked:
         xmask = xmask.reduce(
             np.all,
             dim="band",
@@ -725,20 +723,16 @@ def local_stats(raster, stype):
     else:
         xmask = xr.zeros_like(xmask, dtype=bool)
 
-    ds_out = make_raster_ds(xndata, xmask)
-    if rs._masked:
+    ds_out = dataarray_to_xr_raster_ds(xdata, xmask)
+    if raster._masked:
         if stype in ("unique", "minband", "maxband"):
-            ds_out["raster"] = ds_out.raster.astype(
-                _get_unique_dtype(ds_out.raster.dtype)
-            )
+            xdata = xdata.astype(_get_unique_dtype(xdata.dtype))
         elif stype == "mode":
             # Cast back to original dtype. Original null value will work
-            ds_out["raster"] = ds_out.raster.astype(orig_dtype)
-        nv = get_default_null_value(ds_out.raster.dtype)
-        ds_out["raster"] = ds_out.raster.rio.write_nodata(nv)
-        ds_out.raster.data = da.where(ds_out.mask.data, nv, ds_out.raster.data)
-    if rs.crs is not None:
-        ds_out = ds_out.rio.write_crs(rs.crs)
+            xdata = xdata.astype(orig_dtype)
+        nv = get_default_null_value(xdata.dtype)
+        xdata = xr_where_with_meta(xmask, nv, xdata, nv=nv)
+    ds_out = dataarray_to_xr_raster_ds(xdata, xmask, crs=raster.crs)
     return Raster(ds_out, _fast_path=True)
 
 
@@ -780,11 +774,11 @@ def _get_fill(dtype, op):
     return type_info.max if op == "erosion" else type_info.min
 
 
-def _erosion_or_dilation_filter(rs, footprint, op):
-    data = rs.data
-    fill = _get_fill(rs.dtype, op)
-    if rs._masked:
-        data = da.where(rs.mask, fill, data)
+def _erosion_or_dilation_filter(raster, footprint, op):
+    data = raster.data
+    fill = _get_fill(raster.dtype, op)
+    if raster._masked:
+        data = da.where(raster.mask, fill, data)
     rpad, cpad = _get_offsets(footprint.shape)
     # Take max because map_overlap does not support asymmetrical overlaps when
     # a boundary value is given
@@ -799,11 +793,11 @@ def _erosion_or_dilation_filter(rs, footprint, op):
         data,
         depth=depth,
         boundary=fill,
-        dtype=rs.dtype,
-        meta=np.array((), dtype=rs.dtype),
+        dtype=raster.dtype,
+        meta=np.array((), dtype=raster.dtype),
     )
-    mask = rs.mask
-    if rs._masked:
+    mask = raster.mask
+    if raster._masked:
         mask = da.map_overlap(
             partial(
                 _morph_op_chunk,
@@ -819,15 +813,12 @@ def _erosion_or_dilation_filter(rs, footprint, op):
             meta=np.array((), dtype=BOOL),
         )
         mask = ~mask
-        data = da.where(mask, rs.null_value, data)
+        data = da.where(mask, raster.null_value, data)
     else:
         mask = mask.copy()
-    xrs_out = xr.zeros_like(rs.xdata).rio.write_nodata(rs.null_value)
-    xrs_out.data = data
-    xmask = xr.DataArray(mask, coords=xrs_out.coords, dims=xrs_out.dims)
-    ds_out = make_raster_ds(xrs_out, xmask)
-    if rs.crs is not None:
-        ds_out = ds_out.rio.write_crs(rs.crs)
+    ds_out = data_to_xr_raster_ds_like(
+        data, raster.xdata, mask=mask, nv=raster.null_value
+    )
     return Raster(ds_out, _fast_path=True)
 
 
@@ -937,11 +928,11 @@ def band_concat(rasters):
         return rasters[0]
 
     # TODO: make join a user option or set join="exact"?
-    ds = xr.concat([r._ds for r in rasters], dim="band", join="inner")
+    ds = xr.concat([r.to_dataset() for r in rasters], dim="band", join="inner")
     ds["band"] = np.arange(np.sum([r.nbands for r in rasters])) + 1
     if any(r._masked for r in rasters):
         nv = get_default_null_value(ds.raster.dtype)
-        ds["raster"] = xr.where(ds.mask, nv, ds.raster).rio.write_nodata(nv)
+        ds["raster"] = xr_where_with_meta(ds.mask, nv, ds.raster, nv=nv)
     crs = ([None] + [r.crs for r in rasters if r.crs is not None]).pop()
     if ds.rio.crs is None and crs is not None:
         ds = ds.rio.write_crs(crs)
@@ -950,8 +941,8 @@ def band_concat(rasters):
 
 
 @nb.jit(nopython=True, nogil=True)
-def _remap_values(x, mask, start_end_values, new_values, inclusivity):
-    outx = np.zeros_like(x)
+def _remap_values(x, mask, null, start_end_values, new_values, inclusivity):
+    outx = np.full_like(x, null)
     bands, rows, columns = x.shape
     rngs = start_end_values.shape[0]
     for bnd in range(bands):
@@ -999,7 +990,7 @@ def _normalize_mappings(mappings):
         ) from None
     starts = []
     ends = []
-    news = []
+    outs = []
     for m in mappings:
         if len(m) != 3:
             raise ValueError(
@@ -1022,8 +1013,8 @@ def _normalize_mappings(mappings):
             )
         starts.append(m[0])
         ends.append(m[1])
-        news.append(m[2])
-    return starts, ends, news
+        outs.append(m[2])
+    return starts, ends, outs
 
 
 def remap_range(raster, mapping, inclusivity="left"):
@@ -1063,7 +1054,7 @@ def remap_range(raster, mapping, inclusivity="left"):
 
     """
     raster = get_raster(raster)
-    map_starts, map_ends, map_news = _normalize_mappings(mapping)
+    map_starts, map_ends, map_outs = _normalize_mappings(mapping)
     if not is_str(inclusivity):
         raise TypeError(
             f"inclusivity must be a str. Got type: {type(inclusivity)}"
@@ -1071,9 +1062,9 @@ def remap_range(raster, mapping, inclusivity="left"):
     inc_map = dict(zip(("left", "right", "both", "none"), range(4)))
     if inclusivity not in inc_map:
         raise ValueError(f"Invalid inclusivity value. Got: {inclusivity!r}")
-    if not all(m is None for m in map_news):
+    if not all(m is None for m in map_outs):
         mappings_common_dtype = get_common_dtype(
-            [m for m in map_news if m is not None]
+            [m for m in map_outs if m is not None]
         )
     else:
         mappings_common_dtype = raster.dtype
@@ -1082,34 +1073,37 @@ def remap_range(raster, mapping, inclusivity="left"):
     f16_workaround = out_dtype == F16
     if raster._masked:
         nv = raster.null_value
-    else:
+    elif None in map_outs:
         nv = get_default_null_value(out_dtype)
+    else:
+        nv = None
     start_end_values = np.array([[s, e] for s, e in zip(map_starts, map_ends)])
-    new_values = np.array([v if v is not None else nv for v in map_news])
+    new_values = np.array([v if v is not None else nv for v in map_outs])
 
-    outrs = raster.copy()
-    if out_dtype != outrs.dtype:
+    data = raster.data
+    mask = raster.mask
+    if out_dtype != data.dtype:
         if not f16_workaround:
-            outrs = outrs.astype(out_dtype)
+            data = data.astype(out_dtype)
         else:
-            outrs = outrs.astype(F32)
+            data = data.astype(F32)
     elif f16_workaround:
-        outrs = outrs.astype(F32)
-    data = outrs.data
-    outrs.xdata.data = data.map_blocks(
+        data = data.astype(F32)
+    data = da.map_blocks(
         _remap_values,
-        raster.mask,
+        data,
+        mask,
+        # Can't pass None object to numba code
+        null=0 if nv is None else nv,
         start_end_values=start_end_values,
         new_values=new_values,
         inclusivity=inc_map[inclusivity],
         dtype=data.dtype,
         meta=np.array((), dtype=data.dtype),
     )
-    if raster._masked or None in map_news:
-        outrs = outrs.set_null_value(nv)
     if f16_workaround:
-        outrs = outrs.astype(F16)
-    return outrs
+        data = data.astype(F16)
+    return data_to_raster_like(data, raster, nv=nv)
 
 
 def _get_where_nv(x, y):
@@ -1230,7 +1224,7 @@ def where(condition, true_rast, false_rast):
         yd = getattr(y, "xdata", y)
         data = xr.where(cd, xd, yd)
         mask = xr.zeros_like(data, dtype=bool)
-    ds = make_raster_ds(data, mask)
+    ds = dataarray_to_xr_raster_ds(data, mask)
     if out_crs is not None:
         ds = ds.rio.write_crs(out_crs)
     return Raster(ds, _fast_path=True)
@@ -1355,9 +1349,11 @@ def reclassify(raster, remapping, unmapped_to_null=False):
         nv = raster.null_value
     else:
         nv = get_default_null_value(out_dtype)
+    masked = raster._masked or unmapped_to_null
     for k in remapping:
         if remapping[k] is None:
             remapping[k] = nv
+            masked = True
 
     mapping_from = np.array(list(remapping))
     mapping_to = np.array(list(remapping.values())).astype(out_dtype)
@@ -1373,11 +1369,6 @@ def reclassify(raster, remapping, unmapped_to_null=False):
         dtype=out_dtype,
         meta=np.array((), dtype=out_dtype),
     )
-    xdata = xr.DataArray(
-        data, coords=raster.xdata.coords, dims=raster.xdata.dims
-    )
-    if raster._masked or unmapped_to_null:
-        xdata = xdata.rio.write_nodata(nv)
-    if raster.crs is not None:
-        xdata = xdata.rio.write_crs(raster.crs)
-    return Raster(xdata)
+    if not masked:
+        nv = None
+    return data_to_raster_like(data, raster, nv=nv)
