@@ -20,8 +20,7 @@ from raster_tools.dtypes import (
     is_scalar,
     is_str,
 )
-from raster_tools.raster import Raster
-from raster_tools.utils import make_raster_ds
+from raster_tools.raster import Raster, dataarray_to_xr_raster_ds
 
 JIT_KWARGS = {"nopython": True, "nogil": True}
 ngjit = nb.jit(**JIT_KWARGS)
@@ -575,13 +574,13 @@ def cost_distance_analysis(costs, sources, elevation=None):
     # Add 1 to match ESRI 0-8 scale
     xtr += 1
 
-    cd_ds = make_raster_ds(
+    cd_ds = dataarray_to_xr_raster_ds(
         xcd.rio.write_nodata(costs.null_value), costs.xmask.copy()
     )
-    tr_ds = make_raster_ds(
+    tr_ds = dataarray_to_xr_raster_ds(
         xtr.rio.write_nodata(_TRACEBACK_NOT_REACHED + 1), costs.xmask.copy()
     )
-    al_ds = make_raster_ds(
+    al_ds = dataarray_to_xr_raster_ds(
         xal.rio.write_nodata(sources_null_value), costs.xmask.copy()
     )
     if costs.crs is not None:

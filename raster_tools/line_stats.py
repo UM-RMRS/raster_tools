@@ -7,7 +7,7 @@ import shapely
 import xarray as xr
 
 from raster_tools.dtypes import F32, I8, is_bool, is_scalar, is_str
-from raster_tools.raster import Raster, get_raster
+from raster_tools.raster import data_to_raster_like, get_raster
 from raster_tools.rasterize import _rio_mask
 from raster_tools.vector import get_vector
 
@@ -21,6 +21,7 @@ def _length_sum(out, lengths, idxs):
     n = len(lengths)
     for i in range(n):
         out[idxs[i]] += lengths[i]
+    return out
 
 
 def _compute_lengths(geom_df, targets):
@@ -42,7 +43,9 @@ def _compute_lengths(geom_df, targets):
     if "weights" in geom_df:
         overlay["len"] *= overlay.weights
     lengths = np.zeros(len(targets), dtype=F32)
-    _length_sum(lengths, overlay.len.to_numpy(), overlay.target_idx.to_numpy())
+    lengths = _length_sum(
+        lengths, overlay.len.to_numpy(), overlay.target_idx.to_numpy()
+    )
     return lengths
 
 
@@ -347,10 +350,4 @@ def length(features, like_rast, radius, weighting_field=None):
         data, axes={0: 0, 1: ydepth, 2: xdepth}, boundary=1
     )
     data = da.sum(data, axis=0, keepdims=True)
-    xrs = xr.DataArray(
-        data, dims=("band", "y", "x"), coords=([1], like_rast.y, like_rast.x)
-    )
-    if like_rast.crs is not None:
-        xrs = xrs.rio.write_crs(like_rast.crs)
-    # TODO: rechunk to original chunks?
-    return Raster(xrs)
+    return data_to_raster_like(data, like_rast)

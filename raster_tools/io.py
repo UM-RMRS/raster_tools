@@ -17,13 +17,7 @@ from raster_tools.exceptions import (
     RasterDataError,
     RasterIOError,
 )
-from raster_tools.masking import create_null_mask
-from raster_tools.utils import (
-    is_strictly_decreasing,
-    is_strictly_increasing,
-    to_chunk_dict,
-    validate_path,
-)
+from raster_tools.utils import to_chunk_dict, validate_path
 
 
 def _get_extension(path):
@@ -82,51 +76,6 @@ def is_batch_file(path):
     return _get_extension(path) in BATCH_EXTS
 
 
-def normalize_xarray_data(xrs):
-    if len(xrs.shape) > 3 or len(xrs.shape) < 2:
-        raise ValueError(
-            "Invalid shape. xarray.DataArray objects must have 2D or 3D "
-            "shapes."
-        )
-    if len(xrs.shape) == 2:
-        # Add band dim
-        xrs = xrs.expand_dims({"band": [1]})
-    dims = xrs.dims
-    if "lon" in dims:
-        xrs = xrs.rename({"lon": "x"})
-        dims = xrs.dims
-    if "lat" in dims:
-        xrs = xrs.rename({"lat": "y"})
-        dims = xrs.dims
-    if dims != ("band", "y", "x"):
-        # No easy way to figure out how best to transpose based on dim names so
-        # just assume the order is valid and rename.
-        xrs = xrs.rename(
-            {
-                d: new_d
-                for d, new_d in zip(dims, ("band", "y", "x"))
-                if d != new_d
-            }
-        )
-    if xrs.band.to_numpy()[0] != 1:
-        xrs["band"] = np.arange(1, len(xrs.band) + 1)
-    if any(dim not in xrs.coords for dim in xrs.dims):
-        raise ValueError(
-            "Invalid coordinates on xarray.DataArray object:\n{xrs!r}"
-        )
-    # Make sure that x and y are always increasing. xarray will auto align
-    # rasters but when a raster is converted to a numpy or dask array, the
-    # data may not be aligned. This ensures that rasters converted to
-    # non-georeferenecd formats will be oriented the same.
-    if is_strictly_decreasing(xrs.x):
-        xrs = xrs.isel(x=slice(None, None, -1))
-    if is_strictly_increasing(xrs.y):
-        xrs = xrs.isel(y=slice(None, None, -1))
-    tf = xrs.rio.transform(True)
-    xrs = xrs.rio.write_transform(tf)
-    return xrs
-
-
 ESRI_DEFAULT_F32_NV = np.finfo(F32).min
 
 
@@ -144,6 +93,11 @@ def normalize_null_value(nv, dtype):
 
 
 def open_raster_from_path_or_url(path):
+    from raster_tools.raster import (
+        _try_to_get_null_value_xarray,
+        normalize_xarray_data,
+    )
+
     if type(path) in IO_UNDERSTOOD_TYPES:
         path = str(path)
     else:
@@ -184,10 +138,10 @@ def open_raster_from_path_or_url(path):
 
     xrs = normalize_xarray_data(xrs)
 
-    nv = xrs.attrs.get("_FillValue", None)
+    nv = _try_to_get_null_value_xarray(xrs)
     nv = normalize_null_value(nv, xrs.dtype)
-    mask = create_null_mask(xrs, nv)
-    return xrs, mask, nv
+    xrs = xrs.rio.write_nodata(nv)
+    return xrs
 
 
 def write_raster(xrs, path, no_data_value, **rio_gdal_kwargs):

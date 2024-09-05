@@ -105,9 +105,9 @@ def test_reproject_crs(crs_or_geobox):
         assert result.geobox.crs == crs
         assert result.geobox.shape == dst_geobox.shape
         assert np.allclose(list(result.geobox.affine), list(dst_geobox.affine))
-        # rioxarray pulls the correct affine matrix from the grid_mapping
-        # attribute
-        assert result.xdata.rio.transform() == dst_geobox.affine
+        assert np.allclose(
+            list(result.xdata.rio.transform()), list(dst_geobox.affine)
+        )
     else:
         assert result.geobox == dst_geobox
     assert result.null_value == truth_reprojected.rio.nodata

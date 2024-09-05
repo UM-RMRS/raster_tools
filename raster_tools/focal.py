@@ -3,7 +3,6 @@ from functools import partial
 import dask.array as da
 import numba as nb
 import numpy as np
-import xarray as xr
 from dask_image import ndfilters
 
 from raster_tools.dtypes import (
@@ -18,7 +17,7 @@ from raster_tools.dtypes import (
     promote_data_dtype,
     promote_dtype_to_float,
 )
-from raster_tools.raster import Raster, get_raster
+from raster_tools.raster import Raster, data_to_xr_raster_ds_like, get_raster
 from raster_tools.stat_common import (
     nan_unique_count_jit,
     nanasm_jit,
@@ -32,7 +31,7 @@ from raster_tools.stat_common import (
     nansum_jit,
     nanvar_jit,
 )
-from raster_tools.utils import make_raster_ds, single_band_mappable
+from raster_tools.utils import single_band_mappable
 
 __all__ = [
     "check_kernel",
@@ -417,24 +416,16 @@ def focal(raster, focal_type, width_or_radius, height=None, ignore_null=False):
                     break
             data = data.astype(unq_dtype)
 
-    xdata = xr.DataArray(
-        data, coords=raster.xdata.coords, dims=raster.xdata.dims
-    )
-    xmask = raster.xmask.copy()
-    # Nan values will only appear in the result data if there were null values
-    # present in the input. Thus we only need to worry about updating the mask
-    # if the input was masked.
     if raster._masked:
-        nan_mask = np.isnan(xdata)
-        if ignore_null:
-            xmask = nan_mask
-        else:
-            xmask |= nan_mask
-        xdata = xdata.rio.write_nodata(raster.null_value)
-    ds = make_raster_ds(xdata, xmask)
-    if raster.crs is not None:
-        ds = ds.rio.write_crs(raster.crs)
-    return Raster(ds, _fast_path=True).burn_mask()
+        nv = np.nan
+        mask = raster.mask.copy()
+        mask = mask if ignore_null else mask | np.isnan(data)
+        ds = data_to_xr_raster_ds_like(
+            data, raster.xdata, mask=mask, nv=nv, burn=True
+        )
+    else:
+        ds = data_to_xr_raster_ds_like(data, raster.xdata)
+    return Raster(ds, _fast_path=True)
 
 
 def get_focal_window(width_or_radius, height=None):
@@ -587,14 +578,15 @@ def correlate(raster, kernel, mode="constant", cval=0.0):
     if upcast:
         data = data.astype(final_dtype)
 
-    xdata = xr.DataArray(
-        data, coords=raster.xdata.coords, dims=raster.xdata.dims
-    ).rio.write_nodata(raster.null_value)
-    xmask = raster.xmask.copy()
-    ds = make_raster_ds(xdata, xmask)
-    if raster.crs is not None:
-        ds = ds.rio.write_crs(raster.crs)
-    return Raster(ds, _fast_path=True).burn_mask()
+    if raster._masked:
+        nv = raster.null_value
+        mask = raster.mask.copy()
+        ds = data_to_xr_raster_ds_like(
+            data, raster.xdata, mask=mask, nv=nv, burn=True
+        )
+    else:
+        ds = data_to_xr_raster_ds_like(data, raster.xdata)
+    return Raster(ds, _fast_path=True)
 
 
 def convolve(raster, kernel, mode="constant", cval=0.0):

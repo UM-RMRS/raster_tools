@@ -1,10 +1,8 @@
-import numpy as np
 import rasterio as rio
 from odc.geo.geobox import GeoBox
 
 from raster_tools.masking import get_default_null_value
-from raster_tools.raster import Raster, get_raster
-from raster_tools.utils import make_raster_ds
+from raster_tools.raster import Raster, dataarray_to_xr_raster_ds, get_raster
 
 __all__ = [
     "reproject",
@@ -104,13 +102,12 @@ def reproject(
         if raster._masked
         else get_default_null_value(raster.dtype)
     )
-    reprojected = raster._ds.raster.odc.reproject(
+    reprojected = raster.xdata.odc.reproject(
         dst_gb, resampling=resample_method, dst_nodata=nv
     ).rio.write_nodata(nv)
     if "longitude" in reprojected.dims:
         # odc-geo will rename x/y to lon/lat for lon/lat based projections, so
         # revert to x/y
         reprojected = reprojected.rename({"longitude": "x", "latitude": "y"})
-    mask = reprojected == nv if not np.isnan(nv) else np.isnan(reprojected)
-    ds = make_raster_ds(reprojected, mask)
+    ds = dataarray_to_xr_raster_ds(reprojected)
     return Raster(ds, _fast_path=True)
