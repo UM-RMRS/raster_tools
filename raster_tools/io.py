@@ -116,7 +116,9 @@ def open_raster_from_path_or_url(path):
     # Try to let gdal open anything but NC, HDF, GRIB files
     if not ext or ext not in READ_NOT_IMPLEMENTED_EXTS:
         try:
-            xrs = xrio.open_rasterio(path, chunks=to_chunk_dict(_get_chunks()))
+            xrs = xrio.open_rasterio(
+                path, chunks=to_chunk_dict(_get_chunks()), lock=False
+            )
         except rio.errors.RasterioIOError as e:
             raise RasterIOError(
                 "Could not open given path as a raster."
