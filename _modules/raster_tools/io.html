@@ -523,7 +523,9 @@ document.write(`
     <span class="c1"># Try to let gdal open anything but NC, HDF, GRIB files</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">ext</span> <span class="ow">or</span> <span class="n">ext</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">READ_NOT_IMPLEMENTED_EXTS</span><span class="p">:</span>
         <span class="k">try</span><span class="p">:</span>
-            <span class="n">xrs</span> <span class="o">=</span> <span class="n">xrio</span><span class="o">.</span><span class="n">open_rasterio</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">chunks</span><span class="o">=</span><span class="n">to_chunk_dict</span><span class="p">(</span><span class="n">_get_chunks</span><span class="p">()))</span>
+            <span class="n">xrs</span> <span class="o">=</span> <span class="n">xrio</span><span class="o">.</span><span class="n">open_rasterio</span><span class="p">(</span>
+                <span class="n">path</span><span class="p">,</span> <span class="n">chunks</span><span class="o">=</span><span class="n">to_chunk_dict</span><span class="p">(</span><span class="n">_get_chunks</span><span class="p">()),</span> <span class="n">lock</span><span class="o">=</span><span class="kc">False</span>
+            <span class="p">)</span>
         <span class="k">except</span> <span class="n">rio</span><span class="o">.</span><span class="n">errors</span><span class="o">.</span><span class="n">RasterioIOError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">RasterIOError</span><span class="p">(</span>
                 <span class="s2">&quot;Could not open given path as a raster.&quot;</span>
