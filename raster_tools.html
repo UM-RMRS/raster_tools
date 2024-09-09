@@ -2800,47 +2800,301 @@ output values will be arrays.</p>
 <dl class="py function">
 <dt class="sig sig-object py" id="raster_tools.raster.data_to_raster">
 <span class="sig-prename descclassname"><span class="pre">raster_tools.raster.</span></span><span class="sig-name descname"><span class="pre">data_to_raster</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mask</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">affine</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">crs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nv</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">burn</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/raster.html#data_to_raster"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.raster.data_to_raster" title="Permalink to this definition">#</a></dt>
-<dd></dd></dl>
+<dd><p>Create a Raster from a data array.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>data</strong> (<em>np.ndarray</em><em>, </em><em>dask.array.Array</em>) – The data array.</p></li>
+<li><p><strong>mask</strong> (<em>np.ndarray</em><em>, </em><em>dask.array.Array</em>) – A boolean mask array. The default is to generate a mask from the data
+using <cite>nv</cite>.</p></li>
+<li><p><strong>x</strong> (<em>list</em><em>, </em><em>np.ndarra</em><em>, </em><em>optional</em>) – The x coordinate value. If <cite>x</cite> and <cite>y</cite> are not specified, <cite>affine</cite> is
+used to generate x and y coordinates.</p></li>
+<li><p><strong>y</strong> (<em>list</em><em>, </em><em>np.ndarra</em><em>, </em><em>optional</em>) – The y coordinate value. If <cite>x</cite> and <cite>y</cite> are not specified, <cite>affine</cite> is
+used to generate x and y coordinates.</p></li>
+<li><p><strong>affine</strong> (<em>affine.Affine</em><em>, </em><em>optional</em>) – <p>If <code class="docutils literal notranslate"><span class="pre">None</span></code>, the affine matrix is created using <cite>x</cite> and <cite>y</cite>. If
+<cite>affine</cite> is <code class="docutils literal notranslate"><span class="pre">None</span></code> and <cite>x</cite> and <cite>y</cite> are not specified, default affine
+matrix of:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">|</span> <span class="mf">1.0</span> <span class="mf">0.0</span> <span class="mf">0.0</span> <span class="o">|</span>
+<span class="o">|</span> <span class="mf">0.0</span> <span class="mf">1.0</span>   <span class="n">N</span> <span class="o">|</span>
+</pre></div>
+</div>
+<p>where N is the size of the y dim.</p>
+</p></li>
+<li><p><strong>crs</strong> (<em>int</em><em>, </em><em>str</em><em>, </em><em>rasterio.CRS</em><em>, </em><em>optional</em>) – The CRS to use for the result. The default is no CRS.</p></li>
+<li><p><strong>nv</strong> (<em>scalar</em><em>, </em><em>optional</em>) – The nodata/null value to use. The default is no null value.</p></li>
+<li><p><strong>burn</strong> (<em>bool</em><em>, </em><em>optional</em>) – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, <cite>mask</cite> is used to ‘burn’ the null value into the data
+array (e.g. <cite>np.where(mask, nv, data)</cite>). The default is <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>raster</strong> – The resulting Raster object.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="#raster_tools.raster.Raster" title="raster_tools.raster.Raster">Raster</a></p>
+</dd>
+</dl>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="#raster_tools.raster.data_to_raster_like" title="raster_tools.raster.data_to_raster_like"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_raster_like</span></code></a>, <a class="reference internal" href="#raster_tools.raster.data_to_xr_raster" title="raster_tools.raster.data_to_xr_raster"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_xr_raster</span></code></a>, <a class="reference internal" href="#raster_tools.raster.data_to_xr_raster_ds" title="raster_tools.raster.data_to_xr_raster_ds"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_xr_raster_ds</span></code></a>, <a class="reference internal" href="#raster_tools.raster.data_to_xr_raster_ds_like" title="raster_tools.raster.data_to_xr_raster_ds_like"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_xr_raster_ds_like</span></code></a>, <a class="reference internal" href="#raster_tools.raster.data_to_xr_raster_like" title="raster_tools.raster.data_to_xr_raster_like"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_xr_raster_like</span></code></a>, <a class="reference internal" href="#raster_tools.raster.dataarray_to_raster" title="raster_tools.raster.dataarray_to_raster"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dataarray_to_raster</span></code></a>, <a class="reference internal" href="#raster_tools.raster.dataarray_to_xr_raster" title="raster_tools.raster.dataarray_to_xr_raster"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dataarray_to_xr_raster</span></code></a>, <a class="reference internal" href="#raster_tools.raster.dataarray_to_xr_raster_ds" title="raster_tools.raster.dataarray_to_xr_raster_ds"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dataarray_to_xr_raster_ds</span></code></a></p>
+</div>
+</dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="raster_tools.raster.data_to_raster_like">
 <span class="sig-prename descclassname"><span class="pre">raster_tools.raster.</span></span><span class="sig-name descname"><span class="pre">data_to_raster_like</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">like</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mask</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nv</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">burn</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">match_chunks</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/raster.html#data_to_raster_like"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.raster.data_to_raster_like" title="Permalink to this definition">#</a></dt>
-<dd></dd></dl>
+<dd><p>Create a Raster, based on a template Raster, from a data array.</p>
+<p>The CRS and x/y information are pulled from <cite>xlike</cite>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>data</strong> (<em>np.ndarray</em><em>, </em><em>dask.array.Array</em>) – The data array.</p></li>
+<li><p><strong>like</strong> (<em>xarray.DataArray</em><em>, </em><a class="reference internal" href="#raster_tools.raster.Raster" title="raster_tools.raster.Raster"><em>Raster</em></a>) – The template to pull geospatial information from. Can be a DataArray or
+Raster.</p></li>
+<li><p><strong>mask</strong> (<em>np.ndarray</em><em>, </em><em>dask.array.Array</em>) – A boolean mask array. The default is to generate a mask from the data
+using <cite>nv</cite>.</p></li>
+<li><p><strong>nv</strong> (<em>scalar</em><em>, </em><em>optional</em>) – The nodata/null value to use. The default is no null value.</p></li>
+<li><p><strong>burn</strong> (<em>bool</em><em>, </em><em>optional</em>) – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, <cite>mask</cite> is used to ‘burn’ the null value into the data
+array (e.g. <cite>np.where(mask, nv, data)</cite>). The default is <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p></li>
+<li><p><strong>match_chunks</strong> (<em>bool</em><em>, </em><em>optional</em>) – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, the chunks of the output will match the chunks in <cite>xlike</cite>.
+The default is <code class="docutils literal notranslate"><span class="pre">True</span></code>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>raster</strong> – The resulting raster matching <cite>like</cite>.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="#raster_tools.raster.Raster" title="raster_tools.raster.Raster">Raster</a></p>
+</dd>
+</dl>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="#raster_tools.raster.data_to_raster" title="raster_tools.raster.data_to_raster"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_raster</span></code></a>, <a class="reference internal" href="#raster_tools.raster.data_to_xr_raster" title="raster_tools.raster.data_to_xr_raster"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_xr_raster</span></code></a>, <a class="reference internal" href="#raster_tools.raster.data_to_xr_raster_ds" title="raster_tools.raster.data_to_xr_raster_ds"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_xr_raster_ds</span></code></a>, <a class="reference internal" href="#raster_tools.raster.data_to_xr_raster_ds_like" title="raster_tools.raster.data_to_xr_raster_ds_like"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_xr_raster_ds_like</span></code></a>, <a class="reference internal" href="#raster_tools.raster.data_to_xr_raster_like" title="raster_tools.raster.data_to_xr_raster_like"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_xr_raster_like</span></code></a>, <a class="reference internal" href="#raster_tools.raster.dataarray_to_raster" title="raster_tools.raster.dataarray_to_raster"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dataarray_to_raster</span></code></a>, <a class="reference internal" href="#raster_tools.raster.dataarray_to_xr_raster" title="raster_tools.raster.dataarray_to_xr_raster"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dataarray_to_xr_raster</span></code></a>, <a class="reference internal" href="#raster_tools.raster.dataarray_to_xr_raster_ds" title="raster_tools.raster.dataarray_to_xr_raster_ds"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dataarray_to_xr_raster_ds</span></code></a></p>
+</div>
+</dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="raster_tools.raster.data_to_xr_raster">
 <span class="sig-prename descclassname"><span class="pre">raster_tools.raster.</span></span><span class="sig-name descname"><span class="pre">data_to_xr_raster</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">affine</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">crs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nv</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/raster.html#data_to_xr_raster"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.raster.data_to_xr_raster" title="Permalink to this definition">#</a></dt>
-<dd></dd></dl>
+<dd><p>Create a standard raster DataArray from a data array.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>data</strong> (<em>np.ndarray</em><em>, </em><em>dask.array.Array</em>) – The data array.</p></li>
+<li><p><strong>x</strong> (<em>list</em><em>, </em><em>np.ndarra</em><em>, </em><em>optional</em>) – The x coordinate value. If <cite>x</cite> and <cite>y</cite> are not specified, <cite>affine</cite> is
+used to generate x and y coordinates.</p></li>
+<li><p><strong>y</strong> (<em>list</em><em>, </em><em>np.ndarra</em><em>, </em><em>optional</em>) – The y coordinate value. If <cite>x</cite> and <cite>y</cite> are not specified, <cite>affine</cite> is
+used to generate x and y coordinates.</p></li>
+<li><p><strong>affine</strong> (<em>affine.Affine</em><em>, </em><em>optional</em>) – <p>If <code class="docutils literal notranslate"><span class="pre">None</span></code>, the affine matrix is created using <cite>x</cite> and <cite>y</cite>. If
+<cite>affine</cite> is <code class="docutils literal notranslate"><span class="pre">None</span></code> and <cite>x</cite> and <cite>y</cite> are not specified, default affine
+matrix of:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">|</span> <span class="mf">1.0</span> <span class="mf">0.0</span> <span class="mf">0.0</span> <span class="o">|</span>
+<span class="o">|</span> <span class="mf">0.0</span> <span class="mf">1.0</span>   <span class="n">N</span> <span class="o">|</span>
+</pre></div>
+</div>
+<p>where N is the size of the y dim.</p>
+</p></li>
+<li><p><strong>crs</strong> (<em>int</em><em>, </em><em>str</em><em>, </em><em>rasterio.CRS</em><em>, </em><em>optional</em>) – The CRS to use for the result. The default is no CRS.</p></li>
+<li><p><strong>nv</strong> (<em>scalar</em><em>, </em><em>optional</em>) – The nodata/null value to use. The default is no null value.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>raster</strong> – The resulting raster DataArray.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>xarray.DataArray</p>
+</dd>
+</dl>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="#raster_tools.raster.data_to_raster" title="raster_tools.raster.data_to_raster"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_raster</span></code></a>, <a class="reference internal" href="#raster_tools.raster.data_to_raster_like" title="raster_tools.raster.data_to_raster_like"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_raster_like</span></code></a>, <a class="reference internal" href="#raster_tools.raster.data_to_xr_raster_ds" title="raster_tools.raster.data_to_xr_raster_ds"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_xr_raster_ds</span></code></a>, <a class="reference internal" href="#raster_tools.raster.data_to_xr_raster_ds_like" title="raster_tools.raster.data_to_xr_raster_ds_like"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_xr_raster_ds_like</span></code></a>, <a class="reference internal" href="#raster_tools.raster.data_to_xr_raster_like" title="raster_tools.raster.data_to_xr_raster_like"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_xr_raster_like</span></code></a>, <a class="reference internal" href="#raster_tools.raster.dataarray_to_raster" title="raster_tools.raster.dataarray_to_raster"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dataarray_to_raster</span></code></a>, <a class="reference internal" href="#raster_tools.raster.dataarray_to_xr_raster" title="raster_tools.raster.dataarray_to_xr_raster"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dataarray_to_xr_raster</span></code></a>, <a class="reference internal" href="#raster_tools.raster.dataarray_to_xr_raster_ds" title="raster_tools.raster.dataarray_to_xr_raster_ds"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dataarray_to_xr_raster_ds</span></code></a></p>
+</div>
+</dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="raster_tools.raster.data_to_xr_raster_ds">
 <span class="sig-prename descclassname"><span class="pre">raster_tools.raster.</span></span><span class="sig-name descname"><span class="pre">data_to_xr_raster_ds</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mask</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">affine</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">crs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nv</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">burn</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/raster.html#data_to_xr_raster_ds"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.raster.data_to_xr_raster_ds" title="Permalink to this definition">#</a></dt>
-<dd></dd></dl>
+<dd><p>Create a standard raster Dataset from a data array.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>data</strong> (<em>np.ndarray</em><em>, </em><em>dask.array.Array</em>) – The data array.</p></li>
+<li><p><strong>mask</strong> (<em>np.ndarray</em><em>, </em><em>dask.array.Array</em>) – A boolean mask array. The default is to generate a mask from the data
+using <cite>nv</cite>.</p></li>
+<li><p><strong>x</strong> (<em>list</em><em>, </em><em>np.ndarra</em><em>, </em><em>optional</em>) – The x coordinate value. If <cite>x</cite> and <cite>y</cite> are not specified, <cite>affine</cite> is
+used to generate x and y coordinates.</p></li>
+<li><p><strong>y</strong> (<em>list</em><em>, </em><em>np.ndarra</em><em>, </em><em>optional</em>) – The y coordinate value. If <cite>x</cite> and <cite>y</cite> are not specified, <cite>affine</cite> is
+used to generate x and y coordinates.</p></li>
+<li><p><strong>affine</strong> (<em>affine.Affine</em><em>, </em><em>optional</em>) – <p>If <code class="docutils literal notranslate"><span class="pre">None</span></code>, the affine matrix is created using <cite>x</cite> and <cite>y</cite>. If
+<cite>affine</cite> is <code class="docutils literal notranslate"><span class="pre">None</span></code> and <cite>x</cite> and <cite>y</cite> are not specified, default affine
+matrix of:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">|</span> <span class="mf">1.0</span> <span class="mf">0.0</span> <span class="mf">0.0</span> <span class="o">|</span>
+<span class="o">|</span> <span class="mf">0.0</span> <span class="mf">1.0</span>   <span class="n">N</span> <span class="o">|</span>
+</pre></div>
+</div>
+<p>where N is the size of the y dim.</p>
+</p></li>
+<li><p><strong>crs</strong> (<em>int</em><em>, </em><em>str</em><em>, </em><em>rasterio.CRS</em><em>, </em><em>optional</em>) – The CRS to use for the result. The default is no CRS.</p></li>
+<li><p><strong>nv</strong> (<em>scalar</em><em>, </em><em>optional</em>) – The nodata/null value to use. The default is no null value.</p></li>
+<li><p><strong>burn</strong> (<em>bool</em><em>, </em><em>optional</em>) – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, <cite>mask</cite> is used to ‘burn’ the null value into the data
+array (e.g. <cite>np.where(mask, nv, data)</cite>). The default is <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>raster</strong> – Theresulting raster Dataset object.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>xarray.Dataset</p>
+</dd>
+</dl>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="#raster_tools.raster.data_to_raster" title="raster_tools.raster.data_to_raster"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_raster</span></code></a>, <a class="reference internal" href="#raster_tools.raster.data_to_raster_like" title="raster_tools.raster.data_to_raster_like"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_raster_like</span></code></a>, <a class="reference internal" href="#raster_tools.raster.data_to_xr_raster" title="raster_tools.raster.data_to_xr_raster"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_xr_raster</span></code></a>, <a class="reference internal" href="#raster_tools.raster.data_to_xr_raster_ds_like" title="raster_tools.raster.data_to_xr_raster_ds_like"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_xr_raster_ds_like</span></code></a>, <a class="reference internal" href="#raster_tools.raster.data_to_xr_raster_like" title="raster_tools.raster.data_to_xr_raster_like"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_xr_raster_like</span></code></a>, <a class="reference internal" href="#raster_tools.raster.dataarray_to_raster" title="raster_tools.raster.dataarray_to_raster"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dataarray_to_raster</span></code></a>, <a class="reference internal" href="#raster_tools.raster.dataarray_to_xr_raster" title="raster_tools.raster.dataarray_to_xr_raster"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dataarray_to_xr_raster</span></code></a>, <a class="reference internal" href="#raster_tools.raster.dataarray_to_xr_raster_ds" title="raster_tools.raster.dataarray_to_xr_raster_ds"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dataarray_to_xr_raster_ds</span></code></a></p>
+</div>
+</dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="raster_tools.raster.data_to_xr_raster_ds_like">
 <span class="sig-prename descclassname"><span class="pre">raster_tools.raster.</span></span><span class="sig-name descname"><span class="pre">data_to_xr_raster_ds_like</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xlike</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mask</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nv</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">burn</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">match_chunks</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/raster.html#data_to_xr_raster_ds_like"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.raster.data_to_xr_raster_ds_like" title="Permalink to this definition">#</a></dt>
-<dd></dd></dl>
+<dd><p>Create a standard raster Dataset using a template raster DataArray.</p>
+<p>The CRS and x/y information are pulled from <cite>xlike</cite>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>data</strong> (<em>np.ndarray</em><em>, </em><em>dask.array.Array</em>) – The data array.</p></li>
+<li><p><strong>xlike</strong> (<em>xarray.DataArray</em>) – The template to pull geospatial information from.</p></li>
+<li><p><strong>mask</strong> (<em>np.ndarray</em><em>, </em><em>dask.array.Array</em>) – A boolean mask array. The default is to generate a mask from the data
+using <cite>nv</cite>.</p></li>
+<li><p><strong>nv</strong> (<em>scalar</em><em>, </em><em>optional</em>) – The nodata/null value to use. The default is no null value.</p></li>
+<li><p><strong>burn</strong> (<em>bool</em><em>, </em><em>optional</em>) – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, <cite>mask</cite> is used to ‘burn’ the null value into the data
+array (e.g. <cite>np.where(mask, nv, data)</cite>). The default is <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p></li>
+<li><p><strong>match_chunks</strong> (<em>bool</em><em>, </em><em>optional</em>) – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, the chunks of the output will match the chunks in <cite>xlike</cite>.
+The default is <code class="docutils literal notranslate"><span class="pre">True</span></code></p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>raster</strong> – The resulting raster Dataset object matching <cite>xlike</cite>.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>xarray.Dataset</p>
+</dd>
+</dl>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="#raster_tools.raster.data_to_raster" title="raster_tools.raster.data_to_raster"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_raster</span></code></a>, <a class="reference internal" href="#raster_tools.raster.data_to_raster_like" title="raster_tools.raster.data_to_raster_like"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_raster_like</span></code></a>, <a class="reference internal" href="#raster_tools.raster.data_to_xr_raster" title="raster_tools.raster.data_to_xr_raster"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_xr_raster</span></code></a>, <a class="reference internal" href="#raster_tools.raster.data_to_xr_raster_ds" title="raster_tools.raster.data_to_xr_raster_ds"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_xr_raster_ds</span></code></a>, <a class="reference internal" href="#raster_tools.raster.data_to_xr_raster_like" title="raster_tools.raster.data_to_xr_raster_like"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_xr_raster_like</span></code></a>, <a class="reference internal" href="#raster_tools.raster.dataarray_to_raster" title="raster_tools.raster.dataarray_to_raster"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dataarray_to_raster</span></code></a>, <a class="reference internal" href="#raster_tools.raster.dataarray_to_xr_raster" title="raster_tools.raster.dataarray_to_xr_raster"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dataarray_to_xr_raster</span></code></a>, <a class="reference internal" href="#raster_tools.raster.dataarray_to_xr_raster_ds" title="raster_tools.raster.dataarray_to_xr_raster_ds"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dataarray_to_xr_raster_ds</span></code></a></p>
+</div>
+</dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="raster_tools.raster.data_to_xr_raster_like">
 <span class="sig-prename descclassname"><span class="pre">raster_tools.raster.</span></span><span class="sig-name descname"><span class="pre">data_to_xr_raster_like</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xlike</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nv</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">match_band_dim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">match_chunks</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/raster.html#data_to_xr_raster_like"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.raster.data_to_xr_raster_like" title="Permalink to this definition">#</a></dt>
-<dd></dd></dl>
+<dd><p>Create a standard raster DataArray based on a template DataArray.</p>
+<p>The CRS and x/y information are pulled from <cite>xlike</cite>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>data</strong> (<em>np.ndarray</em><em>, </em><em>dask.array.Array</em>) – The data array.</p></li>
+<li><p><strong>xlike</strong> (<em>xarray.DataArray</em>) – The template to pull geospatial information from.</p></li>
+<li><p><strong>nv</strong> (<em>scalar</em><em>, </em><em>optional</em>) – The nodata/null value to use. The default is no null value.</p></li>
+<li><p><strong>match_band_dim</strong> (<em>bool</em><em>, </em><em>optional</em>) – If <cite>data</cite> has only 1 band, this will stack <cite>data</cite> to match the number
+of bands in <cite>xlike</cite>. The default is to not match the number of bands.</p></li>
+<li><p><strong>match_chunks</strong> (<em>bool</em><em>, </em><em>optional</em>) – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, the chunks of the output will match the chunks in <cite>xlike</cite>.
+The default is <code class="docutils literal notranslate"><span class="pre">True</span></code>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>raster</strong> – The resulting raster DataArray matcing <cite>xlike</cite>.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>xarray.DataArray</p>
+</dd>
+</dl>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="#raster_tools.raster.data_to_raster" title="raster_tools.raster.data_to_raster"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_raster</span></code></a>, <a class="reference internal" href="#raster_tools.raster.data_to_raster_like" title="raster_tools.raster.data_to_raster_like"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_raster_like</span></code></a>, <a class="reference internal" href="#raster_tools.raster.data_to_xr_raster" title="raster_tools.raster.data_to_xr_raster"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_xr_raster</span></code></a>, <a class="reference internal" href="#raster_tools.raster.data_to_xr_raster_ds" title="raster_tools.raster.data_to_xr_raster_ds"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_xr_raster_ds</span></code></a>, <a class="reference internal" href="#raster_tools.raster.data_to_xr_raster_ds_like" title="raster_tools.raster.data_to_xr_raster_ds_like"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_xr_raster_ds_like</span></code></a>, <a class="reference internal" href="#raster_tools.raster.dataarray_to_raster" title="raster_tools.raster.dataarray_to_raster"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dataarray_to_raster</span></code></a>, <a class="reference internal" href="#raster_tools.raster.dataarray_to_xr_raster" title="raster_tools.raster.dataarray_to_xr_raster"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dataarray_to_xr_raster</span></code></a>, <a class="reference internal" href="#raster_tools.raster.dataarray_to_xr_raster_ds" title="raster_tools.raster.dataarray_to_xr_raster_ds"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dataarray_to_xr_raster_ds</span></code></a></p>
+</div>
+</dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="raster_tools.raster.dataarray_to_raster">
 <span class="sig-prename descclassname"><span class="pre">raster_tools.raster.</span></span><span class="sig-name descname"><span class="pre">dataarray_to_raster</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">xdata</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xmask</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">crs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/raster.html#dataarray_to_raster"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.raster.dataarray_to_raster" title="Permalink to this definition">#</a></dt>
-<dd></dd></dl>
+<dd><p>Create a Raster from a DataArray object.</p>
+<p>The null value is pulled from <cite>xdata</cite> using <cite>rioxarray</cite>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>xdata</strong> (<em>xarray.DataArray</em>) – The object to make a Raster from.</p></li>
+<li><p><strong>xmask</strong> (<em>xarray.DataArray</em><em>, </em><em>optional</em>) – The matching mask to use with the <cite>xdata</cite> object when creating the
+raster Dataset. Must have boolean dtype. The default is to generate a
+mask from <cite>xdata</cite> based on the value returned by <cite>xdata.rio.nodata</cite>.</p></li>
+<li><p><strong>crs</strong> (<em>int</em><em>, </em><em>str</em><em>, </em><em>rasterio.CRS</em><em>, </em><em>optional</em>) – The CRS to use when creating the result. The default is to take the CRS
+from <cite>xdata</cite>, if present.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>raster</strong> – The resulting Raster.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="#raster_tools.raster.Raster" title="raster_tools.raster.Raster">Raster</a></p>
+</dd>
+</dl>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="#raster_tools.raster.data_to_raster" title="raster_tools.raster.data_to_raster"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_raster</span></code></a>, <a class="reference internal" href="#raster_tools.raster.data_to_raster_like" title="raster_tools.raster.data_to_raster_like"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_raster_like</span></code></a>, <a class="reference internal" href="#raster_tools.raster.data_to_xr_raster" title="raster_tools.raster.data_to_xr_raster"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_xr_raster</span></code></a>, <a class="reference internal" href="#raster_tools.raster.data_to_xr_raster_ds" title="raster_tools.raster.data_to_xr_raster_ds"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_xr_raster_ds</span></code></a>, <a class="reference internal" href="#raster_tools.raster.data_to_xr_raster_ds_like" title="raster_tools.raster.data_to_xr_raster_ds_like"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_xr_raster_ds_like</span></code></a>, <a class="reference internal" href="#raster_tools.raster.data_to_xr_raster_like" title="raster_tools.raster.data_to_xr_raster_like"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_xr_raster_like</span></code></a>, <a class="reference internal" href="#raster_tools.raster.dataarray_to_xr_raster" title="raster_tools.raster.dataarray_to_xr_raster"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dataarray_to_xr_raster</span></code></a>, <a class="reference internal" href="#raster_tools.raster.dataarray_to_xr_raster_ds" title="raster_tools.raster.dataarray_to_xr_raster_ds"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dataarray_to_xr_raster_ds</span></code></a></p>
+</div>
+</dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="raster_tools.raster.dataarray_to_xr_raster">
 <span class="sig-prename descclassname"><span class="pre">raster_tools.raster.</span></span><span class="sig-name descname"><span class="pre">dataarray_to_xr_raster</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">xdata</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/raster.html#dataarray_to_xr_raster"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.raster.dataarray_to_xr_raster" title="Permalink to this definition">#</a></dt>
-<dd></dd></dl>
+<dd><p>Transform a DataArray object into standard raster DataArray.</p>
+<p>The CRS and null value are pulled from <cite>xdata</cite> using <cite>rioxarray</cite>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>xdata</strong> (<em>xarray.DataArray</em><em>,</em>) – The object to convert to a raster form.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>raster</strong> – The resulting DataArray in standard raster format with dims: <code class="docutils literal notranslate"><span class="pre">(&quot;band&quot;,</span>
+<span class="pre">&quot;y&quot;,</span> <span class="pre">&quot;x&quot;)</span></code> and encoded CRS and null value.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>xarray.DataArray</p>
+</dd>
+</dl>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="#raster_tools.raster.data_to_raster" title="raster_tools.raster.data_to_raster"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_raster</span></code></a>, <a class="reference internal" href="#raster_tools.raster.data_to_raster_like" title="raster_tools.raster.data_to_raster_like"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_raster_like</span></code></a>, <a class="reference internal" href="#raster_tools.raster.data_to_xr_raster" title="raster_tools.raster.data_to_xr_raster"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_xr_raster</span></code></a>, <a class="reference internal" href="#raster_tools.raster.data_to_xr_raster_ds" title="raster_tools.raster.data_to_xr_raster_ds"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_xr_raster_ds</span></code></a>, <a class="reference internal" href="#raster_tools.raster.data_to_xr_raster_ds_like" title="raster_tools.raster.data_to_xr_raster_ds_like"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_xr_raster_ds_like</span></code></a>, <a class="reference internal" href="#raster_tools.raster.data_to_xr_raster_like" title="raster_tools.raster.data_to_xr_raster_like"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_xr_raster_like</span></code></a>, <a class="reference internal" href="#raster_tools.raster.dataarray_to_raster" title="raster_tools.raster.dataarray_to_raster"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dataarray_to_raster</span></code></a>, <a class="reference internal" href="#raster_tools.raster.dataarray_to_xr_raster_ds" title="raster_tools.raster.dataarray_to_xr_raster_ds"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dataarray_to_xr_raster_ds</span></code></a></p>
+</div>
+</dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="raster_tools.raster.dataarray_to_xr_raster_ds">
 <span class="sig-prename descclassname"><span class="pre">raster_tools.raster.</span></span><span class="sig-name descname"><span class="pre">dataarray_to_xr_raster_ds</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">xdata</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xmask</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">crs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/raster.html#dataarray_to_xr_raster_ds"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.raster.dataarray_to_xr_raster_ds" title="Permalink to this definition">#</a></dt>
-<dd></dd></dl>
+<dd><p>Create a raster Dataset object from a DataArray object.</p>
+<p>The null value is pulled from <cite>xdata</cite> using <cite>rioxarray</cite>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>xdata</strong> (<em>xarray.DataArray</em><em>,</em>) – The object to convert to a raster Dataset</p></li>
+<li><p><strong>xmask</strong> (<em>xarray.DataArray</em><em>[</em><em>bool</em><em>]</em><em>, </em><em>optional</em>) – The matching mask to use with the <cite>xdata</cite> object when creating the
+raster Dataset. Must have boolean dtype. The default is to generate a
+mask from <cite>xdata</cite> based on the value returned by <cite>xdata.rio.nodata</cite>.</p></li>
+<li><p><strong>crs</strong> (<em>int</em><em>, </em><em>str</em><em>, </em><em>rasterio.CRS</em><em>, </em><em>optional</em>) – The CRS to use when creating the result. The default is to take the CRS
+from <cite>xdata</cite>, if present.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>raster</strong> – The resulting raster Dataset with two data variables: “raster” and
+“mask”.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>xarray.Dataset</p>
+</dd>
+</dl>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="#raster_tools.raster.data_to_raster" title="raster_tools.raster.data_to_raster"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_raster</span></code></a>, <a class="reference internal" href="#raster_tools.raster.data_to_raster_like" title="raster_tools.raster.data_to_raster_like"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_raster_like</span></code></a>, <a class="reference internal" href="#raster_tools.raster.data_to_xr_raster" title="raster_tools.raster.data_to_xr_raster"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_xr_raster</span></code></a>, <a class="reference internal" href="#raster_tools.raster.data_to_xr_raster_ds" title="raster_tools.raster.data_to_xr_raster_ds"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_xr_raster_ds</span></code></a>, <a class="reference internal" href="#raster_tools.raster.data_to_xr_raster_ds_like" title="raster_tools.raster.data_to_xr_raster_ds_like"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_xr_raster_ds_like</span></code></a>, <a class="reference internal" href="#raster_tools.raster.data_to_xr_raster_like" title="raster_tools.raster.data_to_xr_raster_like"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_xr_raster_like</span></code></a>, <a class="reference internal" href="#raster_tools.raster.dataarray_to_raster" title="raster_tools.raster.dataarray_to_raster"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dataarray_to_raster</span></code></a>, <a class="reference internal" href="#raster_tools.raster.dataarray_to_xr_raster" title="raster_tools.raster.dataarray_to_xr_raster"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dataarray_to_xr_raster</span></code></a></p>
+</div>
+</dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="raster_tools.raster.get_mask_from_data">
@@ -2860,18 +3114,55 @@ output values will be arrays.</p>
 <dl class="py function">
 <dt class="sig sig-object py" id="raster_tools.raster.make_raster_ds">
 <span class="sig-prename descclassname"><span class="pre">raster_tools.raster.</span></span><span class="sig-name descname"><span class="pre">make_raster_ds</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">raster_dataarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mask_dataarray</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/raster.html#make_raster_ds"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.raster.make_raster_ds" title="Permalink to this definition">#</a></dt>
-<dd></dd></dl>
+<dd><p>Takes data and mask DataArrays and produces a raster Dataset with the data
+in the data variable “raster” and the mask in the “mask” data variable.</p>
+</dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="raster_tools.raster.normalize_data">
 <span class="sig-prename descclassname"><span class="pre">raster_tools.raster.</span></span><span class="sig-name descname"><span class="pre">normalize_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">yx_chunks</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/raster.html#normalize_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.raster.normalize_data" title="Permalink to this definition">#</a></dt>
 <dd><p>2d/3d np.ndarray or da.Array –&gt; 3D da.Array.</p>
+<p>This transforms the data array into the standard data format, which has the
+following properties:</p>
+<ul class="simple">
+<li><p>3D with band dimension first.</p></li>
+<li><p>Is a dask array</p></li>
+<li><p>Chunksize of 1 in the band dim.</p></li>
+</ul>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>data</strong> (<em>np.ndarray</em><em>, </em><em>dask.array.Array</em>) – The data array.</p></li>
+<li><p><strong>yx_chunks</strong> (<em>tuple</em><em>, </em><em>optional</em>) – Tuple of chunks for the y and x dimensions, in that order. The default
+is to leave the chunks as is in this dimension or to chunk with
+<code class="docutils literal notranslate"><span class="pre">&quot;auto&quot;</span></code>, if <cite>data</cite> is a numpy array.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>data</strong> – The resulting dask array.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>dask.array.Array</p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="raster_tools.raster.normalize_xarray_data">
-<span class="sig-prename descclassname"><span class="pre">raster_tools.raster.</span></span><span class="sig-name descname"><span class="pre">normalize_xarray_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">xrs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/raster.html#normalize_xarray_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.raster.normalize_xarray_data" title="Permalink to this definition">#</a></dt>
-<dd></dd></dl>
+<span class="sig-prename descclassname"><span class="pre">raster_tools.raster.</span></span><span class="sig-name descname"><span class="pre">normalize_xarray_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">xdata</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/raster.html#normalize_xarray_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.raster.normalize_xarray_data" title="Permalink to this definition">#</a></dt>
+<dd><p>Transform the DataArray to the standard raster DataArray format.</p>
+<p>A standard raster DataArray has the following:</p>
+<ul class="simple">
+<li><p>3 dimensions in this order: <code class="docutils literal notranslate"><span class="pre">(&quot;band&quot;,</span> <span class="pre">&quot;y&quot;,</span> <span class="pre">&quot;x&quot;)</span></code></p></li>
+<li><p>The band dim coordinates starts at one. ex:  <code class="docutils literal notranslate"><span class="pre">[1,</span> <span class="pre">2,</span> <span class="pre">...]</span></code></p></li>
+<li><p>The x dim coordinates are always increasing.</p></li>
+<li><p>The y dim coordinates are always decreasing.</p></li>
+<li><p>The CRS is encoded at <cite>obj.rio.crs</cite></p></li>
+<li><p>The nodata/null value is encoded at <cite>obj.rio.nodata</cite></p></li>
+<li><p>The data within the DataArray is a dask array.</p></li>
+<li><p>The dask chunks have size 1 in the band dim.</p></li>
+</ul>
+</dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="raster_tools.raster.rowcol_to_xy">
@@ -5478,6 +5769,305 @@ copied <cite>bands</cite> times.</p></li>
 <dd class="field-odd"><p>int</p>
 </dd>
 </dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="raster_tools.data_to_raster">
+<span class="sig-prename descclassname"><span class="pre">raster_tools.</span></span><span class="sig-name descname"><span class="pre">data_to_raster</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mask</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">affine</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">crs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nv</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">burn</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/raster.html#data_to_raster"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.data_to_raster" title="Permalink to this definition">#</a></dt>
+<dd><p>Create a Raster from a data array.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>data</strong> (<em>np.ndarray</em><em>, </em><em>dask.array.Array</em>) – The data array.</p></li>
+<li><p><strong>mask</strong> (<em>np.ndarray</em><em>, </em><em>dask.array.Array</em>) – A boolean mask array. The default is to generate a mask from the data
+using <cite>nv</cite>.</p></li>
+<li><p><strong>x</strong> (<em>list</em><em>, </em><em>np.ndarra</em><em>, </em><em>optional</em>) – The x coordinate value. If <cite>x</cite> and <cite>y</cite> are not specified, <cite>affine</cite> is
+used to generate x and y coordinates.</p></li>
+<li><p><strong>y</strong> (<em>list</em><em>, </em><em>np.ndarra</em><em>, </em><em>optional</em>) – The y coordinate value. If <cite>x</cite> and <cite>y</cite> are not specified, <cite>affine</cite> is
+used to generate x and y coordinates.</p></li>
+<li><p><strong>affine</strong> (<em>affine.Affine</em><em>, </em><em>optional</em>) – <p>If <code class="docutils literal notranslate"><span class="pre">None</span></code>, the affine matrix is created using <cite>x</cite> and <cite>y</cite>. If
+<cite>affine</cite> is <code class="docutils literal notranslate"><span class="pre">None</span></code> and <cite>x</cite> and <cite>y</cite> are not specified, default affine
+matrix of:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">|</span> <span class="mf">1.0</span> <span class="mf">0.0</span> <span class="mf">0.0</span> <span class="o">|</span>
+<span class="o">|</span> <span class="mf">0.0</span> <span class="mf">1.0</span>   <span class="n">N</span> <span class="o">|</span>
+</pre></div>
+</div>
+<p>where N is the size of the y dim.</p>
+</p></li>
+<li><p><strong>crs</strong> (<em>int</em><em>, </em><em>str</em><em>, </em><em>rasterio.CRS</em><em>, </em><em>optional</em>) – The CRS to use for the result. The default is no CRS.</p></li>
+<li><p><strong>nv</strong> (<em>scalar</em><em>, </em><em>optional</em>) – The nodata/null value to use. The default is no null value.</p></li>
+<li><p><strong>burn</strong> (<em>bool</em><em>, </em><em>optional</em>) – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, <cite>mask</cite> is used to ‘burn’ the null value into the data
+array (e.g. <cite>np.where(mask, nv, data)</cite>). The default is <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>raster</strong> – The resulting Raster object.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="reference/generated/raster_tools.Raster.html#raster_tools.Raster" title="raster_tools.Raster">Raster</a></p>
+</dd>
+</dl>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="#raster_tools.data_to_raster_like" title="raster_tools.data_to_raster_like"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_raster_like</span></code></a>, <a class="reference internal" href="#raster_tools.data_to_xr_raster" title="raster_tools.data_to_xr_raster"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_xr_raster</span></code></a>, <a class="reference internal" href="#raster_tools.data_to_xr_raster_ds" title="raster_tools.data_to_xr_raster_ds"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_xr_raster_ds</span></code></a>, <a class="reference internal" href="#raster_tools.data_to_xr_raster_ds_like" title="raster_tools.data_to_xr_raster_ds_like"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_xr_raster_ds_like</span></code></a>, <a class="reference internal" href="#raster_tools.data_to_xr_raster_like" title="raster_tools.data_to_xr_raster_like"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_xr_raster_like</span></code></a>, <a class="reference internal" href="#raster_tools.dataarray_to_raster" title="raster_tools.dataarray_to_raster"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dataarray_to_raster</span></code></a>, <a class="reference internal" href="#raster_tools.dataarray_to_xr_raster" title="raster_tools.dataarray_to_xr_raster"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dataarray_to_xr_raster</span></code></a>, <a class="reference internal" href="#raster_tools.dataarray_to_xr_raster_ds" title="raster_tools.dataarray_to_xr_raster_ds"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dataarray_to_xr_raster_ds</span></code></a></p>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="raster_tools.data_to_raster_like">
+<span class="sig-prename descclassname"><span class="pre">raster_tools.</span></span><span class="sig-name descname"><span class="pre">data_to_raster_like</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">like</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mask</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nv</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">burn</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">match_chunks</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/raster.html#data_to_raster_like"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.data_to_raster_like" title="Permalink to this definition">#</a></dt>
+<dd><p>Create a Raster, based on a template Raster, from a data array.</p>
+<p>The CRS and x/y information are pulled from <cite>xlike</cite>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>data</strong> (<em>np.ndarray</em><em>, </em><em>dask.array.Array</em>) – The data array.</p></li>
+<li><p><strong>like</strong> (<em>xarray.DataArray</em><em>, </em><a class="reference internal" href="reference/generated/raster_tools.Raster.html#raster_tools.Raster" title="raster_tools.Raster"><em>Raster</em></a>) – The template to pull geospatial information from. Can be a DataArray or
+Raster.</p></li>
+<li><p><strong>mask</strong> (<em>np.ndarray</em><em>, </em><em>dask.array.Array</em>) – A boolean mask array. The default is to generate a mask from the data
+using <cite>nv</cite>.</p></li>
+<li><p><strong>nv</strong> (<em>scalar</em><em>, </em><em>optional</em>) – The nodata/null value to use. The default is no null value.</p></li>
+<li><p><strong>burn</strong> (<em>bool</em><em>, </em><em>optional</em>) – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, <cite>mask</cite> is used to ‘burn’ the null value into the data
+array (e.g. <cite>np.where(mask, nv, data)</cite>). The default is <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p></li>
+<li><p><strong>match_chunks</strong> (<em>bool</em><em>, </em><em>optional</em>) – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, the chunks of the output will match the chunks in <cite>xlike</cite>.
+The default is <code class="docutils literal notranslate"><span class="pre">True</span></code>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>raster</strong> – The resulting raster matching <cite>like</cite>.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="reference/generated/raster_tools.Raster.html#raster_tools.Raster" title="raster_tools.Raster">Raster</a></p>
+</dd>
+</dl>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="#raster_tools.data_to_raster" title="raster_tools.data_to_raster"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_raster</span></code></a>, <a class="reference internal" href="#raster_tools.data_to_xr_raster" title="raster_tools.data_to_xr_raster"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_xr_raster</span></code></a>, <a class="reference internal" href="#raster_tools.data_to_xr_raster_ds" title="raster_tools.data_to_xr_raster_ds"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_xr_raster_ds</span></code></a>, <a class="reference internal" href="#raster_tools.data_to_xr_raster_ds_like" title="raster_tools.data_to_xr_raster_ds_like"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_xr_raster_ds_like</span></code></a>, <a class="reference internal" href="#raster_tools.data_to_xr_raster_like" title="raster_tools.data_to_xr_raster_like"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_xr_raster_like</span></code></a>, <a class="reference internal" href="#raster_tools.dataarray_to_raster" title="raster_tools.dataarray_to_raster"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dataarray_to_raster</span></code></a>, <a class="reference internal" href="#raster_tools.dataarray_to_xr_raster" title="raster_tools.dataarray_to_xr_raster"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dataarray_to_xr_raster</span></code></a>, <a class="reference internal" href="#raster_tools.dataarray_to_xr_raster_ds" title="raster_tools.dataarray_to_xr_raster_ds"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dataarray_to_xr_raster_ds</span></code></a></p>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="raster_tools.data_to_xr_raster">
+<span class="sig-prename descclassname"><span class="pre">raster_tools.</span></span><span class="sig-name descname"><span class="pre">data_to_xr_raster</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">affine</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">crs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nv</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/raster.html#data_to_xr_raster"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.data_to_xr_raster" title="Permalink to this definition">#</a></dt>
+<dd><p>Create a standard raster DataArray from a data array.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>data</strong> (<em>np.ndarray</em><em>, </em><em>dask.array.Array</em>) – The data array.</p></li>
+<li><p><strong>x</strong> (<em>list</em><em>, </em><em>np.ndarra</em><em>, </em><em>optional</em>) – The x coordinate value. If <cite>x</cite> and <cite>y</cite> are not specified, <cite>affine</cite> is
+used to generate x and y coordinates.</p></li>
+<li><p><strong>y</strong> (<em>list</em><em>, </em><em>np.ndarra</em><em>, </em><em>optional</em>) – The y coordinate value. If <cite>x</cite> and <cite>y</cite> are not specified, <cite>affine</cite> is
+used to generate x and y coordinates.</p></li>
+<li><p><strong>affine</strong> (<em>affine.Affine</em><em>, </em><em>optional</em>) – <p>If <code class="docutils literal notranslate"><span class="pre">None</span></code>, the affine matrix is created using <cite>x</cite> and <cite>y</cite>. If
+<cite>affine</cite> is <code class="docutils literal notranslate"><span class="pre">None</span></code> and <cite>x</cite> and <cite>y</cite> are not specified, default affine
+matrix of:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">|</span> <span class="mf">1.0</span> <span class="mf">0.0</span> <span class="mf">0.0</span> <span class="o">|</span>
+<span class="o">|</span> <span class="mf">0.0</span> <span class="mf">1.0</span>   <span class="n">N</span> <span class="o">|</span>
+</pre></div>
+</div>
+<p>where N is the size of the y dim.</p>
+</p></li>
+<li><p><strong>crs</strong> (<em>int</em><em>, </em><em>str</em><em>, </em><em>rasterio.CRS</em><em>, </em><em>optional</em>) – The CRS to use for the result. The default is no CRS.</p></li>
+<li><p><strong>nv</strong> (<em>scalar</em><em>, </em><em>optional</em>) – The nodata/null value to use. The default is no null value.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>raster</strong> – The resulting raster DataArray.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>xarray.DataArray</p>
+</dd>
+</dl>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="#raster_tools.data_to_raster" title="raster_tools.data_to_raster"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_raster</span></code></a>, <a class="reference internal" href="#raster_tools.data_to_raster_like" title="raster_tools.data_to_raster_like"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_raster_like</span></code></a>, <a class="reference internal" href="#raster_tools.data_to_xr_raster_ds" title="raster_tools.data_to_xr_raster_ds"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_xr_raster_ds</span></code></a>, <a class="reference internal" href="#raster_tools.data_to_xr_raster_ds_like" title="raster_tools.data_to_xr_raster_ds_like"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_xr_raster_ds_like</span></code></a>, <a class="reference internal" href="#raster_tools.data_to_xr_raster_like" title="raster_tools.data_to_xr_raster_like"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_xr_raster_like</span></code></a>, <a class="reference internal" href="#raster_tools.dataarray_to_raster" title="raster_tools.dataarray_to_raster"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dataarray_to_raster</span></code></a>, <a class="reference internal" href="#raster_tools.dataarray_to_xr_raster" title="raster_tools.dataarray_to_xr_raster"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dataarray_to_xr_raster</span></code></a>, <a class="reference internal" href="#raster_tools.dataarray_to_xr_raster_ds" title="raster_tools.dataarray_to_xr_raster_ds"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dataarray_to_xr_raster_ds</span></code></a></p>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="raster_tools.data_to_xr_raster_ds">
+<span class="sig-prename descclassname"><span class="pre">raster_tools.</span></span><span class="sig-name descname"><span class="pre">data_to_xr_raster_ds</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mask</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">affine</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">crs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nv</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">burn</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/raster.html#data_to_xr_raster_ds"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.data_to_xr_raster_ds" title="Permalink to this definition">#</a></dt>
+<dd><p>Create a standard raster Dataset from a data array.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>data</strong> (<em>np.ndarray</em><em>, </em><em>dask.array.Array</em>) – The data array.</p></li>
+<li><p><strong>mask</strong> (<em>np.ndarray</em><em>, </em><em>dask.array.Array</em>) – A boolean mask array. The default is to generate a mask from the data
+using <cite>nv</cite>.</p></li>
+<li><p><strong>x</strong> (<em>list</em><em>, </em><em>np.ndarra</em><em>, </em><em>optional</em>) – The x coordinate value. If <cite>x</cite> and <cite>y</cite> are not specified, <cite>affine</cite> is
+used to generate x and y coordinates.</p></li>
+<li><p><strong>y</strong> (<em>list</em><em>, </em><em>np.ndarra</em><em>, </em><em>optional</em>) – The y coordinate value. If <cite>x</cite> and <cite>y</cite> are not specified, <cite>affine</cite> is
+used to generate x and y coordinates.</p></li>
+<li><p><strong>affine</strong> (<em>affine.Affine</em><em>, </em><em>optional</em>) – <p>If <code class="docutils literal notranslate"><span class="pre">None</span></code>, the affine matrix is created using <cite>x</cite> and <cite>y</cite>. If
+<cite>affine</cite> is <code class="docutils literal notranslate"><span class="pre">None</span></code> and <cite>x</cite> and <cite>y</cite> are not specified, default affine
+matrix of:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">|</span> <span class="mf">1.0</span> <span class="mf">0.0</span> <span class="mf">0.0</span> <span class="o">|</span>
+<span class="o">|</span> <span class="mf">0.0</span> <span class="mf">1.0</span>   <span class="n">N</span> <span class="o">|</span>
+</pre></div>
+</div>
+<p>where N is the size of the y dim.</p>
+</p></li>
+<li><p><strong>crs</strong> (<em>int</em><em>, </em><em>str</em><em>, </em><em>rasterio.CRS</em><em>, </em><em>optional</em>) – The CRS to use for the result. The default is no CRS.</p></li>
+<li><p><strong>nv</strong> (<em>scalar</em><em>, </em><em>optional</em>) – The nodata/null value to use. The default is no null value.</p></li>
+<li><p><strong>burn</strong> (<em>bool</em><em>, </em><em>optional</em>) – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, <cite>mask</cite> is used to ‘burn’ the null value into the data
+array (e.g. <cite>np.where(mask, nv, data)</cite>). The default is <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>raster</strong> – Theresulting raster Dataset object.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>xarray.Dataset</p>
+</dd>
+</dl>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="#raster_tools.data_to_raster" title="raster_tools.data_to_raster"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_raster</span></code></a>, <a class="reference internal" href="#raster_tools.data_to_raster_like" title="raster_tools.data_to_raster_like"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_raster_like</span></code></a>, <a class="reference internal" href="#raster_tools.data_to_xr_raster" title="raster_tools.data_to_xr_raster"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_xr_raster</span></code></a>, <a class="reference internal" href="#raster_tools.data_to_xr_raster_ds_like" title="raster_tools.data_to_xr_raster_ds_like"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_xr_raster_ds_like</span></code></a>, <a class="reference internal" href="#raster_tools.data_to_xr_raster_like" title="raster_tools.data_to_xr_raster_like"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_xr_raster_like</span></code></a>, <a class="reference internal" href="#raster_tools.dataarray_to_raster" title="raster_tools.dataarray_to_raster"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dataarray_to_raster</span></code></a>, <a class="reference internal" href="#raster_tools.dataarray_to_xr_raster" title="raster_tools.dataarray_to_xr_raster"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dataarray_to_xr_raster</span></code></a>, <a class="reference internal" href="#raster_tools.dataarray_to_xr_raster_ds" title="raster_tools.dataarray_to_xr_raster_ds"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dataarray_to_xr_raster_ds</span></code></a></p>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="raster_tools.data_to_xr_raster_ds_like">
+<span class="sig-prename descclassname"><span class="pre">raster_tools.</span></span><span class="sig-name descname"><span class="pre">data_to_xr_raster_ds_like</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xlike</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mask</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nv</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">burn</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">match_chunks</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/raster.html#data_to_xr_raster_ds_like"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.data_to_xr_raster_ds_like" title="Permalink to this definition">#</a></dt>
+<dd><p>Create a standard raster Dataset using a template raster DataArray.</p>
+<p>The CRS and x/y information are pulled from <cite>xlike</cite>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>data</strong> (<em>np.ndarray</em><em>, </em><em>dask.array.Array</em>) – The data array.</p></li>
+<li><p><strong>xlike</strong> (<em>xarray.DataArray</em>) – The template to pull geospatial information from.</p></li>
+<li><p><strong>mask</strong> (<em>np.ndarray</em><em>, </em><em>dask.array.Array</em>) – A boolean mask array. The default is to generate a mask from the data
+using <cite>nv</cite>.</p></li>
+<li><p><strong>nv</strong> (<em>scalar</em><em>, </em><em>optional</em>) – The nodata/null value to use. The default is no null value.</p></li>
+<li><p><strong>burn</strong> (<em>bool</em><em>, </em><em>optional</em>) – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, <cite>mask</cite> is used to ‘burn’ the null value into the data
+array (e.g. <cite>np.where(mask, nv, data)</cite>). The default is <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p></li>
+<li><p><strong>match_chunks</strong> (<em>bool</em><em>, </em><em>optional</em>) – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, the chunks of the output will match the chunks in <cite>xlike</cite>.
+The default is <code class="docutils literal notranslate"><span class="pre">True</span></code></p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>raster</strong> – The resulting raster Dataset object matching <cite>xlike</cite>.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>xarray.Dataset</p>
+</dd>
+</dl>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="#raster_tools.data_to_raster" title="raster_tools.data_to_raster"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_raster</span></code></a>, <a class="reference internal" href="#raster_tools.data_to_raster_like" title="raster_tools.data_to_raster_like"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_raster_like</span></code></a>, <a class="reference internal" href="#raster_tools.data_to_xr_raster" title="raster_tools.data_to_xr_raster"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_xr_raster</span></code></a>, <a class="reference internal" href="#raster_tools.data_to_xr_raster_ds" title="raster_tools.data_to_xr_raster_ds"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_xr_raster_ds</span></code></a>, <a class="reference internal" href="#raster_tools.data_to_xr_raster_like" title="raster_tools.data_to_xr_raster_like"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_xr_raster_like</span></code></a>, <a class="reference internal" href="#raster_tools.dataarray_to_raster" title="raster_tools.dataarray_to_raster"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dataarray_to_raster</span></code></a>, <a class="reference internal" href="#raster_tools.dataarray_to_xr_raster" title="raster_tools.dataarray_to_xr_raster"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dataarray_to_xr_raster</span></code></a>, <a class="reference internal" href="#raster_tools.dataarray_to_xr_raster_ds" title="raster_tools.dataarray_to_xr_raster_ds"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dataarray_to_xr_raster_ds</span></code></a></p>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="raster_tools.data_to_xr_raster_like">
+<span class="sig-prename descclassname"><span class="pre">raster_tools.</span></span><span class="sig-name descname"><span class="pre">data_to_xr_raster_like</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xlike</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nv</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">match_band_dim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">match_chunks</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/raster.html#data_to_xr_raster_like"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.data_to_xr_raster_like" title="Permalink to this definition">#</a></dt>
+<dd><p>Create a standard raster DataArray based on a template DataArray.</p>
+<p>The CRS and x/y information are pulled from <cite>xlike</cite>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>data</strong> (<em>np.ndarray</em><em>, </em><em>dask.array.Array</em>) – The data array.</p></li>
+<li><p><strong>xlike</strong> (<em>xarray.DataArray</em>) – The template to pull geospatial information from.</p></li>
+<li><p><strong>nv</strong> (<em>scalar</em><em>, </em><em>optional</em>) – The nodata/null value to use. The default is no null value.</p></li>
+<li><p><strong>match_band_dim</strong> (<em>bool</em><em>, </em><em>optional</em>) – If <cite>data</cite> has only 1 band, this will stack <cite>data</cite> to match the number
+of bands in <cite>xlike</cite>. The default is to not match the number of bands.</p></li>
+<li><p><strong>match_chunks</strong> (<em>bool</em><em>, </em><em>optional</em>) – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, the chunks of the output will match the chunks in <cite>xlike</cite>.
+The default is <code class="docutils literal notranslate"><span class="pre">True</span></code>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>raster</strong> – The resulting raster DataArray matcing <cite>xlike</cite>.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>xarray.DataArray</p>
+</dd>
+</dl>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="#raster_tools.data_to_raster" title="raster_tools.data_to_raster"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_raster</span></code></a>, <a class="reference internal" href="#raster_tools.data_to_raster_like" title="raster_tools.data_to_raster_like"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_raster_like</span></code></a>, <a class="reference internal" href="#raster_tools.data_to_xr_raster" title="raster_tools.data_to_xr_raster"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_xr_raster</span></code></a>, <a class="reference internal" href="#raster_tools.data_to_xr_raster_ds" title="raster_tools.data_to_xr_raster_ds"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_xr_raster_ds</span></code></a>, <a class="reference internal" href="#raster_tools.data_to_xr_raster_ds_like" title="raster_tools.data_to_xr_raster_ds_like"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_xr_raster_ds_like</span></code></a>, <a class="reference internal" href="#raster_tools.dataarray_to_raster" title="raster_tools.dataarray_to_raster"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dataarray_to_raster</span></code></a>, <a class="reference internal" href="#raster_tools.dataarray_to_xr_raster" title="raster_tools.dataarray_to_xr_raster"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dataarray_to_xr_raster</span></code></a>, <a class="reference internal" href="#raster_tools.dataarray_to_xr_raster_ds" title="raster_tools.dataarray_to_xr_raster_ds"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dataarray_to_xr_raster_ds</span></code></a></p>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="raster_tools.dataarray_to_raster">
+<span class="sig-prename descclassname"><span class="pre">raster_tools.</span></span><span class="sig-name descname"><span class="pre">dataarray_to_raster</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">xdata</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xmask</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">crs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/raster.html#dataarray_to_raster"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.dataarray_to_raster" title="Permalink to this definition">#</a></dt>
+<dd><p>Create a Raster from a DataArray object.</p>
+<p>The null value is pulled from <cite>xdata</cite> using <cite>rioxarray</cite>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>xdata</strong> (<em>xarray.DataArray</em>) – The object to make a Raster from.</p></li>
+<li><p><strong>xmask</strong> (<em>xarray.DataArray</em><em>, </em><em>optional</em>) – The matching mask to use with the <cite>xdata</cite> object when creating the
+raster Dataset. Must have boolean dtype. The default is to generate a
+mask from <cite>xdata</cite> based on the value returned by <cite>xdata.rio.nodata</cite>.</p></li>
+<li><p><strong>crs</strong> (<em>int</em><em>, </em><em>str</em><em>, </em><em>rasterio.CRS</em><em>, </em><em>optional</em>) – The CRS to use when creating the result. The default is to take the CRS
+from <cite>xdata</cite>, if present.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>raster</strong> – The resulting Raster.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="reference/generated/raster_tools.Raster.html#raster_tools.Raster" title="raster_tools.Raster">Raster</a></p>
+</dd>
+</dl>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="#raster_tools.data_to_raster" title="raster_tools.data_to_raster"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_raster</span></code></a>, <a class="reference internal" href="#raster_tools.data_to_raster_like" title="raster_tools.data_to_raster_like"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_raster_like</span></code></a>, <a class="reference internal" href="#raster_tools.data_to_xr_raster" title="raster_tools.data_to_xr_raster"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_xr_raster</span></code></a>, <a class="reference internal" href="#raster_tools.data_to_xr_raster_ds" title="raster_tools.data_to_xr_raster_ds"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_xr_raster_ds</span></code></a>, <a class="reference internal" href="#raster_tools.data_to_xr_raster_ds_like" title="raster_tools.data_to_xr_raster_ds_like"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_xr_raster_ds_like</span></code></a>, <a class="reference internal" href="#raster_tools.data_to_xr_raster_like" title="raster_tools.data_to_xr_raster_like"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_xr_raster_like</span></code></a>, <a class="reference internal" href="#raster_tools.dataarray_to_xr_raster" title="raster_tools.dataarray_to_xr_raster"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dataarray_to_xr_raster</span></code></a>, <a class="reference internal" href="#raster_tools.dataarray_to_xr_raster_ds" title="raster_tools.dataarray_to_xr_raster_ds"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dataarray_to_xr_raster_ds</span></code></a></p>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="raster_tools.dataarray_to_xr_raster">
+<span class="sig-prename descclassname"><span class="pre">raster_tools.</span></span><span class="sig-name descname"><span class="pre">dataarray_to_xr_raster</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">xdata</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/raster.html#dataarray_to_xr_raster"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.dataarray_to_xr_raster" title="Permalink to this definition">#</a></dt>
+<dd><p>Transform a DataArray object into standard raster DataArray.</p>
+<p>The CRS and null value are pulled from <cite>xdata</cite> using <cite>rioxarray</cite>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>xdata</strong> (<em>xarray.DataArray</em><em>,</em>) – The object to convert to a raster form.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>raster</strong> – The resulting DataArray in standard raster format with dims: <code class="docutils literal notranslate"><span class="pre">(&quot;band&quot;,</span>
+<span class="pre">&quot;y&quot;,</span> <span class="pre">&quot;x&quot;)</span></code> and encoded CRS and null value.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>xarray.DataArray</p>
+</dd>
+</dl>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="#raster_tools.data_to_raster" title="raster_tools.data_to_raster"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_raster</span></code></a>, <a class="reference internal" href="#raster_tools.data_to_raster_like" title="raster_tools.data_to_raster_like"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_raster_like</span></code></a>, <a class="reference internal" href="#raster_tools.data_to_xr_raster" title="raster_tools.data_to_xr_raster"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_xr_raster</span></code></a>, <a class="reference internal" href="#raster_tools.data_to_xr_raster_ds" title="raster_tools.data_to_xr_raster_ds"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_xr_raster_ds</span></code></a>, <a class="reference internal" href="#raster_tools.data_to_xr_raster_ds_like" title="raster_tools.data_to_xr_raster_ds_like"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_xr_raster_ds_like</span></code></a>, <a class="reference internal" href="#raster_tools.data_to_xr_raster_like" title="raster_tools.data_to_xr_raster_like"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_xr_raster_like</span></code></a>, <a class="reference internal" href="#raster_tools.dataarray_to_raster" title="raster_tools.dataarray_to_raster"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dataarray_to_raster</span></code></a>, <a class="reference internal" href="#raster_tools.dataarray_to_xr_raster_ds" title="raster_tools.dataarray_to_xr_raster_ds"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dataarray_to_xr_raster_ds</span></code></a></p>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="raster_tools.dataarray_to_xr_raster_ds">
+<span class="sig-prename descclassname"><span class="pre">raster_tools.</span></span><span class="sig-name descname"><span class="pre">dataarray_to_xr_raster_ds</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">xdata</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xmask</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">crs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/raster.html#dataarray_to_xr_raster_ds"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.dataarray_to_xr_raster_ds" title="Permalink to this definition">#</a></dt>
+<dd><p>Create a raster Dataset object from a DataArray object.</p>
+<p>The null value is pulled from <cite>xdata</cite> using <cite>rioxarray</cite>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>xdata</strong> (<em>xarray.DataArray</em><em>,</em>) – The object to convert to a raster Dataset</p></li>
+<li><p><strong>xmask</strong> (<em>xarray.DataArray</em><em>[</em><em>bool</em><em>]</em><em>, </em><em>optional</em>) – The matching mask to use with the <cite>xdata</cite> object when creating the
+raster Dataset. Must have boolean dtype. The default is to generate a
+mask from <cite>xdata</cite> based on the value returned by <cite>xdata.rio.nodata</cite>.</p></li>
+<li><p><strong>crs</strong> (<em>int</em><em>, </em><em>str</em><em>, </em><em>rasterio.CRS</em><em>, </em><em>optional</em>) – The CRS to use when creating the result. The default is to take the CRS
+from <cite>xdata</cite>, if present.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>raster</strong> – The resulting raster Dataset with two data variables: “raster” and
+“mask”.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>xarray.Dataset</p>
+</dd>
+</dl>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="#raster_tools.data_to_raster" title="raster_tools.data_to_raster"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_raster</span></code></a>, <a class="reference internal" href="#raster_tools.data_to_raster_like" title="raster_tools.data_to_raster_like"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_raster_like</span></code></a>, <a class="reference internal" href="#raster_tools.data_to_xr_raster" title="raster_tools.data_to_xr_raster"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_xr_raster</span></code></a>, <a class="reference internal" href="#raster_tools.data_to_xr_raster_ds" title="raster_tools.data_to_xr_raster_ds"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_xr_raster_ds</span></code></a>, <a class="reference internal" href="#raster_tools.data_to_xr_raster_ds_like" title="raster_tools.data_to_xr_raster_ds_like"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_xr_raster_ds_like</span></code></a>, <a class="reference internal" href="#raster_tools.data_to_xr_raster_like" title="raster_tools.data_to_xr_raster_like"><code class="xref py py-obj docutils literal notranslate"><span class="pre">data_to_xr_raster_like</span></code></a>, <a class="reference internal" href="#raster_tools.dataarray_to_raster" title="raster_tools.dataarray_to_raster"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dataarray_to_raster</span></code></a>, <a class="reference internal" href="#raster_tools.dataarray_to_xr_raster" title="raster_tools.dataarray_to_xr_raster"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dataarray_to_xr_raster</span></code></a></p>
+</div>
 </dd></dl>
 
 <dl class="py function">
