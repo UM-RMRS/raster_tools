@@ -442,7 +442,30 @@ def get_mask_from_data(data, nv=None):
 
 
 def normalize_data(data, yx_chunks=None):
-    """2d/3d np.ndarray or da.Array --> 3D da.Array."""
+    """2d/3d np.ndarray or da.Array --> 3D da.Array.
+
+    This transforms the data array into the standard data format, which has the
+    following properties:
+
+    * 3D with band dimension first.
+    * Is a dask array
+    * Chunksize of 1 in the band dim.
+
+    Parameters
+    ----------
+    data : np.ndarray, dask.array.Array
+        The data array.
+    yx_chunks : tuple, optional
+        Tuple of chunks for the y and x dimensions, in that order. The default
+        is to leave the chunks as is in this dimension or to chunk with
+        ``"auto"``, if `data` is a numpy array.
+
+    Returns
+    -------
+    data : dask.array.Array
+        The resulting dask array.
+
+    """
     if not isinstance(data, (np.ndarray, da.Array)):
         raise TypeError("data must be a numpy or dask array")
     if data.ndim not in (2, 3):
@@ -460,63 +483,116 @@ def normalize_data(data, yx_chunks=None):
     return data
 
 
-def normalize_xarray_data(xrs):
-    if not dask.is_dask_collection(xrs):
-        xrs = xrs.chunk()
-    if len(xrs.shape) > 3 or len(xrs.shape) < 2:
+def normalize_xarray_data(xdata):
+    """Transform the DataArray to the standard raster DataArray format.
+
+    A standard raster DataArray has the following:
+
+    * 3 dimensions in this order: ``("band", "y", "x")``
+    * The band dim coordinates starts at one. ex:  ``[1, 2, ...]``
+    * The x dim coordinates are always increasing.
+    * The y dim coordinates are always decreasing.
+    * The CRS is encoded at `obj.rio.crs`
+    * The nodata/null value is encoded at `obj.rio.nodata`
+    * The data within the DataArray is a dask array.
+    * The dask chunks have size 1 in the band dim.
+
+    """
+    if not dask.is_dask_collection(xdata):
+        xdata = xdata.chunk()
+    if len(xdata.shape) > 3 or len(xdata.shape) < 2:
         raise ValueError(
             "Invalid shape. xarray.DataArray objects must have 2D or 3D "
             "shapes."
         )
-    if len(xrs.shape) == 2:
+    if len(xdata.shape) == 2:
         # Add band dim
-        xrs = xrs.expand_dims({"band": [1]})
-    dims = xrs.dims
+        xdata = xdata.expand_dims({"band": [1]})
+    dims = xdata.dims
     if "lon" in dims:
-        xrs = xrs.rename({"lon": "x"})
-        dims = xrs.dims
+        xdata = xdata.rename({"lon": "x"})
+        dims = xdata.dims
     if "lat" in dims:
-        xrs = xrs.rename({"lat": "y"})
-        dims = xrs.dims
+        xdata = xdata.rename({"lat": "y"})
+        dims = xdata.dims
     if dims != ("band", "y", "x"):
         # No easy way to figure out how best to transpose based on dim names so
         # just assume the order is valid and rename.
-        xrs = xrs.rename(
+        xdata = xdata.rename(
             {
                 d: new_d
                 for d, new_d in zip(dims, ("band", "y", "x"))
                 if d != new_d
             }
         )
-    if xrs.band.to_numpy()[0] != 1:
-        xrs["band"] = np.arange(1, len(xrs.band) + 1)
-    if any(dim not in xrs.coords for dim in xrs.dims):
+    if xdata.band.to_numpy()[0] != 1:
+        xdata["band"] = np.arange(1, len(xdata.band) + 1)
+    if any(dim not in xdata.coords for dim in xdata.dims):
         raise ValueError(
-            "Invalid coordinates on xarray.DataArray object:\n{xrs!r}"
+            "Invalid coordinates on xarray.DataArray object:\n{xdata!r}"
         )
-    if (xrs.rio.x_dim, xrs.rio.y_dim) != ("x", "y"):
-        xrs = xrs.rio.set_spatial_dims(x_dim="x", y_dim="y")
-    if xrs.data.chunksize[0] != 1:
-        xrs = xrs.chunk({"band": 1, "y": "auto", "x": "auto"})
+    if (xdata.rio.x_dim, xdata.rio.y_dim) != ("x", "y"):
+        xdata = xdata.rio.set_spatial_dims(x_dim="x", y_dim="y")
+    if xdata.data.chunksize[0] != 1:
+        xdata = xdata.chunk({"band": 1, "y": "auto", "x": "auto"})
     # Make sure that x is always increasing and y is always decreasing. xarray
     # will auto align rasters but when a raster is converted to a numpy or dask
     # array, the data may not be aligned. This ensures that rasters converted
     # to non-georeferenecd formats will be oriented the same.
-    if is_strictly_decreasing(xrs.x):
-        xrs = xrs.isel(x=slice(None, None, -1))
-    if is_strictly_increasing(xrs.y):
-        xrs = xrs.isel(y=slice(None, None, -1))
+    if is_strictly_decreasing(xdata.x):
+        xdata = xdata.isel(x=slice(None, None, -1))
+    if is_strictly_increasing(xdata.y):
+        xdata = xdata.isel(y=slice(None, None, -1))
     # This MUST BE DONE. Need to recompute and write the transform so that
     # rechunking to (N,1,1) doesn't cause the transform to be dropped. This
     # only happens for hard to reproduce and test edge-cases far down the
     # pipeline.
     # TODO: Find test to check for just this. For right now,
     # tests/test_raster.py::test_to_points catches it.
-    xrs = xrs.rio.write_transform(xrs.rio.transform(True))
-    return xrs
+    xdata = xdata.rio.write_transform(xdata.rio.transform(True))
+    return xdata
 
 
 def data_to_xr_raster(data, x=None, y=None, affine=None, crs=None, nv=None):
+    """Create a standard raster DataArray from a data array.
+
+    Parameters
+    ----------
+    data : np.ndarray, dask.array.Array
+        The data array.
+    x : list, np.ndarra, optional
+        The x coordinate value. If `x` and `y` are not specified, `affine` is
+        used to generate x and y coordinates.
+    y : list, np.ndarra, optional
+        The y coordinate value. If `x` and `y` are not specified, `affine` is
+        used to generate x and y coordinates.
+    affine : affine.Affine, optional
+        If ``None``, the affine matrix is created using `x` and `y`. If
+        `affine` is ``None`` and `x` and `y` are not specified, default affine
+        matrix of:
+        ::
+
+            | 1.0 0.0 0.0 |
+            | 0.0 1.0   N |
+
+        where N is the size of the y dim.
+    crs : int, str, rasterio.CRS, optional
+        The CRS to use for the result. The default is no CRS.
+    nv : scalar, optional
+        The nodata/null value to use. The default is no null value.
+
+    Returns
+    -------
+    raster : xarray.DataArray
+        The resulting raster DataArray.
+
+    See Also
+    --------
+    data_to_raster, data_to_raster_like, data_to_xr_raster_ds,
+    data_to_xr_raster_ds_like, data_to_xr_raster_like, dataarray_to_raster,
+    dataarray_to_xr_raster, dataarray_to_xr_raster_ds
+
+    """
     data = normalize_data(data)
     if affine is None:
         if x is None and y is None:
@@ -548,6 +624,37 @@ def data_to_xr_raster(data, x=None, y=None, affine=None, crs=None, nv=None):
 def data_to_xr_raster_like(
     data, xlike, nv=None, match_band_dim=False, match_chunks=True
 ):
+    """Create a standard raster DataArray based on a template DataArray.
+
+    The CRS and x/y information are pulled from `xlike`.
+
+    Parameters
+    ----------
+    data : np.ndarray, dask.array.Array
+        The data array.
+    xlike : xarray.DataArray
+        The template to pull geospatial information from.
+    nv : scalar, optional
+        The nodata/null value to use. The default is no null value.
+    match_band_dim : bool, optional
+        If `data` has only 1 band, this will stack `data` to match the number
+        of bands in `xlike`. The default is to not match the number of bands.
+    match_chunks : bool, optional
+        If ``True``, the chunks of the output will match the chunks in `xlike`.
+        The default is ``True``.
+
+    Returns
+    -------
+    raster : xarray.DataArray
+        The resulting raster DataArray matcing `xlike`.
+
+    See Also
+    --------
+    data_to_raster, data_to_raster_like, data_to_xr_raster,
+    data_to_xr_raster_ds, data_to_xr_raster_ds_like, dataarray_to_raster,
+    dataarray_to_xr_raster, dataarray_to_xr_raster_ds
+
+    """
     yx_chunks = xlike.data.chunks[1:] if match_chunks else None
     data = normalize_data(data, yx_chunks=yx_chunks)
     if data.shape[-2:] != xlike.shape[1:]:
@@ -565,12 +672,62 @@ def data_to_xr_raster_like(
 
 
 def make_raster_ds(raster_dataarray, mask_dataarray):
+    """
+    Takes data and mask DataArrays and produces a raster Dataset with the data
+    in the data variable "raster" and the mask in the "mask" data variable.
+    """
     return xr.Dataset({"raster": raster_dataarray, "mask": mask_dataarray})
 
 
 def data_to_xr_raster_ds(
     data, mask=None, x=None, y=None, affine=None, crs=None, nv=None, burn=False
 ):
+    """
+    Create a standard raster Dataset from a data array.
+
+    Parameters
+    ----------
+    data : np.ndarray, dask.array.Array
+        The data array.
+    mask : np.ndarray, dask.array.Array
+        A boolean mask array. The default is to generate a mask from the data
+        using `nv`.
+    x : list, np.ndarra, optional
+        The x coordinate value. If `x` and `y` are not specified, `affine` is
+        used to generate x and y coordinates.
+    y : list, np.ndarra, optional
+        The y coordinate value. If `x` and `y` are not specified, `affine` is
+        used to generate x and y coordinates.
+    affine : affine.Affine, optional
+        If ``None``, the affine matrix is created using `x` and `y`. If
+        `affine` is ``None`` and `x` and `y` are not specified, default affine
+        matrix of:
+        ::
+
+            | 1.0 0.0 0.0 |
+            | 0.0 1.0   N |
+
+        where N is the size of the y dim.
+    crs : int, str, rasterio.CRS, optional
+        The CRS to use for the result. The default is no CRS.
+    nv : scalar, optional
+        The nodata/null value to use. The default is no null value.
+    burn : bool, optional
+        If ``True``, `mask` is used to 'burn' the null value into the data
+        array (e.g. `np.where(mask, nv, data)`). The default is ``False``.
+
+    Returns
+    -------
+    raster : xarray.Dataset
+        Theresulting raster Dataset object.
+
+    See Also
+    --------
+    data_to_raster, data_to_raster_like, data_to_xr_raster,
+    data_to_xr_raster_ds_like, data_to_xr_raster_like, dataarray_to_raster,
+    dataarray_to_xr_raster, dataarray_to_xr_raster_ds
+
+    """
     data = normalize_data(data)
     if mask is None:
         mask = get_mask_from_data(data, nv)
@@ -589,6 +746,41 @@ def data_to_xr_raster_ds(
 def data_to_xr_raster_ds_like(
     data, xlike, mask=None, nv=None, burn=False, match_chunks=True
 ):
+    """
+    Create a standard raster Dataset using a template raster DataArray.
+
+    The CRS and x/y information are pulled from `xlike`.
+
+    Parameters
+    ----------
+    data : np.ndarray, dask.array.Array
+        The data array.
+    xlike : xarray.DataArray
+        The template to pull geospatial information from.
+    mask : np.ndarray, dask.array.Array
+        A boolean mask array. The default is to generate a mask from the data
+        using `nv`.
+    nv : scalar, optional
+        The nodata/null value to use. The default is no null value.
+    burn : bool, optional
+        If ``True``, `mask` is used to 'burn' the null value into the data
+        array (e.g. `np.where(mask, nv, data)`). The default is ``False``.
+    match_chunks : bool, optional
+        If ``True``, the chunks of the output will match the chunks in `xlike`.
+        The default is ``True``
+
+    Returns
+    -------
+    raster : xarray.Dataset
+        The resulting raster Dataset object matching `xlike`.
+
+    See Also
+    --------
+    data_to_raster, data_to_raster_like, data_to_xr_raster,
+    data_to_xr_raster_ds, data_to_xr_raster_like, dataarray_to_raster,
+    dataarray_to_xr_raster, dataarray_to_xr_raster_ds
+
+    """
     yx_chunks = xlike.data.chunks[1:] if match_chunks else None
     data = normalize_data(data, yx_chunks=yx_chunks)
     if data.shape[-2:] != xlike.shape[1:]:
@@ -613,6 +805,51 @@ def data_to_xr_raster_ds_like(
 def data_to_raster(
     data, mask=None, x=None, y=None, affine=None, crs=None, nv=None, burn=False
 ):
+    """Create a Raster from a data array.
+
+    Parameters
+    ----------
+    data : np.ndarray, dask.array.Array
+        The data array.
+    mask : np.ndarray, dask.array.Array
+        A boolean mask array. The default is to generate a mask from the data
+        using `nv`.
+    x : list, np.ndarra, optional
+        The x coordinate value. If `x` and `y` are not specified, `affine` is
+        used to generate x and y coordinates.
+    y : list, np.ndarra, optional
+        The y coordinate value. If `x` and `y` are not specified, `affine` is
+        used to generate x and y coordinates.
+    affine : affine.Affine, optional
+        If ``None``, the affine matrix is created using `x` and `y`. If
+        `affine` is ``None`` and `x` and `y` are not specified, default affine
+        matrix of:
+        ::
+
+            | 1.0 0.0 0.0 |
+            | 0.0 1.0   N |
+
+        where N is the size of the y dim.
+    crs : int, str, rasterio.CRS, optional
+        The CRS to use for the result. The default is no CRS.
+    nv : scalar, optional
+        The nodata/null value to use. The default is no null value.
+    burn : bool, optional
+        If ``True``, `mask` is used to 'burn' the null value into the data
+        array (e.g. `np.where(mask, nv, data)`). The default is ``False``.
+
+    Returns
+    -------
+    raster : Raster
+        The resulting Raster object.
+
+    See Also
+    --------
+    data_to_raster_like, data_to_xr_raster, data_to_xr_raster_ds,
+    data_to_xr_raster_ds_like, data_to_xr_raster_like, dataarray_to_raster,
+    dataarray_to_xr_raster, dataarray_to_xr_raster_ds
+
+    """
     ds = data_to_xr_raster_ds(
         data,
         mask=mask,
@@ -629,6 +866,41 @@ def data_to_raster(
 def data_to_raster_like(
     data, like, mask=None, nv=None, burn=False, match_chunks=True
 ):
+    """Create a Raster, based on a template Raster, from a data array.
+
+    The CRS and x/y information are pulled from `xlike`.
+
+    Parameters
+    ----------
+    data : np.ndarray, dask.array.Array
+        The data array.
+    like : xarray.DataArray, Raster
+        The template to pull geospatial information from. Can be a DataArray or
+        Raster.
+    mask : np.ndarray, dask.array.Array
+        A boolean mask array. The default is to generate a mask from the data
+        using `nv`.
+    nv : scalar, optional
+        The nodata/null value to use. The default is no null value.
+    burn : bool, optional
+        If ``True``, `mask` is used to 'burn' the null value into the data
+        array (e.g. `np.where(mask, nv, data)`). The default is ``False``.
+    match_chunks : bool, optional
+        If ``True``, the chunks of the output will match the chunks in `xlike`.
+        The default is ``True``.
+
+    Returns
+    -------
+    raster : Raster
+        The resulting raster matching `like`.
+
+    See Also
+    --------
+    data_to_raster, data_to_xr_raster, data_to_xr_raster_ds,
+    data_to_xr_raster_ds_like, data_to_xr_raster_like, dataarray_to_raster,
+    dataarray_to_xr_raster, dataarray_to_xr_raster_ds
+
+    """
     if isinstance(like, Raster):
         like = like.xdata
     ds = data_to_xr_raster_ds_like(
@@ -638,10 +910,61 @@ def data_to_raster_like(
 
 
 def dataarray_to_xr_raster(xdata):
+    """Transform a DataArray object into standard raster DataArray.
+
+    The CRS and null value are pulled from `xdata` using `rioxarray`.
+
+    Parameters
+    ----------
+    xdata : xarray.DataArray,
+        The object to convert to a raster form.
+
+    Returns
+    -------
+    raster : xarray.DataArray
+        The resulting DataArray in standard raster format with dims: ``("band",
+        "y", "x")`` and encoded CRS and null value.
+
+    See Also
+    --------
+    data_to_raster, data_to_raster_like, data_to_xr_raster,
+    data_to_xr_raster_ds, data_to_xr_raster_ds_like, data_to_xr_raster_like,
+    dataarray_to_raster, dataarray_to_xr_raster_ds
+
+    """
     return normalize_xarray_data(xdata)
 
 
 def dataarray_to_xr_raster_ds(xdata, xmask=None, crs=None):
+    """Create a raster Dataset object from a DataArray object.
+
+    The null value is pulled from `xdata` using `rioxarray`.
+
+    Parameters
+    ----------
+    xdata : xarray.DataArray,
+        The object to convert to a raster Dataset
+    xmask : xarray.DataArray[bool], optional
+        The matching mask to use with the `xdata` object when creating the
+        raster Dataset. Must have boolean dtype. The default is to generate a
+        mask from `xdata` based on the value returned by `xdata.rio.nodata`.
+    crs : int, str, rasterio.CRS, optional
+        The CRS to use when creating the result. The default is to take the CRS
+        from `xdata`, if present.
+
+    Returns
+    -------
+    raster : xarray.Dataset
+        The resulting raster Dataset with two data variables: "raster" and
+        "mask".
+
+    See Also
+    --------
+    data_to_raster, data_to_raster_like, data_to_xr_raster,
+    data_to_xr_raster_ds, data_to_xr_raster_ds_like, data_to_xr_raster_like,
+    dataarray_to_raster, dataarray_to_xr_raster
+
+    """
     xdata = dataarray_to_xr_raster(xdata)
     if xmask is None:
         xmask = get_mask_from_data(xdata, xdata.rio.nodata)
@@ -654,6 +977,34 @@ def dataarray_to_xr_raster_ds(xdata, xmask=None, crs=None):
 
 
 def dataarray_to_raster(xdata, xmask=None, crs=None):
+    """Create a Raster from a DataArray object.
+
+    The null value is pulled from `xdata` using `rioxarray`.
+
+    Parameters
+    ----------
+    xdata : xarray.DataArray
+        The object to make a Raster from.
+    xmask : xarray.DataArray, optional
+        The matching mask to use with the `xdata` object when creating the
+        raster Dataset. Must have boolean dtype. The default is to generate a
+        mask from `xdata` based on the value returned by `xdata.rio.nodata`.
+    crs : int, str, rasterio.CRS, optional
+        The CRS to use when creating the result. The default is to take the CRS
+        from `xdata`, if present.
+
+    Returns
+    -------
+    raster : Raster
+        The resulting Raster.
+
+    See Also
+    --------
+    data_to_raster, data_to_raster_like, data_to_xr_raster,
+    data_to_xr_raster_ds, data_to_xr_raster_ds_like, data_to_xr_raster_like,
+    dataarray_to_xr_raster, dataarray_to_xr_raster_ds
+
+    """
     return Raster(
         dataarray_to_xr_raster_ds(xdata, xmask=xmask, crs=crs), _fast_path=True
     )
