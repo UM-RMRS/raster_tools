@@ -657,8 +657,8 @@ def data_to_xr_raster(data, x=None, y=None, affine=None, crs=None, nv=None):
         matrix of:
         ::
 
-            | 1.0 0.0 0.0 |
-            | 0.0 1.0   N |
+            | 1.0  0.0 0.0 |
+            | 0.0 -1.0   N |
 
         where N is the size of the y dim.
     crs : int, str, rasterio.CRS, optional
