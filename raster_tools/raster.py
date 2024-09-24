@@ -7,8 +7,9 @@ import dask.array as da
 import dask.dataframe as dd
 import geopandas as gpd
 import numpy as np
-import odc.geo.xr  # noqa: F401
+import odc.geo.xr as odcxr
 import rasterio as rio
+import rioxarray as xrio
 import shapely
 import xarray as xr
 from affine import Affine
@@ -483,6 +484,40 @@ def normalize_data(data, yx_chunks=None):
     return data
 
 
+def has_spatial_dims(xobj):
+    try:
+        _ = xobj.rio.x_dim
+        _ = xobj.rio.y_dim
+        return True
+    except xrio.exceptions.MissingSpatialDimensionError:
+        return False
+
+
+def find_spatial_dims(obj):
+    if has_spatial_dims(obj):
+        return (obj.rio.y_dim, obj.rio.x_dim)
+    dims = obj.dims
+    if len(dims) < 2:
+        return None
+    sdims = odcxr.spatial_dims(obj, relaxed=True)
+    if sdims is not None:
+        return sdims
+    dims = [
+        dim
+        for dim in dims
+        if dim not in ("band", "bands", "time", "wavelength", "wavelengths")
+    ]
+    dim1 = dims[-2]
+    dim2 = dims[-1]
+    if (obj.coords[dim1].dtype.kind != "f") or (
+        obj.coords[dim2].dtype.kind != "f"
+    ):
+        # odc.geo.xr.spatial_dims will throw out dims that are not floats. We
+        # relax that here
+        return (dim1, dim2)
+    return None
+
+
 def normalize_xarray_data(xdata):
     """Transform the DataArray to the standard raster DataArray format.
 
@@ -508,25 +543,46 @@ def normalize_xarray_data(xdata):
     if len(xdata.shape) == 2:
         # Add band dim
         xdata = xdata.expand_dims({"band": [1]})
+
     dims = xdata.dims
+    rename_map = {}
+    if "time" in dims:
+        rename_map["time"] = "band"
     if "lon" in dims:
-        xdata = xdata.rename({"lon": "x"})
-        dims = xdata.dims
+        rename_map["lon"] = "x"
     if "lat" in dims:
-        xdata = xdata.rename({"lat": "y"})
-        dims = xdata.dims
-    if dims != ("band", "y", "x"):
+        rename_map["lat"] = "y"
+    xdata = xdata.rename(rename_map)
+    sdims = find_spatial_dims(xdata)
+    if sdims is None:
         # No easy way to figure out how best to transpose based on dim names so
         # just assume the order is valid and rename.
-        xdata = xdata.rename(
-            {
-                d: new_d
-                for d, new_d in zip(dims, ("band", "y", "x"))
-                if d != new_d
+        dims = xdata.dims
+        if "band" in dims:
+            dims.remove("band")
+            name_mapping = {dims[0]: "y", dims[1]: "x"}
+        else:
+            name_mapping = {
+                d: nd for d, nd in zip(dims, ("band", "y", "x")) if d != nd
             }
-        )
-    if xdata.band.to_numpy()[0] != 1:
-        xdata["band"] = np.arange(1, len(xdata.band) + 1)
+        xdata = xdata.rename(name_mapping)
+    else:
+        y_dim, x_dim = sdims
+        dims = xdata.dims
+        band_dim = (set(dims) - set(sdims)).pop()
+        name_mapping = {}
+        if y_dim != "y":
+            name_mapping[y_dim] = "y"
+        if x_dim != "x":
+            name_mapping[x_dim] = "x"
+        if band_dim != "band":
+            name_mapping[band_dim] = "band"
+        xdata = xdata.rename(name_mapping)
+    xdata = xdata.transpose("band", "y", "x", transpose_coords=True)
+
+    band_coords = np.arange(1, len(xdata.band) + 1)
+    if not np.allclose(xdata.band.to_numpy(), band_coords):
+        xdata["band"] = band_coords
     if any(dim not in xdata.coords for dim in xdata.dims):
         raise ValueError(
             "Invalid coordinates on xarray.DataArray object:\n{xdata!r}"
