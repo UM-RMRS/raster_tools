@@ -609,6 +609,29 @@ def normalize_xarray_data(xdata):
     return xdata
 
 
+def is_normalized(xdata):
+    if not isinstance(xdata, xr.DataArray):
+        raise TypeError("Expected a xarray.DataArray object")
+    if any(dim not in xdata.coords for dim in xdata.dims):
+        raise ValueError(
+            "Invalid coordinates on xarray.DataArray object:\n{xdata!r}"
+        )
+
+    return (
+        xdata.ndim == 3
+        and xdata.dims == ("band", "y", "x")
+        and has_spatial_dims(xdata)
+        and xdata.rio.y_dim == "y"
+        and xdata.rio.x_dim == "x"
+        and all(dim in xdata.coords for dim in xdata.dims)
+        and dask.is_dask_collection(xdata)
+        and xdata.data.chunksize[0] == 1
+        and np.allclose(xdata.band, np.arange(1, len(xdata.band) + 1))
+        and is_strictly_increasing(xdata.x)
+        and is_strictly_decreasing(xdata.y)
+    )
+
+
 def data_to_xr_raster(data, x=None, y=None, affine=None, crs=None, nv=None):
     """Create a standard raster DataArray from a data array.
 
