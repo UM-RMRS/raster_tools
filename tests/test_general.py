@@ -6,7 +6,6 @@ import raster_tools  # noqa: F401
 # isort: on
 
 import io
-import unittest
 from functools import partial
 
 import dask.array as da
@@ -22,7 +21,7 @@ from scipy.ndimage import (
     grey_erosion,
 )
 
-from raster_tools import creation, general
+from raster_tools import general
 from raster_tools.dtypes import (
     F32,
     F64,
@@ -544,19 +543,143 @@ def test_erode_dilate_errors(name):
             func(rs, size)
 
 
-# TODO: fully test module
-class TestSurface(unittest.TestCase):
-    def setUp(self):
-        self.dem = testdata.raster.dem
-        self.multi = testdata.raster.multiband_small
-
-    def test_regions(self):
-        rs_pos = creation.random_raster(
-            self.dem, distribution="poisson", bands=1, params=[7, 0.5]
-        )
-        r = general.regions(rs_pos)
-        assert_valid_raster(r)
-        r.eval()
+@pytest.mark.parametrize(
+    "raster,expected,neighbors,unique_values",
+    [
+        (
+            Raster(
+                np.array(
+                    [
+                        [7, 7, 1, 1],
+                        [9, 7, 1, 3],
+                        [0, 5, 7, 3],
+                        [5, 5, 4, 4],
+                    ]
+                )
+            )
+            .chunk((1, 2, 2))
+            .set_null_value(9)
+            .set_crs("5070"),
+            Raster(
+                np.array(
+                    [
+                        [5, 5, 1, 1],
+                        [9, 5, 1, 2],
+                        [0, 4, 6, 2],
+                        [4, 4, 3, 3],
+                    ]
+                )
+            )
+            .chunk((1, 2, 2))
+            .set_null_value(9)
+            .set_crs("5070")
+            .astype("uint64"),
+            4,
+            None,
+        ),
+        (
+            Raster(
+                np.array(
+                    [
+                        [7, 7, 1, 1],
+                        [9, 7, 1, 3],
+                        [0, 5, 7, 3],
+                        [5, 5, 4, 4],
+                    ]
+                )
+            )
+            .chunk((1, 2, 2))
+            .set_null_value(9)
+            .set_crs("5070"),
+            Raster(
+                np.array(
+                    [
+                        [5, 5, 1, 1],
+                        [9, 5, 1, 2],
+                        [0, 4, 5, 2],
+                        [4, 4, 3, 3],
+                    ]
+                )
+            )
+            .chunk((1, 2, 2))
+            .set_null_value(9)
+            .set_crs("5070")
+            .astype("uint64"),
+            8,
+            None,
+        ),
+        (
+            Raster(
+                np.array(
+                    [
+                        [7, 7, 1, 1],
+                        [9, 7, 1, 3],
+                        [0, 5, 7, 3],
+                        [5, 5, 4, 4],
+                    ]
+                )
+            )
+            .chunk((1, 2, 2))
+            .set_null_value(9)
+            .set_crs("5070"),
+            Raster(
+                np.array(
+                    [
+                        [1, 1, 3, 3],
+                        [9, 1, 3, 4],
+                        [0, 6, 2, 4],
+                        [6, 6, 5, 5],
+                    ]
+                )
+            )
+            .chunk((1, 2, 2))
+            .set_null_value(9)
+            .set_crs("5070")
+            .astype("uint64"),
+            4,
+            [7, 1, 3, 4, 5],
+        ),
+        (
+            Raster(
+                np.array(
+                    [
+                        [7, 7, 1, 1],
+                        [9, 7, 1, 3],
+                        [0, 5, 7, 3],
+                        [5, 5, 4, 4],
+                    ]
+                )
+            )
+            .chunk((1, 2, 2))
+            .set_null_value(9)
+            .set_crs("5070"),
+            Raster(
+                np.array(
+                    [
+                        [1, 1, 2, 2],
+                        [9, 1, 2, 3],
+                        [0, 5, 1, 3],
+                        [5, 5, 4, 4],
+                    ]
+                )
+            )
+            .chunk((1, 2, 2))
+            .set_null_value(9)
+            .set_crs("5070")
+            .astype("uint64"),
+            8,
+            [7, 1, 3, 4, 5],
+        ),
+    ],
+)
+def test_regions(raster, expected, neighbors, unique_values):
+    result = general.regions(
+        raster, neighbors=neighbors, unique_values=unique_values
+    )
+    assert_valid_raster(result)
+    assert_rasters_similar(raster, result)
+    assert np.allclose(result, expected)
+    assert result.dtype == expected.dtype
 
 
 def test_band_concat():
