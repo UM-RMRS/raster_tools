@@ -14,9 +14,9 @@ repos:
     rev: 23.1.0
     hooks:
     - id: black
-      language_version: python3.10
+      language_version: python3.12
     - id: black-jupyter
-      language_version: python3.10
+      language_version: python3.12
   - repo: https://github.com/PyCQA/flake8
     rev: 6.0.0
     hooks:
