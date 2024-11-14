@@ -5,7 +5,6 @@ channels:
 dependencies:
   - python=3.10
   - affine
-  - build
   - cfgrib
   - dask<=2024.2.1
   - dask-geopandas
@@ -20,6 +19,7 @@ dependencies:
   - pygeos
   - pyogrio
   - pyproj
+  - python-build
   - rasterio
   - rioxarray
   - scipy
