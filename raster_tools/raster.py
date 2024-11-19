@@ -435,6 +435,11 @@ def get_mask_from_data(data, nv=None):
         else:
             raise TypeError()
         mask = mod.zeros_like(data, dtype=bool)
+        if (mod == da and mask.npartitions == 1) or (
+            mod == xr and getattr(mask.data, "npartitions", 2) == 1
+        ):
+            # https://github.com/dask/dask/issues/11531
+            mask |= False
     else:
         mask = np.isnan(data) if np.isnan(nv) else data == nv
     if isinstance(data, xr.DataArray):

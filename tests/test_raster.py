@@ -108,6 +108,22 @@ def test_get_mask_from_data(data, nv, expected):
     assert np.allclose(result, expected)
 
 
+@pytest.mark.parametrize(
+    "data", [da.ones(4), xr.ones_like(testdata.raster.dem_small.xdata)]
+)
+def test_get_mask_from_data_single_chunk_result_writeable(data):
+    result = raster_tools.raster.get_mask_from_data(data, None)
+    if isinstance(data, da.Array):
+        assert data.npartitions == 1
+        assert result.npartitions == 1
+        mask = result.compute()
+    else:
+        assert data.data.npartitions == 1
+        assert result.data.npartitions == 1
+        mask = result.data.compute()
+    assert mask.flags.writeable
+
+
 @pytest.mark.parametrize("nv", [None, np.nan, 0])
 @pytest.mark.parametrize(
     "data",
