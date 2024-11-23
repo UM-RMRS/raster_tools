@@ -108,3 +108,29 @@ def promote_data_dtype(xrs):
     if dtype == xrs.dtype:
         return xrs
     return xrs.astype(dtype)
+
+
+def get_dtype_info(dtype):
+    dtype = np.dtype(dtype)
+    if is_bool(dtype):
+        raise ValueError("No info for bool")
+    return np.iinfo(dtype) if is_int(dtype) else np.finfo(dtype)
+
+
+def get_dtype_min_max(dtype):
+    dtype = np.dtype(dtype)
+    if is_bool(dtype):
+        return (False, True)
+    info = get_dtype_info(dtype)
+    return info.min, info.max
+
+
+INT_DTYPE_TO_FLOAT_DTYPE = {
+    U8: F16,
+    U16: F32,
+    U32: F64,
+    I8: F16,
+    I16: F32,
+    I32: F64,
+    F64: F64,
+}
