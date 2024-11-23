@@ -80,8 +80,14 @@ def is_scalar(value_or_dtype):
     return is_int(value_or_dtype) or is_float(value_or_dtype)
 
 
+def _custom_min_scalar_type(value):
+    if isinstance(value, np.dtype):
+        return value
+    return np.min_scalar_type(value)
+
+
 def get_common_dtype(values):
-    return reduce(np.promote_types, map(np.min_scalar_type, values))
+    return reduce(np.promote_types, map(_custom_min_scalar_type, values))
 
 
 def promote_dtype_to_float(dtype):
@@ -122,7 +128,10 @@ def get_dtype_min_max(dtype):
     if is_bool(dtype):
         return (False, True)
     info = get_dtype_info(dtype)
-    return info.min, info.max
+    # iinfo does not return np.<type> values for min and max
+    min_ = dtype.type(info.min)
+    max_ = dtype.type(info.max)
+    return min_, max_
 
 
 INT_DTYPE_TO_FLOAT_DTYPE = {

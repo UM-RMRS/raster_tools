@@ -38,7 +38,6 @@ from raster_tools.dtypes import (
     U32,
     U64,
     get_common_dtype,
-    get_dtype_min_max,
     is_bool,
     is_float,
     is_int,
@@ -1798,9 +1797,9 @@ class Raster(_RasterBase):
             # INFO: Numpy refuses to let small int values be put in small float
             # dtypes. This catches and fixes the issue.
             fvalue = float(value)
-            new_dtype = get_common_dtype([fvalue, *get_dtype_min_max(dtype)])
+            new_dtype = get_common_dtype([fvalue, dtype])
         else:
-            new_dtype = get_common_dtype([value, *get_dtype_min_max(dtype)])
+            new_dtype = get_common_dtype([value, dtype])
 
         xrs = self._ds.raster.copy()
         if new_dtype is not None:
