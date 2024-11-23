@@ -7,7 +7,7 @@ fiona
 geopandas
 netcdf4
 numba
-numpy>=1.22
+numpy>=1.22,<2
 odc-geo<=0.4.3
 pandas
 pyogrio

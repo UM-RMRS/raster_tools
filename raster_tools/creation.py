@@ -255,6 +255,10 @@ def full_like(raster_template, value, bands=1, dtype=None, copy_mask=False):
     shape = (bands,) + rst.shape[1:]
     chunks = ((1,) * bands,) + rst.data.chunks[1:]
     ndata = da.full(shape, value, chunks=chunks, dtype=dtype)
+    if ndata.npartitions == 1:
+        # https://github.com/dask/dask/issues/11531
+        # Adding false preserves the dtype
+        ndata += False
     copy_null = dtype is None or np.dtype(dtype) == rst.dtype
     return _build_result(rst, ndata, bands, copy_mask, copy_null)
 

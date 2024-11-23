@@ -143,3 +143,11 @@ def test_ones_like(template, nbands, dtype, copy_mask):
     run_constant_raster_tests(
         creation.ones_like, template, 1, nbands, dtype, copy_mask, False
     )
+
+
+def test_full_like_single_chunk_result_writeable(dem_small):
+    result = creation.full_like(dem_small, 0)
+    data = result.data.compute()
+    mask = result.mask.compute()
+    assert data.flags.writeable
+    assert mask.flags.writeable

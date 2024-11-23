@@ -7,8 +7,9 @@ import dask.array as da
 import dask.dataframe as dd
 import geopandas as gpd
 import numpy as np
-import odc.geo.xr  # noqa: F401
+import odc.geo.xr as odcxr
 import rasterio as rio
+import rioxarray as xrio
 import shapely
 import xarray as xr
 from affine import Affine
@@ -31,17 +32,18 @@ from raster_tools.dtypes import (
     I16,
     I32,
     I64,
+    INT_DTYPE_TO_FLOAT_DTYPE,
     U8,
     U16,
     U32,
     U64,
+    get_common_dtype,
     is_bool,
     is_float,
     is_int,
     is_scalar,
     is_str,
     promote_dtype_to_float,
-    should_promote_to_fit,
 )
 from raster_tools.exceptions import RasterDataError, RasterIOError
 from raster_tools.masking import (
@@ -434,6 +436,11 @@ def get_mask_from_data(data, nv=None):
         else:
             raise TypeError()
         mask = mod.zeros_like(data, dtype=bool)
+        if (mod == da and mask.npartitions == 1) or (
+            mod == xr and getattr(mask.data, "npartitions", 2) == 1
+        ):
+            # https://github.com/dask/dask/issues/11531
+            mask |= False
     else:
         mask = np.isnan(data) if np.isnan(nv) else data == nv
     if isinstance(data, xr.DataArray):
@@ -483,6 +490,40 @@ def normalize_data(data, yx_chunks=None):
     return data
 
 
+def has_spatial_dims(xobj):
+    try:
+        _ = xobj.rio.x_dim
+        _ = xobj.rio.y_dim
+        return True
+    except xrio.exceptions.MissingSpatialDimensionError:
+        return False
+
+
+def find_spatial_dims(obj):
+    if has_spatial_dims(obj):
+        return (obj.rio.y_dim, obj.rio.x_dim)
+    dims = obj.dims
+    if len(dims) < 2:
+        return None
+    sdims = odcxr.spatial_dims(obj, relaxed=True)
+    if sdims is not None:
+        return sdims
+    dims = [
+        dim
+        for dim in dims
+        if dim not in ("band", "bands", "time", "wavelength", "wavelengths")
+    ]
+    dim1 = dims[-2]
+    dim2 = dims[-1]
+    if (obj.coords[dim1].dtype.kind != "f") or (
+        obj.coords[dim2].dtype.kind != "f"
+    ):
+        # odc.geo.xr.spatial_dims will throw out dims that are not floats. We
+        # relax that here
+        return (dim1, dim2)
+    return None
+
+
 def normalize_xarray_data(xdata):
     """Transform the DataArray to the standard raster DataArray format.
 
@@ -508,25 +549,46 @@ def normalize_xarray_data(xdata):
     if len(xdata.shape) == 2:
         # Add band dim
         xdata = xdata.expand_dims({"band": [1]})
+
     dims = xdata.dims
+    rename_map = {}
+    if "time" in dims:
+        rename_map["time"] = "band"
     if "lon" in dims:
-        xdata = xdata.rename({"lon": "x"})
-        dims = xdata.dims
+        rename_map["lon"] = "x"
     if "lat" in dims:
-        xdata = xdata.rename({"lat": "y"})
-        dims = xdata.dims
-    if dims != ("band", "y", "x"):
+        rename_map["lat"] = "y"
+    xdata = xdata.rename(rename_map)
+    sdims = find_spatial_dims(xdata)
+    if sdims is None:
         # No easy way to figure out how best to transpose based on dim names so
         # just assume the order is valid and rename.
-        xdata = xdata.rename(
-            {
-                d: new_d
-                for d, new_d in zip(dims, ("band", "y", "x"))
-                if d != new_d
+        dims = xdata.dims
+        if "band" in dims:
+            dims.remove("band")
+            name_mapping = {dims[0]: "y", dims[1]: "x"}
+        else:
+            name_mapping = {
+                d: nd for d, nd in zip(dims, ("band", "y", "x")) if d != nd
             }
-        )
-    if xdata.band.to_numpy()[0] != 1:
-        xdata["band"] = np.arange(1, len(xdata.band) + 1)
+        xdata = xdata.rename(name_mapping)
+    else:
+        y_dim, x_dim = sdims
+        dims = xdata.dims
+        band_dim = (set(dims) - set(sdims)).pop()
+        name_mapping = {}
+        if y_dim != "y":
+            name_mapping[y_dim] = "y"
+        if x_dim != "x":
+            name_mapping[x_dim] = "x"
+        if band_dim != "band":
+            name_mapping[band_dim] = "band"
+        xdata = xdata.rename(name_mapping)
+    xdata = xdata.transpose("band", "y", "x", transpose_coords=True)
+
+    band_coords = np.arange(1, len(xdata.band) + 1)
+    if not np.allclose(xdata.band.to_numpy(), band_coords):
+        xdata["band"] = band_coords
     if any(dim not in xdata.coords for dim in xdata.dims):
         raise ValueError(
             "Invalid coordinates on xarray.DataArray object:\n{xdata!r}"
@@ -551,6 +613,29 @@ def normalize_xarray_data(xdata):
     # tests/test_raster.py::test_to_points catches it.
     xdata = xdata.rio.write_transform(xdata.rio.transform(True))
     return xdata
+
+
+def is_normalized(xdata):
+    if not isinstance(xdata, xr.DataArray):
+        raise TypeError("Expected a xarray.DataArray object")
+    if any(dim not in xdata.coords for dim in xdata.dims):
+        raise ValueError(
+            "Invalid coordinates on xarray.DataArray object:\n{xdata!r}"
+        )
+
+    return (
+        xdata.ndim == 3
+        and xdata.dims == ("band", "y", "x")
+        and has_spatial_dims(xdata)
+        and xdata.rio.y_dim == "y"
+        and xdata.rio.x_dim == "x"
+        and all(dim in xdata.coords for dim in xdata.dims)
+        and dask.is_dask_collection(xdata)
+        and xdata.data.chunksize[0] == 1
+        and np.allclose(xdata.band, np.arange(1, len(xdata.band) + 1))
+        and is_strictly_increasing(xdata.x)
+        and is_strictly_decreasing(xdata.y)
+    )
 
 
 def data_to_xr_raster(data, x=None, y=None, affine=None, crs=None, nv=None):
@@ -1691,14 +1776,6 @@ class Raster(_RasterBase):
             The new resulting Raster.
 
         """
-        if value is not None and not (is_scalar(value) or is_bool(value)):
-            raise TypeError(f"Value must be a scalar or None: {value}")
-
-        xrs = self._ds.raster.copy()
-        # Cast up to float if needed
-        if should_promote_to_fit(self.dtype, value):
-            xrs = xrs.astype(promote_dtype_to_float(self.dtype))
-
         if value is None:
             # Burn in current mask values and then clear null value
             # TODO: burning should not be needed as the values should already
@@ -1707,8 +1784,31 @@ class Raster(_RasterBase):
             mask = xr.zeros_like(xrs, dtype=bool)
             return Raster(make_raster_ds(xrs, mask), _fast_path=True)
 
+        if not (is_scalar(value) or is_bool(value)):
+            raise TypeError(f"Value must be a scalar or None: {value}")
+
+        dtype = self.dtype
+        new_dtype = None
+        if np.isnan(value):
+            if is_int(dtype):
+                new_dtype = INT_DTYPE_TO_FLOAT_DTYPE[dtype]
+            # else do nothing
+        elif is_int(value) and is_float(dtype):
+            # INFO: Numpy refuses to let small int values be put in small float
+            # dtypes. This catches and fixes the issue.
+            fvalue = float(value)
+            new_dtype = get_common_dtype([fvalue, dtype])
+        else:
+            new_dtype = get_common_dtype([value, dtype])
+
+        xrs = self._ds.raster.copy()
+        if new_dtype is not None:
+            xrs = xrs.astype(new_dtype)
+        else:
+            value = dtype.type(value)
+
         # Update mask
-        mask = self._ds.mask
+        mask = self.xmask
         temp_mask = get_mask_from_data(xrs, value)
         mask = mask | temp_mask if self._masked else temp_mask
         xrs = xrs.rio.write_nodata(value)

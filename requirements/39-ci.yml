@@ -11,7 +11,7 @@ dependencies:
   - fiona
   - geopandas
   - numba
-  - numpy
+  - numpy<2
   - netcdf4
   - odc-geo<=0.4.3
   - pandas

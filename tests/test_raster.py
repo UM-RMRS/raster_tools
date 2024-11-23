@@ -1,7 +1,7 @@
 # isort: off
 # TODO(pygeos): remove this once shapely is the default backend for geopandas.
 # Force raster_tools._compat to be loaded before geopandas when running tests
-import raster_tools  # noqa: F401
+import raster_tools as rts
 
 # isort: on
 
@@ -106,6 +106,22 @@ def test_get_mask_from_data(data, nv, expected):
     if dask.is_dask_collection(expected):
         assert dask.is_dask_collection(result)
     assert np.allclose(result, expected)
+
+
+@pytest.mark.parametrize(
+    "data", [da.ones(4), xr.ones_like(testdata.raster.dem_small.xdata)]
+)
+def test_get_mask_from_data_single_chunk_result_writeable(data):
+    result = raster_tools.raster.get_mask_from_data(data, None)
+    if isinstance(data, da.Array):
+        assert data.npartitions == 1
+        assert result.npartitions == 1
+        mask = result.compute()
+    else:
+        assert data.data.npartitions == 1
+        assert result.data.npartitions == 1
+        mask = result.data.compute()
+    assert mask.flags.writeable
 
 
 @pytest.mark.parametrize("nv", [None, np.nan, 0])
@@ -1632,6 +1648,89 @@ def test_set_null_value():
     rs2 = rs.set_null_value(get_default_null_value(float))
     assert rs2.dtype == np.dtype(float)
     assert rs2.crs == rs2.crs
+
+
+@pytest.mark.parametrize(
+    "raster,value,expected_dtype",
+    [
+        (
+            rts.creation.zeros_like(testdata.raster.dem_small, dtype="int64"),
+            0,
+            I64,
+        ),
+        (
+            rts.creation.zeros_like(testdata.raster.dem_small, dtype="int32"),
+            -999999,
+            I32,
+        ),
+        (
+            rts.creation.zeros_like(testdata.raster.dem_small, dtype="uint8"),
+            99_000,
+            U32,
+        ),
+        (
+            rts.creation.zeros_like(testdata.raster.dem_small, dtype="uint8"),
+            99_000.0,
+            F32,
+        ),
+        (
+            rts.creation.zeros_like(testdata.raster.dem_small, dtype="uint8"),
+            -1,
+            I16,
+        ),
+        (
+            rts.creation.zeros_like(
+                testdata.raster.dem_small, dtype="float16"
+            ),
+            999,
+            F16,
+        ),
+        (
+            rts.creation.zeros_like(
+                testdata.raster.dem_small, dtype="float16"
+            ),
+            -65500,
+            # Even though -65500 is the minimum F16 value, np.min_scalar_type
+            # says to cast up so that is what we do.
+            F32,
+        ),
+        (
+            rts.creation.zeros_like(
+                testdata.raster.dem_small, dtype="float16"
+            ),
+            1.0,
+            F16,
+        ),
+        (
+            rts.creation.zeros_like(
+                testdata.raster.dem_small, dtype="float16"
+            ),
+            65501.0,
+            F32,
+        ),
+        (
+            rts.creation.zeros_like(testdata.raster.dem_small, dtype="int8"),
+            np.nan,
+            F16,
+        ),
+        (
+            rts.creation.zeros_like(testdata.raster.dem_small, dtype="uint16"),
+            np.nan,
+            F32,
+        ),
+        (
+            rts.creation.zeros_like(
+                testdata.raster.dem_small, dtype="float16"
+            ),
+            np.nan,
+            F16,
+        ),
+    ],
+)
+def test_set_null_value_result_dtype(raster, value, expected_dtype):
+    raster = raster.set_null_value(value)
+    assert raster.dtype == expected_dtype
+    assert np.allclose(raster.null_value, value, equal_nan=True)
 
 
 def test_replace_null():
