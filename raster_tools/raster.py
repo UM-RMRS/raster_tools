@@ -32,17 +32,18 @@ from raster_tools.dtypes import (
     I16,
     I32,
     I64,
+    INT_DTYPE_TO_FLOAT_DTYPE,
     U8,
     U16,
     U32,
     U64,
+    get_common_dtype,
     is_bool,
     is_float,
     is_int,
     is_scalar,
     is_str,
     promote_dtype_to_float,
-    should_promote_to_fit,
 )
 from raster_tools.exceptions import RasterDataError, RasterIOError
 from raster_tools.masking import (
@@ -1775,14 +1776,6 @@ class Raster(_RasterBase):
             The new resulting Raster.
 
         """
-        if value is not None and not (is_scalar(value) or is_bool(value)):
-            raise TypeError(f"Value must be a scalar or None: {value}")
-
-        xrs = self._ds.raster.copy()
-        # Cast up to float if needed
-        if should_promote_to_fit(self.dtype, value):
-            xrs = xrs.astype(promote_dtype_to_float(self.dtype))
-
         if value is None:
             # Burn in current mask values and then clear null value
             # TODO: burning should not be needed as the values should already
@@ -1791,8 +1784,31 @@ class Raster(_RasterBase):
             mask = xr.zeros_like(xrs, dtype=bool)
             return Raster(make_raster_ds(xrs, mask), _fast_path=True)
 
+        if not (is_scalar(value) or is_bool(value)):
+            raise TypeError(f"Value must be a scalar or None: {value}")
+
+        dtype = self.dtype
+        new_dtype = None
+        if np.isnan(value):
+            if is_int(dtype):
+                new_dtype = INT_DTYPE_TO_FLOAT_DTYPE[dtype]
+            # else do nothing
+        elif is_int(value) and is_float(dtype):
+            # INFO: Numpy refuses to let small int values be put in small float
+            # dtypes. This catches and fixes the issue.
+            fvalue = float(value)
+            new_dtype = get_common_dtype([fvalue, dtype])
+        else:
+            new_dtype = get_common_dtype([value, dtype])
+
+        xrs = self._ds.raster.copy()
+        if new_dtype is not None:
+            xrs = xrs.astype(new_dtype)
+        else:
+            value = dtype.type(value)
+
         # Update mask
-        mask = self._ds.mask
+        mask = self.xmask
         temp_mask = get_mask_from_data(xrs, value)
         mask = mask | temp_mask if self._masked else temp_mask
         xrs = xrs.rio.write_nodata(value)
