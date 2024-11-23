@@ -8,7 +8,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>raster_tools.raster &#8212; raster_tools 0.9.2 documentation</title>
+    <title>raster_tools.raster &#8212; raster_tools 0.9.3 documentation</title>
   
   
   
@@ -114,7 +114,7 @@
   
   
   
-    <p class="title logo__title">raster_tools 0.9.2 documentation</p>
+    <p class="title logo__title">raster_tools 0.9.3 documentation</p>
   
 </a></div>
         <div class="sidebar-primary-item"><nav class="bd-links" id="bd-docs-nav" aria-label="Main">
@@ -414,8 +414,9 @@ document.write(`
 <span class="kn">import</span> <span class="nn">dask.dataframe</span> <span class="k">as</span> <span class="nn">dd</span>
 <span class="kn">import</span> <span class="nn">geopandas</span> <span class="k">as</span> <span class="nn">gpd</span>
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="kn">import</span> <span class="nn">odc.geo.xr</span>  <span class="c1"># noqa: F401</span>
+<span class="kn">import</span> <span class="nn">odc.geo.xr</span> <span class="k">as</span> <span class="nn">odcxr</span>
 <span class="kn">import</span> <span class="nn">rasterio</span> <span class="k">as</span> <span class="nn">rio</span>
+<span class="kn">import</span> <span class="nn">rioxarray</span> <span class="k">as</span> <span class="nn">xrio</span>
 <span class="kn">import</span> <span class="nn">shapely</span>
 <span class="kn">import</span> <span class="nn">xarray</span> <span class="k">as</span> <span class="nn">xr</span>
 <span class="kn">from</span> <span class="nn">affine</span> <span class="kn">import</span> <span class="n">Affine</span>
@@ -438,17 +439,18 @@ document.write(`
     <span class="n">I16</span><span class="p">,</span>
     <span class="n">I32</span><span class="p">,</span>
     <span class="n">I64</span><span class="p">,</span>
+    <span class="n">INT_DTYPE_TO_FLOAT_DTYPE</span><span class="p">,</span>
     <span class="n">U8</span><span class="p">,</span>
     <span class="n">U16</span><span class="p">,</span>
     <span class="n">U32</span><span class="p">,</span>
     <span class="n">U64</span><span class="p">,</span>
+    <span class="n">get_common_dtype</span><span class="p">,</span>
     <span class="n">is_bool</span><span class="p">,</span>
     <span class="n">is_float</span><span class="p">,</span>
     <span class="n">is_int</span><span class="p">,</span>
     <span class="n">is_scalar</span><span class="p">,</span>
     <span class="n">is_str</span><span class="p">,</span>
     <span class="n">promote_dtype_to_float</span><span class="p">,</span>
-    <span class="n">should_promote_to_fit</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">raster_tools.exceptions</span> <span class="kn">import</span> <span class="n">RasterDataError</span><span class="p">,</span> <span class="n">RasterIOError</span>
 <span class="kn">from</span> <span class="nn">raster_tools.masking</span> <span class="kn">import</span> <span class="p">(</span>
@@ -841,6 +843,11 @@ document.write(`
         <span class="k">else</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">()</span>
         <span class="n">mask</span> <span class="o">=</span> <span class="n">mod</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">mod</span> <span class="o">==</span> <span class="n">da</span> <span class="ow">and</span> <span class="n">mask</span><span class="o">.</span><span class="n">npartitions</span> <span class="o">==</span> <span class="mi">1</span><span class="p">)</span> <span class="ow">or</span> <span class="p">(</span>
+            <span class="n">mod</span> <span class="o">==</span> <span class="n">xr</span> <span class="ow">and</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">mask</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="s2">&quot;npartitions&quot;</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span>
+        <span class="p">):</span>
+            <span class="c1"># https://github.com/dask/dask/issues/11531</span>
+            <span class="n">mask</span> <span class="o">|=</span> <span class="kc">False</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="n">mask</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">data</span><span class="p">)</span> <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">nv</span><span class="p">)</span> <span class="k">else</span> <span class="n">data</span> <span class="o">==</span> <span class="n">nv</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">):</span>
@@ -890,6 +897,40 @@ document.write(`
     <span class="k">return</span> <span class="n">data</span></div>
 
 
+<div class="viewcode-block" id="has_spatial_dims"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.has_spatial_dims">[docs]</a><span class="k">def</span> <span class="nf">has_spatial_dims</span><span class="p">(</span><span class="n">xobj</span><span class="p">):</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">_</span> <span class="o">=</span> <span class="n">xobj</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">x_dim</span>
+        <span class="n">_</span> <span class="o">=</span> <span class="n">xobj</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">y_dim</span>
+        <span class="k">return</span> <span class="kc">True</span>
+    <span class="k">except</span> <span class="n">xrio</span><span class="o">.</span><span class="n">exceptions</span><span class="o">.</span><span class="n">MissingSpatialDimensionError</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">False</span></div>
+
+
+<div class="viewcode-block" id="find_spatial_dims"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.find_spatial_dims">[docs]</a><span class="k">def</span> <span class="nf">find_spatial_dims</span><span class="p">(</span><span class="n">obj</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">has_spatial_dims</span><span class="p">(</span><span class="n">obj</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">y_dim</span><span class="p">,</span> <span class="n">obj</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">x_dim</span><span class="p">)</span>
+    <span class="n">dims</span> <span class="o">=</span> <span class="n">obj</span><span class="o">.</span><span class="n">dims</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">dims</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="n">sdims</span> <span class="o">=</span> <span class="n">odcxr</span><span class="o">.</span><span class="n">spatial_dims</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">relaxed</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">sdims</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">sdims</span>
+    <span class="n">dims</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">dim</span>
+        <span class="k">for</span> <span class="n">dim</span> <span class="ow">in</span> <span class="n">dims</span>
+        <span class="k">if</span> <span class="n">dim</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;band&quot;</span><span class="p">,</span> <span class="s2">&quot;bands&quot;</span><span class="p">,</span> <span class="s2">&quot;time&quot;</span><span class="p">,</span> <span class="s2">&quot;wavelength&quot;</span><span class="p">,</span> <span class="s2">&quot;wavelengths&quot;</span><span class="p">)</span>
+    <span class="p">]</span>
+    <span class="n">dim1</span> <span class="o">=</span> <span class="n">dims</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span>
+    <span class="n">dim2</span> <span class="o">=</span> <span class="n">dims</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="n">dim1</span><span class="p">]</span><span class="o">.</span><span class="n">dtype</span><span class="o">.</span><span class="n">kind</span> <span class="o">!=</span> <span class="s2">&quot;f&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="p">(</span>
+        <span class="n">obj</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="n">dim2</span><span class="p">]</span><span class="o">.</span><span class="n">dtype</span><span class="o">.</span><span class="n">kind</span> <span class="o">!=</span> <span class="s2">&quot;f&quot;</span>
+    <span class="p">):</span>
+        <span class="c1"># odc.geo.xr.spatial_dims will throw out dims that are not floats. We</span>
+        <span class="c1"># relax that here</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">dim1</span><span class="p">,</span> <span class="n">dim2</span><span class="p">)</span>
+    <span class="k">return</span> <span class="kc">None</span></div>
+
+
 <div class="viewcode-block" id="normalize_xarray_data"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.normalize_xarray_data">[docs]</a><span class="k">def</span> <span class="nf">normalize_xarray_data</span><span class="p">(</span><span class="n">xdata</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Transform the DataArray to the standard raster DataArray format.</span>
 
@@ -915,25 +956,46 @@ document.write(`
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">xdata</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
         <span class="c1"># Add band dim</span>
         <span class="n">xdata</span> <span class="o">=</span> <span class="n">xdata</span><span class="o">.</span><span class="n">expand_dims</span><span class="p">({</span><span class="s2">&quot;band&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">]})</span>
+
     <span class="n">dims</span> <span class="o">=</span> <span class="n">xdata</span><span class="o">.</span><span class="n">dims</span>
+    <span class="n">rename_map</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">if</span> <span class="s2">&quot;time&quot;</span> <span class="ow">in</span> <span class="n">dims</span><span class="p">:</span>
+        <span class="n">rename_map</span><span class="p">[</span><span class="s2">&quot;time&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;band&quot;</span>
     <span class="k">if</span> <span class="s2">&quot;lon&quot;</span> <span class="ow">in</span> <span class="n">dims</span><span class="p">:</span>
-        <span class="n">xdata</span> <span class="o">=</span> <span class="n">xdata</span><span class="o">.</span><span class="n">rename</span><span class="p">({</span><span class="s2">&quot;lon&quot;</span><span class="p">:</span> <span class="s2">&quot;x&quot;</span><span class="p">})</span>
-        <span class="n">dims</span> <span class="o">=</span> <span class="n">xdata</span><span class="o">.</span><span class="n">dims</span>
+        <span class="n">rename_map</span><span class="p">[</span><span class="s2">&quot;lon&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;x&quot;</span>
     <span class="k">if</span> <span class="s2">&quot;lat&quot;</span> <span class="ow">in</span> <span class="n">dims</span><span class="p">:</span>
-        <span class="n">xdata</span> <span class="o">=</span> <span class="n">xdata</span><span class="o">.</span><span class="n">rename</span><span class="p">({</span><span class="s2">&quot;lat&quot;</span><span class="p">:</span> <span class="s2">&quot;y&quot;</span><span class="p">})</span>
-        <span class="n">dims</span> <span class="o">=</span> <span class="n">xdata</span><span class="o">.</span><span class="n">dims</span>
-    <span class="k">if</span> <span class="n">dims</span> <span class="o">!=</span> <span class="p">(</span><span class="s2">&quot;band&quot;</span><span class="p">,</span> <span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="s2">&quot;x&quot;</span><span class="p">):</span>
+        <span class="n">rename_map</span><span class="p">[</span><span class="s2">&quot;lat&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;y&quot;</span>
+    <span class="n">xdata</span> <span class="o">=</span> <span class="n">xdata</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="n">rename_map</span><span class="p">)</span>
+    <span class="n">sdims</span> <span class="o">=</span> <span class="n">find_spatial_dims</span><span class="p">(</span><span class="n">xdata</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">sdims</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="c1"># No easy way to figure out how best to transpose based on dim names so</span>
         <span class="c1"># just assume the order is valid and rename.</span>
-        <span class="n">xdata</span> <span class="o">=</span> <span class="n">xdata</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span>
-            <span class="p">{</span>
-                <span class="n">d</span><span class="p">:</span> <span class="n">new_d</span>
-                <span class="k">for</span> <span class="n">d</span><span class="p">,</span> <span class="n">new_d</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">dims</span><span class="p">,</span> <span class="p">(</span><span class="s2">&quot;band&quot;</span><span class="p">,</span> <span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="s2">&quot;x&quot;</span><span class="p">))</span>
-                <span class="k">if</span> <span class="n">d</span> <span class="o">!=</span> <span class="n">new_d</span>
+        <span class="n">dims</span> <span class="o">=</span> <span class="n">xdata</span><span class="o">.</span><span class="n">dims</span>
+        <span class="k">if</span> <span class="s2">&quot;band&quot;</span> <span class="ow">in</span> <span class="n">dims</span><span class="p">:</span>
+            <span class="n">dims</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="s2">&quot;band&quot;</span><span class="p">)</span>
+            <span class="n">name_mapping</span> <span class="o">=</span> <span class="p">{</span><span class="n">dims</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span> <span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="n">dims</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span> <span class="s2">&quot;x&quot;</span><span class="p">}</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">name_mapping</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="n">d</span><span class="p">:</span> <span class="n">nd</span> <span class="k">for</span> <span class="n">d</span><span class="p">,</span> <span class="n">nd</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">dims</span><span class="p">,</span> <span class="p">(</span><span class="s2">&quot;band&quot;</span><span class="p">,</span> <span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="s2">&quot;x&quot;</span><span class="p">))</span> <span class="k">if</span> <span class="n">d</span> <span class="o">!=</span> <span class="n">nd</span>
             <span class="p">}</span>
-        <span class="p">)</span>
-    <span class="k">if</span> <span class="n">xdata</span><span class="o">.</span><span class="n">band</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
-        <span class="n">xdata</span><span class="p">[</span><span class="s2">&quot;band&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">xdata</span><span class="o">.</span><span class="n">band</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">xdata</span> <span class="o">=</span> <span class="n">xdata</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="n">name_mapping</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">y_dim</span><span class="p">,</span> <span class="n">x_dim</span> <span class="o">=</span> <span class="n">sdims</span>
+        <span class="n">dims</span> <span class="o">=</span> <span class="n">xdata</span><span class="o">.</span><span class="n">dims</span>
+        <span class="n">band_dim</span> <span class="o">=</span> <span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">dims</span><span class="p">)</span> <span class="o">-</span> <span class="nb">set</span><span class="p">(</span><span class="n">sdims</span><span class="p">))</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span>
+        <span class="n">name_mapping</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">if</span> <span class="n">y_dim</span> <span class="o">!=</span> <span class="s2">&quot;y&quot;</span><span class="p">:</span>
+            <span class="n">name_mapping</span><span class="p">[</span><span class="n">y_dim</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;y&quot;</span>
+        <span class="k">if</span> <span class="n">x_dim</span> <span class="o">!=</span> <span class="s2">&quot;x&quot;</span><span class="p">:</span>
+            <span class="n">name_mapping</span><span class="p">[</span><span class="n">x_dim</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;x&quot;</span>
+        <span class="k">if</span> <span class="n">band_dim</span> <span class="o">!=</span> <span class="s2">&quot;band&quot;</span><span class="p">:</span>
+            <span class="n">name_mapping</span><span class="p">[</span><span class="n">band_dim</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;band&quot;</span>
+        <span class="n">xdata</span> <span class="o">=</span> <span class="n">xdata</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="n">name_mapping</span><span class="p">)</span>
+    <span class="n">xdata</span> <span class="o">=</span> <span class="n">xdata</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="s2">&quot;band&quot;</span><span class="p">,</span> <span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="n">transpose_coords</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="n">band_coords</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">xdata</span><span class="o">.</span><span class="n">band</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">xdata</span><span class="o">.</span><span class="n">band</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(),</span> <span class="n">band_coords</span><span class="p">):</span>
+        <span class="n">xdata</span><span class="p">[</span><span class="s2">&quot;band&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">band_coords</span>
     <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">dim</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">xdata</span><span class="o">.</span><span class="n">coords</span> <span class="k">for</span> <span class="n">dim</span> <span class="ow">in</span> <span class="n">xdata</span><span class="o">.</span><span class="n">dims</span><span class="p">):</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
             <span class="s2">&quot;Invalid coordinates on xarray.DataArray object:</span><span class="se">\n</span><span class="si">{xdata!r}</span><span class="s2">&quot;</span>
@@ -958,6 +1020,29 @@ document.write(`
     <span class="c1"># tests/test_raster.py::test_to_points catches it.</span>
     <span class="n">xdata</span> <span class="o">=</span> <span class="n">xdata</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_transform</span><span class="p">(</span><span class="n">xdata</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="kc">True</span><span class="p">))</span>
     <span class="k">return</span> <span class="n">xdata</span></div>
+
+
+<div class="viewcode-block" id="is_normalized"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.is_normalized">[docs]</a><span class="k">def</span> <span class="nf">is_normalized</span><span class="p">(</span><span class="n">xdata</span><span class="p">):</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">xdata</span><span class="p">,</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Expected a xarray.DataArray object&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">dim</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">xdata</span><span class="o">.</span><span class="n">coords</span> <span class="k">for</span> <span class="n">dim</span> <span class="ow">in</span> <span class="n">xdata</span><span class="o">.</span><span class="n">dims</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">&quot;Invalid coordinates on xarray.DataArray object:</span><span class="se">\n</span><span class="si">{xdata!r}</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
+
+    <span class="k">return</span> <span class="p">(</span>
+        <span class="n">xdata</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">3</span>
+        <span class="ow">and</span> <span class="n">xdata</span><span class="o">.</span><span class="n">dims</span> <span class="o">==</span> <span class="p">(</span><span class="s2">&quot;band&quot;</span><span class="p">,</span> <span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="s2">&quot;x&quot;</span><span class="p">)</span>
+        <span class="ow">and</span> <span class="n">has_spatial_dims</span><span class="p">(</span><span class="n">xdata</span><span class="p">)</span>
+        <span class="ow">and</span> <span class="n">xdata</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">y_dim</span> <span class="o">==</span> <span class="s2">&quot;y&quot;</span>
+        <span class="ow">and</span> <span class="n">xdata</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">x_dim</span> <span class="o">==</span> <span class="s2">&quot;x&quot;</span>
+        <span class="ow">and</span> <span class="nb">all</span><span class="p">(</span><span class="n">dim</span> <span class="ow">in</span> <span class="n">xdata</span><span class="o">.</span><span class="n">coords</span> <span class="k">for</span> <span class="n">dim</span> <span class="ow">in</span> <span class="n">xdata</span><span class="o">.</span><span class="n">dims</span><span class="p">)</span>
+        <span class="ow">and</span> <span class="n">dask</span><span class="o">.</span><span class="n">is_dask_collection</span><span class="p">(</span><span class="n">xdata</span><span class="p">)</span>
+        <span class="ow">and</span> <span class="n">xdata</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">chunksize</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span>
+        <span class="ow">and</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">xdata</span><span class="o">.</span><span class="n">band</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">xdata</span><span class="o">.</span><span class="n">band</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span>
+        <span class="ow">and</span> <span class="n">is_strictly_increasing</span><span class="p">(</span><span class="n">xdata</span><span class="o">.</span><span class="n">x</span><span class="p">)</span>
+        <span class="ow">and</span> <span class="n">is_strictly_decreasing</span><span class="p">(</span><span class="n">xdata</span><span class="o">.</span><span class="n">y</span><span class="p">)</span>
+    <span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="data_to_xr_raster"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.data_to_xr_raster">[docs]</a><span class="k">def</span> <span class="nf">data_to_xr_raster</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">x</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">affine</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">crs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">nv</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
@@ -2098,14 +2183,6 @@ document.write(`
 <span class="sd">            The new resulting Raster.</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="p">(</span><span class="n">is_scalar</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="ow">or</span> <span class="n">is_bool</span><span class="p">(</span><span class="n">value</span><span class="p">)):</span>
-            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Value must be a scalar or None: </span><span class="si">{</span><span class="n">value</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-
-        <span class="n">xrs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ds</span><span class="o">.</span><span class="n">raster</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
-        <span class="c1"># Cast up to float if needed</span>
-        <span class="k">if</span> <span class="n">should_promote_to_fit</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
-            <span class="n">xrs</span> <span class="o">=</span> <span class="n">xrs</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">promote_dtype_to_float</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dtype</span><span class="p">))</span>
-
         <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="c1"># Burn in current mask values and then clear null value</span>
             <span class="c1"># TODO: burning should not be needed as the values should already</span>
@@ -2114,8 +2191,31 @@ document.write(`
             <span class="n">mask</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">xrs</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
             <span class="k">return</span> <span class="n">Raster</span><span class="p">(</span><span class="n">make_raster_ds</span><span class="p">(</span><span class="n">xrs</span><span class="p">,</span> <span class="n">mask</span><span class="p">),</span> <span class="n">_fast_path</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
+        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">is_scalar</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="ow">or</span> <span class="n">is_bool</span><span class="p">(</span><span class="n">value</span><span class="p">)):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Value must be a scalar or None: </span><span class="si">{</span><span class="n">value</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="n">dtype</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dtype</span>
+        <span class="n">new_dtype</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">value</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">is_int</span><span class="p">(</span><span class="n">dtype</span><span class="p">):</span>
+                <span class="n">new_dtype</span> <span class="o">=</span> <span class="n">INT_DTYPE_TO_FLOAT_DTYPE</span><span class="p">[</span><span class="n">dtype</span><span class="p">]</span>
+            <span class="c1"># else do nothing</span>
+        <span class="k">elif</span> <span class="n">is_int</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="ow">and</span> <span class="n">is_float</span><span class="p">(</span><span class="n">dtype</span><span class="p">):</span>
+            <span class="c1"># INFO: Numpy refuses to let small int values be put in small float</span>
+            <span class="c1"># dtypes. This catches and fixes the issue.</span>
+            <span class="n">fvalue</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+            <span class="n">new_dtype</span> <span class="o">=</span> <span class="n">get_common_dtype</span><span class="p">([</span><span class="n">fvalue</span><span class="p">,</span> <span class="n">dtype</span><span class="p">])</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">new_dtype</span> <span class="o">=</span> <span class="n">get_common_dtype</span><span class="p">([</span><span class="n">value</span><span class="p">,</span> <span class="n">dtype</span><span class="p">])</span>
+
+        <span class="n">xrs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ds</span><span class="o">.</span><span class="n">raster</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">new_dtype</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">xrs</span> <span class="o">=</span> <span class="n">xrs</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">new_dtype</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="n">dtype</span><span class="o">.</span><span class="n">type</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+
         <span class="c1"># Update mask</span>
-        <span class="n">mask</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ds</span><span class="o">.</span><span class="n">mask</span>
+        <span class="n">mask</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">xmask</span>
         <span class="n">temp_mask</span> <span class="o">=</span> <span class="n">get_mask_from_data</span><span class="p">(</span><span class="n">xrs</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
         <span class="n">mask</span> <span class="o">=</span> <span class="n">mask</span> <span class="o">|</span> <span class="n">temp_mask</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_masked</span> <span class="k">else</span> <span class="n">temp_mask</span>
         <span class="n">xrs</span> <span class="o">=</span> <span class="n">xrs</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_nodata</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
