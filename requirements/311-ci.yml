@@ -12,7 +12,7 @@ dependencies:
   - geopandas
   - netcdf4
   - numba
-  - numpy
+  - numpy<2
   - odc-geo
   - pandas
   - pyogrio
