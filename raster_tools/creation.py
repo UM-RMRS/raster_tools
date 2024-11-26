@@ -263,7 +263,9 @@ def full_like(raster_template, value, bands=1, dtype=None, copy_mask=False):
     return _build_result(rst, ndata, bands, copy_mask, copy_null)
 
 
-def constant_raster(raster_template, value=1, bands=1, copy_mask=False):
+def constant_raster(
+    raster_template, value=1, bands=1, dtype=None, copy_mask=False
+):
     """Create a Raster filled with a constant value like a template raster.
 
     This is a convenience function that wraps :func:`full_like`.
@@ -276,6 +278,8 @@ def constant_raster(raster_template, value=1, bands=1, copy_mask=False):
         Value to fill result with. Default is 1.
     bands : int, optional
         Number of bands desired for output. Default is 1.
+    dtype : data-type, optional
+        Overrides the result dtype.
     copy_mask : bool
         If `True`, the template raster's mask is copied to the result raster.
         If `bands` differs from `raster_template`, the first band's mask is
@@ -287,7 +291,9 @@ def constant_raster(raster_template, value=1, bands=1, copy_mask=False):
         The resulting raster of constant values.
 
     """
-    return full_like(raster_template, value, bands=bands, copy_mask=copy_mask)
+    return full_like(
+        raster_template, value, bands=bands, dtype=dtype, copy_mask=copy_mask
+    )
 
 
 def zeros_like(raster_template, bands=1, dtype=None, copy_mask=False):
