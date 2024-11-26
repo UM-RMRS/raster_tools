@@ -462,10 +462,10 @@ document.write(`
 <span class="sig-prename descclassname"><span class="pre">Raster.</span></span><span class="sig-name descname"><span class="pre">set_null_value</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/raster_tools/raster.html#Raster.set_null_value"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.Raster.set_null_value" title="Permalink to this definition">#</a></dt>
 <dd><p>Sets or replaces the null value for the raster.</p>
 <p>If there was previously no null value for the raster, one is set. If
-there was already a null value, then it is replaced. If the raster has
-an integer dtype and <cite>value</cite> is a float, the dtype will be promoted to
-a float dtype. If <cite>value</cite> is None, the null value is cleared. The
-raster data is not changed in this case.</p>
+there was already a null value, then it is replaced. The raster dtype
+will be promoted, if needed, to accommodate <cite>value</cite>. If <cite>value</cite> is
+None, the null value is cleared. The raster data is not changed in this
+case.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><p><strong>value</strong> (<em>scalar</em><em> or </em><em>None</em>) – The new null value for the raster. If None, the resulting raster

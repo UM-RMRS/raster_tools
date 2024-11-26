@@ -2166,10 +2166,10 @@ document.write(`
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Sets or replaces the null value for the raster.</span>
 
 <span class="sd">        If there was previously no null value for the raster, one is set. If</span>
-<span class="sd">        there was already a null value, then it is replaced. If the raster has</span>
-<span class="sd">        an integer dtype and `value` is a float, the dtype will be promoted to</span>
-<span class="sd">        a float dtype. If `value` is None, the null value is cleared. The</span>
-<span class="sd">        raster data is not changed in this case.</span>
+<span class="sd">        there was already a null value, then it is replaced. The raster dtype</span>
+<span class="sd">        will be promoted, if needed, to accommodate `value`. If `value` is</span>
+<span class="sd">        None, the null value is cleared. The raster data is not changed in this</span>
+<span class="sd">        case.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
