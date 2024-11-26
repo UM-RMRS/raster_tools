@@ -1759,10 +1759,10 @@ class Raster(_RasterBase):
         """Sets or replaces the null value for the raster.
 
         If there was previously no null value for the raster, one is set. If
-        there was already a null value, then it is replaced. If the raster has
-        an integer dtype and `value` is a float, the dtype will be promoted to
-        a float dtype. If `value` is None, the null value is cleared. The
-        raster data is not changed in this case.
+        there was already a null value, then it is replaced. The raster dtype
+        will be promoted, if needed, to accommodate `value`. If `value` is
+        None, the null value is cleared. The raster data is not changed in this
+        case.
 
         Parameters
         ----------
