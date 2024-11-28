@@ -128,6 +128,23 @@ def test_full_like(template, value, nbands, dtype, copy_mask):
 @pytest.mark.parametrize("copy_mask", [0, 1])
 @pytest.mark.parametrize("dtype", [None, "int32"])
 @pytest.mark.parametrize("nbands", [1, 2, 3])
+@pytest.mark.parametrize("value", [9, 100, -10])
+@pytest.mark.parametrize("template", templates())
+def test_constant_raster(template, value, nbands, dtype, copy_mask):
+    run_constant_raster_tests(
+        creation.constant_raster,
+        template,
+        value,
+        nbands,
+        dtype,
+        copy_mask,
+        True,
+    )
+
+
+@pytest.mark.parametrize("copy_mask", [0, 1])
+@pytest.mark.parametrize("dtype", [None, "int32"])
+@pytest.mark.parametrize("nbands", [1, 2, 3])
 @pytest.mark.parametrize("template", templates())
 def test_zeros_like(template, nbands, dtype, copy_mask):
     run_constant_raster_tests(

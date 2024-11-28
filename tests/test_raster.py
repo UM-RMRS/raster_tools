@@ -1654,6 +1654,11 @@ def test_set_null_value():
     "raster,value,expected_dtype",
     [
         (
+            rts.creation.zeros_like(testdata.raster.dem_small, dtype="int8"),
+            0,
+            I8,
+        ),
+        (
             rts.creation.zeros_like(testdata.raster.dem_small, dtype="int64"),
             0,
             I64,
