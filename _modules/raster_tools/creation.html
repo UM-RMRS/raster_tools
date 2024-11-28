@@ -8,7 +8,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>raster_tools.creation &#8212; raster_tools 0.9.3 documentation</title>
+    <title>raster_tools.creation &#8212; raster_tools 0.9.4 documentation</title>
   
   
   
@@ -114,7 +114,7 @@
   
   
   
-    <p class="title logo__title">raster_tools 0.9.3 documentation</p>
+    <p class="title logo__title">raster_tools 0.9.4 documentation</p>
   
 </a></div>
         <div class="sidebar-primary-item"><nav class="bd-links" id="bd-docs-nav" aria-label="Main">
@@ -670,7 +670,9 @@ document.write(`
     <span class="k">return</span> <span class="n">_build_result</span><span class="p">(</span><span class="n">rst</span><span class="p">,</span> <span class="n">ndata</span><span class="p">,</span> <span class="n">bands</span><span class="p">,</span> <span class="n">copy_mask</span><span class="p">,</span> <span class="n">copy_null</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="constant_raster"><a class="viewcode-back" href="../../reference/generated/raster_tools.constant_raster.html#raster_tools.creation.constant_raster">[docs]</a><span class="k">def</span> <span class="nf">constant_raster</span><span class="p">(</span><span class="n">raster_template</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">bands</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">copy_mask</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<div class="viewcode-block" id="constant_raster"><a class="viewcode-back" href="../../reference/generated/raster_tools.constant_raster.html#raster_tools.creation.constant_raster">[docs]</a><span class="k">def</span> <span class="nf">constant_raster</span><span class="p">(</span>
+    <span class="n">raster_template</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">bands</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">copy_mask</span><span class="o">=</span><span class="kc">False</span>
+<span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a Raster filled with a constant value like a template raster.</span>
 
 <span class="sd">    This is a convenience function that wraps :func:`full_like`.</span>
@@ -683,6 +685,8 @@ document.write(`
 <span class="sd">        Value to fill result with. Default is 1.</span>
 <span class="sd">    bands : int, optional</span>
 <span class="sd">        Number of bands desired for output. Default is 1.</span>
+<span class="sd">    dtype : data-type, optional</span>
+<span class="sd">        Overrides the result dtype.</span>
 <span class="sd">    copy_mask : bool</span>
 <span class="sd">        If `True`, the template raster&#39;s mask is copied to the result raster.</span>
 <span class="sd">        If `bands` differs from `raster_template`, the first band&#39;s mask is</span>
@@ -694,7 +698,9 @@ document.write(`
 <span class="sd">        The resulting raster of constant values.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">return</span> <span class="n">full_like</span><span class="p">(</span><span class="n">raster_template</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">bands</span><span class="o">=</span><span class="n">bands</span><span class="p">,</span> <span class="n">copy_mask</span><span class="o">=</span><span class="n">copy_mask</span><span class="p">)</span></div>
+    <span class="k">return</span> <span class="n">full_like</span><span class="p">(</span>
+        <span class="n">raster_template</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">bands</span><span class="o">=</span><span class="n">bands</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">,</span> <span class="n">copy_mask</span><span class="o">=</span><span class="n">copy_mask</span>
+    <span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="zeros_like"><a class="viewcode-back" href="../../reference/generated/raster_tools.zeros_like.html#raster_tools.creation.zeros_like">[docs]</a><span class="k">def</span> <span class="nf">zeros_like</span><span class="p">(</span><span class="n">raster_template</span><span class="p">,</span> <span class="n">bands</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">copy_mask</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
