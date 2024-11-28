@@ -1798,6 +1798,23 @@ class Raster(_RasterBase):
             # dtypes. This catches and fixes the issue.
             fvalue = float(value)
             new_dtype = get_common_dtype([fvalue, dtype])
+        elif is_int(value) and is_int(dtype):
+            # Catch the case where value is 0 and dtype is int8, etc. In this
+            # case, get_common_dtype will use uint8 for the dtype of value,
+            # which will combine with int8 to produce int16 for the new dtype.
+            with warnings.catch_warnings():
+                warnings.filterwarnings("error")
+                try:
+                    test_value = dtype.type(value)
+                    assert test_value == value
+                except (
+                    OverflowError,
+                    AssertionError,
+                    RuntimeWarning,
+                    DeprecationWarning,
+                ):
+                    new_dtype = get_common_dtype([value, dtype])
+                # else: do nothing
         else:
             new_dtype = get_common_dtype([value, dtype])
 
