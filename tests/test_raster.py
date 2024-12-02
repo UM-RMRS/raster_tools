@@ -434,6 +434,14 @@ def test_raster_from_dataarray(xdata):
     assert np.allclose(raster._ds.y, xdata[yc])
 
 
+def test_raster_from_dataarray_str_band(xdem_small):
+    xdem_small["band"] = ["one"]
+    raster = Raster(xdem_small)
+    assert np.allclose(raster.band, np.array([1]))
+    assert np.allclose(raster.xdata.band.to_numpy(), np.array([1]))
+    assert raster.xdata.band.to_numpy().dtype == I64
+
+
 @pytest.mark.parametrize(
     "ds",
     [

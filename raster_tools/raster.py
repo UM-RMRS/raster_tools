@@ -586,9 +586,8 @@ def normalize_xarray_data(xdata):
         xdata = xdata.rename(name_mapping)
     xdata = xdata.transpose("band", "y", "x", transpose_coords=True)
 
-    band_coords = np.arange(1, len(xdata.band) + 1)
-    if not np.allclose(xdata.band.to_numpy(), band_coords):
-        xdata["band"] = band_coords
+    # Make sure that the band dim is the series [1, 2, ..., N].
+    xdata["band"] = np.arange(1, len(xdata.band) + 1)
     if any(dim not in xdata.coords for dim in xdata.dims):
         raise ValueError(
             "Invalid coordinates on xarray.DataArray object:\n{xdata!r}"
