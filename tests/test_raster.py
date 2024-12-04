@@ -1014,63 +1014,49 @@ def test_binary_op_pow_against_scalar(
     assert np.allclose(result.mask.compute(), mask)
 
 
-@pytest.mark.parametrize("op", _BINARY_ARITHMETIC_OPS + _BINARY_COMPARISON_OPS)
+@pytest.mark.parametrize("op", _BINARY_COMPARISON_OPS)
 @pytest.mark.parametrize("operand", [-2.0, -1, 0, 2, 3.0, True])
 @pytest.mark.parametrize(
-    "rs_type", [F16, F32, F64, I16, I32, I64, I8, U16, U32, U64, U8]
+    "raster_type", [F16, F32, F64, I16, I32, I64, I8, U16, U32, U64, U8]
 )
-@pytest.mark.filterwarnings("ignore:divide by zero")
-@pytest.mark.filterwarnings("ignore:invalid value encountered")
-@pytest.mark.filterwarnings("ignore:overflow")
-def test_binary_ops_arithmetic_against_scalar(op, operand, rs_type):
-    x = arange_nd((4, 5, 5), dtype=rs_type)
-    rs = Raster(x)
-    rs._ds["raster"] = xr.where(
-        (rs._ds.raster >= 0) & (rs._ds.raster < 10), 0, rs._ds.raster
-    )
-    rs = rs.set_null_value(0).set_crs("EPSG:3857")
-    mask = rs.mask.compute()
-    assert rs.null_value == 0
-    assert rs._masked
-    x = rs.to_numpy()
+def test_binary_comparison_ops_against_scalar(
+    binary_ops_array_data, op, operand, raster_type
+):
+    x = binary_ops_array_data.astype(raster_type)
+    nv = 0
+    raster = Raster(x)
+    raster = raster.set_null_value(nv).set_crs("EPSG:3857")
+    mask = raster.mask.compute()
+    assert raster.null_value == nv
+    assert raster._masked
+    if NUMPY_GE_2 and (type(operand) in (int, float)):
+        if type(operand) is int:
+            safe_operand = np.int64(operand)
+        else:
+            safe_operand = np.float64(operand)
+    else:
+        safe_operand = operand
 
-    result = op(operand, rs)
-    truth = op(operand, x)
-    truth = np.where(mask, get_default_null_value(truth.dtype), truth)
-    assert_valid_raster(result)
-    assert result._masked
-    assert result.crs == rs.crs
-    assert np.allclose(result, truth, equal_nan=True)
-    assert result.dtype == truth.dtype
-    assert np.allclose(result.mask.compute(), rs.mask.compute())
-    assert np.all(result.xdata.spatial_ref == rs.xdata.spatial_ref).to_numpy()
-    if is_bool(result.dtype):
+    # scalar last and reflected scalar first order
+    raster_args = [(raster, operand), (operand, raster)]
+    np_args = [(x, safe_operand), (safe_operand, x)]
+    for idx in (0, 1):
+        expected_np = op(*np_args[idx])
+        expected_np = np.where(
+            mask, get_default_null_value(expected_np.dtype), expected_np
+        )
+        result = op(*raster_args[idx])
+        assert_valid_raster(result)
+        assert_rasters_similar(result, raster)
+        assert result._masked
+        # TODO(bool): these asserts need to updated once we switch to int8
+        # for boolean results
+        assert result.dtype == expected_np.dtype
+        assert is_bool(result.dtype)
         assert is_bool(result.null_value)
         assert result.null_value == get_default_null_value(bool)
-    # Make sure raising ints to negative ints raises TypeError
-    if (
-        op == operator.pow
-        and is_int(rs.dtype)
-        and is_int(operand)
-        and operand < 0
-        # Numpy promotes to float64 in this case
-        and rs.dtype != U64
-    ):
-        with pytest.raises(TypeError):
-            op(rs, operand)
-    else:
-        truth = op(x, operand)
-        truth = np.where(mask, get_default_null_value(truth.dtype), truth)
-        result = op(rs, operand)
-        assert_valid_raster(result)
-        assert result._masked
-        assert result.dtype == truth.dtype
-        assert result.crs == rs.crs
-        assert np.allclose(result, truth, equal_nan=True)
-        assert np.allclose(result.mask.compute(), rs.mask.compute())
-        assert np.all(
-            result.xdata.spatial_ref == rs.xdata.spatial_ref
-        ).to_numpy()
+        assert np.allclose(result, expected_np, equal_nan=True)
+        assert np.allclose(result.mask.compute(), mask)
 
 
 unknown_chunk_array = dask.array.ones((5, 5))
