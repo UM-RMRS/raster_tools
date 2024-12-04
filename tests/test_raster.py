@@ -26,6 +26,7 @@ from shapely.geometry import box
 
 import raster_tools.raster
 from raster_tools import Raster, band_concat
+from raster_tools._compat import NUMPY_GE_2
 from raster_tools.dtypes import (
     DTYPE_INPUT_TO_DTYPE,
     F16,
@@ -872,6 +873,145 @@ _BINARY_COMPARISON_OPS = [
     operator.eq,
     operator.ne,
 ]
+
+
+@pytest.fixture
+def binary_ops_array_data():
+    data = arange_nd((4, 5, 5))
+    data = np.where((data >= 0) & (data < 10), 0, data)
+    return data
+
+
+@pytest.mark.parametrize(
+    "op",
+    (
+        operator.add,
+        operator.sub,
+        operator.mul,
+        operator.truediv,
+        operator.floordiv,
+        operator.mod,
+    ),
+)
+@pytest.mark.parametrize("operand", [-2.0, -1, 0, 2, 3.0, True])
+@pytest.mark.parametrize(
+    "raster_type", [F16, F32, F64, I16, I32, I64, I8, U16, U32, U64, U8]
+)
+@pytest.mark.filterwarnings("ignore:divide by zero")
+@pytest.mark.filterwarnings("ignore:invalid value encountered")
+@pytest.mark.filterwarnings("ignore:overflow")
+def test_simple_binary_ops_arithmetic_against_scalar(
+    binary_ops_array_data, op, operand, raster_type
+):
+    x = binary_ops_array_data.astype(raster_type)
+    nv = 0
+    raster = Raster(x)
+    raster = raster.set_null_value(nv).set_crs("EPSG:3857")
+    mask = raster.mask.compute()
+    assert raster.null_value == nv
+    assert raster._masked
+    if NUMPY_GE_2 and (type(operand) in (int, float)):
+        if type(operand) is int:
+            safe_operand = np.int64(operand)
+        else:
+            safe_operand = np.float64(operand)
+    else:
+        safe_operand = operand
+
+    # left: raster, right: scalar
+    result = op(raster, operand)
+    expected_np = op(x, safe_operand)
+    expected_np = np.where(
+        mask, get_default_null_value(expected_np.dtype), expected_np
+    )
+    assert_valid_raster(result)
+    assert_rasters_similar(result, raster)
+    assert result._masked
+    assert result.dtype == expected_np.dtype
+    assert np.allclose(result, expected_np, equal_nan=True)
+    assert np.allclose(result.mask.compute(), mask)
+
+    # Reflected
+    # left: scalar, right: raster
+    expected_np = op(safe_operand, x)
+    expected_np = np.where(
+        mask, get_default_null_value(expected_np.dtype), expected_np
+    )
+    result = op(operand, raster)
+    assert_valid_raster(result)
+    assert_rasters_similar(result, raster)
+    assert result._masked
+    assert result.dtype == expected_np.dtype
+    assert np.allclose(result, expected_np, equal_nan=True)
+    assert np.allclose(result.mask.compute(), raster.mask.compute())
+
+
+@pytest.mark.parametrize("operand", [-2.0, -1, 0, 2, 3.0, True])
+@pytest.mark.parametrize(
+    "raster_type", [F16, F32, F64, I16, I32, I64, I8, U16, U32, U64, U8]
+)
+@pytest.mark.filterwarnings("ignore:divide by zero")
+@pytest.mark.filterwarnings("ignore:overflow")
+def test_binary_op_pow_against_scalar(
+    binary_ops_array_data, operand, raster_type
+):
+    power = operator.pow
+    x = binary_ops_array_data.astype(raster_type)
+    nv = 0
+    raster = Raster(x)
+    raster = raster.set_null_value(nv).set_crs("EPSG:3857")
+    mask = raster.mask.compute()
+    assert raster.null_value == nv
+    assert raster._masked
+
+    if NUMPY_GE_2 and (type(operand) in (int, float)):
+        if type(operand) is int:
+            safe_operand = np.int64(operand)
+        else:
+            safe_operand = np.float64(operand)
+    else:
+        safe_operand = operand
+    # In numpy 2, np.power and operator.pow sometimes produce different output
+    # dtypes. __array_ufunc__ on Raster uses np.power so we test against that
+    # API.
+    safe_power = np.power if NUMPY_GE_2 else power
+
+    if (
+        # Numpy converts u64 to a float for power
+        raster_type != U64
+        and is_int(raster_type)
+        and is_int(operand)
+        and operand < 0
+    ):
+        with pytest.raises(TypeError):
+            power(raster, operand)
+        with pytest.raises(ValueError):
+            safe_power(x, safe_operand)
+    else:
+        expected_np = safe_power(x, safe_operand)
+        expected_np = np.where(
+            mask, get_default_null_value(expected_np.dtype), expected_np
+        )
+        result = power(raster, operand)
+        assert_valid_raster(result)
+        assert_rasters_similar(result, raster)
+        assert result._masked
+        assert result.dtype == expected_np.dtype
+        assert np.allclose(result, expected_np, equal_nan=True)
+        assert np.allclose(result.mask.compute(), mask)
+
+    # Test reflected
+    expected_np = safe_power(safe_operand, x)
+    expected_np = np.where(
+        mask, get_default_null_value(expected_np.dtype), expected_np
+    )
+    result = power(operand, raster)
+    assert_valid_raster(result)
+    assert_rasters_similar(result, raster)
+    assert result._masked
+    assert result.dtype == expected_np.dtype
+    assert np.allclose(result, expected_np, equal_nan=True)
+    assert np.allclose(result.mask.compute(), mask)
 
 
 @pytest.mark.parametrize("op", _BINARY_ARITHMETIC_OPS + _BINARY_COMPARISON_OPS)
