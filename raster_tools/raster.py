@@ -17,6 +17,7 @@ from numba import jit
 from odc.geo.geobox import GeoBox
 from shapely.geometry import box
 
+from raster_tools._compat import NUMPY_GE_2
 from raster_tools.dask_utils import (
     chunks_to_array_locations,
     dask_nanmax,
@@ -165,6 +166,13 @@ def _normalize_ufunc_other(other, this):
 
 
 def _apply_ufunc(ufunc, this, left, right=None, kwargs=None, out=None):
+    if NUMPY_GE_2:
+        if type(left) in (int, float):
+            left = np.int64(left) if type(left) is int else np.float64(left)
+        if type(right) in (int, float):
+            right = (
+                np.int64(right) if type(right) is int else np.float64(right)
+            )
     args = [left]
     if right is not None:
         args.append(right)
@@ -309,7 +317,27 @@ class _RasterBase(np.lib.mixins.NDArrayOperatorsMixin, _ReductionsMixin):
             right = other
         else:
             left = other
-        return _apply_ufunc(ufunc, self, left, right=right, out=out)
+
+        try:
+            return _apply_ufunc(ufunc, self, left, right=right, out=out)
+        except TypeError as err:
+            if right is not None and str(err).startswith(
+                "operand type(s) all returned NotImplemented from "
+                "__array_ufunc__"
+            ):
+                msgs = []
+                for obj in (left, right):
+                    if isinstance(obj, Raster):
+                        msg = f"Raster<{left.dtype}>"
+                    else:
+                        msg = type(obj)
+                    msgs.append(msg)
+                left_msg, right_msg = msgs
+                raise TypeError(
+                    f"Could not apply {ufunc} to types "
+                    f"{left_msg} and {right_msg}"
+                ) from err
+            raise err
 
     def __array__(self, dtype=None):
         return self._ds.raster.__array__(dtype)
