@@ -876,7 +876,7 @@ _BINARY_COMPARISON_OPS = [
 
 
 @pytest.fixture
-def binary_ops_array_data():
+def ops_test_array_data():
     data = arange_nd((4, 5, 5))
     data = np.where((data >= 0) & (data < 10), 0, data)
     return data
@@ -901,9 +901,9 @@ def binary_ops_array_data():
 @pytest.mark.filterwarnings("ignore:invalid value encountered")
 @pytest.mark.filterwarnings("ignore:overflow")
 def test_simple_binary_ops_arithmetic_against_scalar(
-    binary_ops_array_data, op, operand, raster_type
+    ops_test_array_data, op, operand, raster_type
 ):
-    x = binary_ops_array_data.astype(raster_type)
+    x = ops_test_array_data.astype(raster_type)
     nv = 0
     raster = Raster(x)
     raster = raster.set_null_value(nv).set_crs("EPSG:3857")
@@ -953,10 +953,10 @@ def test_simple_binary_ops_arithmetic_against_scalar(
 @pytest.mark.filterwarnings("ignore:divide by zero")
 @pytest.mark.filterwarnings("ignore:overflow")
 def test_binary_op_pow_against_scalar(
-    binary_ops_array_data, operand, raster_type
+    ops_test_array_data, operand, raster_type
 ):
     power = operator.pow
-    x = binary_ops_array_data.astype(raster_type)
+    x = ops_test_array_data.astype(raster_type)
     nv = 0
     raster = Raster(x)
     raster = raster.set_null_value(nv).set_crs("EPSG:3857")
@@ -1020,9 +1020,9 @@ def test_binary_op_pow_against_scalar(
     "raster_type", [F16, F32, F64, I16, I32, I64, I8, U16, U32, U64, U8]
 )
 def test_binary_comparison_ops_against_scalar(
-    binary_ops_array_data, op, operand, raster_type
+    ops_test_array_data, op, operand, raster_type
 ):
-    x = binary_ops_array_data.astype(raster_type)
+    x = ops_test_array_data.astype(raster_type)
     nv = 0
     raster = Raster(x)
     raster = raster.set_null_value(nv).set_crs("EPSG:3857")
