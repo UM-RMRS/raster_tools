@@ -328,7 +328,7 @@ class _RasterBase(np.lib.mixins.NDArrayOperatorsMixin, _ReductionsMixin):
                 msgs = []
                 for obj in (left, right):
                     if isinstance(obj, Raster):
-                        msg = f"Raster<{left.dtype}>"
+                        msg = f"Raster<{obj.dtype}>"
                     else:
                         msg = type(obj)
                     msgs.append(msg)
