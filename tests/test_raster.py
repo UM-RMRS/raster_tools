@@ -1265,7 +1265,8 @@ def test_ufuncs_single_input(ufunc):
     assert rs.crs == "EPSG:3857"
     data = rs.to_numpy()
 
-    if ufunc == np.invert and is_float(data.dtype):
+    # bitwise_count added in numpy 2.0
+    if ufunc.__name__ in ("invert", "bitwise_count") and is_float(data.dtype):
         with pytest.raises(TypeError):
             ufunc(rs)
         return
