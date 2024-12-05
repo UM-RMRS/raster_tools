@@ -193,7 +193,7 @@ def test_data_to_xr_raster(data, xdem_small, nv):
     ],
 )
 def test_data_to_xr_raster_like(data, xdem_small, nv):
-    xlike = xdem_small.chunk(chunks=(1, 15, 15))
+    xlike = xdem_small.chunk(chunks={"band": 1, "y": 15, "x": 15})
     expected = xlike.copy()
     nbands = 1 if data.ndim == 2 or data.shape[0] == 1 else data.shape[0]
     if nbands > 1:
