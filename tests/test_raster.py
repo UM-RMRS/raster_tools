@@ -1083,23 +1083,22 @@ unknown_chunk_array = unknown_chunk_array[unknown_chunk_array > 0]
 @pytest.mark.filterwarnings("ignore:invalid value encountered")
 @pytest.mark.filterwarnings("ignore:overflow")
 @pytest.mark.filterwarnings("ignore:elementwise comparison failed")
-def test_binary_ops_arithmetic_against_array(op, other, error):
-    x = arange_nd((4, 5, 5), dtype=float)
-    rs = Raster(x)
-    rs._ds["raster"] = xr.where(
-        (rs._ds.raster >= 0) & (rs._ds.raster < 10), 0, rs._ds.raster
-    )
-    rs = rs.set_null_value(0).set_crs("EPSG:3857")
-    mask = rs.mask.compute()
-    assert rs.null_value == 0
-    assert rs._masked
-    data = rs.to_numpy()
+def test_binary_ops_arithmetic_against_array(
+    ops_test_array_data, op, other, error
+):
+    x = ops_test_array_data
+    nv = 0
+    raster = Raster(x).set_null_value(nv).set_crs("EPSG:3857")
+    mask = raster.mask.compute()
+    assert raster.null_value == nv
+    assert raster._masked
+    data = raster.to_numpy()
 
     if error:
         with pytest.raises(ValueError):
-            op(rs, other)
+            op(raster, other)
         with pytest.raises(ValueError):
-            op(other, rs)
+            op(other, raster)
     else:
         truth1 = op(data, other)
         truth2 = op(other, data)
@@ -1107,63 +1106,54 @@ def test_binary_ops_arithmetic_against_array(op, other, error):
         truth1, truth2 = dask.compute(truth1, truth2)
         truth1[mask] = get_default_null_value(truth1.dtype)
         truth2[mask] = get_default_null_value(truth2.dtype)
-        result = op(rs, other)
+        result = op(raster, other)
         assert_valid_raster(result)
-        assert result.crs == rs.crs
+        assert_rasters_similar(result, raster)
+        assert result.crs == raster.crs
         (truth1,) = dask.compute(truth1)
         assert np.allclose(result, truth1, equal_nan=True)
-        assert np.allclose(result._ds.mask.compute(), rs._ds.mask.compute())
-        assert np.all(
-            result.xdata.spatial_ref == rs.xdata.spatial_ref
-        ).to_numpy()
-        result = op(other, rs)
+        assert np.allclose(result._ds.mask.compute(), mask)
+        result = op(other, raster)
         assert_valid_raster(result)
+        assert_rasters_similar(result, raster)
         (truth2,) = dask.compute(truth2)
         assert np.allclose(result, truth2, equal_nan=True)
-        assert np.allclose(result._ds.mask.compute(), rs._ds.mask.compute())
-        assert np.all(
-            result.xdata.spatial_ref == rs.xdata.spatial_ref
-        ).to_numpy()
+        assert np.allclose(result._ds.mask.compute(), mask)
 
 
 @pytest.mark.parametrize("op", _BINARY_ARITHMETIC_OPS + _BINARY_COMPARISON_OPS)
 @pytest.mark.filterwarnings("ignore:divide by zero")
 @pytest.mark.filterwarnings("ignore:invalid value encountered")
 @pytest.mark.filterwarnings("ignore:overflow")
-def test_binary_ops_arithmetic_against_raster(op):
-    x = arange_nd((4, 5, 5), dtype=float)
-    rs = Raster(x)
-    rs._ds["raster"] = xr.where(
-        (rs._ds.raster >= 0) & (rs._ds.raster < 10), 0, rs._ds.raster
-    )
-    rs = rs.set_null_value(0).set_crs("EPSG:3857")
-    mask = rs.mask.compute()
-    assert rs.null_value == 0
-    assert rs._masked
-    data = rs.to_numpy()
+def test_binary_ops_arithmetic_against_raster(ops_test_array_data, op):
+    x = ops_test_array_data
+    nv = 0
+    raster = Raster(x).set_null_value(nv).set_crs("EPSG:3857")
+    mask = raster.mask.compute()
+    assert raster.null_value == nv
+    assert raster._masked
+    data = raster.to_numpy()
     data2 = np.ones_like(data, dtype=int) * 2
-    rs2 = Raster(data2).set_crs("EPSG:3857")
+    raster2 = Raster(data2).set_crs("EPSG:3857")
 
     truth1 = op(data, data2)
     truth2 = op(data2, data)
     truth1[mask] = get_default_null_value(truth1.dtype)
     truth2[mask] = get_default_null_value(truth2.dtype)
-    result = op(rs, rs2)
+    result = op(raster, raster2)
     assert_valid_raster(result)
-    assert result.crs == rs.crs
+    assert_rasters_similar(result, raster)
     assert result._masked
     assert result.dtype == truth1.dtype
     assert np.allclose(result, truth1, equal_nan=True)
-    assert np.allclose(result._ds.mask, rs._ds.mask)
-    assert np.all(result.xdata.spatial_ref == rs.xdata.spatial_ref).to_numpy()
-    result = op(rs2, rs)
+    assert np.allclose(result._ds.mask, raster._ds.mask)
+    result = op(raster2, raster)
     assert_valid_raster(result)
-    assert result.crs == rs.crs
+    assert_rasters_similar(result, raster)
     assert result._masked
     assert result.dtype == truth2.dtype
     assert np.allclose(result, truth2, equal_nan=True)
-    assert np.allclose(result._ds.mask, rs._ds.mask)
-    assert np.all(result.xdata.spatial_ref == rs.xdata.spatial_ref).to_numpy()
+    assert np.allclose(result._ds.mask, raster._ds.mask)
 
 
 def test_binary_ops_arithmetic_inplace():
@@ -1254,41 +1244,39 @@ def test_ufuncs_unsupported(ufunc):
 @pytest.mark.filterwarnings("ignore:invalid value encountered")
 def test_ufuncs_single_input(ufunc):
     x = arange_nd((4, 5, 5), dtype=float)
-    rs = Raster(x)
-    rs._ds["raster"] = xr.where(
-        (rs._ds.raster >= 0) & (rs._ds.raster < 10), 0, rs._ds.raster
-    )
-    rs = rs.set_null_value(0).set_crs("EPSG:3857")
-    mask = rs.mask.compute()
-    assert rs.null_value == 0
-    assert rs._masked
-    assert rs.crs == "EPSG:3857"
-    data = rs.to_numpy()
+    nv = 0
+    raster = Raster(x).set_null_value(nv).set_crs("EPSG:3857")
+    raster = raster
+    mask = raster.mask.compute()
+    assert raster.null_value == nv
+    assert raster._masked
+    assert raster.crs == "EPSG:3857"
+    data = raster.to_numpy()
 
     # bitwise_count added in numpy 2.0
     if ufunc.__name__ in ("invert", "bitwise_count") and is_float(data.dtype):
         with pytest.raises(TypeError):
-            ufunc(rs)
+            ufunc(raster)
         return
     truth = ufunc(data)
-    result = ufunc(rs)
+    result = ufunc(raster)
     if ufunc.nout == 1:
         assert_valid_raster(result)
         truth[mask] = get_default_null_value(truth.dtype)
         assert result._masked
         assert result.dtype == truth.dtype
-        assert result.crs == rs.crs
+        assert result.crs == raster.crs
         assert np.allclose(result, truth, equal_nan=True)
-        assert np.allclose(result._ds.mask, rs._ds.mask, equal_nan=True)
+        assert np.allclose(result._ds.mask, raster._ds.mask, equal_nan=True)
     else:
         for r, t in zip(result, truth):
             assert_valid_raster(r)
             t[mask] = get_default_null_value(t.dtype)
             assert r._masked
             assert r.dtype == t.dtype
-            assert r.crs == rs.crs
+            assert r.crs == raster.crs
             assert np.allclose(r, t, equal_nan=True)
-            assert np.allclose(r._ds.mask, rs._ds.mask, equal_nan=True)
+            assert np.allclose(r._ds.mask, raster._ds.mask, equal_nan=True)
 
 
 @pytest.mark.parametrize("ufunc", _NP_UFUNCS_NIN_MULT)
@@ -1296,20 +1284,19 @@ def test_ufuncs_single_input(ufunc):
 @pytest.mark.filterwarnings("ignore:divide by zero")
 @pytest.mark.filterwarnings("ignore:invalid value encountered")
 @pytest.mark.filterwarnings("ignore:overflow")
-def test_ufuncs_multiple_input_against_scalar(ufunc, dtype):
-    x = arange_nd((4, 5, 5), dtype=dtype)
-    rs = Raster(x)
-    rs._ds["raster"] = xr.where(
-        (rs._ds.raster >= 0) & (rs._ds.raster < 10), 0, rs._ds.raster
-    )
-    rs = rs.set_null_value(0).set_crs("EPSG:3857")
-    mask = rs.mask.compute()
-    assert rs.null_value == 0
-    assert rs._masked
-    assert rs.crs == "EPSG:3857"
+def test_ufuncs_multiple_input_against_scalar(
+    ops_test_array_data, ufunc, dtype
+):
+    x = ops_test_array_data.astype(dtype)
+    nv = 0
+    raster = Raster(x).set_null_value(nv).set_crs("EPSG:3857")
+    mask = raster.mask.compute()
+    assert raster.null_value == nv
+    assert raster._masked
+    assert raster.crs == "EPSG:3857"
     extra = ufunc.nin - 1
 
-    args = [rs] + [2 for i in range(extra)]
+    args = [raster] + [2 for i in range(extra)]
     args_np = [getattr(a, "values", a) for a in args]
     ufname = ufunc.__name__
     if (
@@ -1320,25 +1307,27 @@ def test_ufuncs_multiple_input_against_scalar(ufunc, dtype):
         with pytest.raises(TypeError):
             ufunc(*args)
     else:
-        truth = ufunc(*args_np)
+        expected_np = ufunc(*args_np)
         result = ufunc(*args)
         if ufunc.nout == 1:
             assert_valid_raster(result)
-            truth[mask] = get_default_null_value(truth.dtype)
+            expected_np[mask] = get_default_null_value(expected_np.dtype)
             assert result._masked
-            assert result.dtype == truth.dtype
-            assert result.crs == rs.crs
-            assert np.allclose(result, truth, equal_nan=True)
-            assert np.allclose(result._ds.mask, rs._ds.mask, equal_nan=True)
+            assert result.dtype == expected_np.dtype
+            assert result.crs == raster.crs
+            assert np.allclose(result, expected_np, equal_nan=True)
+            assert np.allclose(
+                result._ds.mask, raster._ds.mask, equal_nan=True
+            )
         else:
-            for r, t in zip(result, truth):
+            for r, t in zip(result, expected_np):
                 assert_valid_raster(r)
                 t[mask] = get_default_null_value(t.dtype)
                 assert r._masked
                 assert r.dtype == t.dtype
-                assert r.crs == rs.crs
+                assert r.crs == raster.crs
                 assert np.allclose(r, t, equal_nan=True)
-                assert np.allclose(r._ds.mask, rs._ds.mask, equal_nan=True)
+                assert np.allclose(r._ds.mask, raster._ds.mask, equal_nan=True)
     # Reflected
     args = args[::-1]
     args_np = args_np[::-1]
@@ -1353,40 +1342,39 @@ def test_ufuncs_multiple_input_against_scalar(ufunc, dtype):
         with pytest.raises(TypeError):
             ufunc(*args)
     else:
-        truth = ufunc(*args_np)
+        expected_np = ufunc(*args_np)
         result = ufunc(*args)
         if ufunc.nout == 1:
             assert_valid_raster(result)
-            truth[mask] = get_default_null_value(truth.dtype)
+            expected_np[mask] = get_default_null_value(expected_np.dtype)
             assert result._masked
-            assert result.dtype == truth.dtype
-            assert result.crs == rs.crs
-            assert np.allclose(result, truth, equal_nan=True)
-            assert np.allclose(result._ds.mask, rs._ds.mask, equal_nan=True)
+            assert result.dtype == expected_np.dtype
+            assert result.crs == raster.crs
+            assert np.allclose(result, expected_np, equal_nan=True)
+            assert np.allclose(
+                result._ds.mask, raster._ds.mask, equal_nan=True
+            )
         else:
-            for r, t in zip(result, truth):
+            for r, t in zip(result, expected_np):
                 assert_valid_raster(r)
                 t[mask] = get_default_null_value(t.dtype)
                 assert r._masked
                 assert r.dtype == t.dtype
-                assert r.crs == rs.crs
+                assert r.crs == raster.crs
                 assert np.allclose(r, t, equal_nan=True)
-                assert np.allclose(r._ds.mask, rs._ds.mask, equal_nan=True)
+                assert np.allclose(r._ds.mask, raster._ds.mask, equal_nan=True)
 
 
 @pytest.mark.parametrize("ufunc", _NP_UFUNCS_NIN_MULT)
 @pytest.mark.filterwarnings("ignore:divide by zero")
 @pytest.mark.filterwarnings("ignore:invalid value encountered")
 @pytest.mark.filterwarnings("ignore:overflow")
-def test_ufuncs_multiple_input_against_raster(ufunc):
-    x = arange_nd((4, 5, 5))
-    rs = Raster(x)
-    rs._ds["raster"] = xr.where(
-        (rs._ds.raster >= 0) & (rs._ds.raster < 10), 0, rs._ds.raster
-    )
-    rs = rs.set_null_value(0).set_crs("EPSG:3857")
+def test_ufuncs_multiple_input_against_raster(ops_test_array_data, ufunc):
+    x = ops_test_array_data
+    nv = 0
+    rs = Raster(x).set_null_value(nv).set_crs("EPSG:3857")
     mask = rs.mask.compute()
-    assert rs.null_value == 0
+    assert rs.null_value == nv
     assert rs._masked
     assert rs.crs == "EPSG:3857"
     extra = ufunc.nin - 1
@@ -1405,18 +1393,18 @@ def test_ufuncs_multiple_input_against_raster(ufunc):
         with pytest.raises(TypeError):
             ufunc(*args)
     else:
-        truth = ufunc(*args_np)
+        expected_np = ufunc(*args_np)
         result = ufunc(*args)
         if ufunc.nout == 1:
             assert_valid_raster(result)
-            truth[mask] = get_default_null_value(truth.dtype)
+            expected_np[mask] = get_default_null_value(expected_np.dtype)
             assert result._masked
-            assert result.dtype == truth.dtype
+            assert result.dtype == expected_np.dtype
             assert result.crs == rs.crs
-            assert np.allclose(result, truth, equal_nan=True)
+            assert np.allclose(result, expected_np, equal_nan=True)
             assert np.allclose(result._ds.mask, mask, equal_nan=True)
         else:
-            for r, t in zip(result, truth):
+            for r, t in zip(result, expected_np):
                 assert_valid_raster(r)
                 t[mask] = get_default_null_value(t.dtype)
                 assert r._masked
@@ -1433,16 +1421,16 @@ def test_ufuncs_multiple_input_against_raster(ufunc):
         with pytest.raises(TypeError):
             ufunc(*args)
     else:
-        truth = ufunc(*args_np)
+        expected_np = ufunc(*args_np)
         result = ufunc(*args)
         if ufunc.nout == 1:
             assert_valid_raster(result)
-            truth[mask] = get_default_null_value(truth.dtype)
+            expected_np[mask] = get_default_null_value(expected_np.dtype)
             assert result.crs == rs.crs
-            assert np.allclose(result, truth, equal_nan=True)
+            assert np.allclose(result, expected_np, equal_nan=True)
             assert np.allclose(result._ds.mask, mask)
         else:
-            for r, t in zip(result, truth):
+            for r, t in zip(result, expected_np):
                 assert_valid_raster(r)
                 t[mask] = get_default_null_value(t.dtype)
                 assert r.crs == rs.crs
