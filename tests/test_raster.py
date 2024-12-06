@@ -1298,71 +1298,83 @@ def test_ufuncs_multiple_input_against_scalar(
 
     args = [raster] + [2 for i in range(extra)]
     args_np = [getattr(a, "values", a) for a in args]
+
     ufname = ufunc.__name__
-    if (
+    # These should all fail for regular and reflected cases
+    if ufname == "vecdot":
+        with pytest.raises(NotImplementedError):
+            ufunc(*args)
+        with pytest.raises(ValueError):
+            ufunc(*args_np)
+        with pytest.raises(NotImplementedError):
+            ufunc(*args[::-1])
+        with pytest.raises(ValueError):
+            ufunc(*args_np[::-1])
+        return
+    elif (
         ufname.startswith("bitwise")
         or ufname.endswith("shift")
         or ufname in ("gcd", "lcm")
     ) and any(is_float(getattr(a, "dtype", a)) for a in args):
         with pytest.raises(TypeError):
             ufunc(*args)
+        with pytest.raises(TypeError):
+            ufunc(*args_np)
+        with pytest.raises(TypeError):
+            ufunc(*args[::-1])
+        with pytest.raises(TypeError):
+            ufunc(*args_np[::-1])
+        return
+
+    expected_np = ufunc(*args_np)
+    result = ufunc(*args)
+    if ufunc.nout == 1:
+        assert_valid_raster(result)
+        assert_rasters_similar(result, raster)
+        expected_np[mask] = get_default_null_value(expected_np.dtype)
+        assert result._masked
+        assert result.dtype == expected_np.dtype
+        assert result.crs == raster.crs
+        assert np.allclose(result, expected_np, equal_nan=True)
+        assert np.allclose(result._ds.mask, raster._ds.mask, equal_nan=True)
     else:
-        expected_np = ufunc(*args_np)
-        result = ufunc(*args)
-        if ufunc.nout == 1:
-            assert_valid_raster(result)
-            expected_np[mask] = get_default_null_value(expected_np.dtype)
-            assert result._masked
-            assert result.dtype == expected_np.dtype
-            assert result.crs == raster.crs
-            assert np.allclose(result, expected_np, equal_nan=True)
-            assert np.allclose(
-                result._ds.mask, raster._ds.mask, equal_nan=True
-            )
-        else:
-            for r, t in zip(result, expected_np):
-                assert_valid_raster(r)
-                t[mask] = get_default_null_value(t.dtype)
-                assert r._masked
-                assert r.dtype == t.dtype
-                assert r.crs == raster.crs
-                assert np.allclose(r, t, equal_nan=True)
-                assert np.allclose(r._ds.mask, raster._ds.mask, equal_nan=True)
+        for r, t in zip(result, expected_np):
+            assert_valid_raster(r)
+            assert_rasters_similar(r, raster)
+            t[mask] = get_default_null_value(t.dtype)
+            assert r._masked
+            assert r.dtype == t.dtype
+            assert r.crs == raster.crs
+            assert np.allclose(r, t, equal_nan=True)
+            assert np.allclose(r._ds.mask, raster._ds.mask, equal_nan=True)
+
     # Reflected
     args = args[::-1]
     args_np = args_np[::-1]
-    if (
-        (
-            ufname.startswith("bitwise")
-            or ufname.endswith("shift")
-            or ufname in ("gcd", "lcm")
-        )
-        and any(is_float(getattr(a, "dtype", a)) for a in args)
-    ) or (ufname == "ldexp" and is_float(args[-1].dtype)):
+    # Should only fail for reflected
+    if ufname == "ldexp" and is_float(args[-1].dtype):
         with pytest.raises(TypeError):
             ufunc(*args)
+        return
+    expected_np = ufunc(*args_np)
+    result = ufunc(*args)
+    if ufunc.nout == 1:
+        assert_valid_raster(result)
+        assert_rasters_similar(result, raster)
+        expected_np[mask] = get_default_null_value(expected_np.dtype)
+        assert result._masked
+        assert result.dtype == expected_np.dtype
+        assert np.allclose(result, expected_np, equal_nan=True)
+        assert np.allclose(result._ds.mask, raster._ds.mask, equal_nan=True)
     else:
-        expected_np = ufunc(*args_np)
-        result = ufunc(*args)
-        if ufunc.nout == 1:
-            assert_valid_raster(result)
-            expected_np[mask] = get_default_null_value(expected_np.dtype)
-            assert result._masked
-            assert result.dtype == expected_np.dtype
-            assert result.crs == raster.crs
-            assert np.allclose(result, expected_np, equal_nan=True)
-            assert np.allclose(
-                result._ds.mask, raster._ds.mask, equal_nan=True
-            )
-        else:
-            for r, t in zip(result, expected_np):
-                assert_valid_raster(r)
-                t[mask] = get_default_null_value(t.dtype)
-                assert r._masked
-                assert r.dtype == t.dtype
-                assert r.crs == raster.crs
-                assert np.allclose(r, t, equal_nan=True)
-                assert np.allclose(r._ds.mask, raster._ds.mask, equal_nan=True)
+        for r, t in zip(result, expected_np):
+            assert_valid_raster(r)
+            assert_rasters_similar(r, raster)
+            t[mask] = get_default_null_value(t.dtype)
+            assert r._masked
+            assert r.dtype == t.dtype
+            assert np.allclose(r, t, equal_nan=True)
+            assert np.allclose(r._ds.mask, raster._ds.mask, equal_nan=True)
 
 
 @pytest.mark.parametrize("ufunc", _NP_UFUNCS_NIN_MULT)

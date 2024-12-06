@@ -166,8 +166,13 @@ def _normalize_ufunc_other(other, this):
 
 
 def _apply_ufunc(ufunc, this, left, right=None, kwargs=None, out=None):
+    ufname = ufunc.__name__
     if NUMPY_GE_2:
-        if type(left) in (int, float):
+        # If the ufunc is ldexp and the left arg is a python scalar, casting
+        # causes the resulting dtype to be different from the analongous
+        # (scalar X numpy-array) combination. So we disable casting for this
+        # special case.
+        if type(left) in (int, float) and ufname != "ldexp":
             left = np.int64(left) if type(left) is int else np.float64(left)
         if type(right) in (int, float):
             right = (
@@ -187,7 +192,6 @@ def _apply_ufunc(ufunc, this, left, right=None, kwargs=None, out=None):
     elif isinstance(other, Raster) and other.crs is not None:
         out_crs = other.crs
 
-    ufname = ufunc.__name__
     if ufname.startswith("bitwise") and any(is_float(t) for t in types):
         raise TypeError(
             "Bitwise operations are not compatible with float dtypes. You may"
