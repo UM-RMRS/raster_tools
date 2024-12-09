@@ -1217,25 +1217,30 @@ def test_binary_ops_arithmetic_inplace():
     assert rr.crs == rs.crs
 
 
+_UNSUPPORED_UFUNCS = [np.isnat, np.matmul]
+if NUMPY_GE_2:
+    _UNSUPPORED_UFUNCS.append(np.vecdot)
+_UNSUPPORED_UFUNCS = tuple(_UNSUPPORED_UFUNCS)
 _NP_UFUNCS = np.array(
     [
         x
         # Get all ufuncs from main numpy namespace
         for x in (getattr(np, x) for x in dir(np))
         # isnat and matmul not valid for rasters
-        if isinstance(x, np.ufunc) and x not in (np.isnat, np.matmul)
+        if isinstance(x, np.ufunc) and x not in _UNSUPPORED_UFUNCS
     ]
 )
 _NP_UFUNCS_NIN_SINGLE = _NP_UFUNCS[[x.nin == 1 for x in _NP_UFUNCS]]
 _NP_UFUNCS_NIN_MULT = _NP_UFUNCS[[x.nin > 1 for x in _NP_UFUNCS]]
-_UNSUPPORED_UFUNCS = [np.isnat, np.matmul]
 
 
 @pytest.mark.parametrize("ufunc", _UNSUPPORED_UFUNCS)
 def test_ufuncs_unsupported(ufunc):
     rs = Raster(np.arange(4 * 5 * 5).reshape((4, 5, 5)))
-    with pytest.raises(TypeError):
-        args = [rs for i in range(ufunc.nin)]
+    args = [rs for i in range(ufunc.nin)]
+    with pytest.raises(
+        NotImplementedError if ufunc.__name__ == "vecdot" else TypeError
+    ):
         ufunc(*args)
 
 
@@ -1301,17 +1306,7 @@ def test_ufuncs_multiple_input_against_scalar(
 
     ufname = ufunc.__name__
     # These should all fail for regular and reflected cases
-    if ufname == "vecdot":
-        with pytest.raises(NotImplementedError):
-            ufunc(*args)
-        with pytest.raises(ValueError):
-            ufunc(*args_np)
-        with pytest.raises(NotImplementedError):
-            ufunc(*args[::-1])
-        with pytest.raises(ValueError):
-            ufunc(*args_np[::-1])
-        return
-    elif (
+    if (
         ufname.startswith("bitwise")
         or ufname.endswith("shift")
         or ufname in ("gcd", "lcm")
@@ -1399,15 +1394,9 @@ def test_ufuncs_multiple_input_against_raster(ops_test_array_data, ufunc):
     args = [raster] + [other.copy() for i in range(extra)]
     args_np = [a.to_numpy() for a in args]
 
-    ufname = ufunc.__name__
-    if ufname == "vecdot":
-        with pytest.raises(NotImplementedError):
-            ufunc(*args)
-        with pytest.raises(NotImplementedError):
-            ufunc(*args[::-1])
-        return
-
-    if ufname.startswith("bitwise") and any(is_float(a.dtype) for a in args):
+    if ufunc.__name__.startswith("bitwise") and any(
+        is_float(a.dtype) for a in args
+    ):
         with pytest.raises(TypeError):
             ufunc(*args)
         with pytest.raises(TypeError):
