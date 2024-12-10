@@ -17,6 +17,7 @@ from raster_tools.exceptions import (
     RasterDataError,
     RasterIOError,
 )
+from raster_tools.masking import get_default_null_value
 from raster_tools.utils import to_chunk_dict, validate_path
 
 
@@ -201,29 +202,21 @@ def _get_valid_variables(meta, ignore_too_many_dims):
     return valid
 
 
-def _build_xr_raster(path, variable, affine, crs, xarray_kwargs):
+def _build_raster(path, variable, affine, crs, xarray_kwargs):
+    from raster_tools.raster import data_to_raster
+
     if affine is None:
         affine = Affine(1, 0, 0, 0, -1, 0, 0)
     kwargs = xarray_kwargs.copy()
     kwargs["chunks"] = "auto"
     var = xr.open_dataset(path, **kwargs)[variable].squeeze()
-    var_data = var.data
-    if var.ndim == 2:
-        var_data = np.expand_dims(var_data, axis=0)
-    var_data = var_data.rechunk((1, "auto", "auto"))
-    band = np.array(list(range(var_data.shape[0])))
     x = var[var.rio.x_dim].to_numpy()
     y = var[var.rio.y_dim].to_numpy()
-    new_var = xr.DataArray(
-        var_data, dims=["band", "y", "x"], coords=(band, y, x)
-    )
-    new_var = new_var.rio.write_transform(affine)
-    if crs is not None:
-        new_var = new_var.rio.write_crs(crs)
     nv = var._FillValue if "_FillValue" in var.attrs else var.rio.nodata
-    if nv is not None:
-        new_var = new_var.rio.write_nodata(nv)
-    return new_var
+    raster = data_to_raster(var.data, x=x, y=y, affine=affine, crs=crs, nv=nv)
+    if nv is None or np.isnan(nv):
+        raster = raster.set_null_value(get_default_null_value(raster.dtype))
+    return raster
 
 
 def _get_affine(ds):
@@ -287,8 +280,6 @@ def open_dataset(
         raster.
 
     """
-    from raster_tools.raster import Raster
-
     if xarray_kwargs is None:
         xarray_kwargs = {}
     xarray_kwargs["decode_coords"] = "all"
@@ -299,6 +290,5 @@ def open_dataset(
     tmp_ds = None
     ds = {}
     for v in data_vars:
-        var = _build_xr_raster(path, v, affine, crs, xarray_kwargs)
-        ds[v] = Raster(var)
+        ds[v] = _build_raster(path, v, affine, crs, xarray_kwargs)
     return ds
