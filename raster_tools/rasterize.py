@@ -428,9 +428,20 @@ def _rasterize_spatial_aware(
         like = like.get_bands(1)
 
     sparts = dgdf.spatial_partitions.to_frame("geometry")
+    # The null value can be different from the fill value when mask=True so set
+    # a separate variable.
+    nv = fill
     if mask:
-        fill = 1 if mask_invert else 0
         target_dtype = U8
+        # The cells that will eventually be set to null values will always have
+        # 0 in them after the rasterize operation when mask=True. final_nv,
+        # below, will then be used to set the actual null values.
+        nv = target_dtype.type(0)
+        final_nv = None
+        if fill is not None:
+            # Store the original value to set later
+            final_nv = fill
+        fill = target_dtype.type(1 if mask_invert else 0)
         # Only need geometry for masking
         dgdf = dgdf.geometry.to_frame("geometry")
     else:
@@ -475,7 +486,10 @@ def _rasterize_spatial_aware(
         mask=mask,
         mask_invert=mask_invert,
     )
-    return data_to_raster_like(out_data, like, nv=fill)
+    raster = data_to_raster_like(out_data, like, nv=nv)
+    if mask and final_nv is not None:
+        raster = raster.set_null_value(final_nv)
+    return raster
 
 
 def _rasterize_spatial_naive(
