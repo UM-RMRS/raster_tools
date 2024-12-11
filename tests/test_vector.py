@@ -139,8 +139,11 @@ class TestSpecialMethods(unittest.TestCase):
         self.assertTrue(
             self.v[0].data.compute().equals(self.v.data.loc[[0]].compute())
         )
-        last = self.v.data.loc[[self.v.size - 1]]
-        last.index = dask.array.from_array([0]).to_dask_dataframe()
+        last = (
+            self.v.data.loc[[self.v.size - 1]]
+            .assign(__new_idx__=0)
+            .set_index("__new_idx__", divisions=[0, 1])
+        )
         self.assertTrue(self.v[-1].data.compute().equals(last.compute()))
         with self.assertRaises(NotImplementedError):
             self.v[0:3]
