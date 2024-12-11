@@ -17,6 +17,13 @@ import rasterio as rio
 
 from raster_tools.vector import _OBJECTID_BASE, Vector, open_vectors
 
+try:
+    import dask_expr  # noqa: F401
+
+    DASK_EXPR = True
+except ModuleNotFoundError:
+    DASK_EXPR = False
+
 
 class TestOpenVectors(unittest.TestCase):
     def test_open_vectors(self):
@@ -58,6 +65,12 @@ class TestVectorProperties(unittest.TestCase):
         self.v = open_vectors("tests/data/vector/pods.shp")
 
     def test_table(self):
+        if DASK_EXPR:
+            # ref: https://github.com/geopandas/dask-geopandas/issues/321
+            pytest.xfail(
+                "dask_geopandas is partially broken when using dask-expr "
+                "backend."
+            )
         self.assertTrue(hasattr(self.v, "table"))
         self.assertTrue(len(self.v) == len(self.v.table))
         # Table doesn't contain geometry. It is only vector attributes
