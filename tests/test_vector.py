@@ -73,7 +73,9 @@ class TestVectorProperties(unittest.TestCase):
     def test_shape(self):
         self.assertTrue(hasattr(self.v, "shape"))
         self.assertIsInstance(self.v.shape, tuple)
-        self.assertTrue(self.v.shape == dask.compute(self.v.table.shape)[0])
+        self.assertTrue(
+            self.v.shape == (len(self.v), len(self.v.data.columns) - 1)
+        )
 
     def test_crs(self):
         self.assertTrue(hasattr(self.v, "crs"))
