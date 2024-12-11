@@ -18,6 +18,7 @@ from raster_tools.dtypes import (
     U16,
     U32,
     U64,
+    get_dtype_min_max,
     is_bool,
     is_float,
 )
@@ -69,12 +70,25 @@ def reconcile_nullvalue_with_dtype(null_value, dtype, warn=False):
         return get_default_null_value(dtype)
 
     dtype = np.dtype(dtype)
+    null_value = np.min_scalar_type(null_value).type(null_value)
     if np.can_cast(null_value, dtype):
         return null_value
 
     original_nv = null_value
+    # TODO: stop checking if the value is an integer. Too much complexity. If
+    # it is a float, treat it as a float.
     if is_float(original_nv) and float(original_nv).is_integer():
-        nv = int(original_nv)
+        if any(
+            np.allclose(original_nv, v)
+            for v in (*get_dtype_min_max(F32), *get_dtype_min_max(F64))
+        ):
+            nv = original_nv
+        else:
+            nv = int(original_nv)
+            min_type = np.min_scalar_type(nv)
+            nv = min_type.type(nv)
+            if min_type.kind == "O":
+                nv = original_nv
     else:
         nv = original_nv
     if np.can_cast(nv, dtype) or (is_bool(dtype) and nv in (0, 1)):

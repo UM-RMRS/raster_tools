@@ -5,15 +5,15 @@ dependencies:
   - python=3.9
   - affine
   - cfgrib
-  - dask<=2024.2.1
+  - dask
   - dask-geopandas
   - dask-image
   - fiona
   - geopandas
   - numba
-  - numpy<2
+  - numpy
   - netcdf4
-  - odc-geo<=0.4.3
+  - odc-geo
   - pandas
   - pyogrio
   - pyproj

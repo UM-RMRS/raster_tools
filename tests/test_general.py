@@ -22,6 +22,7 @@ from scipy.ndimage import (
 )
 
 from raster_tools import general
+from raster_tools._compat import NUMPY_GE_2
 from raster_tools.dtypes import (
     F32,
     F64,
@@ -1063,7 +1064,7 @@ def test_where_both_none():
                 120: -120,
                 150: np.finfo("float32").max + 1e35,
             },
-            np.dtype("float64"),
+            np.dtype("float32") if NUMPY_GE_2 else np.dtype("float64"),
         ),
         # make sure that float input rasters are accepted
         (

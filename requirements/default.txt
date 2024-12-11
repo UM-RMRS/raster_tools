@@ -1,13 +1,13 @@
 affine
 cfgrib
-dask<=2024.2.1
+dask
 dask-geopandas
 dask-image
 fiona
 geopandas
 netcdf4
 numba
-numpy>=1.22,<2
+numpy>=1.22
 odc-geo<=0.4.3
 pandas
 pyogrio

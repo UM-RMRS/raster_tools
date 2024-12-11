@@ -6,7 +6,7 @@ dependencies:
   - python=3.12
   - affine
   - cfgrib
-  - dask<=2024.2.1
+  - dask
   - dask-geopandas
   - dask-image
   - fiona
@@ -15,7 +15,7 @@ dependencies:
   - matplotlib
   - netcdf4
   - numba
-  - numpy<2
+  - numpy
   - odc-geo
   - pandas
   - pre-commit
