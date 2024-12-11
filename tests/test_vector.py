@@ -17,6 +17,13 @@ import rasterio as rio
 
 from raster_tools.vector import _OBJECTID_BASE, Vector, open_vectors
 
+try:
+    import dask_expr  # noqa: F401
+
+    DASK_EXPR = True
+except ModuleNotFoundError:
+    DASK_EXPR = False
+
 
 class TestOpenVectors(unittest.TestCase):
     def test_open_vectors(self):
@@ -58,6 +65,12 @@ class TestVectorProperties(unittest.TestCase):
         self.v = open_vectors("tests/data/vector/pods.shp")
 
     def test_table(self):
+        if DASK_EXPR:
+            # ref: https://github.com/geopandas/dask-geopandas/issues/321
+            pytest.xfail(
+                "dask_geopandas is partially broken when using dask-expr "
+                "backend."
+            )
         self.assertTrue(hasattr(self.v, "table"))
         self.assertTrue(len(self.v) == len(self.v.table))
         # Table doesn't contain geometry. It is only vector attributes
@@ -73,7 +86,9 @@ class TestVectorProperties(unittest.TestCase):
     def test_shape(self):
         self.assertTrue(hasattr(self.v, "shape"))
         self.assertIsInstance(self.v.shape, tuple)
-        self.assertTrue(self.v.shape == dask.compute(self.v.table.shape)[0])
+        self.assertTrue(
+            self.v.shape == (len(self.v), len(self.v.data.columns) - 1)
+        )
 
     def test_crs(self):
         self.assertTrue(hasattr(self.v, "crs"))
@@ -137,8 +152,11 @@ class TestSpecialMethods(unittest.TestCase):
         self.assertTrue(
             self.v[0].data.compute().equals(self.v.data.loc[[0]].compute())
         )
-        last = self.v.data.loc[[self.v.size - 1]]
-        last.index = dask.array.from_array([0]).to_dask_dataframe()
+        last = (
+            self.v.data.loc[[self.v.size - 1]]
+            .assign(__new_idx__=0)
+            .set_index("__new_idx__", divisions=[0, 1])
+        )
         self.assertTrue(self.v[-1].data.compute().equals(last.compute()))
         with self.assertRaises(NotImplementedError):
             self.v[0:3]

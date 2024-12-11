@@ -666,7 +666,7 @@ class Vector:
         The transformed vector(s).
 
         """
-        return Vector(self._geo.to_crs(crs))
+        return Vector(self._geo.to_crs(crs), self._size)
 
     def cast_field(self, name, dtype):
         """Cast a field to the specified `dtype`.
@@ -714,7 +714,11 @@ class Vector:
         # [idx], however. This breaks future iteration we reset it to [0] to
         # allow iteration over the resulting Vector.
         subgeo = self._geo.loc[[idx]]
-        subgeo.index = dask.array.from_array([0]).to_dask_dataframe()
+        subgeo = subgeo.assign(__new_idx__=0)
+        old_idx_name = subgeo.index.name
+        subgeo = subgeo.set_index("__new_idx__", divisions=[0, 1])
+        new_idx_name = "index" if old_idx_name is None else old_idx_name
+        subgeo.index = subgeo.index.rename(new_idx_name)
         return Vector(subgeo, 1)
 
     def buffer(self, *args, **kwargs):

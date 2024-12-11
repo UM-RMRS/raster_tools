@@ -6,14 +6,14 @@ dependencies:
   - python=3.10
   - affine
   - cfgrib
-  - dask<=2024.2.1
+  - dask
   - dask-geopandas
   - dask-image
   - fiona
   - geopandas
   - netcdf4
   - numba
-  - numpy<2
+  - numpy
   - pandas
   - pre-commit
   - pygeos

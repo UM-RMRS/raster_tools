@@ -5,14 +5,14 @@ dependencies:
   - python=3.11
   - affine
   - cfgrib
-  - dask<=2024.2.1
+  - dask
   - dask-geopandas
   - dask-image
   - fiona
   - geopandas
   - netcdf4
   - numba
-  - numpy<2
+  - numpy
   - odc-geo
   - pandas
   - pyogrio
