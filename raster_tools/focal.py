@@ -11,6 +11,7 @@ from raster_tools.dtypes import (
     U16,
     U32,
     U64,
+    get_dtype_min_max,
     is_bool,
     is_float,
     is_int,
@@ -411,7 +412,7 @@ def focal(raster, focal_type, width_or_radius, height=None, ignore_null=False):
             n = window.size
             unq_dtype = None
             for dt in (U8, U16, U32, U64):
-                if np.can_cast(n, dt):
+                if n <= get_dtype_min_max(dt)[1]:
                     unq_dtype = dt
                     break
             data = data.astype(unq_dtype)
