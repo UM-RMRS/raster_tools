@@ -8,7 +8,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>raster_tools.rasterize &#8212; raster_tools 0.9.5 documentation</title>
+    <title>raster_tools.rasterize &#8212; raster_tools 0.9.6 documentation</title>
   
   
   
@@ -114,7 +114,7 @@
   
   
   
-    <p class="title logo__title">raster_tools 0.9.5 documentation</p>
+    <p class="title logo__title">raster_tools 0.9.6 documentation</p>
   
 </a></div>
         <div class="sidebar-primary-item"><nav class="bd-links" id="bd-docs-nav" aria-label="Main">
@@ -835,9 +835,20 @@ document.write(`
         <span class="n">like</span> <span class="o">=</span> <span class="n">like</span><span class="o">.</span><span class="n">get_bands</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
 
     <span class="n">sparts</span> <span class="o">=</span> <span class="n">dgdf</span><span class="o">.</span><span class="n">spatial_partitions</span><span class="o">.</span><span class="n">to_frame</span><span class="p">(</span><span class="s2">&quot;geometry&quot;</span><span class="p">)</span>
+    <span class="c1"># The null value can be different from the fill value when mask=True so set</span>
+    <span class="c1"># a separate variable.</span>
+    <span class="n">nv</span> <span class="o">=</span> <span class="n">fill</span>
     <span class="k">if</span> <span class="n">mask</span><span class="p">:</span>
-        <span class="n">fill</span> <span class="o">=</span> <span class="mi">1</span> <span class="k">if</span> <span class="n">mask_invert</span> <span class="k">else</span> <span class="mi">0</span>
         <span class="n">target_dtype</span> <span class="o">=</span> <span class="n">U8</span>
+        <span class="c1"># The cells that will eventually be set to null values will always have</span>
+        <span class="c1"># 0 in them after the rasterize operation when mask=True. final_nv,</span>
+        <span class="c1"># below, will then be used to set the actual null values.</span>
+        <span class="n">nv</span> <span class="o">=</span> <span class="n">target_dtype</span><span class="o">.</span><span class="n">type</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">final_nv</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">fill</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># Store the original value to set later</span>
+            <span class="n">final_nv</span> <span class="o">=</span> <span class="n">fill</span>
+        <span class="n">fill</span> <span class="o">=</span> <span class="n">target_dtype</span><span class="o">.</span><span class="n">type</span><span class="p">(</span><span class="mi">1</span> <span class="k">if</span> <span class="n">mask_invert</span> <span class="k">else</span> <span class="mi">0</span><span class="p">)</span>
         <span class="c1"># Only need geometry for masking</span>
         <span class="n">dgdf</span> <span class="o">=</span> <span class="n">dgdf</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">to_frame</span><span class="p">(</span><span class="s2">&quot;geometry&quot;</span><span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
@@ -882,7 +893,10 @@ document.write(`
         <span class="n">mask</span><span class="o">=</span><span class="n">mask</span><span class="p">,</span>
         <span class="n">mask_invert</span><span class="o">=</span><span class="n">mask_invert</span><span class="p">,</span>
     <span class="p">)</span>
-    <span class="k">return</span> <span class="n">data_to_raster_like</span><span class="p">(</span><span class="n">out_data</span><span class="p">,</span> <span class="n">like</span><span class="p">,</span> <span class="n">nv</span><span class="o">=</span><span class="n">fill</span><span class="p">)</span>
+    <span class="n">raster</span> <span class="o">=</span> <span class="n">data_to_raster_like</span><span class="p">(</span><span class="n">out_data</span><span class="p">,</span> <span class="n">like</span><span class="p">,</span> <span class="n">nv</span><span class="o">=</span><span class="n">nv</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">mask</span> <span class="ow">and</span> <span class="n">final_nv</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">raster</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">set_null_value</span><span class="p">(</span><span class="n">final_nv</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">raster</span>
 
 
 <span class="k">def</span> <span class="nf">_rasterize_spatial_naive</span><span class="p">(</span>

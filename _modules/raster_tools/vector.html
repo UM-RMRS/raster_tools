@@ -8,7 +8,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>raster_tools.vector &#8212; raster_tools 0.9.5 documentation</title>
+    <title>raster_tools.vector &#8212; raster_tools 0.9.6 documentation</title>
   
   
   
@@ -114,7 +114,7 @@
   
   
   
-    <p class="title logo__title">raster_tools 0.9.5 documentation</p>
+    <p class="title logo__title">raster_tools 0.9.6 documentation</p>
   
 </a></div>
         <div class="sidebar-primary-item"><nav class="bd-links" id="bd-docs-nav" aria-label="Main">
@@ -1073,7 +1073,7 @@ document.write(`
 <span class="sd">        The transformed vector(s).</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="n">Vector</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_geo</span><span class="o">.</span><span class="n">to_crs</span><span class="p">(</span><span class="n">crs</span><span class="p">))</span></div>
+        <span class="k">return</span> <span class="n">Vector</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_geo</span><span class="o">.</span><span class="n">to_crs</span><span class="p">(</span><span class="n">crs</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">_size</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="Vector.cast_field"><a class="viewcode-back" href="../../reference/generated/raster_tools.Vector.cast_field.html#raster_tools.vector.Vector.cast_field">[docs]</a>    <span class="k">def</span> <span class="nf">cast_field</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">dtype</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Cast a field to the specified `dtype`.</span>
@@ -1121,7 +1121,11 @@ document.write(`
         <span class="c1"># [idx], however. This breaks future iteration we reset it to [0] to</span>
         <span class="c1"># allow iteration over the resulting Vector.</span>
         <span class="n">subgeo</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_geo</span><span class="o">.</span><span class="n">loc</span><span class="p">[[</span><span class="n">idx</span><span class="p">]]</span>
-        <span class="n">subgeo</span><span class="o">.</span><span class="n">index</span> <span class="o">=</span> <span class="n">dask</span><span class="o">.</span><span class="n">array</span><span class="o">.</span><span class="n">from_array</span><span class="p">([</span><span class="mi">0</span><span class="p">])</span><span class="o">.</span><span class="n">to_dask_dataframe</span><span class="p">()</span>
+        <span class="n">subgeo</span> <span class="o">=</span> <span class="n">subgeo</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="n">__new_idx__</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">old_idx_name</span> <span class="o">=</span> <span class="n">subgeo</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">name</span>
+        <span class="n">subgeo</span> <span class="o">=</span> <span class="n">subgeo</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span><span class="s2">&quot;__new_idx__&quot;</span><span class="p">,</span> <span class="n">divisions</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span>
+        <span class="n">new_idx_name</span> <span class="o">=</span> <span class="s2">&quot;index&quot;</span> <span class="k">if</span> <span class="n">old_idx_name</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">old_idx_name</span>
+        <span class="n">subgeo</span><span class="o">.</span><span class="n">index</span> <span class="o">=</span> <span class="n">subgeo</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="n">new_idx_name</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">Vector</span><span class="p">(</span><span class="n">subgeo</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
 
 <div class="viewcode-block" id="Vector.buffer"><a class="viewcode-back" href="../../reference/generated/raster_tools.Vector.buffer.html#raster_tools.vector.Vector.buffer">[docs]</a>    <span class="k">def</span> <span class="nf">buffer</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>

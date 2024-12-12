@@ -8,7 +8,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>raster_tools.io &#8212; raster_tools 0.9.5 documentation</title>
+    <title>raster_tools.io &#8212; raster_tools 0.9.6 documentation</title>
   
   
   
@@ -114,7 +114,7 @@
   
   
   
-    <p class="title logo__title">raster_tools 0.9.5 documentation</p>
+    <p class="title logo__title">raster_tools 0.9.6 documentation</p>
   
 </a></div>
         <div class="sidebar-primary-item"><nav class="bd-links" id="bd-docs-nav" aria-label="Main">
@@ -424,6 +424,7 @@ document.write(`
     <span class="n">RasterDataError</span><span class="p">,</span>
     <span class="n">RasterIOError</span><span class="p">,</span>
 <span class="p">)</span>
+<span class="kn">from</span> <span class="nn">raster_tools.masking</span> <span class="kn">import</span> <span class="n">get_default_null_value</span>
 <span class="kn">from</span> <span class="nn">raster_tools.utils</span> <span class="kn">import</span> <span class="n">to_chunk_dict</span><span class="p">,</span> <span class="n">validate_path</span>
 
 
@@ -608,29 +609,21 @@ document.write(`
     <span class="k">return</span> <span class="n">valid</span>
 
 
-<span class="k">def</span> <span class="nf">_build_xr_raster</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">variable</span><span class="p">,</span> <span class="n">affine</span><span class="p">,</span> <span class="n">crs</span><span class="p">,</span> <span class="n">xarray_kwargs</span><span class="p">):</span>
+<span class="k">def</span> <span class="nf">_build_raster</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">variable</span><span class="p">,</span> <span class="n">affine</span><span class="p">,</span> <span class="n">crs</span><span class="p">,</span> <span class="n">xarray_kwargs</span><span class="p">):</span>
+    <span class="kn">from</span> <span class="nn">raster_tools.raster</span> <span class="kn">import</span> <span class="n">data_to_raster</span>
+
     <span class="k">if</span> <span class="n">affine</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">affine</span> <span class="o">=</span> <span class="n">Affine</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
     <span class="n">kwargs</span> <span class="o">=</span> <span class="n">xarray_kwargs</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
     <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;chunks&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;auto&quot;</span>
     <span class="n">var</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">open_dataset</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)[</span><span class="n">variable</span><span class="p">]</span><span class="o">.</span><span class="n">squeeze</span><span class="p">()</span>
-    <span class="n">var_data</span> <span class="o">=</span> <span class="n">var</span><span class="o">.</span><span class="n">data</span>
-    <span class="k">if</span> <span class="n">var</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
-        <span class="n">var_data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">expand_dims</span><span class="p">(</span><span class="n">var_data</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
-    <span class="n">var_data</span> <span class="o">=</span> <span class="n">var_data</span><span class="o">.</span><span class="n">rechunk</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;auto&quot;</span><span class="p">,</span> <span class="s2">&quot;auto&quot;</span><span class="p">))</span>
-    <span class="n">band</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">var_data</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])))</span>
     <span class="n">x</span> <span class="o">=</span> <span class="n">var</span><span class="p">[</span><span class="n">var</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">x_dim</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
     <span class="n">y</span> <span class="o">=</span> <span class="n">var</span><span class="p">[</span><span class="n">var</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">y_dim</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
-    <span class="n">new_var</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">(</span>
-        <span class="n">var_data</span><span class="p">,</span> <span class="n">dims</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;band&quot;</span><span class="p">,</span> <span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="s2">&quot;x&quot;</span><span class="p">],</span> <span class="n">coords</span><span class="o">=</span><span class="p">(</span><span class="n">band</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
-    <span class="p">)</span>
-    <span class="n">new_var</span> <span class="o">=</span> <span class="n">new_var</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_transform</span><span class="p">(</span><span class="n">affine</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">crs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">new_var</span> <span class="o">=</span> <span class="n">new_var</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_crs</span><span class="p">(</span><span class="n">crs</span><span class="p">)</span>
     <span class="n">nv</span> <span class="o">=</span> <span class="n">var</span><span class="o">.</span><span class="n">_FillValue</span> <span class="k">if</span> <span class="s2">&quot;_FillValue&quot;</span> <span class="ow">in</span> <span class="n">var</span><span class="o">.</span><span class="n">attrs</span> <span class="k">else</span> <span class="n">var</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">nodata</span>
-    <span class="k">if</span> <span class="n">nv</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">new_var</span> <span class="o">=</span> <span class="n">new_var</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_nodata</span><span class="p">(</span><span class="n">nv</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">new_var</span>
+    <span class="n">raster</span> <span class="o">=</span> <span class="n">data_to_raster</span><span class="p">(</span><span class="n">var</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">x</span><span class="o">=</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="n">y</span><span class="p">,</span> <span class="n">affine</span><span class="o">=</span><span class="n">affine</span><span class="p">,</span> <span class="n">crs</span><span class="o">=</span><span class="n">crs</span><span class="p">,</span> <span class="n">nv</span><span class="o">=</span><span class="n">nv</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">nv</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">nv</span><span class="p">):</span>
+        <span class="n">raster</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">set_null_value</span><span class="p">(</span><span class="n">get_default_null_value</span><span class="p">(</span><span class="n">raster</span><span class="o">.</span><span class="n">dtype</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">raster</span>
 
 
 <span class="k">def</span> <span class="nf">_get_affine</span><span class="p">(</span><span class="n">ds</span><span class="p">):</span>
@@ -694,8 +687,6 @@ document.write(`
 <span class="sd">        raster.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="kn">from</span> <span class="nn">raster_tools.raster</span> <span class="kn">import</span> <span class="n">Raster</span>
-
     <span class="k">if</span> <span class="n">xarray_kwargs</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">xarray_kwargs</span> <span class="o">=</span> <span class="p">{}</span>
     <span class="n">xarray_kwargs</span><span class="p">[</span><span class="s2">&quot;decode_coords&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;all&quot;</span>
@@ -706,8 +697,7 @@ document.write(`
     <span class="n">tmp_ds</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">ds</span> <span class="o">=</span> <span class="p">{}</span>
     <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">data_vars</span><span class="p">:</span>
-        <span class="n">var</span> <span class="o">=</span> <span class="n">_build_xr_raster</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">affine</span><span class="p">,</span> <span class="n">crs</span><span class="p">,</span> <span class="n">xarray_kwargs</span><span class="p">)</span>
-        <span class="n">ds</span><span class="p">[</span><span class="n">v</span><span class="p">]</span> <span class="o">=</span> <span class="n">Raster</span><span class="p">(</span><span class="n">var</span><span class="p">)</span>
+        <span class="n">ds</span><span class="p">[</span><span class="n">v</span><span class="p">]</span> <span class="o">=</span> <span class="n">_build_raster</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">affine</span><span class="p">,</span> <span class="n">crs</span><span class="p">,</span> <span class="n">xarray_kwargs</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">ds</span></div>
 </pre></div>
 

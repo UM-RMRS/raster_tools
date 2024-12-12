@@ -8,7 +8,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>raster_tools.masking &#8212; raster_tools 0.9.5 documentation</title>
+    <title>raster_tools.masking &#8212; raster_tools 0.9.6 documentation</title>
   
   
   
@@ -114,7 +114,7 @@
   
   
   
-    <p class="title logo__title">raster_tools 0.9.5 documentation</p>
+    <p class="title logo__title">raster_tools 0.9.6 documentation</p>
   
 </a></div>
         <div class="sidebar-primary-item"><nav class="bd-links" id="bd-docs-nav" aria-label="Main">
@@ -425,6 +425,7 @@ document.write(`
     <span class="n">U16</span><span class="p">,</span>
     <span class="n">U32</span><span class="p">,</span>
     <span class="n">U64</span><span class="p">,</span>
+    <span class="n">get_dtype_min_max</span><span class="p">,</span>
     <span class="n">is_bool</span><span class="p">,</span>
     <span class="n">is_float</span><span class="p">,</span>
 <span class="p">)</span>
@@ -476,12 +477,25 @@ document.write(`
         <span class="k">return</span> <span class="n">get_default_null_value</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span>
 
     <span class="n">dtype</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span>
+    <span class="n">null_value</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">min_scalar_type</span><span class="p">(</span><span class="n">null_value</span><span class="p">)</span><span class="o">.</span><span class="n">type</span><span class="p">(</span><span class="n">null_value</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">can_cast</span><span class="p">(</span><span class="n">null_value</span><span class="p">,</span> <span class="n">dtype</span><span class="p">):</span>
         <span class="k">return</span> <span class="n">null_value</span>
 
     <span class="n">original_nv</span> <span class="o">=</span> <span class="n">null_value</span>
+    <span class="c1"># TODO: stop checking if the value is an integer. Too much complexity. If</span>
+    <span class="c1"># it is a float, treat it as a float.</span>
     <span class="k">if</span> <span class="n">is_float</span><span class="p">(</span><span class="n">original_nv</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">float</span><span class="p">(</span><span class="n">original_nv</span><span class="p">)</span><span class="o">.</span><span class="n">is_integer</span><span class="p">():</span>
-        <span class="n">nv</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">original_nv</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">any</span><span class="p">(</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">original_nv</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="p">(</span><span class="o">*</span><span class="n">get_dtype_min_max</span><span class="p">(</span><span class="n">F32</span><span class="p">),</span> <span class="o">*</span><span class="n">get_dtype_min_max</span><span class="p">(</span><span class="n">F64</span><span class="p">))</span>
+        <span class="p">):</span>
+            <span class="n">nv</span> <span class="o">=</span> <span class="n">original_nv</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">nv</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">original_nv</span><span class="p">)</span>
+            <span class="n">min_type</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">min_scalar_type</span><span class="p">(</span><span class="n">nv</span><span class="p">)</span>
+            <span class="n">nv</span> <span class="o">=</span> <span class="n">min_type</span><span class="o">.</span><span class="n">type</span><span class="p">(</span><span class="n">nv</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">min_type</span><span class="o">.</span><span class="n">kind</span> <span class="o">==</span> <span class="s2">&quot;O&quot;</span><span class="p">:</span>
+                <span class="n">nv</span> <span class="o">=</span> <span class="n">original_nv</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="n">nv</span> <span class="o">=</span> <span class="n">original_nv</span>
     <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">can_cast</span><span class="p">(</span><span class="n">nv</span><span class="p">,</span> <span class="n">dtype</span><span class="p">)</span> <span class="ow">or</span> <span class="p">(</span><span class="n">is_bool</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span> <span class="ow">and</span> <span class="n">nv</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)):</span>
