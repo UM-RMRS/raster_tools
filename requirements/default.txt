@@ -8,7 +8,7 @@ geopandas
 netcdf4
 numba
 numpy>=1.22
-odc-geo<=0.4.3
+odc-geo
 pandas
 pyogrio
 pyproj
