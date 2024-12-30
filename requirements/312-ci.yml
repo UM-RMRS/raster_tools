@@ -1,4 +1,4 @@
-name: test-rts
+name: test
 channels:
   - conda-forge
 dependencies:
