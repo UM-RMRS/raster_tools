@@ -314,7 +314,7 @@ def _reduce_stacked_feature_rasters(
 
 def _rasterize_spatial_matches(
     matches,
-    partitions,
+    dgdf,
     like_chunk_rasters,
     all_touched,
     fill=None,
@@ -323,6 +323,15 @@ def _rasterize_spatial_matches(
     mask=False,
     mask_invert=False,
 ):
+    # NOTE: Convert the partitions to delayed objects to work around some
+    # flakey behavior in dask. The partitions are passed into map_blocks below
+    # as args, which should work just fine. A very small and random percentage
+    # of the time, however, this fails and one of the partitions will evaluate
+    # to a pandas.Series object with a single element containing a dask graph
+    # key(?). This started happening after dask-expr became the main dask
+    # dataframe backend so I believe the issue originates there. Converting to
+    # delayed objects avoids this behavior.
+    partitions_as_delayed = dgdf.to_delayed()
     chunk_func = _mask_onto_chunk if mask else _rasterize_onto_chunk
     target_dtype = U8 if mask else target_dtype
     func_kwargs = {"all_touched": all_touched}
@@ -341,7 +350,7 @@ def _rasterize_spatial_matches(
     # Group by partition and iterate over the groups
     for ipart, grp in matches.groupby("part_idx"):
         # Get the vector partition
-        part = partitions[ipart]
+        part = partitions_as_delayed[ipart]
         # Iterate over the chunks that intersected the vector partition and
         # rasterize the partition to each intersecting chunk's grid
         for _, row in grp.iterrows():
@@ -458,7 +467,7 @@ def _rasterize_spatial_aware(
     # Each element is either None or a list of 2D dask arrays
     raw_chunk_list = _rasterize_spatial_matches(
         matches,
-        dgdf.partitions,
+        dgdf,
         like_chunk_rasters,
         all_touched,
         fill=fill,
