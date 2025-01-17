@@ -9,7 +9,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
 
-    <title>raster_tools package &#8212; raster_tools 0.9.7 documentation</title>
+    <title>raster_tools package &#8212; raster_tools 0.9.8 documentation</title>
   
   
   
@@ -117,7 +117,7 @@
   
   
   
-    <p class="title logo__title">raster_tools 0.9.7 documentation</p>
+    <p class="title logo__title">raster_tools 0.9.8 documentation</p>
   
 </a></div>
         <div class="sidebar-primary-item"><nav class="bd-links" id="bd-docs-nav" aria-label="Main">
@@ -1100,7 +1100,7 @@ on Raster objects</p>
 with <a class="reference internal" href="reference/generated/raster_tools.general.model_predict_raster.html#raster_tools.general.model_predict_raster" title="raster_tools.general.model_predict_raster"><code class="xref py py-func docutils literal notranslate"><span class="pre">model_predict_raster()</span></code></a> and <a class="reference internal" href="reference/generated/raster_tools.general.model_predict_vector.html#raster_tools.general.model_predict_vector" title="raster_tools.general.model_predict_vector"><code class="xref py py-func docutils literal notranslate"><span class="pre">model_predict_vector()</span></code></a>.</p>
 <p class="rubric">Examples</p>
 <p>For a model function:</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="k">def</span> <span class="nf">my_model_func</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="k">def</span><span class="w"> </span><span class="nf">my_model_func</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
 <span class="gp">... </span>    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">model</span> <span class="o">=</span> <span class="n">ModelPredictAdaptor</span><span class="p">(</span><span class="n">my_model_func</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">result_raster</span> <span class="o">=</span> <span class="n">rts</span><span class="o">.</span><span class="n">general</span><span class="o">.</span><span class="n">model_predict_raster</span><span class="p">(</span>
@@ -1109,9 +1109,9 @@ with <a class="reference internal" href="reference/generated/raster_tools.genera
 </pre></div>
 </div>
 <p>For a model function lacking a <cite>predict</cite> method:</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="k">class</span> <span class="nc">MyModel</span><span class="p">:</span>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="k">class</span><span class="w"> </span><span class="nc">MyModel</span><span class="p">:</span>
 <span class="gp">... </span>    <span class="c1"># ...</span>
-<span class="gp">... </span>    <span class="k">def</span> <span class="nf">transform</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+<span class="gp">... </span>    <span class="k">def</span><span class="w"> </span><span class="nf">transform</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
 <span class="gp">... </span>        <span class="c1"># ...</span>
 <span class="gp">... </span>        <span class="k">return</span> <span class="n">result</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">model</span> <span class="o">=</span> <span class="n">ModelPredictAdaptor</span><span class="p">(</span><span class="n">MyModel</span><span class="p">(),</span> <span class="s2">&quot;transform&quot;</span><span class="p">)</span>

@@ -8,7 +8,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>raster_tools.dask_utils &#8212; raster_tools 0.9.7 documentation</title>
+    <title>raster_tools.dask_utils &#8212; raster_tools 0.9.8 documentation</title>
   
   
   
@@ -114,7 +114,7 @@
   
   
   
-    <p class="title logo__title">raster_tools 0.9.7 documentation</p>
+    <p class="title logo__title">raster_tools 0.9.8 documentation</p>
   
 </a></div>
         <div class="sidebar-primary-item"><nav class="bd-links" id="bd-docs-nav" aria-label="Main">
@@ -405,12 +405,12 @@ document.write(`
                 <article class="bd-article" role="main">
                   
   <h1>Source code for raster_tools.dask_utils</h1><div class="highlight"><pre>
-<span></span><span class="kn">import</span> <span class="nn">dask.array</span> <span class="k">as</span> <span class="nn">da</span>
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">dask.array</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">da</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 
 
-<span class="k">def</span> <span class="nf">_handle_empty</span><span class="p">(</span><span class="n">func</span><span class="p">):</span>
-    <span class="k">def</span> <span class="nf">wrapped</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">keepdims</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_handle_empty</span><span class="p">(</span><span class="n">func</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">wrapped</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">keepdims</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
         <span class="k">if</span> <span class="n">x</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">size</span><span class="p">):</span>
             <span class="k">try</span><span class="p">:</span>
                 <span class="k">return</span> <span class="n">func</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="n">axis</span><span class="p">,</span> <span class="n">keepdims</span><span class="o">=</span><span class="n">keepdims</span><span class="p">)</span>
@@ -429,7 +429,7 @@ document.write(`
 <span class="n">_nanmax_empty_safe</span> <span class="o">=</span> <span class="n">_handle_empty</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">nanmax</span><span class="p">)</span>
 
 
-<div class="viewcode-block" id="dask_nanmin"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.dask_utils.dask_nanmin">[docs]</a><span class="k">def</span> <span class="nf">dask_nanmin</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+<div class="viewcode-block" id="dask_nanmin"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.dask_utils.dask_nanmin">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">dask_nanmin</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Retrieves the minimum value, ignoring nan values and handling empty blocks.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
@@ -443,7 +443,7 @@ document.write(`
     <span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="dask_nanmax"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.dask_utils.dask_nanmax">[docs]</a><span class="k">def</span> <span class="nf">dask_nanmax</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+<div class="viewcode-block" id="dask_nanmax"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.dask_utils.dask_nanmax">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">dask_nanmax</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Retrieves the maximum value, ignoring nan values and handling empty blocks.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
@@ -457,7 +457,7 @@ document.write(`
     <span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="chunks_to_array_locations"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.dask_utils.chunks_to_array_locations">[docs]</a><span class="k">def</span> <span class="nf">chunks_to_array_locations</span><span class="p">(</span><span class="n">dim_chunks</span><span class="p">):</span>
+<div class="viewcode-block" id="chunks_to_array_locations"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.dask_utils.chunks_to_array_locations">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">chunks_to_array_locations</span><span class="p">(</span><span class="n">dim_chunks</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Return a list of range tuples for a dask dimension&#39;s chunks.</span>
 
 <span class="sd">    These range tuples can be used to create a range object.</span>

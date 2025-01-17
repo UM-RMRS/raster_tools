@@ -8,7 +8,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>raster_tools.dtypes &#8212; raster_tools 0.9.7 documentation</title>
+    <title>raster_tools.dtypes &#8212; raster_tools 0.9.8 documentation</title>
   
   
   
@@ -114,7 +114,7 @@
   
   
   
-    <p class="title logo__title">raster_tools 0.9.7 documentation</p>
+    <p class="title logo__title">raster_tools 0.9.8 documentation</p>
   
 </a></div>
         <div class="sidebar-primary-item"><nav class="bd-links" id="bd-docs-nav" aria-label="Main">
@@ -405,14 +405,14 @@ document.write(`
                 <article class="bd-article" role="main">
                   
   <h1>Source code for raster_tools.dtypes</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">reduce</span>
-<span class="kn">from</span> <span class="nn">numbers</span> <span class="kn">import</span> <span class="n">Integral</span><span class="p">,</span> <span class="n">Number</span>
+<span></span><span class="kn">from</span><span class="w"> </span><span class="nn">functools</span><span class="w"> </span><span class="kn">import</span> <span class="n">reduce</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">numbers</span><span class="w"> </span><span class="kn">import</span> <span class="n">Integral</span><span class="p">,</span> <span class="n">Number</span>
 
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="kn">from</span> <span class="nn">xarray.core.dtypes</span> <span class="kn">import</span> <span class="n">maybe_promote</span> <span class="k">as</span> <span class="n">xr_maybe_promote</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">xarray.core.dtypes</span><span class="w"> </span><span class="kn">import</span> <span class="n">maybe_promote</span> <span class="k">as</span> <span class="n">xr_maybe_promote</span>
 
 
-<span class="k">def</span> <span class="nf">_add_type</span><span class="p">(</span><span class="n">mapping</span><span class="p">,</span> <span class="n">dt</span><span class="p">,</span> <span class="n">aliases</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_add_type</span><span class="p">(</span><span class="n">mapping</span><span class="p">,</span> <span class="n">dt</span><span class="p">,</span> <span class="n">aliases</span><span class="p">):</span>
     <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="p">[</span><span class="n">dt</span><span class="p">]</span> <span class="o">+</span> <span class="n">aliases</span><span class="p">:</span>
         <span class="n">mapping</span><span class="p">[</span><span class="n">d</span><span class="p">]</span> <span class="o">=</span> <span class="n">dt</span>
 
@@ -459,45 +459,45 @@ document.write(`
 <span class="p">)</span>
 
 
-<div class="viewcode-block" id="is_str"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.dtypes.is_str">[docs]</a><span class="k">def</span> <span class="nf">is_str</span><span class="p">(</span><span class="n">value</span><span class="p">):</span>
+<div class="viewcode-block" id="is_str"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.dtypes.is_str">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">is_str</span><span class="p">(</span><span class="n">value</span><span class="p">):</span>
     <span class="k">return</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="is_int"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.dtypes.is_int">[docs]</a><span class="k">def</span> <span class="nf">is_int</span><span class="p">(</span><span class="n">value_or_dtype</span><span class="p">):</span>
+<div class="viewcode-block" id="is_int"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.dtypes.is_int">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">is_int</span><span class="p">(</span><span class="n">value_or_dtype</span><span class="p">):</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value_or_dtype</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">):</span>
         <span class="k">return</span> <span class="n">value_or_dtype</span><span class="o">.</span><span class="n">kind</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;u&quot;</span><span class="p">,</span> <span class="s2">&quot;i&quot;</span><span class="p">)</span>
     <span class="k">return</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value_or_dtype</span><span class="p">,</span> <span class="n">Integral</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="is_float"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.dtypes.is_float">[docs]</a><span class="k">def</span> <span class="nf">is_float</span><span class="p">(</span><span class="n">value_or_dtype</span><span class="p">):</span>
+<div class="viewcode-block" id="is_float"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.dtypes.is_float">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">is_float</span><span class="p">(</span><span class="n">value_or_dtype</span><span class="p">):</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value_or_dtype</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">):</span>
         <span class="k">return</span> <span class="n">value_or_dtype</span><span class="o">.</span><span class="n">kind</span> <span class="o">==</span> <span class="s2">&quot;f&quot;</span>
     <span class="k">return</span> <span class="n">is_scalar</span><span class="p">(</span><span class="n">value_or_dtype</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">is_int</span><span class="p">(</span><span class="n">value_or_dtype</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="is_bool"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.dtypes.is_bool">[docs]</a><span class="k">def</span> <span class="nf">is_bool</span><span class="p">(</span><span class="n">value_or_dtype</span><span class="p">):</span>
+<div class="viewcode-block" id="is_bool"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.dtypes.is_bool">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">is_bool</span><span class="p">(</span><span class="n">value_or_dtype</span><span class="p">):</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value_or_dtype</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">):</span>
         <span class="k">return</span> <span class="n">value_or_dtype</span><span class="o">.</span><span class="n">kind</span> <span class="o">==</span> <span class="s2">&quot;b&quot;</span>
     <span class="k">return</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value_or_dtype</span><span class="p">,</span> <span class="p">(</span><span class="nb">bool</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">bool_</span><span class="p">))</span></div>
 
 
-<div class="viewcode-block" id="is_scalar"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.dtypes.is_scalar">[docs]</a><span class="k">def</span> <span class="nf">is_scalar</span><span class="p">(</span><span class="n">value_or_dtype</span><span class="p">):</span>
+<div class="viewcode-block" id="is_scalar"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.dtypes.is_scalar">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">is_scalar</span><span class="p">(</span><span class="n">value_or_dtype</span><span class="p">):</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value_or_dtype</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">):</span>
         <span class="k">return</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value_or_dtype</span><span class="p">,</span> <span class="n">Number</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">is_int</span><span class="p">(</span><span class="n">value_or_dtype</span><span class="p">)</span> <span class="ow">or</span> <span class="n">is_float</span><span class="p">(</span><span class="n">value_or_dtype</span><span class="p">)</span></div>
 
 
-<span class="k">def</span> <span class="nf">_custom_min_scalar_type</span><span class="p">(</span><span class="n">value</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_custom_min_scalar_type</span><span class="p">(</span><span class="n">value</span><span class="p">):</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">):</span>
         <span class="k">return</span> <span class="n">value</span>
     <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">min_scalar_type</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
 
 
-<div class="viewcode-block" id="get_common_dtype"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.dtypes.get_common_dtype">[docs]</a><span class="k">def</span> <span class="nf">get_common_dtype</span><span class="p">(</span><span class="n">values</span><span class="p">):</span>
+<div class="viewcode-block" id="get_common_dtype"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.dtypes.get_common_dtype">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">get_common_dtype</span><span class="p">(</span><span class="n">values</span><span class="p">):</span>
     <span class="k">return</span> <span class="n">reduce</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">promote_types</span><span class="p">,</span> <span class="nb">map</span><span class="p">(</span><span class="n">_custom_min_scalar_type</span><span class="p">,</span> <span class="n">values</span><span class="p">))</span></div>
 
 
-<div class="viewcode-block" id="promote_dtype_to_float"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.dtypes.promote_dtype_to_float">[docs]</a><span class="k">def</span> <span class="nf">promote_dtype_to_float</span><span class="p">(</span><span class="n">dtype</span><span class="p">):</span>
+<div class="viewcode-block" id="promote_dtype_to_float"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.dtypes.promote_dtype_to_float">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">promote_dtype_to_float</span><span class="p">(</span><span class="n">dtype</span><span class="p">):</span>
     <span class="k">if</span> <span class="n">dtype</span><span class="o">.</span><span class="n">kind</span> <span class="o">==</span> <span class="s2">&quot;f&quot;</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">dtype</span>
     <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">can_cast</span><span class="p">(</span><span class="n">dtype</span><span class="p">,</span> <span class="n">F16</span><span class="p">):</span>
@@ -507,30 +507,30 @@ document.write(`
     <span class="k">return</span> <span class="n">F64</span></div>
 
 
-<div class="viewcode-block" id="maybe_promote"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.dtypes.maybe_promote">[docs]</a><span class="k">def</span> <span class="nf">maybe_promote</span><span class="p">(</span><span class="n">dtype</span><span class="p">):</span>
+<div class="viewcode-block" id="maybe_promote"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.dtypes.maybe_promote">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">maybe_promote</span><span class="p">(</span><span class="n">dtype</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Returns a dtype that can support missing values based on the input&quot;&quot;&quot;</span>
     <span class="k">return</span> <span class="n">xr_maybe_promote</span><span class="p">(</span><span class="n">dtype</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span></div>
 
 
-<div class="viewcode-block" id="should_promote_to_fit"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.dtypes.should_promote_to_fit">[docs]</a><span class="k">def</span> <span class="nf">should_promote_to_fit</span><span class="p">(</span><span class="n">dtype</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+<div class="viewcode-block" id="should_promote_to_fit"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.dtypes.should_promote_to_fit">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">should_promote_to_fit</span><span class="p">(</span><span class="n">dtype</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
     <span class="k">return</span> <span class="n">is_float</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="ow">and</span> <span class="n">is_int</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="promote_data_dtype"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.dtypes.promote_data_dtype">[docs]</a><span class="k">def</span> <span class="nf">promote_data_dtype</span><span class="p">(</span><span class="n">xrs</span><span class="p">):</span>
+<div class="viewcode-block" id="promote_data_dtype"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.dtypes.promote_data_dtype">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">promote_data_dtype</span><span class="p">(</span><span class="n">xrs</span><span class="p">):</span>
     <span class="n">dtype</span> <span class="o">=</span> <span class="n">maybe_promote</span><span class="p">(</span><span class="n">xrs</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">dtype</span> <span class="o">==</span> <span class="n">xrs</span><span class="o">.</span><span class="n">dtype</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">xrs</span>
     <span class="k">return</span> <span class="n">xrs</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="get_dtype_info"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.dtypes.get_dtype_info">[docs]</a><span class="k">def</span> <span class="nf">get_dtype_info</span><span class="p">(</span><span class="n">dtype</span><span class="p">):</span>
+<div class="viewcode-block" id="get_dtype_info"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.dtypes.get_dtype_info">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">get_dtype_info</span><span class="p">(</span><span class="n">dtype</span><span class="p">):</span>
     <span class="n">dtype</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">is_bool</span><span class="p">(</span><span class="n">dtype</span><span class="p">):</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;No info for bool&quot;</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">iinfo</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span> <span class="k">if</span> <span class="n">is_int</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">finfo</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="get_dtype_min_max"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.dtypes.get_dtype_min_max">[docs]</a><span class="k">def</span> <span class="nf">get_dtype_min_max</span><span class="p">(</span><span class="n">dtype</span><span class="p">):</span>
+<div class="viewcode-block" id="get_dtype_min_max"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.dtypes.get_dtype_min_max">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">get_dtype_min_max</span><span class="p">(</span><span class="n">dtype</span><span class="p">):</span>
     <span class="n">dtype</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">is_bool</span><span class="p">(</span><span class="n">dtype</span><span class="p">):</span>
         <span class="k">return</span> <span class="p">(</span><span class="kc">False</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>

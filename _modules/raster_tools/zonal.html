@@ -8,7 +8,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>raster_tools.zonal &#8212; raster_tools 0.9.7 documentation</title>
+    <title>raster_tools.zonal &#8212; raster_tools 0.9.8 documentation</title>
   
   
   
@@ -114,7 +114,7 @@
   
   
   
-    <p class="title logo__title">raster_tools 0.9.7 documentation</p>
+    <p class="title logo__title">raster_tools 0.9.8 documentation</p>
   
 </a></div>
         <div class="sidebar-primary-item"><nav class="bd-links" id="bd-docs-nav" aria-label="Main">
@@ -405,28 +405,28 @@ document.write(`
                 <article class="bd-article" role="main">
                   
   <h1>Source code for raster_tools.zonal</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span> <span class="nn">collections.abc</span> <span class="kn">import</span> <span class="n">Sequence</span>
-<span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">partial</span>
+<span></span><span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Sequence</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">functools</span><span class="w"> </span><span class="kn">import</span> <span class="n">partial</span>
 
-<span class="kn">import</span> <span class="nn">dask</span>
-<span class="kn">import</span> <span class="nn">dask.array</span> <span class="k">as</span> <span class="nn">da</span>
-<span class="kn">import</span> <span class="nn">dask.dataframe</span> <span class="k">as</span> <span class="nn">dd</span>
-<span class="kn">import</span> <span class="nn">dask_geopandas</span> <span class="k">as</span> <span class="nn">dgpd</span>
-<span class="kn">import</span> <span class="nn">geopandas</span> <span class="k">as</span> <span class="nn">gpd</span>
-<span class="kn">import</span> <span class="nn">numba</span> <span class="k">as</span> <span class="nn">nb</span>
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">dask</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">dask.array</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">da</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">dask.dataframe</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">dd</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">dask_geopandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">dgpd</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">geopandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">gpd</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numba</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">nb</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
 
-<span class="kn">from</span> <span class="nn">raster_tools.dtypes</span> <span class="kn">import</span> <span class="n">F64</span><span class="p">,</span> <span class="n">I64</span><span class="p">,</span> <span class="n">is_int</span><span class="p">,</span> <span class="n">is_str</span>
-<span class="kn">from</span> <span class="nn">raster_tools.raster</span> <span class="kn">import</span> <span class="n">Raster</span><span class="p">,</span> <span class="n">get_raster</span>
-<span class="kn">from</span> <span class="nn">raster_tools.utils</span> <span class="kn">import</span> <span class="n">version_to_tuple</span>
-<span class="kn">from</span> <span class="nn">raster_tools.vector</span> <span class="kn">import</span> <span class="n">Vector</span><span class="p">,</span> <span class="n">get_vector</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.dtypes</span><span class="w"> </span><span class="kn">import</span> <span class="n">F64</span><span class="p">,</span> <span class="n">I64</span><span class="p">,</span> <span class="n">is_int</span><span class="p">,</span> <span class="n">is_str</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.raster</span><span class="w"> </span><span class="kn">import</span> <span class="n">Raster</span><span class="p">,</span> <span class="n">get_raster</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">version_to_tuple</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.vector</span><span class="w"> </span><span class="kn">import</span> <span class="n">Vector</span><span class="p">,</span> <span class="n">get_vector</span>
 
 <span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;ZONAL_STAT_FUNCS&quot;</span><span class="p">,</span> <span class="s2">&quot;extract_points_eager&quot;</span><span class="p">,</span> <span class="s2">&quot;zonal_stats&quot;</span><span class="p">]</span>
 
 
 <span class="nd">@nb</span><span class="o">.</span><span class="n">jit</span><span class="p">(</span><span class="n">nopython</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">nogil</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<span class="k">def</span> <span class="nf">_entropy</span><span class="p">(</span><span class="n">counts</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_entropy</span><span class="p">(</span><span class="n">counts</span><span class="p">):</span>
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">counts</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
     <span class="c1"># Manual stat calculation with a loop is faster than using vectorized numpy</span>
@@ -440,7 +440,7 @@ document.write(`
 
 
 <span class="nd">@nb</span><span class="o">.</span><span class="n">jit</span><span class="p">(</span><span class="n">nopython</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">nogil</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<span class="k">def</span> <span class="nf">_asm</span><span class="p">(</span><span class="n">counts</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_asm</span><span class="p">(</span><span class="n">counts</span><span class="p">):</span>
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">counts</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
     <span class="c1"># Manual stat calculation with a loop is faster than using vectorized numpy</span>
@@ -453,11 +453,11 @@ document.write(`
     <span class="k">return</span> <span class="n">asm</span>
 
 
-<span class="k">def</span> <span class="nf">_unique_with_counts_chunk</span><span class="p">(</span><span class="n">grps</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_unique_with_counts_chunk</span><span class="p">(</span><span class="n">grps</span><span class="p">):</span>
     <span class="k">return</span> <span class="n">grps</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="k">lambda</span> <span class="n">s</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">return_counts</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
 
 
-<span class="k">def</span> <span class="nf">_combine_values_and_counts</span><span class="p">(</span><span class="n">s</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_combine_values_and_counts</span><span class="p">(</span><span class="n">s</span><span class="p">):</span>
     <span class="n">result</span> <span class="o">=</span> <span class="p">(</span>
         <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
             <span class="p">{</span>
@@ -476,7 +476,7 @@ document.write(`
     <span class="k">return</span> <span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">to_list</span><span class="p">(),</span> <span class="n">result</span><span class="o">.</span><span class="n">counts_</span><span class="o">.</span><span class="n">to_list</span><span class="p">())</span>
 
 
-<span class="k">def</span> <span class="nf">_mode_fin</span><span class="p">(</span><span class="n">s</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_mode_fin</span><span class="p">(</span><span class="n">s</span><span class="p">):</span>
     <span class="c1"># Final operation of the mode calculation</span>
     <span class="n">results</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">s</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">F64</span><span class="p">)</span>
     <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">vs</span><span class="p">,</span> <span class="n">cs</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">s</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()):</span>
@@ -493,7 +493,7 @@ document.write(`
     <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span><span class="n">results</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">s</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">copy</span><span class="p">())</span>
 
 
-<span class="k">def</span> <span class="nf">_asm_entropy_fin</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">func</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_asm_entropy_fin</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">func</span><span class="p">):</span>
     <span class="c1"># Final operation of the asm and entropy calculations</span>
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">s</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">((),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">F64</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="n">s</span><span class="o">.</span><span class="n">index</span><span class="p">)</span>
@@ -564,7 +564,7 @@ document.write(`
 <span class="n">ZONAL_STAT_FUNCS</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">_DASK_STAT_NAMES</span> <span class="o">|</span> <span class="n">_CUSTOM_STAT_NAMES</span><span class="p">))</span>
 
 
-<span class="k">def</span> <span class="nf">_build_long_format_meta</span><span class="p">(</span><span class="n">df</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_build_long_format_meta</span><span class="p">(</span><span class="n">df</span><span class="p">):</span>
     <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
         <span class="p">{</span>
             <span class="s2">&quot;zone&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">((),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">df</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">dtype</span><span class="p">),</span>
@@ -578,7 +578,7 @@ document.write(`
     <span class="p">)</span>
 
 
-<span class="k">def</span> <span class="nf">_melt_part</span><span class="p">(</span><span class="n">part</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_melt_part</span><span class="p">(</span><span class="n">part</span><span class="p">):</span>
     <span class="c1"># Convert a dataframe from wide format to long format</span>
     <span class="c1">#</span>
     <span class="c1"># DataFrame structure, the columns are a MultiIndex and zone ids</span>
@@ -607,7 +607,7 @@ document.write(`
     <span class="k">return</span> <span class="n">part</span>
 
 
-<span class="k">def</span> <span class="nf">_find_problem_stats</span><span class="p">(</span><span class="n">stats</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_find_problem_stats</span><span class="p">(</span><span class="n">stats</span><span class="p">):</span>
     <span class="n">has_median</span> <span class="o">=</span> <span class="kc">False</span>
     <span class="n">out</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">stats</span><span class="p">:</span>
@@ -618,7 +618,7 @@ document.write(`
     <span class="k">return</span> <span class="n">out</span><span class="p">,</span> <span class="n">has_median</span>
 
 
-<span class="k">def</span> <span class="nf">_raster_to_series</span><span class="p">(</span><span class="n">raster</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_raster_to_series</span><span class="p">(</span><span class="n">raster</span><span class="p">):</span>
     <span class="c1"># Convert the underlying dask array into a dask Series</span>
     <span class="c1"># DataArray.to_dask_dataframe is only available in newer versions of xarray</span>
     <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">raster</span><span class="o">.</span><span class="n">xdata</span><span class="p">,</span> <span class="s2">&quot;to_dask_dataframe&quot;</span><span class="p">):</span>
@@ -626,7 +626,7 @@ document.write(`
     <span class="k">return</span> <span class="n">raster</span><span class="o">.</span><span class="n">_ds</span><span class="o">.</span><span class="n">to_dask_dataframe</span><span class="p">([</span><span class="s2">&quot;band&quot;</span><span class="p">,</span> <span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="s2">&quot;y&quot;</span><span class="p">])[</span><span class="s2">&quot;raster&quot;</span><span class="p">]</span>
 
 
-<span class="k">def</span> <span class="nf">_zonal_stats</span><span class="p">(</span><span class="n">features_raster</span><span class="p">,</span> <span class="n">data_raster</span><span class="p">,</span> <span class="n">stats</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_zonal_stats</span><span class="p">(</span><span class="n">features_raster</span><span class="p">,</span> <span class="n">data_raster</span><span class="p">,</span> <span class="n">stats</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Convert data to large dask DataFrame, group by the feature zone ids, and</span>
 <span class="sd">    apply aggregations specified by `stats` for each band.</span>
@@ -704,7 +704,7 @@ document.write(`
     <span class="k">return</span> <span class="n">agg_result_df</span>
 
 
-<div class="viewcode-block" id="zonal_stats"><a class="viewcode-back" href="../../reference/generated/raster_tools.zonal.zonal_stats.html#raster_tools.zonal.zonal_stats">[docs]</a><span class="k">def</span> <span class="nf">zonal_stats</span><span class="p">(</span>
+<div class="viewcode-block" id="zonal_stats"><a class="viewcode-back" href="../../reference/generated/raster_tools.zonal.zonal_stats.html#raster_tools.zonal.zonal_stats">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">zonal_stats</span><span class="p">(</span>
     <span class="n">features</span><span class="p">,</span>
     <span class="n">data_raster</span><span class="p">,</span>
     <span class="n">stats</span><span class="p">,</span>
@@ -915,7 +915,7 @@ document.write(`
     <span class="k">return</span> <span class="n">zonal_result_df</span></div>
 
 
-<span class="k">def</span> <span class="nf">_create_dask_range_index</span><span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">stop</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_create_dask_range_index</span><span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">stop</span><span class="p">):</span>
     <span class="c1"># dask.dataframe only allows dask.dataframe.index objects but doesn&#39;t have</span>
     <span class="c1"># a way to create them. this is a hack to create one using from_pandas.</span>
     <span class="n">dummy</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
@@ -925,7 +925,7 @@ document.write(`
     <span class="k">return</span> <span class="n">dd</span><span class="o">.</span><span class="n">from_pandas</span><span class="p">(</span><span class="n">dummy</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">index</span>
 
 
-<div class="viewcode-block" id="extract_points_eager"><a class="viewcode-back" href="../../reference/generated/raster_tools.zonal.extract_points_eager.html#raster_tools.zonal.extract_points_eager">[docs]</a><span class="k">def</span> <span class="nf">extract_points_eager</span><span class="p">(</span>
+<div class="viewcode-block" id="extract_points_eager"><a class="viewcode-back" href="../../reference/generated/raster_tools.zonal.extract_points_eager.html#raster_tools.zonal.extract_points_eager">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">extract_points_eager</span><span class="p">(</span>
     <span class="n">points</span><span class="p">,</span> <span class="n">raster</span><span class="p">,</span> <span class="n">column_name</span><span class="o">=</span><span class="s2">&quot;extracted&quot;</span><span class="p">,</span> <span class="n">skip_validation</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span>
 <span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Extract the raster cell values using point features</span>

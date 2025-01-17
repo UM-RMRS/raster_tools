@@ -8,7 +8,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>raster_tools.focal &#8212; raster_tools 0.9.7 documentation</title>
+    <title>raster_tools.focal &#8212; raster_tools 0.9.8 documentation</title>
   
   
   
@@ -114,7 +114,7 @@
   
   
   
-    <p class="title logo__title">raster_tools 0.9.7 documentation</p>
+    <p class="title logo__title">raster_tools 0.9.8 documentation</p>
   
 </a></div>
         <div class="sidebar-primary-item"><nav class="bd-links" id="bd-docs-nav" aria-label="Main">
@@ -405,14 +405,14 @@ document.write(`
                 <article class="bd-article" role="main">
                   
   <h1>Source code for raster_tools.focal</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">partial</span>
+<span></span><span class="kn">from</span><span class="w"> </span><span class="nn">functools</span><span class="w"> </span><span class="kn">import</span> <span class="n">partial</span>
 
-<span class="kn">import</span> <span class="nn">dask.array</span> <span class="k">as</span> <span class="nn">da</span>
-<span class="kn">import</span> <span class="nn">numba</span> <span class="k">as</span> <span class="nn">nb</span>
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="kn">from</span> <span class="nn">dask_image</span> <span class="kn">import</span> <span class="n">ndfilters</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">dask.array</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">da</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numba</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">nb</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dask_image</span><span class="w"> </span><span class="kn">import</span> <span class="n">ndfilters</span>
 
-<span class="kn">from</span> <span class="nn">raster_tools.dtypes</span> <span class="kn">import</span> <span class="p">(</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.dtypes</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">F64</span><span class="p">,</span>
     <span class="n">U8</span><span class="p">,</span>
     <span class="n">U16</span><span class="p">,</span>
@@ -425,8 +425,8 @@ document.write(`
     <span class="n">promote_data_dtype</span><span class="p">,</span>
     <span class="n">promote_dtype_to_float</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">raster_tools.raster</span> <span class="kn">import</span> <span class="n">Raster</span><span class="p">,</span> <span class="n">data_to_xr_raster_ds_like</span><span class="p">,</span> <span class="n">get_raster</span>
-<span class="kn">from</span> <span class="nn">raster_tools.stat_common</span> <span class="kn">import</span> <span class="p">(</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.raster</span><span class="w"> </span><span class="kn">import</span> <span class="n">Raster</span><span class="p">,</span> <span class="n">data_to_xr_raster_ds_like</span><span class="p">,</span> <span class="n">get_raster</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.stat_common</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">nan_unique_count_jit</span><span class="p">,</span>
     <span class="n">nanasm_jit</span><span class="p">,</span>
     <span class="n">nanentropy_jit</span><span class="p">,</span>
@@ -439,7 +439,7 @@ document.write(`
     <span class="n">nansum_jit</span><span class="p">,</span>
     <span class="n">nanvar_jit</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">raster_tools.utils</span> <span class="kn">import</span> <span class="n">single_band_mappable</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">single_band_mappable</span>
 
 <span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
     <span class="s2">&quot;check_kernel&quot;</span><span class="p">,</span>
@@ -455,7 +455,7 @@ document.write(`
 
 <span class="nd">@single_band_mappable</span>
 <span class="nd">@ngjit</span>
-<span class="k">def</span> <span class="nf">_focal_chunk</span><span class="p">(</span><span class="n">chunk</span><span class="p">,</span> <span class="n">kernel</span><span class="p">,</span> <span class="n">kernel_func</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_focal_chunk</span><span class="p">(</span><span class="n">chunk</span><span class="p">,</span> <span class="n">kernel</span><span class="p">,</span> <span class="n">kernel_func</span><span class="p">):</span>
     <span class="n">out</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty_like</span><span class="p">(</span><span class="n">chunk</span><span class="p">)</span>
     <span class="n">rows</span><span class="p">,</span> <span class="n">cols</span> <span class="o">=</span> <span class="n">chunk</span><span class="o">.</span><span class="n">shape</span>
     <span class="n">krows</span><span class="p">,</span> <span class="n">kcols</span> <span class="o">=</span> <span class="n">kernel</span><span class="o">.</span><span class="n">shape</span>
@@ -488,7 +488,7 @@ document.write(`
 
 <span class="nd">@single_band_mappable</span>
 <span class="nd">@nb</span><span class="o">.</span><span class="n">jit</span><span class="p">(</span><span class="n">nopython</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">nogil</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">parallel</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<span class="k">def</span> <span class="nf">_correlate2d_chunk</span><span class="p">(</span><span class="n">chunk</span><span class="p">,</span> <span class="n">kernel</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_correlate2d_chunk</span><span class="p">(</span><span class="n">chunk</span><span class="p">,</span> <span class="n">kernel</span><span class="p">):</span>
     <span class="n">out</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty_like</span><span class="p">(</span><span class="n">chunk</span><span class="p">)</span>
     <span class="n">rows</span><span class="p">,</span> <span class="n">cols</span> <span class="o">=</span> <span class="n">chunk</span><span class="o">.</span><span class="n">shape</span>
     <span class="n">krows</span><span class="p">,</span> <span class="n">kcols</span> <span class="o">=</span> <span class="n">kernel</span><span class="o">.</span><span class="n">shape</span>
@@ -524,7 +524,7 @@ document.write(`
     <span class="n">nopython</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
     <span class="n">nogil</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="k">def</span> <span class="nf">_get_offsets</span><span class="p">(</span><span class="n">kernel_shape</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_get_offsets</span><span class="p">(</span><span class="n">kernel_shape</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Returns the number of cells on either side of kernel center in both</span>
 <span class="sd">    directions.</span>
@@ -537,7 +537,7 @@ document.write(`
     <span class="k">return</span> <span class="p">((</span><span class="n">kr_top</span><span class="p">,</span> <span class="n">kr_bot</span><span class="p">),</span> <span class="p">(</span><span class="n">kc_left</span><span class="p">,</span> <span class="n">kc_right</span><span class="p">))</span>
 
 
-<div class="viewcode-block" id="check_kernel"><a class="viewcode-back" href="../../reference/generated/raster_tools.focal.check_kernel.html#raster_tools.focal.check_kernel">[docs]</a><span class="k">def</span> <span class="nf">check_kernel</span><span class="p">(</span><span class="n">kernel</span><span class="p">):</span>
+<div class="viewcode-block" id="check_kernel"><a class="viewcode-back" href="../../reference/generated/raster_tools.focal.check_kernel.html#raster_tools.focal.check_kernel">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">check_kernel</span><span class="p">(</span><span class="n">kernel</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Validate and return the focal kernel.</span>
 
 <span class="sd">    Parameters</span>
@@ -561,7 +561,7 @@ document.write(`
     <span class="k">return</span> <span class="n">kernel</span></div>
 
 
-<span class="k">def</span> <span class="nf">_check_data</span><span class="p">(</span><span class="n">data</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_check_data</span><span class="p">(</span><span class="n">data</span><span class="p">):</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">da</span><span class="o">.</span><span class="n">Array</span><span class="p">)):</span>
         <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Kernel must be numpy.ndarray or dask.array.Array&quot;</span><span class="p">)</span>
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
@@ -577,7 +577,7 @@ document.write(`
 <span class="n">_VALID_CORRELATE_MODES</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">(</span><span class="n">_MODE_TO_DASK_BOUNDARY</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
 
 
-<span class="k">def</span> <span class="nf">_correlate</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">kernel</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;constant&quot;</span><span class="p">,</span> <span class="n">cval</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">nan_aware</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_correlate</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">kernel</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;constant&quot;</span><span class="p">,</span> <span class="n">cval</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">nan_aware</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Cross-correlates a `kernel` with `data`.</span>
 
 <span class="sd">    This function can be used for convolution as well; just rotate the kernel</span>
@@ -677,7 +677,7 @@ document.write(`
 <span class="p">}</span>
 
 
-<span class="k">def</span> <span class="nf">_focal</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">kernel</span><span class="p">,</span> <span class="n">stat</span><span class="p">,</span> <span class="n">nan_aware</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_focal</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">kernel</span><span class="p">,</span> <span class="n">stat</span><span class="p">,</span> <span class="n">nan_aware</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Apply a focal stat function.</span>
 
 <span class="sd">    Applies the `stat` function to the `data` using `kernel` to determine the</span>
@@ -730,7 +730,7 @@ document.write(`
     <span class="k">return</span> <span class="n">data</span>
 
 
-<div class="viewcode-block" id="focal"><a class="viewcode-back" href="../../reference/generated/raster_tools.focal.focal.html#raster_tools.focal.focal">[docs]</a><span class="k">def</span> <span class="nf">focal</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">focal_type</span><span class="p">,</span> <span class="n">width_or_radius</span><span class="p">,</span> <span class="n">height</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ignore_null</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<div class="viewcode-block" id="focal"><a class="viewcode-back" href="../../reference/generated/raster_tools.focal.focal.html#raster_tools.focal.focal">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">focal</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">focal_type</span><span class="p">,</span> <span class="n">width_or_radius</span><span class="p">,</span> <span class="n">height</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ignore_null</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Applies a focal filter to raster bands individually.</span>
 
 <span class="sd">    The filter uses a window/footprint that is created using the</span>
@@ -836,7 +836,7 @@ document.write(`
     <span class="k">return</span> <span class="n">Raster</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="n">_fast_path</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="get_focal_window"><a class="viewcode-back" href="../../reference/generated/raster_tools.focal.get_focal_window.html#raster_tools.focal.get_focal_window">[docs]</a><span class="k">def</span> <span class="nf">get_focal_window</span><span class="p">(</span><span class="n">width_or_radius</span><span class="p">,</span> <span class="n">height</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<div class="viewcode-block" id="get_focal_window"><a class="viewcode-back" href="../../reference/generated/raster_tools.focal.get_focal_window.html#raster_tools.focal.get_focal_window">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">get_focal_window</span><span class="p">(</span><span class="n">width_or_radius</span><span class="p">,</span> <span class="n">height</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Get a rectangle, circle, or annulus focal window.</span>
 
 <span class="sd">    A rectangle window is simply a NxM grid of ``True`` values. A circle window</span>
@@ -924,7 +924,7 @@ document.write(`
     <span class="k">return</span> <span class="n">window_out</span></div>
 
 
-<div class="viewcode-block" id="correlate"><a class="viewcode-back" href="../../reference/generated/raster_tools.focal.correlate.html#raster_tools.focal.correlate">[docs]</a><span class="k">def</span> <span class="nf">correlate</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">kernel</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;constant&quot;</span><span class="p">,</span> <span class="n">cval</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
+<div class="viewcode-block" id="correlate"><a class="viewcode-back" href="../../reference/generated/raster_tools.focal.correlate.html#raster_tools.focal.correlate">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">correlate</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">kernel</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;constant&quot;</span><span class="p">,</span> <span class="n">cval</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Cross-correlate `kernel` with each band individually. Returns a new</span>
 <span class="sd">    Raster.</span>
 
@@ -997,7 +997,7 @@ document.write(`
     <span class="k">return</span> <span class="n">Raster</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="n">_fast_path</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="convolve"><a class="viewcode-back" href="../../reference/generated/raster_tools.focal.convolve.html#raster_tools.focal.convolve">[docs]</a><span class="k">def</span> <span class="nf">convolve</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">kernel</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;constant&quot;</span><span class="p">,</span> <span class="n">cval</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
+<div class="viewcode-block" id="convolve"><a class="viewcode-back" href="../../reference/generated/raster_tools.focal.convolve.html#raster_tools.focal.convolve">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">convolve</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">kernel</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;constant&quot;</span><span class="p">,</span> <span class="n">cval</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Convolve `kernel` with each band individually. Returns a new Raster.</span>
 
 <span class="sd">    This is the same as correlation but the kernel is rotated 180 degrees,</span>

@@ -8,7 +8,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>raster_tools.utils &#8212; raster_tools 0.9.7 documentation</title>
+    <title>raster_tools.utils &#8212; raster_tools 0.9.8 documentation</title>
   
   
   
@@ -114,7 +114,7 @@
   
   
   
-    <p class="title logo__title">raster_tools 0.9.7 documentation</p>
+    <p class="title logo__title">raster_tools 0.9.8 documentation</p>
   
 </a></div>
         <div class="sidebar-primary-item"><nav class="bd-links" id="bd-docs-nav" aria-label="Main">
@@ -405,25 +405,25 @@ document.write(`
                 <article class="bd-article" role="main">
                   
   <h1>Source code for raster_tools.utils</h1><div class="highlight"><pre>
-<span></span><span class="kn">import</span> <span class="nn">os</span>
-<span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">wraps</span>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">functools</span><span class="w"> </span><span class="kn">import</span> <span class="n">wraps</span>
 
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 
 
-<div class="viewcode-block" id="validate_file"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.utils.validate_file">[docs]</a><span class="k">def</span> <span class="nf">validate_file</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+<div class="viewcode-block" id="validate_file"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.utils.validate_file">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">validate_file</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
     <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
         <span class="k">return</span> <span class="n">path</span>
     <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Could not find file: &#39;</span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">&#39;&quot;</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="validate_path"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.utils.validate_path">[docs]</a><span class="k">def</span> <span class="nf">validate_path</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+<div class="viewcode-block" id="validate_path"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.utils.validate_path">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">validate_path</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
     <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
         <span class="k">return</span> <span class="n">path</span>
     <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Path does not exist: &#39;</span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">&#39;&quot;</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="is_strictly_increasing"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.utils.is_strictly_increasing">[docs]</a><span class="k">def</span> <span class="nf">is_strictly_increasing</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+<div class="viewcode-block" id="is_strictly_increasing"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.utils.is_strictly_increasing">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">is_strictly_increasing</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
     <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="o">.</span><span class="n">squeeze</span><span class="p">())</span>
     <span class="k">assert</span> <span class="n">x</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span>
 
@@ -431,7 +431,7 @@ document.write(`
     <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="n">diff</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="p">(</span><span class="n">diff</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">()</span></div>
 
 
-<div class="viewcode-block" id="is_strictly_decreasing"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.utils.is_strictly_decreasing">[docs]</a><span class="k">def</span> <span class="nf">is_strictly_decreasing</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+<div class="viewcode-block" id="is_strictly_decreasing"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.utils.is_strictly_decreasing">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">is_strictly_decreasing</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
     <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">x</span><span class="p">)</span><span class="o">.</span><span class="n">squeeze</span><span class="p">())</span>
     <span class="k">assert</span> <span class="n">x</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span>
 
@@ -439,7 +439,7 @@ document.write(`
     <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="n">diff</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="p">(</span><span class="n">diff</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">()</span></div>
 
 
-<div class="viewcode-block" id="can_broadcast"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.utils.can_broadcast">[docs]</a><span class="k">def</span> <span class="nf">can_broadcast</span><span class="p">(</span><span class="o">*</span><span class="n">shapes</span><span class="p">,</span> <span class="n">max_dim</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">min_dim</span><span class="o">=</span><span class="mi">3</span><span class="p">):</span>
+<div class="viewcode-block" id="can_broadcast"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.utils.can_broadcast">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">can_broadcast</span><span class="p">(</span><span class="o">*</span><span class="n">shapes</span><span class="p">,</span> <span class="n">max_dim</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">min_dim</span><span class="o">=</span><span class="mi">3</span><span class="p">):</span>
     <span class="k">try</span><span class="p">:</span>
         <span class="n">result</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">broadcast_shapes</span><span class="p">(</span><span class="o">*</span><span class="n">shapes</span><span class="p">)</span>
         <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="n">result</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">min_dim</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">result</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">max_dim</span>
@@ -447,7 +447,7 @@ document.write(`
         <span class="k">return</span> <span class="kc">False</span></div>
 
 
-<div class="viewcode-block" id="merge_masks"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.utils.merge_masks">[docs]</a><span class="k">def</span> <span class="nf">merge_masks</span><span class="p">(</span><span class="n">masks</span><span class="p">):</span>
+<div class="viewcode-block" id="merge_masks"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.utils.merge_masks">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">merge_masks</span><span class="p">(</span><span class="n">masks</span><span class="p">):</span>
     <span class="n">mask</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">masks</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">mask</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -457,7 +457,7 @@ document.write(`
     <span class="k">return</span> <span class="n">mask</span></div>
 
 
-<div class="viewcode-block" id="single_band_mappable"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.utils.single_band_mappable">[docs]</a><span class="k">def</span> <span class="nf">single_band_mappable</span><span class="p">(</span>
+<div class="viewcode-block" id="single_band_mappable"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.utils.single_band_mappable">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">single_band_mappable</span><span class="p">(</span>
     <span class="n">func_</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">no_input_chunk</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">pass_block_info</span><span class="o">=</span><span class="kc">False</span>
 <span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
@@ -471,9 +471,9 @@ document.write(`
 
     <span class="k">if</span> <span class="ow">not</span> <span class="n">no_input_chunk</span><span class="p">:</span>
 
-        <span class="k">def</span> <span class="nf">decorator</span><span class="p">(</span><span class="n">func</span><span class="p">):</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">decorator</span><span class="p">(</span><span class="n">func</span><span class="p">):</span>
             <span class="nd">@wraps</span><span class="p">(</span><span class="n">func</span><span class="p">)</span>
-            <span class="k">def</span> <span class="nf">wrapper</span><span class="p">(</span><span class="n">chunk</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="n">block_info</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+            <span class="k">def</span><span class="w"> </span><span class="nf">wrapper</span><span class="p">(</span><span class="n">chunk</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="n">block_info</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
                 <span class="n">has_band_dim</span> <span class="o">=</span> <span class="n">chunk</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">3</span>
                 <span class="k">if</span> <span class="n">has_band_dim</span><span class="p">:</span>
                     <span class="k">if</span> <span class="n">chunk</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
@@ -500,9 +500,9 @@ document.write(`
 
     <span class="k">else</span><span class="p">:</span>
 
-        <span class="k">def</span> <span class="nf">decorator</span><span class="p">(</span><span class="n">func</span><span class="p">):</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">decorator</span><span class="p">(</span><span class="n">func</span><span class="p">):</span>
             <span class="nd">@wraps</span><span class="p">(</span><span class="n">func</span><span class="p">)</span>
-            <span class="k">def</span> <span class="nf">wrapper</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="n">block_info</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+            <span class="k">def</span><span class="w"> </span><span class="nf">wrapper</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="n">block_info</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
                 <span class="n">result</span> <span class="o">=</span> <span class="n">func</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="n">block_info</span><span class="o">=</span><span class="n">block_info</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
                 <span class="k">if</span> <span class="p">(</span>
                     <span class="n">block_info</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
@@ -519,7 +519,7 @@ document.write(`
     <span class="k">return</span> <span class="n">decorator</span><span class="p">(</span><span class="n">func_</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="list_reshape_2d"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.utils.list_reshape_2d">[docs]</a><span class="k">def</span> <span class="nf">list_reshape_2d</span><span class="p">(</span><span class="n">lst</span><span class="p">,</span> <span class="n">shape</span><span class="p">,</span> <span class="n">flat_start</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+<div class="viewcode-block" id="list_reshape_2d"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.utils.list_reshape_2d">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">list_reshape_2d</span><span class="p">(</span><span class="n">lst</span><span class="p">,</span> <span class="n">shape</span><span class="p">,</span> <span class="n">flat_start</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">shape</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;shape must be a 2-tuple&quot;</span><span class="p">)</span>
     <span class="n">out</span> <span class="o">=</span> <span class="p">[]</span>
@@ -533,7 +533,7 @@ document.write(`
     <span class="k">return</span> <span class="n">out</span></div>
 
 
-<div class="viewcode-block" id="list_reshape_3d"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.utils.list_reshape_3d">[docs]</a><span class="k">def</span> <span class="nf">list_reshape_3d</span><span class="p">(</span><span class="n">lst</span><span class="p">,</span> <span class="n">shape</span><span class="p">):</span>
+<div class="viewcode-block" id="list_reshape_3d"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.utils.list_reshape_3d">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">list_reshape_3d</span><span class="p">(</span><span class="n">lst</span><span class="p">,</span> <span class="n">shape</span><span class="p">):</span>
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">shape</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">3</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;shape must be a 3-tuple&quot;</span><span class="p">)</span>
     <span class="n">out</span> <span class="o">=</span> <span class="p">[]</span>
@@ -546,7 +546,7 @@ document.write(`
     <span class="k">return</span> <span class="n">out</span></div>
 
 
-<div class="viewcode-block" id="to_chunk_dict"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.utils.to_chunk_dict">[docs]</a><span class="k">def</span> <span class="nf">to_chunk_dict</span><span class="p">(</span><span class="n">chunks</span><span class="p">,</span> <span class="n">dims</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<div class="viewcode-block" id="to_chunk_dict"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.utils.to_chunk_dict">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">to_chunk_dict</span><span class="p">(</span><span class="n">chunks</span><span class="p">,</span> <span class="n">dims</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">chunks</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
         <span class="k">return</span> <span class="n">chunks</span>
     <span class="k">if</span> <span class="n">dims</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -554,7 +554,7 @@ document.write(`
     <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">dims</span><span class="p">,</span> <span class="n">chunks</span><span class="p">))</span></div>
 
 
-<div class="viewcode-block" id="version_to_tuple"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.utils.version_to_tuple">[docs]</a><span class="k">def</span> <span class="nf">version_to_tuple</span><span class="p">(</span><span class="n">version_str</span><span class="p">):</span>
+<div class="viewcode-block" id="version_to_tuple"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.utils.version_to_tuple">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">version_to_tuple</span><span class="p">(</span><span class="n">version_str</span><span class="p">):</span>
     <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="n">version_str</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)))</span></div>
 </pre></div>
 

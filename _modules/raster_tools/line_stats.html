@@ -8,7 +8,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>raster_tools.line_stats &#8212; raster_tools 0.9.7 documentation</title>
+    <title>raster_tools.line_stats &#8212; raster_tools 0.9.8 documentation</title>
   
   
   
@@ -114,7 +114,7 @@
   
   
   
-    <p class="title logo__title">raster_tools 0.9.7 documentation</p>
+    <p class="title logo__title">raster_tools 0.9.8 documentation</p>
   
 </a></div>
         <div class="sidebar-primary-item"><nav class="bd-links" id="bd-docs-nav" aria-label="Main">
@@ -405,33 +405,33 @@ document.write(`
                 <article class="bd-article" role="main">
                   
   <h1>Source code for raster_tools.line_stats</h1><div class="highlight"><pre>
-<span></span><span class="kn">import</span> <span class="nn">dask.array</span> <span class="k">as</span> <span class="nn">da</span>
-<span class="kn">import</span> <span class="nn">geopandas</span> <span class="k">as</span> <span class="nn">gpd</span>
-<span class="kn">import</span> <span class="nn">numba</span> <span class="k">as</span> <span class="nn">nb</span>
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
-<span class="kn">import</span> <span class="nn">shapely</span>
-<span class="kn">import</span> <span class="nn">xarray</span> <span class="k">as</span> <span class="nn">xr</span>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">dask.array</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">da</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">geopandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">gpd</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numba</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">nb</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">shapely</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">xarray</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">xr</span>
 
-<span class="kn">from</span> <span class="nn">raster_tools.dtypes</span> <span class="kn">import</span> <span class="n">F32</span><span class="p">,</span> <span class="n">I8</span><span class="p">,</span> <span class="n">is_bool</span><span class="p">,</span> <span class="n">is_scalar</span><span class="p">,</span> <span class="n">is_str</span>
-<span class="kn">from</span> <span class="nn">raster_tools.raster</span> <span class="kn">import</span> <span class="n">data_to_raster_like</span><span class="p">,</span> <span class="n">get_raster</span>
-<span class="kn">from</span> <span class="nn">raster_tools.rasterize</span> <span class="kn">import</span> <span class="n">_rio_mask</span>
-<span class="kn">from</span> <span class="nn">raster_tools.vector</span> <span class="kn">import</span> <span class="n">get_vector</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.dtypes</span><span class="w"> </span><span class="kn">import</span> <span class="n">F32</span><span class="p">,</span> <span class="n">I8</span><span class="p">,</span> <span class="n">is_bool</span><span class="p">,</span> <span class="n">is_scalar</span><span class="p">,</span> <span class="n">is_str</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.raster</span><span class="w"> </span><span class="kn">import</span> <span class="n">data_to_raster_like</span><span class="p">,</span> <span class="n">get_raster</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.rasterize</span><span class="w"> </span><span class="kn">import</span> <span class="n">_rio_mask</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.vector</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_vector</span>
 
 
-<span class="k">def</span> <span class="nf">_trim</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">slices</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_trim</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">slices</span><span class="p">):</span>
     <span class="k">return</span> <span class="n">x</span><span class="p">[</span><span class="nb">tuple</span><span class="p">(</span><span class="n">slices</span><span class="p">)]</span>
 
 
 <span class="nd">@nb</span><span class="o">.</span><span class="n">jit</span><span class="p">(</span><span class="n">nopython</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">nogil</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<span class="k">def</span> <span class="nf">_length_sum</span><span class="p">(</span><span class="n">out</span><span class="p">,</span> <span class="n">lengths</span><span class="p">,</span> <span class="n">idxs</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_length_sum</span><span class="p">(</span><span class="n">out</span><span class="p">,</span> <span class="n">lengths</span><span class="p">,</span> <span class="n">idxs</span><span class="p">):</span>
     <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">lengths</span><span class="p">)</span>
     <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
         <span class="n">out</span><span class="p">[</span><span class="n">idxs</span><span class="p">[</span><span class="n">i</span><span class="p">]]</span> <span class="o">+=</span> <span class="n">lengths</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
     <span class="k">return</span> <span class="n">out</span>
 
 
-<span class="k">def</span> <span class="nf">_compute_lengths</span><span class="p">(</span><span class="n">geom_df</span><span class="p">,</span> <span class="n">targets</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_compute_lengths</span><span class="p">(</span><span class="n">geom_df</span><span class="p">,</span> <span class="n">targets</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Overlay the targets circles on the geometries in `geometry`. This produces</span>
 <span class="sd">    a clip of `geometry` for each target. The output is the computed length of</span>
@@ -456,7 +456,7 @@ document.write(`
     <span class="k">return</span> <span class="n">lengths</span>
 
 
-<span class="k">def</span> <span class="nf">_get_valid_slice</span><span class="p">(</span><span class="n">xc</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_get_valid_slice</span><span class="p">(</span><span class="n">xc</span><span class="p">):</span>
     <span class="c1"># Build a slice that spans the valid data within the given coordinate array</span>
     <span class="n">left</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span>
@@ -471,15 +471,15 @@ document.write(`
     <span class="k">return</span> <span class="nb">slice</span><span class="p">(</span><span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">)</span>
 
 
-<span class="k">def</span> <span class="nf">_len_coords</span><span class="p">(</span><span class="n">geom</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_len_coords</span><span class="p">(</span><span class="n">geom</span><span class="p">):</span>
     <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="n">geom</span><span class="o">.</span><span class="n">coords</span><span class="p">)</span>
 
 
-<span class="k">def</span> <span class="nf">_len_interior_coords</span><span class="p">(</span><span class="n">geoms</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_len_interior_coords</span><span class="p">(</span><span class="n">geoms</span><span class="p">):</span>
     <span class="k">return</span> <span class="nb">sum</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="n">_len_coords</span><span class="p">,</span> <span class="n">geoms</span><span class="p">))</span>
 
 
-<span class="k">def</span> <span class="nf">_calculate_number_vertices</span><span class="p">(</span><span class="n">geoms</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_calculate_number_vertices</span><span class="p">(</span><span class="n">geoms</span><span class="p">):</span>
     <span class="c1"># Assume all geoms are valid</span>
     <span class="n">has_exterior</span> <span class="o">=</span> <span class="n">geoms</span><span class="o">.</span><span class="n">geom_type</span> <span class="o">==</span> <span class="s2">&quot;Polygon&quot;</span>
     <span class="n">has_interior</span> <span class="o">=</span> <span class="o">~</span><span class="n">geoms</span><span class="p">[</span><span class="n">has_exterior</span><span class="p">]</span><span class="o">.</span><span class="n">interiors</span><span class="o">.</span><span class="n">isin</span><span class="p">([[]])</span>
@@ -532,7 +532,7 @@ document.write(`
 <span class="n">GEOM_BATCH_SIZE</span> <span class="o">=</span> <span class="mi">700</span>
 
 
-<span class="k">def</span> <span class="nf">_get_indices_and_lengths_core</span><span class="p">(</span><span class="n">geoms_df</span><span class="p">,</span> <span class="n">xc</span><span class="p">,</span> <span class="n">yc</span><span class="p">,</span> <span class="n">radius</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_get_indices_and_lengths_core</span><span class="p">(</span><span class="n">geoms_df</span><span class="p">,</span> <span class="n">xc</span><span class="p">,</span> <span class="n">yc</span><span class="p">,</span> <span class="n">radius</span><span class="p">):</span>
     <span class="n">shape</span> <span class="o">=</span> <span class="p">(</span><span class="n">yc</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="n">xc</span><span class="o">.</span><span class="n">size</span><span class="p">)</span>
     <span class="n">transform</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">(</span>
         <span class="n">da</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">shape</span><span class="p">),</span> <span class="n">coords</span><span class="o">=</span><span class="p">(</span><span class="n">yc</span><span class="p">,</span> <span class="n">xc</span><span class="p">),</span> <span class="n">dims</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="s2">&quot;x&quot;</span><span class="p">)</span>
@@ -554,7 +554,7 @@ document.write(`
     <span class="k">return</span> <span class="n">indices</span><span class="p">,</span> <span class="n">lengths</span>
 
 
-<span class="k">def</span> <span class="nf">_get_indices_and_lengths</span><span class="p">(</span><span class="n">geoms_df</span><span class="p">,</span> <span class="n">xc</span><span class="p">,</span> <span class="n">yc</span><span class="p">,</span> <span class="n">radius</span><span class="p">,</span> <span class="n">weight_values</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_get_indices_and_lengths</span><span class="p">(</span><span class="n">geoms_df</span><span class="p">,</span> <span class="n">xc</span><span class="p">,</span> <span class="n">yc</span><span class="p">,</span> <span class="n">radius</span><span class="p">,</span> <span class="n">weight_values</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Finds the indices of cells where geoms fall within the given radius and</span>
 <span class="sd">    computes the lengths of those geoms for each one of the cells.</span>
@@ -601,7 +601,7 @@ document.write(`
     <span class="k">return</span> <span class="n">indices</span><span class="p">,</span> <span class="n">lengths</span>
 
 
-<span class="k">def</span> <span class="nf">_length</span><span class="p">(</span><span class="n">gdf</span><span class="p">,</span> <span class="n">xc</span><span class="p">,</span> <span class="n">yc</span><span class="p">,</span> <span class="n">radius</span><span class="p">,</span> <span class="n">field</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">F32</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_length</span><span class="p">(</span><span class="n">gdf</span><span class="p">,</span> <span class="n">xc</span><span class="p">,</span> <span class="n">yc</span><span class="p">,</span> <span class="n">radius</span><span class="p">,</span> <span class="n">field</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">F32</span><span class="p">):</span>
     <span class="n">shape</span> <span class="o">=</span> <span class="p">(</span><span class="n">yc</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="n">xc</span><span class="o">.</span><span class="n">size</span><span class="p">)</span>
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">gdf</span><span class="p">):</span>
         <span class="n">cols</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;geometry&quot;</span><span class="p">]</span>
@@ -622,7 +622,7 @@ document.write(`
     <span class="k">return</span> <span class="n">output</span>
 
 
-<span class="k">def</span> <span class="nf">_length_chunk</span><span class="p">(</span><span class="n">geochunk_array</span><span class="p">,</span> <span class="n">gdf</span><span class="p">,</span> <span class="n">radius</span><span class="p">,</span> <span class="n">field</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">block_info</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_length_chunk</span><span class="p">(</span><span class="n">geochunk_array</span><span class="p">,</span> <span class="n">gdf</span><span class="p">,</span> <span class="n">radius</span><span class="p">,</span> <span class="n">field</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">block_info</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
     <span class="c1"># Handle chunk related logic in this function</span>
     <span class="n">geochunk</span> <span class="o">=</span> <span class="n">geochunk_array</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
     <span class="n">xc</span> <span class="o">=</span> <span class="n">geochunk</span><span class="o">.</span><span class="n">x</span>
@@ -643,11 +643,11 @@ document.write(`
     <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">expand_dims</span><span class="p">(</span><span class="n">length_grid</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
 
 
-<span class="k">def</span> <span class="nf">_check_if_dask_needs_rechunk</span><span class="p">(</span><span class="n">chunks</span><span class="p">,</span> <span class="n">depth</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_check_if_dask_needs_rechunk</span><span class="p">(</span><span class="n">chunks</span><span class="p">,</span> <span class="n">depth</span><span class="p">):</span>
     <span class="k">return</span> <span class="nb">any</span><span class="p">(</span><span class="n">c</span> <span class="o">&lt;</span> <span class="n">depth</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">chunks</span><span class="p">)</span>
 
 
-<div class="viewcode-block" id="length"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.line_stats.length">[docs]</a><span class="k">def</span> <span class="nf">length</span><span class="p">(</span><span class="n">features</span><span class="p">,</span> <span class="n">like_rast</span><span class="p">,</span> <span class="n">radius</span><span class="p">,</span> <span class="n">weighting_field</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<div class="viewcode-block" id="length"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.line_stats.length">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">length</span><span class="p">(</span><span class="n">features</span><span class="p">,</span> <span class="n">like_rast</span><span class="p">,</span> <span class="n">radius</span><span class="p">,</span> <span class="n">weighting_field</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Calculate a raster where each cell is the net length of all features within</span>
 <span class="sd">    a given radius.</span>

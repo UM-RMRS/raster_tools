@@ -8,7 +8,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>raster_tools.io &#8212; raster_tools 0.9.7 documentation</title>
+    <title>raster_tools.io &#8212; raster_tools 0.9.8 documentation</title>
   
   
   
@@ -114,7 +114,7 @@
   
   
   
-    <p class="title logo__title">raster_tools 0.9.7 documentation</p>
+    <p class="title logo__title">raster_tools 0.9.8 documentation</p>
   
 </a></div>
         <div class="sidebar-primary-item"><nav class="bd-links" id="bd-docs-nav" aria-label="Main">
@@ -405,34 +405,34 @@ document.write(`
                 <article class="bd-article" role="main">
                   
   <h1>Source code for raster_tools.io</h1><div class="highlight"><pre>
-<span></span><span class="kn">import</span> <span class="nn">os</span>
-<span class="kn">import</span> <span class="nn">urllib</span>
-<span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">urllib</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
 
-<span class="kn">import</span> <span class="nn">dask</span>
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="kn">import</span> <span class="nn">rasterio</span> <span class="k">as</span> <span class="nn">rio</span>
-<span class="kn">import</span> <span class="nn">rioxarray</span> <span class="k">as</span> <span class="nn">xrio</span>
-<span class="kn">import</span> <span class="nn">xarray</span> <span class="k">as</span> <span class="nn">xr</span>
-<span class="kn">from</span> <span class="nn">affine</span> <span class="kn">import</span> <span class="n">Affine</span>
-<span class="kn">from</span> <span class="nn">dask.array.core</span> <span class="kn">import</span> <span class="n">normalize_chunks</span> <span class="k">as</span> <span class="n">dask_chunks</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">dask</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">rasterio</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">rio</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">rioxarray</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">xrio</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">xarray</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">xr</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">affine</span><span class="w"> </span><span class="kn">import</span> <span class="n">Affine</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dask.array.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">normalize_chunks</span> <span class="k">as</span> <span class="n">dask_chunks</span>
 
-<span class="kn">from</span> <span class="nn">raster_tools.dtypes</span> <span class="kn">import</span> <span class="n">F32</span><span class="p">,</span> <span class="n">F64</span><span class="p">,</span> <span class="n">I64</span><span class="p">,</span> <span class="n">U8</span><span class="p">,</span> <span class="n">is_bool</span><span class="p">,</span> <span class="n">is_float</span><span class="p">,</span> <span class="n">is_int</span>
-<span class="kn">from</span> <span class="nn">raster_tools.exceptions</span> <span class="kn">import</span> <span class="p">(</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.dtypes</span><span class="w"> </span><span class="kn">import</span> <span class="n">F32</span><span class="p">,</span> <span class="n">F64</span><span class="p">,</span> <span class="n">I64</span><span class="p">,</span> <span class="n">U8</span><span class="p">,</span> <span class="n">is_bool</span><span class="p">,</span> <span class="n">is_float</span><span class="p">,</span> <span class="n">is_int</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">AffineEncodingError</span><span class="p">,</span>
     <span class="n">DimensionsError</span><span class="p">,</span>
     <span class="n">RasterDataError</span><span class="p">,</span>
     <span class="n">RasterIOError</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">raster_tools.masking</span> <span class="kn">import</span> <span class="n">get_default_null_value</span>
-<span class="kn">from</span> <span class="nn">raster_tools.utils</span> <span class="kn">import</span> <span class="n">to_chunk_dict</span><span class="p">,</span> <span class="n">validate_path</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.masking</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_default_null_value</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">to_chunk_dict</span><span class="p">,</span> <span class="n">validate_path</span>
 
 
-<span class="k">def</span> <span class="nf">_get_extension</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_get_extension</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
     <span class="k">return</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">splitext</span><span class="p">(</span><span class="n">path</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
 
 
-<span class="k">def</span> <span class="nf">_get_chunking_info_from_file</span><span class="p">(</span><span class="n">src_file</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_get_chunking_info_from_file</span><span class="p">(</span><span class="n">src_file</span><span class="p">):</span>
     <span class="k">with</span> <span class="n">rio</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">src_file</span><span class="p">)</span> <span class="k">as</span> <span class="n">src</span><span class="p">:</span>
         <span class="n">tile_shape</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="o">*</span><span class="n">src</span><span class="o">.</span><span class="n">block_shapes</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
         <span class="n">shape</span> <span class="o">=</span> <span class="p">(</span><span class="n">src</span><span class="o">.</span><span class="n">count</span><span class="p">,</span> <span class="o">*</span><span class="n">src</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
@@ -440,7 +440,7 @@ document.write(`
         <span class="k">return</span> <span class="n">tile_shape</span><span class="p">,</span> <span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span>
 
 
-<span class="k">def</span> <span class="nf">_get_chunks</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">src_file</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_get_chunks</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">src_file</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
     <span class="n">chunks</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;auto&quot;</span><span class="p">,</span> <span class="s2">&quot;auto&quot;</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">data</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">src_file</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -457,7 +457,7 @@ document.write(`
     <span class="k">return</span> <span class="n">dask_chunks</span><span class="p">(</span><span class="n">chunks</span><span class="p">,</span> <span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">,</span> <span class="n">previous_chunks</span><span class="o">=</span><span class="n">tile_shape</span><span class="p">)</span>
 
 
-<div class="viewcode-block" id="chunk"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.io.chunk">[docs]</a><span class="k">def</span> <span class="nf">chunk</span><span class="p">(</span><span class="n">xrs</span><span class="p">,</span> <span class="n">src_file</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<div class="viewcode-block" id="chunk"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.io.chunk">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">chunk</span><span class="p">(</span><span class="n">xrs</span><span class="p">,</span> <span class="n">src_file</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
     <span class="n">chunks</span> <span class="o">=</span> <span class="n">to_chunk_dict</span><span class="p">(</span>
         <span class="n">_get_chunks</span><span class="p">(</span>
             <span class="n">xrs</span><span class="o">.</span><span class="n">raster</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">xrs</span><span class="p">,</span> <span class="n">xr</span><span class="o">.</span><span class="n">Dataset</span><span class="p">)</span> <span class="k">else</span> <span class="n">xrs</span><span class="p">,</span> <span class="n">src_file</span>
@@ -480,14 +480,14 @@ document.write(`
 <span class="n">IO_UNDERSTOOD_TYPES</span> <span class="o">=</span> <span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">)</span>
 
 
-<div class="viewcode-block" id="is_batch_file"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.io.is_batch_file">[docs]</a><span class="k">def</span> <span class="nf">is_batch_file</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+<div class="viewcode-block" id="is_batch_file"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.io.is_batch_file">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">is_batch_file</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
     <span class="k">return</span> <span class="n">_get_extension</span><span class="p">(</span><span class="n">path</span><span class="p">)</span> <span class="ow">in</span> <span class="n">BATCH_EXTS</span></div>
 
 
 <span class="n">ESRI_DEFAULT_F32_NV</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">finfo</span><span class="p">(</span><span class="n">F32</span><span class="p">)</span><span class="o">.</span><span class="n">min</span>
 
 
-<div class="viewcode-block" id="normalize_null_value"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.io.normalize_null_value">[docs]</a><span class="k">def</span> <span class="nf">normalize_null_value</span><span class="p">(</span><span class="n">nv</span><span class="p">,</span> <span class="n">dtype</span><span class="p">):</span>
+<div class="viewcode-block" id="normalize_null_value"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.io.normalize_null_value">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">normalize_null_value</span><span class="p">(</span><span class="n">nv</span><span class="p">,</span> <span class="n">dtype</span><span class="p">):</span>
     <span class="c1"># Make sure that ESRI&#39;s default F32 null value is properly</span>
     <span class="c1"># registered as F32</span>
     <span class="k">if</span> <span class="n">dtype</span> <span class="o">==</span> <span class="n">F32</span> <span class="ow">and</span> <span class="n">nv</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">np</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">nv</span><span class="p">,</span> <span class="n">ESRI_DEFAULT_F32_NV</span><span class="p">):</span>
@@ -500,8 +500,8 @@ document.write(`
     <span class="k">return</span> <span class="n">nv</span></div>
 
 
-<div class="viewcode-block" id="open_raster_from_path_or_url"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.io.open_raster_from_path_or_url">[docs]</a><span class="k">def</span> <span class="nf">open_raster_from_path_or_url</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
-    <span class="kn">from</span> <span class="nn">raster_tools.raster</span> <span class="kn">import</span> <span class="p">(</span>
+<div class="viewcode-block" id="open_raster_from_path_or_url"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.io.open_raster_from_path_or_url">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">open_raster_from_path_or_url</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.raster</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
         <span class="n">_try_to_get_null_value_xarray</span><span class="p">,</span>
         <span class="n">normalize_xarray_data</span><span class="p">,</span>
     <span class="p">)</span>
@@ -530,7 +530,7 @@ document.write(`
         <span class="k">except</span> <span class="n">rio</span><span class="o">.</span><span class="n">errors</span><span class="o">.</span><span class="n">RasterioIOError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">RasterIOError</span><span class="p">(</span>
                 <span class="s2">&quot;Could not open given path as a raster.&quot;</span>
-            <span class="p">)</span> <span class="kn">from</span> <span class="nn">e</span>
+            <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
     <span class="k">elif</span> <span class="n">ext</span> <span class="ow">in</span> <span class="n">READ_NOT_IMPLEMENTED_EXTS</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
             <span class="s2">&quot;Reading of NetCDF, HDF, and GRIB files is not supported at this&quot;</span>
@@ -554,7 +554,7 @@ document.write(`
     <span class="k">return</span> <span class="n">xrs</span></div>
 
 
-<div class="viewcode-block" id="write_raster"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.io.write_raster">[docs]</a><span class="k">def</span> <span class="nf">write_raster</span><span class="p">(</span><span class="n">xrs</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">no_data_value</span><span class="p">,</span> <span class="o">**</span><span class="n">rio_gdal_kwargs</span><span class="p">):</span>
+<div class="viewcode-block" id="write_raster"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.io.write_raster">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">write_raster</span><span class="p">(</span><span class="n">xrs</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">no_data_value</span><span class="p">,</span> <span class="o">**</span><span class="n">rio_gdal_kwargs</span><span class="p">):</span>
     <span class="n">ext</span> <span class="o">=</span> <span class="n">_get_extension</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
     <span class="n">rio_is_bool</span> <span class="o">=</span> <span class="kc">False</span>
     <span class="k">if</span> <span class="n">ext</span> <span class="ow">in</span> <span class="n">TIFF_EXTS</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">ext</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
@@ -585,7 +585,7 @@ document.write(`
         <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div>
 
 
-<span class="k">def</span> <span class="nf">_get_valid_variables</span><span class="p">(</span><span class="n">meta</span><span class="p">,</span> <span class="n">ignore_too_many_dims</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_get_valid_variables</span><span class="p">(</span><span class="n">meta</span><span class="p">,</span> <span class="n">ignore_too_many_dims</span><span class="p">):</span>
     <span class="n">data_vars</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">meta</span><span class="o">.</span><span class="n">data_vars</span><span class="p">)</span>
     <span class="n">valid</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">data_vars</span><span class="p">:</span>
@@ -609,8 +609,8 @@ document.write(`
     <span class="k">return</span> <span class="n">valid</span>
 
 
-<span class="k">def</span> <span class="nf">_build_raster</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">variable</span><span class="p">,</span> <span class="n">affine</span><span class="p">,</span> <span class="n">crs</span><span class="p">,</span> <span class="n">xarray_kwargs</span><span class="p">):</span>
-    <span class="kn">from</span> <span class="nn">raster_tools.raster</span> <span class="kn">import</span> <span class="n">data_to_raster</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_build_raster</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">variable</span><span class="p">,</span> <span class="n">affine</span><span class="p">,</span> <span class="n">crs</span><span class="p">,</span> <span class="n">xarray_kwargs</span><span class="p">):</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.raster</span><span class="w"> </span><span class="kn">import</span> <span class="n">data_to_raster</span>
 
     <span class="k">if</span> <span class="n">affine</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">affine</span> <span class="o">=</span> <span class="n">Affine</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
@@ -626,7 +626,7 @@ document.write(`
     <span class="k">return</span> <span class="n">raster</span>
 
 
-<span class="k">def</span> <span class="nf">_get_affine</span><span class="p">(</span><span class="n">ds</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_get_affine</span><span class="p">(</span><span class="n">ds</span><span class="p">):</span>
     <span class="k">try</span><span class="p">:</span>
         <span class="n">affine</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">transform</span><span class="p">()</span>
     <span class="k">except</span> <span class="ne">TypeError</span> <span class="k">as</span> <span class="n">err</span><span class="p">:</span>
@@ -634,11 +634,11 @@ document.write(`
         <span class="k">raise</span> <span class="n">AffineEncodingError</span><span class="p">(</span>
             <span class="s2">&quot;Error reading GeoTransform data:&quot;</span>
             <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">ds</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="n">ds</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">grid_mapping</span><span class="p">]</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s1">&#39;GeoTransform&#39;</span><span class="p">]</span><span class="si">!r}</span><span class="s2">&quot;</span>
-        <span class="p">)</span> <span class="kn">from</span> <span class="nn">err</span>
+        <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">err</span>
     <span class="k">return</span> <span class="n">affine</span>
 
 
-<div class="viewcode-block" id="open_dataset"><a class="viewcode-back" href="../../reference/generated/raster_tools.open_dataset.html#raster_tools.io.open_dataset">[docs]</a><span class="k">def</span> <span class="nf">open_dataset</span><span class="p">(</span>
+<div class="viewcode-block" id="open_dataset"><a class="viewcode-back" href="../../reference/generated/raster_tools.open_dataset.html#raster_tools.io.open_dataset">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">open_dataset</span><span class="p">(</span>
     <span class="n">path</span><span class="p">,</span>
     <span class="n">crs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
     <span class="n">ignore_extra_dim_errors</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>

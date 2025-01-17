@@ -8,7 +8,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>raster_tools.raster &#8212; raster_tools 0.9.7 documentation</title>
+    <title>raster_tools.raster &#8212; raster_tools 0.9.8 documentation</title>
   
   
   
@@ -114,7 +114,7 @@
   
   
   
-    <p class="title logo__title">raster_tools 0.9.7 documentation</p>
+    <p class="title logo__title">raster_tools 0.9.8 documentation</p>
   
 </a></div>
         <div class="sidebar-primary-item"><nav class="bd-links" id="bd-docs-nav" aria-label="Main">
@@ -405,32 +405,32 @@ document.write(`
                 <article class="bd-article" role="main">
                   
   <h1>Source code for raster_tools.raster</h1><div class="highlight"><pre>
-<span></span><span class="kn">import</span> <span class="nn">numbers</span>
-<span class="kn">import</span> <span class="nn">warnings</span>
-<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">namedtuple</span>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numbers</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">namedtuple</span>
 
-<span class="kn">import</span> <span class="nn">dask</span>
-<span class="kn">import</span> <span class="nn">dask.array</span> <span class="k">as</span> <span class="nn">da</span>
-<span class="kn">import</span> <span class="nn">dask.dataframe</span> <span class="k">as</span> <span class="nn">dd</span>
-<span class="kn">import</span> <span class="nn">geopandas</span> <span class="k">as</span> <span class="nn">gpd</span>
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="kn">import</span> <span class="nn">odc.geo.xr</span> <span class="k">as</span> <span class="nn">odcxr</span>
-<span class="kn">import</span> <span class="nn">rasterio</span> <span class="k">as</span> <span class="nn">rio</span>
-<span class="kn">import</span> <span class="nn">rioxarray</span> <span class="k">as</span> <span class="nn">xrio</span>
-<span class="kn">import</span> <span class="nn">shapely</span>
-<span class="kn">import</span> <span class="nn">xarray</span> <span class="k">as</span> <span class="nn">xr</span>
-<span class="kn">from</span> <span class="nn">affine</span> <span class="kn">import</span> <span class="n">Affine</span>
-<span class="kn">from</span> <span class="nn">numba</span> <span class="kn">import</span> <span class="n">jit</span>
-<span class="kn">from</span> <span class="nn">odc.geo.geobox</span> <span class="kn">import</span> <span class="n">GeoBox</span>
-<span class="kn">from</span> <span class="nn">shapely.geometry</span> <span class="kn">import</span> <span class="n">box</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">dask</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">dask.array</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">da</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">dask.dataframe</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">dd</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">geopandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">gpd</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">odc.geo.xr</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">odcxr</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">rasterio</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">rio</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">rioxarray</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">xrio</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">shapely</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">xarray</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">xr</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">affine</span><span class="w"> </span><span class="kn">import</span> <span class="n">Affine</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">numba</span><span class="w"> </span><span class="kn">import</span> <span class="n">jit</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">odc.geo.geobox</span><span class="w"> </span><span class="kn">import</span> <span class="n">GeoBox</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">shapely.geometry</span><span class="w"> </span><span class="kn">import</span> <span class="n">box</span>
 
-<span class="kn">from</span> <span class="nn">raster_tools._compat</span> <span class="kn">import</span> <span class="n">NUMPY_GE_2</span>
-<span class="kn">from</span> <span class="nn">raster_tools.dask_utils</span> <span class="kn">import</span> <span class="p">(</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools._compat</span><span class="w"> </span><span class="kn">import</span> <span class="n">NUMPY_GE_2</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.dask_utils</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">chunks_to_array_locations</span><span class="p">,</span>
     <span class="n">dask_nanmax</span><span class="p">,</span>
     <span class="n">dask_nanmin</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">raster_tools.dtypes</span> <span class="kn">import</span> <span class="p">(</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.dtypes</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">BOOL</span><span class="p">,</span>
     <span class="n">DTYPE_INPUT_TO_DTYPE</span><span class="p">,</span>
     <span class="n">F16</span><span class="p">,</span>
@@ -453,12 +453,12 @@ document.write(`
     <span class="n">is_str</span><span class="p">,</span>
     <span class="n">promote_dtype_to_float</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">raster_tools.exceptions</span> <span class="kn">import</span> <span class="n">RasterDataError</span><span class="p">,</span> <span class="n">RasterIOError</span>
-<span class="kn">from</span> <span class="nn">raster_tools.masking</span> <span class="kn">import</span> <span class="p">(</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">RasterDataError</span><span class="p">,</span> <span class="n">RasterIOError</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.masking</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">get_default_null_value</span><span class="p">,</span>
     <span class="n">reconcile_nullvalue_with_dtype</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">raster_tools.utils</span> <span class="kn">import</span> <span class="p">(</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.utils</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">can_broadcast</span><span class="p">,</span>
     <span class="n">is_strictly_decreasing</span><span class="p">,</span>
     <span class="n">is_strictly_increasing</span><span class="p">,</span>
@@ -466,7 +466,7 @@ document.write(`
     <span class="n">to_chunk_dict</span><span class="p">,</span>
 <span class="p">)</span>
 
-<span class="kn">from</span> <span class="nn">.io</span> <span class="kn">import</span> <span class="p">(</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.io</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">IO_UNDERSTOOD_TYPES</span><span class="p">,</span>
     <span class="n">chunk</span><span class="p">,</span>
     <span class="n">is_batch_file</span><span class="p">,</span>
@@ -496,7 +496,7 @@ document.write(`
 <span class="s2">&quot;&quot;&quot;</span>
 
 
-<span class="k">def</span> <span class="nf">_inject_reductions</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_inject_reductions</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
     <span class="k">pass</span>
     <span class="n">funcs</span> <span class="o">=</span> <span class="p">[(</span><span class="n">name</span><span class="p">,</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">np</span><span class="p">,</span> <span class="n">name</span><span class="p">))</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">_REDUCTION_FUNCS</span><span class="p">]</span>
     <span class="n">funcs</span> <span class="o">+=</span> <span class="p">[</span>
@@ -517,7 +517,7 @@ document.write(`
 <span class="p">}</span>
 
 
-<span class="k">class</span> <span class="nc">_ReductionsMixin</span><span class="p">:</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">_ReductionsMixin</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    This mixin class adds reduction methods like `all`, `sum`, etc to the</span>
 <span class="sd">    Raster class. Having these methods also allows numpy reduction functions to</span>
@@ -527,16 +527,16 @@ document.write(`
 
     <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">()</span>
 
-    <span class="k">def</span> <span class="nf">__init_subclass__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">__init_subclass__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="n">_inject_reductions</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">__init_subclass__</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
 
     <span class="nd">@classmethod</span>
-    <span class="k">def</span> <span class="nf">_build_reduce_method</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">func</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_build_reduce_method</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">func</span><span class="p">):</span>
         <span class="k">if</span> <span class="n">func</span> <span class="ow">in</span> <span class="n">_MIN_MAX_FUNC_MAP</span><span class="p">:</span>
             <span class="n">func</span> <span class="o">=</span> <span class="n">_MIN_MAX_FUNC_MAP</span><span class="p">[</span><span class="n">func</span><span class="p">]</span>
 
-        <span class="k">def</span> <span class="nf">method</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">method</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
             <span class="c1"># Take args and kwargs to stay compatible with numpy</span>
             <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span>
             <span class="n">values</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="o">~</span><span class="bp">self</span><span class="o">.</span><span class="n">_ds</span><span class="o">.</span><span class="n">mask</span><span class="o">.</span><span class="n">data</span><span class="p">]</span>
@@ -545,7 +545,7 @@ document.write(`
         <span class="k">return</span> <span class="n">method</span>
 
 
-<span class="k">def</span> <span class="nf">_normalize_ufunc_other</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">this</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_normalize_ufunc_other</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">this</span><span class="p">):</span>
     <span class="k">if</span> <span class="n">other</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">numbers</span><span class="o">.</span><span class="n">Number</span><span class="p">):</span>
         <span class="k">return</span> <span class="n">other</span>
 
@@ -572,7 +572,7 @@ document.write(`
     <span class="k">return</span> <span class="n">other</span>
 
 
-<span class="k">def</span> <span class="nf">_apply_ufunc</span><span class="p">(</span><span class="n">ufunc</span><span class="p">,</span> <span class="n">this</span><span class="p">,</span> <span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">kwargs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_apply_ufunc</span><span class="p">(</span><span class="n">ufunc</span><span class="p">,</span> <span class="n">this</span><span class="p">,</span> <span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">kwargs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
     <span class="n">ufname</span> <span class="o">=</span> <span class="n">ufunc</span><span class="o">.</span><span class="vm">__name__</span>
     <span class="k">if</span> <span class="n">NUMPY_GE_2</span><span class="p">:</span>
         <span class="c1"># If the ufunc is ldexp and the left arg is a python scalar, casting</span>
@@ -663,7 +663,7 @@ document.write(`
 <span class="n">_UNSUPPORED_UFUNCS</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">((</span><span class="n">np</span><span class="o">.</span><span class="n">isnat</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">matmul</span><span class="p">))</span>
 
 
-<span class="k">class</span> <span class="nc">_RasterBase</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">lib</span><span class="o">.</span><span class="n">mixins</span><span class="o">.</span><span class="n">NDArrayOperatorsMixin</span><span class="p">,</span> <span class="n">_ReductionsMixin</span><span class="p">):</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">_RasterBase</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">lib</span><span class="o">.</span><span class="n">mixins</span><span class="o">.</span><span class="n">NDArrayOperatorsMixin</span><span class="p">,</span> <span class="n">_ReductionsMixin</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;This class implements methods for handling numpy ufuncs.&quot;&quot;&quot;</span>
 
     <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">()</span>
@@ -680,7 +680,7 @@ document.write(`
     <span class="c1"># Higher than xarray objects</span>
     <span class="n">__array_priority__</span> <span class="o">=</span> <span class="mi">70</span>
 
-    <span class="k">def</span> <span class="nf">__array_ufunc__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ufunc</span><span class="p">,</span> <span class="n">method</span><span class="p">,</span> <span class="o">*</span><span class="n">inputs</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">__array_ufunc__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ufunc</span><span class="p">,</span> <span class="n">method</span><span class="p">,</span> <span class="o">*</span><span class="n">inputs</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="n">out</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;out&quot;</span><span class="p">,</span> <span class="p">())</span>
         <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">inputs</span> <span class="o">+</span> <span class="n">out</span><span class="p">:</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_HANDLED_TYPES</span> <span class="o">+</span> <span class="p">(</span><span class="n">_RasterBase</span><span class="p">,)):</span>
@@ -747,14 +747,14 @@ document.write(`
                 <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
                     <span class="sa">f</span><span class="s2">&quot;Could not apply </span><span class="si">{</span><span class="n">ufunc</span><span class="si">}</span><span class="s2"> to types &quot;</span>
                     <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">left_msg</span><span class="si">}</span><span class="s2"> and </span><span class="si">{</span><span class="n">right_msg</span><span class="si">}</span><span class="s2">&quot;</span>
-                <span class="p">)</span> <span class="kn">from</span> <span class="nn">err</span>
+                <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">err</span>
             <span class="k">raise</span> <span class="n">err</span>
 
-    <span class="k">def</span> <span class="nf">__array__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">__array__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ds</span><span class="o">.</span><span class="n">raster</span><span class="o">.</span><span class="n">__array__</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span>
 
 
-<span class="k">def</span> <span class="nf">_normalize_bandwise_other</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">target_shape</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_normalize_bandwise_other</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">target_shape</span><span class="p">):</span>
     <span class="n">other</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="n">other</span><span class="p">)</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">da</span><span class="o">.</span><span class="n">Array</span><span class="p">)</span> <span class="ow">and</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">other</span><span class="o">.</span><span class="n">size</span><span class="p">):</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Dask arrays must have known chunks&quot;</span><span class="p">)</span>
@@ -775,7 +775,7 @@ document.write(`
     <span class="p">)</span>
 
 
-<div class="viewcode-block" id="BandwiseOperationAdapter"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.BandwiseOperationAdapter">[docs]</a><span class="k">class</span> <span class="nc">BandwiseOperationAdapter</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">lib</span><span class="o">.</span><span class="n">mixins</span><span class="o">.</span><span class="n">NDArrayOperatorsMixin</span><span class="p">):</span>
+<div class="viewcode-block" id="BandwiseOperationAdapter"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.BandwiseOperationAdapter">[docs]</a><span class="k">class</span><span class="w"> </span><span class="nc">BandwiseOperationAdapter</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">lib</span><span class="o">.</span><span class="n">mixins</span><span class="o">.</span><span class="n">NDArrayOperatorsMixin</span><span class="p">):</span>
     <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;_raster&quot;</span><span class="p">,)</span>
 
     <span class="n">_HANDLED_TYPES</span> <span class="o">=</span> <span class="p">(</span>
@@ -789,10 +789,10 @@ document.write(`
     <span class="c1"># Higher than xarray objects</span>
     <span class="n">__array_priority__</span> <span class="o">=</span> <span class="mi">70</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">raster</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">raster</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_raster</span> <span class="o">=</span> <span class="n">raster</span>
 
-    <span class="k">def</span> <span class="nf">__array_ufunc__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ufunc</span><span class="p">,</span> <span class="n">method</span><span class="p">,</span> <span class="o">*</span><span class="n">inputs</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">__array_ufunc__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ufunc</span><span class="p">,</span> <span class="n">method</span><span class="p">,</span> <span class="o">*</span><span class="n">inputs</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="n">out</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;out&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">inputs</span><span class="p">:</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span>
@@ -855,7 +855,7 @@ document.write(`
         <span class="k">return</span> <span class="n">ufunc</span><span class="p">(</span><span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="xr_where_with_meta"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.xr_where_with_meta">[docs]</a><span class="k">def</span> <span class="nf">xr_where_with_meta</span><span class="p">(</span><span class="n">cond</span><span class="p">,</span> <span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">,</span> <span class="n">crs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">nv</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<div class="viewcode-block" id="xr_where_with_meta"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.xr_where_with_meta">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">xr_where_with_meta</span><span class="p">(</span><span class="n">cond</span><span class="p">,</span> <span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">,</span> <span class="n">crs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">nv</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
     <span class="n">result</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">cond</span><span class="p">,</span> <span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">crs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">result</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_crs</span><span class="p">(</span><span class="n">crs</span><span class="p">)</span>
@@ -864,7 +864,7 @@ document.write(`
     <span class="k">return</span> <span class="n">result</span></div>
 
 
-<div class="viewcode-block" id="get_mask_from_data"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.get_mask_from_data">[docs]</a><span class="k">def</span> <span class="nf">get_mask_from_data</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">nv</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<div class="viewcode-block" id="get_mask_from_data"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.get_mask_from_data">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">get_mask_from_data</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">nv</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
     <span class="k">if</span> <span class="n">nv</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="p">(</span><span class="nb">list</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)):</span>
             <span class="n">mod</span> <span class="o">=</span> <span class="n">np</span>
@@ -887,7 +887,7 @@ document.write(`
     <span class="k">return</span> <span class="n">mask</span></div>
 
 
-<div class="viewcode-block" id="normalize_data"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.normalize_data">[docs]</a><span class="k">def</span> <span class="nf">normalize_data</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">yx_chunks</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<div class="viewcode-block" id="normalize_data"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.normalize_data">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">normalize_data</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">yx_chunks</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;2d/3d np.ndarray or da.Array --&gt; 3D da.Array.</span>
 
 <span class="sd">    This transforms the data array into the standard data format, which has the</span>
@@ -929,7 +929,7 @@ document.write(`
     <span class="k">return</span> <span class="n">data</span></div>
 
 
-<div class="viewcode-block" id="has_spatial_dims"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.has_spatial_dims">[docs]</a><span class="k">def</span> <span class="nf">has_spatial_dims</span><span class="p">(</span><span class="n">xobj</span><span class="p">):</span>
+<div class="viewcode-block" id="has_spatial_dims"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.has_spatial_dims">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">has_spatial_dims</span><span class="p">(</span><span class="n">xobj</span><span class="p">):</span>
     <span class="k">try</span><span class="p">:</span>
         <span class="n">_</span> <span class="o">=</span> <span class="n">xobj</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">x_dim</span>
         <span class="n">_</span> <span class="o">=</span> <span class="n">xobj</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">y_dim</span>
@@ -938,7 +938,7 @@ document.write(`
         <span class="k">return</span> <span class="kc">False</span></div>
 
 
-<div class="viewcode-block" id="find_spatial_dims"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.find_spatial_dims">[docs]</a><span class="k">def</span> <span class="nf">find_spatial_dims</span><span class="p">(</span><span class="n">obj</span><span class="p">):</span>
+<div class="viewcode-block" id="find_spatial_dims"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.find_spatial_dims">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">find_spatial_dims</span><span class="p">(</span><span class="n">obj</span><span class="p">):</span>
     <span class="k">if</span> <span class="n">has_spatial_dims</span><span class="p">(</span><span class="n">obj</span><span class="p">):</span>
         <span class="k">return</span> <span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">y_dim</span><span class="p">,</span> <span class="n">obj</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">x_dim</span><span class="p">)</span>
     <span class="n">dims</span> <span class="o">=</span> <span class="n">obj</span><span class="o">.</span><span class="n">dims</span>
@@ -963,7 +963,7 @@ document.write(`
     <span class="k">return</span> <span class="kc">None</span></div>
 
 
-<div class="viewcode-block" id="normalize_xarray_data"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.normalize_xarray_data">[docs]</a><span class="k">def</span> <span class="nf">normalize_xarray_data</span><span class="p">(</span><span class="n">xdata</span><span class="p">):</span>
+<div class="viewcode-block" id="normalize_xarray_data"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.normalize_xarray_data">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">normalize_xarray_data</span><span class="p">(</span><span class="n">xdata</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Transform the DataArray to the standard raster DataArray format.</span>
 
 <span class="sd">    A standard raster DataArray has the following:</span>
@@ -1053,7 +1053,7 @@ document.write(`
     <span class="k">return</span> <span class="n">xdata</span></div>
 
 
-<div class="viewcode-block" id="is_normalized"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.is_normalized">[docs]</a><span class="k">def</span> <span class="nf">is_normalized</span><span class="p">(</span><span class="n">xdata</span><span class="p">):</span>
+<div class="viewcode-block" id="is_normalized"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.is_normalized">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">is_normalized</span><span class="p">(</span><span class="n">xdata</span><span class="p">):</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">xdata</span><span class="p">,</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">):</span>
         <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Expected a xarray.DataArray object&quot;</span><span class="p">)</span>
     <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">dim</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">xdata</span><span class="o">.</span><span class="n">coords</span> <span class="k">for</span> <span class="n">dim</span> <span class="ow">in</span> <span class="n">xdata</span><span class="o">.</span><span class="n">dims</span><span class="p">):</span>
@@ -1076,7 +1076,7 @@ document.write(`
     <span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="data_to_xr_raster"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.data_to_xr_raster">[docs]</a><span class="k">def</span> <span class="nf">data_to_xr_raster</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">x</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">affine</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">crs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">nv</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<div class="viewcode-block" id="data_to_xr_raster"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.data_to_xr_raster">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">data_to_xr_raster</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">x</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">affine</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">crs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">nv</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a standard raster DataArray from a data array.</span>
 
 <span class="sd">    Parameters</span>
@@ -1144,7 +1144,7 @@ document.write(`
     <span class="k">return</span> <span class="n">normalize_xarray_data</span><span class="p">(</span><span class="n">xdata</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="data_to_xr_raster_like"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.data_to_xr_raster_like">[docs]</a><span class="k">def</span> <span class="nf">data_to_xr_raster_like</span><span class="p">(</span>
+<div class="viewcode-block" id="data_to_xr_raster_like"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.data_to_xr_raster_like">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">data_to_xr_raster_like</span><span class="p">(</span>
     <span class="n">data</span><span class="p">,</span> <span class="n">xlike</span><span class="p">,</span> <span class="n">nv</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">match_band_dim</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">match_chunks</span><span class="o">=</span><span class="kc">True</span>
 <span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a standard raster DataArray based on a template DataArray.</span>
@@ -1194,7 +1194,7 @@ document.write(`
     <span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="make_raster_ds"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.make_raster_ds">[docs]</a><span class="k">def</span> <span class="nf">make_raster_ds</span><span class="p">(</span><span class="n">raster_dataarray</span><span class="p">,</span> <span class="n">mask_dataarray</span><span class="p">):</span>
+<div class="viewcode-block" id="make_raster_ds"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.make_raster_ds">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">make_raster_ds</span><span class="p">(</span><span class="n">raster_dataarray</span><span class="p">,</span> <span class="n">mask_dataarray</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Takes data and mask DataArrays and produces a raster Dataset with the data</span>
 <span class="sd">    in the data variable &quot;raster&quot; and the mask in the &quot;mask&quot; data variable.</span>
@@ -1202,7 +1202,7 @@ document.write(`
     <span class="k">return</span> <span class="n">xr</span><span class="o">.</span><span class="n">Dataset</span><span class="p">({</span><span class="s2">&quot;raster&quot;</span><span class="p">:</span> <span class="n">raster_dataarray</span><span class="p">,</span> <span class="s2">&quot;mask&quot;</span><span class="p">:</span> <span class="n">mask_dataarray</span><span class="p">})</span></div>
 
 
-<div class="viewcode-block" id="data_to_xr_raster_ds"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.data_to_xr_raster_ds">[docs]</a><span class="k">def</span> <span class="nf">data_to_xr_raster_ds</span><span class="p">(</span>
+<div class="viewcode-block" id="data_to_xr_raster_ds"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.data_to_xr_raster_ds">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">data_to_xr_raster_ds</span><span class="p">(</span>
     <span class="n">data</span><span class="p">,</span> <span class="n">mask</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">x</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">affine</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">crs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">nv</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">burn</span><span class="o">=</span><span class="kc">False</span>
 <span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
@@ -1266,7 +1266,7 @@ document.write(`
     <span class="k">return</span> <span class="n">make_raster_ds</span><span class="p">(</span><span class="n">xdata</span><span class="p">,</span> <span class="n">xmask</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="data_to_xr_raster_ds_like"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.data_to_xr_raster_ds_like">[docs]</a><span class="k">def</span> <span class="nf">data_to_xr_raster_ds_like</span><span class="p">(</span>
+<div class="viewcode-block" id="data_to_xr_raster_ds_like"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.data_to_xr_raster_ds_like">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">data_to_xr_raster_ds_like</span><span class="p">(</span>
     <span class="n">data</span><span class="p">,</span> <span class="n">xlike</span><span class="p">,</span> <span class="n">mask</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">nv</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">burn</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">match_chunks</span><span class="o">=</span><span class="kc">True</span>
 <span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
@@ -1325,7 +1325,7 @@ document.write(`
     <span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="data_to_raster"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.data_to_raster">[docs]</a><span class="k">def</span> <span class="nf">data_to_raster</span><span class="p">(</span>
+<div class="viewcode-block" id="data_to_raster"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.data_to_raster">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">data_to_raster</span><span class="p">(</span>
     <span class="n">data</span><span class="p">,</span> <span class="n">mask</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">x</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">affine</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">crs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">nv</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">burn</span><span class="o">=</span><span class="kc">False</span>
 <span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a Raster from a data array.</span>
@@ -1386,7 +1386,7 @@ document.write(`
     <span class="k">return</span> <span class="n">Raster</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="n">_fast_path</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="data_to_raster_like"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.data_to_raster_like">[docs]</a><span class="k">def</span> <span class="nf">data_to_raster_like</span><span class="p">(</span>
+<div class="viewcode-block" id="data_to_raster_like"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.data_to_raster_like">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">data_to_raster_like</span><span class="p">(</span>
     <span class="n">data</span><span class="p">,</span> <span class="n">like</span><span class="p">,</span> <span class="n">mask</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">nv</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">burn</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">match_chunks</span><span class="o">=</span><span class="kc">True</span>
 <span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a Raster, based on a template Raster, from a data array.</span>
@@ -1432,7 +1432,7 @@ document.write(`
     <span class="k">return</span> <span class="n">Raster</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="n">_fast_path</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="dataarray_to_xr_raster"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.dataarray_to_xr_raster">[docs]</a><span class="k">def</span> <span class="nf">dataarray_to_xr_raster</span><span class="p">(</span><span class="n">xdata</span><span class="p">):</span>
+<div class="viewcode-block" id="dataarray_to_xr_raster"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.dataarray_to_xr_raster">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">dataarray_to_xr_raster</span><span class="p">(</span><span class="n">xdata</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Transform a DataArray object into standard raster DataArray.</span>
 
 <span class="sd">    The CRS and null value are pulled from `xdata` using `rioxarray`.</span>
@@ -1458,7 +1458,7 @@ document.write(`
     <span class="k">return</span> <span class="n">normalize_xarray_data</span><span class="p">(</span><span class="n">xdata</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="dataarray_to_xr_raster_ds"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.dataarray_to_xr_raster_ds">[docs]</a><span class="k">def</span> <span class="nf">dataarray_to_xr_raster_ds</span><span class="p">(</span><span class="n">xdata</span><span class="p">,</span> <span class="n">xmask</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">crs</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<div class="viewcode-block" id="dataarray_to_xr_raster_ds"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.dataarray_to_xr_raster_ds">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">dataarray_to_xr_raster_ds</span><span class="p">(</span><span class="n">xdata</span><span class="p">,</span> <span class="n">xmask</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">crs</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a raster Dataset object from a DataArray object.</span>
 
 <span class="sd">    The null value is pulled from `xdata` using `rioxarray`.</span>
@@ -1499,7 +1499,7 @@ document.write(`
     <span class="k">return</span> <span class="n">ds</span></div>
 
 
-<div class="viewcode-block" id="dataarray_to_raster"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.dataarray_to_raster">[docs]</a><span class="k">def</span> <span class="nf">dataarray_to_raster</span><span class="p">(</span><span class="n">xdata</span><span class="p">,</span> <span class="n">xmask</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">crs</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<div class="viewcode-block" id="dataarray_to_raster"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.dataarray_to_raster">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">dataarray_to_raster</span><span class="p">(</span><span class="n">xdata</span><span class="p">,</span> <span class="n">xmask</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">crs</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a Raster from a DataArray object.</span>
 
 <span class="sd">    The null value is pulled from `xdata` using `rioxarray`.</span>
@@ -1533,7 +1533,7 @@ document.write(`
     <span class="p">)</span></div>
 
 
-<span class="k">def</span> <span class="nf">_array_input_to_raster_ds</span><span class="p">(</span><span class="n">ar</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_array_input_to_raster_ds</span><span class="p">(</span><span class="n">ar</span><span class="p">):</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">ar</span><span class="p">,</span> <span class="n">da</span><span class="o">.</span><span class="n">Array</span><span class="p">):</span>
         <span class="n">has_nan</span> <span class="o">=</span> <span class="n">is_float</span><span class="p">(</span><span class="n">ar</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span> <span class="ow">and</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">ar</span><span class="p">)</span><span class="o">.</span><span class="n">any</span><span class="p">()</span>
     <span class="k">else</span><span class="p">:</span>
@@ -1552,7 +1552,7 @@ document.write(`
     <span class="k">return</span> <span class="n">ds</span>
 
 
-<span class="k">def</span> <span class="nf">_try_to_get_null_value_xarray</span><span class="p">(</span><span class="n">xrs</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_try_to_get_null_value_xarray</span><span class="p">(</span><span class="n">xrs</span><span class="p">):</span>
     <span class="k">if</span> <span class="p">(</span>
         <span class="s2">&quot;_FillValue&quot;</span> <span class="ow">in</span> <span class="n">xrs</span><span class="o">.</span><span class="n">attrs</span>
         <span class="ow">and</span> <span class="n">xrs</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">&quot;_FillValue&quot;</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span>
@@ -1582,7 +1582,7 @@ document.write(`
     <span class="k">return</span> <span class="n">nv1</span> <span class="k">if</span> <span class="n">nv1</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">nv2</span>
 
 
-<span class="k">def</span> <span class="nf">_dataarray_input_to_raster_ds</span><span class="p">(</span><span class="n">xdata</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_dataarray_input_to_raster_ds</span><span class="p">(</span><span class="n">xdata</span><span class="p">):</span>
     <span class="n">nv</span> <span class="o">=</span> <span class="n">_try_to_get_null_value_xarray</span><span class="p">(</span><span class="n">xdata</span><span class="p">)</span>
     <span class="n">xdata</span> <span class="o">=</span> <span class="n">normalize_xarray_data</span><span class="p">(</span><span class="n">xdata</span><span class="p">)</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">dask</span><span class="o">.</span><span class="n">is_dask_collection</span><span class="p">(</span><span class="n">xdata</span><span class="p">)</span> <span class="ow">or</span> <span class="n">xdata</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">chunksize</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
@@ -1598,7 +1598,7 @@ document.write(`
     <span class="k">return</span> <span class="n">dataarray_to_xr_raster_ds</span><span class="p">(</span><span class="n">xdata</span><span class="p">,</span> <span class="n">xmask</span><span class="o">=</span><span class="n">xmask</span><span class="p">,</span> <span class="n">crs</span><span class="o">=</span><span class="n">crs</span><span class="p">)</span>
 
 
-<span class="k">def</span> <span class="nf">_dataset_to_raster_ds</span><span class="p">(</span><span class="n">ds_in</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_dataset_to_raster_ds</span><span class="p">(</span><span class="n">ds_in</span><span class="p">):</span>
     <span class="k">if</span> <span class="p">(</span>
         <span class="n">dask</span><span class="o">.</span><span class="n">is_dask_collection</span><span class="p">(</span><span class="n">ds_in</span><span class="p">)</span>
         <span class="ow">and</span> <span class="nb">set</span><span class="p">(</span><span class="n">ds_in</span><span class="o">.</span><span class="n">data_vars</span><span class="p">)</span> <span class="o">==</span> <span class="p">{</span><span class="s2">&quot;raster&quot;</span><span class="p">,</span> <span class="s2">&quot;mask&quot;</span><span class="p">}</span>
@@ -1643,13 +1643,13 @@ document.write(`
     <span class="k">return</span> <span class="n">dataarray_to_xr_raster_ds</span><span class="p">(</span><span class="n">xdata</span><span class="p">,</span> <span class="n">xmask</span><span class="p">,</span> <span class="n">crs</span><span class="o">=</span><span class="n">crs</span><span class="p">)</span>
 
 
-<span class="k">def</span> <span class="nf">_xarray_input_to_raster_ds</span><span class="p">(</span><span class="n">xin</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_xarray_input_to_raster_ds</span><span class="p">(</span><span class="n">xin</span><span class="p">):</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">xin</span><span class="p">,</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">):</span>
         <span class="k">return</span> <span class="n">_dataarray_input_to_raster_ds</span><span class="p">(</span><span class="n">xin</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">_dataset_to_raster_ds</span><span class="p">(</span><span class="n">xin</span><span class="p">)</span>
 
 
-<div class="viewcode-block" id="get_raster_ds"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.get_raster_ds">[docs]</a><span class="k">def</span> <span class="nf">get_raster_ds</span><span class="p">(</span><span class="n">raster</span><span class="p">):</span>
+<div class="viewcode-block" id="get_raster_ds"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.get_raster_ds">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">get_raster_ds</span><span class="p">(</span><span class="n">raster</span><span class="p">):</span>
     <span class="c1"># Copy to take ownership</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">Raster</span><span class="p">):</span>
         <span class="n">ds</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">_ds</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">deep</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
@@ -1660,7 +1660,7 @@ document.write(`
     <span class="k">elif</span> <span class="nb">type</span><span class="p">(</span><span class="n">raster</span><span class="p">)</span> <span class="ow">in</span> <span class="n">IO_UNDERSTOOD_TYPES</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">is_batch_file</span><span class="p">(</span><span class="n">raster</span><span class="p">):</span>
             <span class="c1"># Import here to avoid circular import errors</span>
-            <span class="kn">from</span> <span class="nn">raster_tools.batch</span> <span class="kn">import</span> <span class="n">parse_batch_script</span>
+            <span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.batch</span><span class="w"> </span><span class="kn">import</span> <span class="n">parse_batch_script</span>
 
             <span class="n">ds</span> <span class="o">=</span> <span class="n">parse_batch_script</span><span class="p">(</span><span class="n">raster</span><span class="p">)</span><span class="o">.</span><span class="n">final_raster</span><span class="o">.</span><span class="n">_ds</span>
         <span class="k">else</span><span class="p">:</span>
@@ -1676,7 +1676,7 @@ document.write(`
 <span class="p">)</span>
 
 
-<div class="viewcode-block" id="Raster"><a class="viewcode-back" href="../../reference/generated/raster_tools.Raster.html#raster_tools.raster.Raster">[docs]</a><span class="k">class</span> <span class="nc">Raster</span><span class="p">(</span><span class="n">_RasterBase</span><span class="p">):</span>
+<div class="viewcode-block" id="Raster"><a class="viewcode-back" href="../../reference/generated/raster_tools.Raster.html#raster_tools.raster.Raster">[docs]</a><span class="k">class</span><span class="w"> </span><span class="nc">Raster</span><span class="p">(</span><span class="n">_RasterBase</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Abstraction of georeferenced raster data with lazy function evaluation.</span>
 
 <span class="sd">    Raster is a wrapper around xarray Datasets and DataArrays. It takes</span>
@@ -1703,13 +1703,13 @@ document.write(`
 
     <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;_ds&quot;</span><span class="p">,)</span>
 
-<div class="viewcode-block" id="Raster.__init__"><a class="viewcode-back" href="../../reference/generated/raster_tools.Raster.html#raster_tools.raster.Raster.__init__">[docs]</a>    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">raster</span><span class="p">,</span> <span class="n">_fast_path</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<div class="viewcode-block" id="Raster.__init__"><a class="viewcode-back" href="../../reference/generated/raster_tools.Raster.html#raster_tools.raster.Raster.__init__">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">raster</span><span class="p">,</span> <span class="n">_fast_path</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
         <span class="k">if</span> <span class="n">_fast_path</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_ds</span> <span class="o">=</span> <span class="n">raster</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_ds</span> <span class="o">=</span> <span class="n">get_raster_ds</span><span class="p">(</span><span class="n">raster</span><span class="p">)</span></div>
 
-    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="c1"># TODO: implement</span>
         <span class="n">crs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">crs</span>
         <span class="n">masked</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_masked</span>
@@ -1719,26 +1719,26 @@ document.write(`
         <span class="p">)</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">null_value</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">null_value</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;The raster&#39;s null value used to fill missing or invalid entries.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ds</span><span class="o">.</span><span class="n">raster</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">nodata</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">_masked</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_masked</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">null_value</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">xdata</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">xdata</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;The underlying :class:`xarray.DataArray` (read only)&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ds</span><span class="o">.</span><span class="n">raster</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">data</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">data</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;The underlying dask array of data&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ds</span><span class="o">.</span><span class="n">raster</span><span class="o">.</span><span class="n">data</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">values</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">values</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        The raw internal raster as a numpy array.</span>
 
@@ -1748,37 +1748,37 @@ document.write(`
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">mask</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">mask</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;The null value mask as a dask array.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ds</span><span class="o">.</span><span class="n">mask</span><span class="o">.</span><span class="n">data</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">xmask</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">xmask</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;The null value mask as an xarray DataArray.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ds</span><span class="o">.</span><span class="n">mask</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">band</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">band</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;The band coordinate values.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ds</span><span class="o">.</span><span class="n">band</span><span class="o">.</span><span class="n">data</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">x</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">x</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;The x (horizontal) coordinate values.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ds</span><span class="o">.</span><span class="n">x</span><span class="o">.</span><span class="n">data</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">y</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">y</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;The y (vertical) coordinate values.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ds</span><span class="o">.</span><span class="n">y</span><span class="o">.</span><span class="n">data</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">dtype</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">dtype</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;The dtype of the data.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ds</span><span class="o">.</span><span class="n">raster</span><span class="o">.</span><span class="n">dtype</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">shape</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">shape</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;The shape of the underlying raster. Dim 0 is the band dimension.</span>
 
 <span class="sd">        The shape will always be of the form ``(B, Y, X)`` where ``B`` is the</span>
@@ -1788,26 +1788,26 @@ document.write(`
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ds</span><span class="o">.</span><span class="n">raster</span><span class="o">.</span><span class="n">shape</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">size</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">size</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        The number of grid cells across all bands.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">size</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">nbands</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">nbands</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;The number of bands.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ds</span><span class="o">.</span><span class="n">band</span><span class="o">.</span><span class="n">size</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">crs</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">crs</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;The raster&#39;s CRS.</span>
 
 <span class="sd">        This is a :obj:`rasterio.crs.CRS` object.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ds</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">crs</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">affine</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">affine</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;The affine transformation for the raster data.</span>
 
 <span class="sd">        This is an :obj:`affine.Affine` object.</span>
@@ -1816,12 +1816,12 @@ document.write(`
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ds</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">resolution</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">resolution</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;The x and y cell sizes as a tuple. Values are always positive.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ds</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">resolution</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">bounds</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">bounds</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Bounds tuple (minx, miny, maxx, maxy)&quot;&quot;&quot;</span>
         <span class="n">r</span><span class="p">,</span> <span class="n">c</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
         <span class="n">minx</span><span class="p">,</span> <span class="n">maxy</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">xy</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">offset</span><span class="o">=</span><span class="s2">&quot;ul&quot;</span><span class="p">)</span>
@@ -1829,12 +1829,12 @@ document.write(`
         <span class="k">return</span> <span class="p">(</span><span class="n">minx</span><span class="p">,</span> <span class="n">miny</span><span class="p">,</span> <span class="n">maxx</span><span class="p">,</span> <span class="n">maxy</span><span class="p">)</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">geobox</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">geobox</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;GeoBox object describing the raster&#39;s grid.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ds</span><span class="o">.</span><span class="n">odc</span><span class="o">.</span><span class="n">geobox</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">bandwise</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">bandwise</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns an adapter for band-wise operations on this raster</span>
 
 <span class="sd">        The returned adapter allows lists/arrays of values to be mapped to the</span>
@@ -1844,7 +1844,7 @@ document.write(`
         <span class="k">return</span> <span class="n">BandwiseOperationAdapter</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">_rs</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_rs</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
             <span class="s2">&quot;&#39;Raster._rs&#39; is deprecated. It will soon be removed. Use xdata.&quot;</span><span class="p">,</span>
             <span class="ne">DeprecationWarning</span><span class="p">,</span>
@@ -1853,7 +1853,7 @@ document.write(`
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ds</span><span class="o">.</span><span class="n">raster</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">_data</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_data</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
             <span class="s2">&quot;&#39;Raster._data&#39; is deprecated. It will soon be removed. Use data.&quot;</span><span class="p">,</span>
             <span class="ne">DeprecationWarning</span><span class="p">,</span>
@@ -1862,7 +1862,7 @@ document.write(`
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ds</span><span class="o">.</span><span class="n">raster</span><span class="o">.</span><span class="n">data</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">_values</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_values</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
             <span class="s2">&quot;&#39;Raster._values&#39; is deprecated. It will soon be removed. Use &quot;</span>
             <span class="s2">&quot;values.&quot;</span><span class="p">,</span>
@@ -1872,7 +1872,7 @@ document.write(`
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ds</span><span class="o">.</span><span class="n">raster</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">_mask</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_mask</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
             <span class="s2">&quot;&#39;Raster._mask&#39; is deprecated. It will soon be removed. Use mask.&quot;</span><span class="p">,</span>
             <span class="ne">DeprecationWarning</span><span class="p">,</span>
@@ -1881,7 +1881,7 @@ document.write(`
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ds</span><span class="o">.</span><span class="n">mask</span><span class="o">.</span><span class="n">data</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">_null_value</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_null_value</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
             <span class="s2">&quot;&#39;Raster._null_value&#39; is deprecated. It will soon be removed. Use &quot;</span>
             <span class="s2">&quot;null_value.&quot;</span><span class="p">,</span>
@@ -1891,7 +1891,7 @@ document.write(`
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">null_value</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">xrs</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">xrs</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
             <span class="s2">&quot;&#39;Raster.xrs&#39; is deprecated. It will soon be removed. Use xdata.&quot;</span><span class="p">,</span>
             <span class="ne">DeprecationWarning</span><span class="p">,</span>
@@ -1900,7 +1900,7 @@ document.write(`
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ds</span><span class="o">.</span><span class="n">raster</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">pxrs</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">pxrs</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
             <span class="s2">&quot;&#39;Raster.pxrs&#39; is deprecated. It will soon be removed.&quot;</span><span class="p">,</span>
             <span class="ne">DeprecationWarning</span><span class="p">,</span>
@@ -1909,7 +1909,7 @@ document.write(`
         <span class="k">return</span> <span class="n">get_raster</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">null_to_nan</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">_ds</span><span class="o">.</span><span class="n">raster</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">geochunks</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">geochunks</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Produce an array of GeoChunks that correspond to the underlying chunks</span>
 <span class="sd">        in the data.</span>
@@ -1939,7 +1939,7 @@ document.write(`
             <span class="p">)</span>
         <span class="k">return</span> <span class="n">GeoChunkArray</span><span class="p">(</span><span class="n">geochunks</span><span class="p">)</span>
 
-<div class="viewcode-block" id="Raster.chunk"><a class="viewcode-back" href="../../reference/generated/raster_tools.Raster.chunk.html#raster_tools.raster.Raster.chunk">[docs]</a>    <span class="k">def</span> <span class="nf">chunk</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">chunks</span><span class="p">):</span>
+<div class="viewcode-block" id="Raster.chunk"><a class="viewcode-back" href="../../reference/generated/raster_tools.Raster.chunk.html#raster_tools.raster.Raster.chunk">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">chunk</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">chunks</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Rechunk the underlying raster</span>
 
 <span class="sd">        Parameters</span>
@@ -1960,11 +1960,11 @@ document.write(`
             <span class="n">_fast_path</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
         <span class="p">)</span></div>
 
-<div class="viewcode-block" id="Raster.to_dataset"><a class="viewcode-back" href="../../reference/generated/raster_tools.Raster.to_dataset.html#raster_tools.raster.Raster.to_dataset">[docs]</a>    <span class="k">def</span> <span class="nf">to_dataset</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="Raster.to_dataset"><a class="viewcode-back" href="../../reference/generated/raster_tools.Raster.to_dataset.html#raster_tools.raster.Raster.to_dataset">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">to_dataset</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns the underlying `xarray.Dataset`.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ds</span></div>
 
-<div class="viewcode-block" id="Raster.to_numpy"><a class="viewcode-back" href="../../reference/generated/raster_tools.Raster.to_numpy.html#raster_tools.raster.Raster.to_numpy">[docs]</a>    <span class="k">def</span> <span class="nf">to_numpy</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="Raster.to_numpy"><a class="viewcode-back" href="../../reference/generated/raster_tools.Raster.to_numpy.html#raster_tools.raster.Raster.to_numpy">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">to_numpy</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Return the raw internal raster as a numpy array.</span>
 
@@ -1974,13 +1974,13 @@ document.write(`
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ds</span><span class="o">.</span><span class="n">raster</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span></div>
 
-<div class="viewcode-block" id="Raster.plot"><a class="viewcode-back" href="../../reference/generated/raster_tools.Raster.plot.html#raster_tools.raster.Raster.plot">[docs]</a>    <span class="k">def</span> <span class="nf">plot</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<div class="viewcode-block" id="Raster.plot"><a class="viewcode-back" href="../../reference/generated/raster_tools.Raster.plot.html#raster_tools.raster.Raster.plot">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">plot</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Plot the raster. Args and kwargs are passed to xarray&#39;s plot function.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">get_raster</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">null_to_nan</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">xdata</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="Raster.explore"><a class="viewcode-back" href="../../reference/generated/raster_tools.Raster.explore.html#raster_tools.raster.Raster.explore">[docs]</a>    <span class="k">def</span> <span class="nf">explore</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">band</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<div class="viewcode-block" id="Raster.explore"><a class="viewcode-back" href="../../reference/generated/raster_tools.Raster.explore.html#raster_tools.raster.Raster.explore">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">explore</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">band</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Plot the raster band on an interactive :py:mod:`folium` map.</span>
 
 <span class="sd">        This allows for rapid data exploration. Any extra arguments or keyword</span>
@@ -2007,7 +2007,7 @@ document.write(`
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Specified band must be greater than 0&quot;</span><span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">xdata</span><span class="o">.</span><span class="n">sel</span><span class="p">(</span><span class="n">band</span><span class="o">=</span><span class="n">band</span><span class="p">)</span><span class="o">.</span><span class="n">odc</span><span class="o">.</span><span class="n">explore</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="Raster.get_chunked_coords"><a class="viewcode-back" href="../../reference/generated/raster_tools.Raster.get_chunked_coords.html#raster_tools.raster.Raster.get_chunked_coords">[docs]</a>    <span class="k">def</span> <span class="nf">get_chunked_coords</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="Raster.get_chunked_coords"><a class="viewcode-back" href="../../reference/generated/raster_tools.Raster.get_chunked_coords.html#raster_tools.raster.Raster.get_chunked_coords">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">get_chunked_coords</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Get lazy coordinate arrays, in x-y order, chunked to match data.&quot;&quot;&quot;</span>
         <span class="n">xc</span> <span class="o">=</span> <span class="n">da</span><span class="o">.</span><span class="n">from_array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">x</span><span class="p">,</span> <span class="n">chunks</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">chunks</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span>
             <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
@@ -2017,11 +2017,11 @@ document.write(`
         <span class="p">)</span>
         <span class="k">return</span> <span class="n">xc</span><span class="p">,</span> <span class="n">yc</span></div>
 
-<div class="viewcode-block" id="Raster.close"><a class="viewcode-back" href="../../reference/generated/raster_tools.Raster.close.html#raster_tools.raster.Raster.close">[docs]</a>    <span class="k">def</span> <span class="nf">close</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="Raster.close"><a class="viewcode-back" href="../../reference/generated/raster_tools.Raster.close.html#raster_tools.raster.Raster.close">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">close</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Close the underlying source&quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_ds</span><span class="o">.</span><span class="n">close</span><span class="p">()</span></div>
 
-<div class="viewcode-block" id="Raster.save"><a class="viewcode-back" href="../../reference/generated/raster_tools.Raster.save.html#raster_tools.raster.Raster.save">[docs]</a>    <span class="k">def</span> <span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">no_data_value</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">gdal_kwargs</span><span class="p">):</span>
+<div class="viewcode-block" id="Raster.save"><a class="viewcode-back" href="../../reference/generated/raster_tools.Raster.save.html#raster_tools.raster.Raster.save">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">no_data_value</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">gdal_kwargs</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute the final raster and save it to the provided location.</span>
 
 <span class="sd">        Parameters</span>
@@ -2058,7 +2058,7 @@ document.write(`
         <span class="p">)</span>
         <span class="k">return</span> <span class="n">Raster</span><span class="p">(</span><span class="n">path</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="Raster.load"><a class="viewcode-back" href="../../reference/generated/raster_tools.Raster.load.html#raster_tools.raster.Raster.load">[docs]</a>    <span class="k">def</span> <span class="nf">load</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="Raster.load"><a class="viewcode-back" href="../../reference/generated/raster_tools.Raster.load.html#raster_tools.raster.Raster.load">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute delayed operations and load the result into memory.</span>
 
 <span class="sd">        This computes all delayed operations built up so far and then stores</span>
@@ -2071,7 +2071,7 @@ document.write(`
         <span class="c1"># A new raster is returned to mirror the xarray and dask APIs</span>
         <span class="k">return</span> <span class="n">Raster</span><span class="p">(</span><span class="n">ds</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="Raster.eval"><a class="viewcode-back" href="../../reference/generated/raster_tools.Raster.eval.html#raster_tools.raster.Raster.eval">[docs]</a>    <span class="k">def</span> <span class="nf">eval</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>  <span class="c1"># noqa: A003</span>
+<div class="viewcode-block" id="Raster.eval"><a class="viewcode-back" href="../../reference/generated/raster_tools.Raster.eval.html#raster_tools.raster.Raster.eval">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">eval</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>  <span class="c1"># noqa: A003</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute any applied operations and return the result as new Raster.</span>
 
 <span class="sd">        Note that the unerlying sources will be loaded into memory for the</span>
@@ -2086,11 +2086,11 @@ document.write(`
         <span class="c1"># TODO: deprecate in favor of load</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">load</span><span class="p">()</span></div>
 
-<div class="viewcode-block" id="Raster.copy"><a class="viewcode-back" href="../../reference/generated/raster_tools.Raster.copy.html#raster_tools.raster.Raster.copy">[docs]</a>    <span class="k">def</span> <span class="nf">copy</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="Raster.copy"><a class="viewcode-back" href="../../reference/generated/raster_tools.Raster.copy.html#raster_tools.raster.Raster.copy">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">copy</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns a copy of this Raster.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">Raster</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="Raster.astype"><a class="viewcode-back" href="../../reference/generated/raster_tools.Raster.astype.html#raster_tools.raster.Raster.astype">[docs]</a>    <span class="k">def</span> <span class="nf">astype</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dtype</span><span class="p">,</span> <span class="n">warn_about_null_change</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<div class="viewcode-block" id="Raster.astype"><a class="viewcode-back" href="../../reference/generated/raster_tools.Raster.astype.html#raster_tools.raster.Raster.astype">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">astype</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dtype</span><span class="p">,</span> <span class="n">warn_about_null_change</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a copy of the Raster cast to the specified type.</span>
 
 <span class="sd">        Parameters</span>
@@ -2134,7 +2134,7 @@ document.write(`
             <span class="n">ds</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_crs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">crs</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">Raster</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="n">_fast_path</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="Raster.get_bands"><a class="viewcode-back" href="../../reference/generated/raster_tools.Raster.get_bands.html#raster_tools.raster.Raster.get_bands">[docs]</a>    <span class="k">def</span> <span class="nf">get_bands</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bands</span><span class="p">):</span>
+<div class="viewcode-block" id="Raster.get_bands"><a class="viewcode-back" href="../../reference/generated/raster_tools.Raster.get_bands.html#raster_tools.raster.Raster.get_bands">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">get_bands</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bands</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Retrieve the specified bands as a new Raster. Indexing starts at 1.</span>
 
 <span class="sd">        Parameters</span>
@@ -2175,7 +2175,7 @@ document.write(`
         <span class="n">ds</span><span class="p">[</span><span class="s2">&quot;band&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">bands</span><span class="p">))</span> <span class="o">+</span> <span class="mi">1</span>
         <span class="k">return</span> <span class="n">Raster</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="n">_fast_path</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="Raster.set_crs"><a class="viewcode-back" href="../../reference/generated/raster_tools.Raster.set_crs.html#raster_tools.raster.Raster.set_crs">[docs]</a>    <span class="k">def</span> <span class="nf">set_crs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">crs</span><span class="p">):</span>
+<div class="viewcode-block" id="Raster.set_crs"><a class="viewcode-back" href="../../reference/generated/raster_tools.Raster.set_crs.html#raster_tools.raster.Raster.set_crs">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">set_crs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">crs</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Set the CRS for the underlying data.</span>
 
 <span class="sd">        Parameters</span>
@@ -2193,7 +2193,7 @@ document.write(`
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">Raster</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_ds</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_crs</span><span class="p">(</span><span class="n">crs</span><span class="p">),</span> <span class="n">_fast_path</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="Raster.set_null_value"><a class="viewcode-back" href="../../reference/generated/raster_tools.Raster.set_null_value.html#raster_tools.raster.Raster.set_null_value">[docs]</a>    <span class="k">def</span> <span class="nf">set_null_value</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+<div class="viewcode-block" id="Raster.set_null_value"><a class="viewcode-back" href="../../reference/generated/raster_tools.Raster.set_null_value.html#raster_tools.raster.Raster.set_null_value">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">set_null_value</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Sets or replaces the null value for the raster.</span>
 
 <span class="sd">        If there was previously no null value for the raster, one is set. If</span>
@@ -2269,7 +2269,7 @@ document.write(`
         <span class="n">xrs</span> <span class="o">=</span> <span class="n">xrs</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_nodata</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">Raster</span><span class="p">(</span><span class="n">make_raster_ds</span><span class="p">(</span><span class="n">xrs</span><span class="p">,</span> <span class="n">mask</span><span class="p">),</span> <span class="n">_fast_path</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">burn_mask</span><span class="p">()</span></div>
 
-<div class="viewcode-block" id="Raster.set_null"><a class="viewcode-back" href="../../reference/generated/raster_tools.Raster.set_null.html#raster_tools.raster.Raster.set_null">[docs]</a>    <span class="k">def</span> <span class="nf">set_null</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mask_raster</span><span class="p">):</span>
+<div class="viewcode-block" id="Raster.set_null"><a class="viewcode-back" href="../../reference/generated/raster_tools.Raster.set_null.html#raster_tools.raster.Raster.set_null">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">set_null</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mask_raster</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Update the raster&#39;s null pixels using the provided mask</span>
 
 <span class="sd">        Parameters</span>
@@ -2323,7 +2323,7 @@ document.write(`
         <span class="c1"># Burn mask to set null values in newly masked regions</span>
         <span class="k">return</span> <span class="n">out_raster</span><span class="o">.</span><span class="n">burn_mask</span><span class="p">()</span></div>
 
-<div class="viewcode-block" id="Raster.burn_mask"><a class="viewcode-back" href="../../reference/generated/raster_tools.Raster.burn_mask.html#raster_tools.raster.Raster.burn_mask">[docs]</a>    <span class="k">def</span> <span class="nf">burn_mask</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="Raster.burn_mask"><a class="viewcode-back" href="../../reference/generated/raster_tools.Raster.burn_mask.html#raster_tools.raster.Raster.burn_mask">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">burn_mask</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Fill null-masked cells with null value.</span>
 
 <span class="sd">        Use this as a way to return the underlying data to a known state. If</span>
@@ -2343,7 +2343,7 @@ document.write(`
         <span class="n">out_raster</span><span class="o">.</span><span class="n">_ds</span><span class="o">.</span><span class="n">raster</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">da</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mask</span><span class="p">,</span> <span class="n">nv</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">out_raster</span></div>
 
-<div class="viewcode-block" id="Raster.to_null_mask"><a class="viewcode-back" href="../../reference/generated/raster_tools.Raster.to_null_mask.html#raster_tools.raster.Raster.to_null_mask">[docs]</a>    <span class="k">def</span> <span class="nf">to_null_mask</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="Raster.to_null_mask"><a class="viewcode-back" href="../../reference/generated/raster_tools.Raster.to_null_mask.html#raster_tools.raster.Raster.to_null_mask">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">to_null_mask</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Returns a boolean Raster with True at null values and False otherwise.</span>
 
@@ -2362,7 +2362,7 @@ document.write(`
             <span class="n">_fast_path</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
         <span class="p">)</span></div>
 
-<div class="viewcode-block" id="Raster.replace_null"><a class="viewcode-back" href="../../reference/generated/raster_tools.Raster.replace_null.html#raster_tools.raster.Raster.replace_null">[docs]</a>    <span class="k">def</span> <span class="nf">replace_null</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+<div class="viewcode-block" id="Raster.replace_null"><a class="viewcode-back" href="../../reference/generated/raster_tools.Raster.replace_null.html#raster_tools.raster.Raster.replace_null">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">replace_null</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Replaces null values with `value`.</span>
 
 <span class="sd">        Parameters</span>
@@ -2382,7 +2382,7 @@ document.write(`
 
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">set_null_value</span><span class="p">(</span><span class="n">value</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="Raster.where"><a class="viewcode-back" href="../../reference/generated/raster_tools.Raster.where.html#raster_tools.raster.Raster.where">[docs]</a>    <span class="k">def</span> <span class="nf">where</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">condition</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+<div class="viewcode-block" id="Raster.where"><a class="viewcode-back" href="../../reference/generated/raster_tools.Raster.where.html#raster_tools.raster.Raster.where">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">where</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">condition</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Filter elements from this raster according to `condition`.</span>
 
 <span class="sd">        The mask for the result is a combination of all three rasters. Any</span>
@@ -2413,11 +2413,11 @@ document.write(`
 <span class="sd">            The resulting filtered Raster.</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="kn">from</span> <span class="nn">raster_tools.general</span> <span class="kn">import</span> <span class="n">where</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.general</span><span class="w"> </span><span class="kn">import</span> <span class="n">where</span>
 
         <span class="k">return</span> <span class="n">where</span><span class="p">(</span><span class="n">condition</span><span class="p">,</span> <span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="Raster.remap_range"><a class="viewcode-back" href="../../reference/generated/raster_tools.Raster.remap_range.html#raster_tools.raster.Raster.remap_range">[docs]</a>    <span class="k">def</span> <span class="nf">remap_range</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mapping</span><span class="p">,</span> <span class="n">inclusivity</span><span class="o">=</span><span class="s2">&quot;left&quot;</span><span class="p">):</span>
+<div class="viewcode-block" id="Raster.remap_range"><a class="viewcode-back" href="../../reference/generated/raster_tools.Raster.remap_range.html#raster_tools.raster.Raster.remap_range">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">remap_range</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mapping</span><span class="p">,</span> <span class="n">inclusivity</span><span class="o">=</span><span class="s2">&quot;left&quot;</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Remaps values based on a mapping or list of mappings.</span>
 
 <span class="sd">        Mappings are applied all at once with earlier mappings taking</span>
@@ -2457,11 +2457,11 @@ document.write(`
 
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># local import to avoid circular import</span>
-        <span class="kn">from</span> <span class="nn">raster_tools.general</span> <span class="kn">import</span> <span class="n">remap_range</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.general</span><span class="w"> </span><span class="kn">import</span> <span class="n">remap_range</span>
 
         <span class="k">return</span> <span class="n">remap_range</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mapping</span><span class="p">,</span> <span class="n">inclusivity</span><span class="o">=</span><span class="n">inclusivity</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="Raster.model_predict"><a class="viewcode-back" href="../../reference/generated/raster_tools.Raster.model_predict.html#raster_tools.raster.Raster.model_predict">[docs]</a>    <span class="k">def</span> <span class="nf">model_predict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">n_outputs</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+<div class="viewcode-block" id="Raster.model_predict"><a class="viewcode-back" href="../../reference/generated/raster_tools.Raster.model_predict.html#raster_tools.raster.Raster.model_predict">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">model_predict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">n_outputs</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Generate a new raster using the provided model to predict new values.</span>
 
@@ -2495,11 +2495,11 @@ document.write(`
 <span class="sd">            The resulting raster of estimated values. Each band corresponds to</span>
 <span class="sd">            an output variable produced by the `model`.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="kn">from</span> <span class="nn">raster_tools.general</span> <span class="kn">import</span> <span class="n">model_predict_raster</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.general</span><span class="w"> </span><span class="kn">import</span> <span class="n">model_predict_raster</span>
 
         <span class="k">return</span> <span class="n">model_predict_raster</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">n_outputs</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="Raster.reclassify"><a class="viewcode-back" href="../../reference/generated/raster_tools.Raster.reclassify.html#raster_tools.raster.Raster.reclassify">[docs]</a>    <span class="k">def</span> <span class="nf">reclassify</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">remapping</span><span class="p">,</span> <span class="n">unmapped_to_null</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<div class="viewcode-block" id="Raster.reclassify"><a class="viewcode-back" href="../../reference/generated/raster_tools.Raster.reclassify.html#raster_tools.raster.Raster.reclassify">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">reclassify</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">remapping</span><span class="p">,</span> <span class="n">unmapped_to_null</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Reclassify raster values based on a mapping.</span>
 
 <span class="sd">        The raster must have an integer type.</span>
@@ -2527,11 +2527,11 @@ document.write(`
 <span class="sd">            The remapped raster.</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="kn">from</span> <span class="nn">raster_tools.general</span> <span class="kn">import</span> <span class="n">reclassify</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.general</span><span class="w"> </span><span class="kn">import</span> <span class="n">reclassify</span>
 
         <span class="k">return</span> <span class="n">reclassify</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">remapping</span><span class="p">,</span> <span class="n">unmapped_to_null</span><span class="o">=</span><span class="n">unmapped_to_null</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="Raster.round"><a class="viewcode-back" href="../../reference/generated/raster_tools.Raster.round.html#raster_tools.raster.Raster.round">[docs]</a>    <span class="k">def</span> <span class="nf">round</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">decimals</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>  <span class="c1"># noqa: A003</span>
+<div class="viewcode-block" id="Raster.round"><a class="viewcode-back" href="../../reference/generated/raster_tools.Raster.round.html#raster_tools.raster.Raster.round">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">round</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">decimals</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>  <span class="c1"># noqa: A003</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Evenly round to the given number of decimals</span>
 
 <span class="sd">        Parameters</span>
@@ -2559,7 +2559,7 @@ document.write(`
             <span class="n">ds</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_crs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">crs</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">Raster</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="n">_fast_path</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="Raster.reproject"><a class="viewcode-back" href="../../reference/generated/raster_tools.Raster.reproject.html#raster_tools.raster.Raster.reproject">[docs]</a>    <span class="k">def</span> <span class="nf">reproject</span><span class="p">(</span>
+<div class="viewcode-block" id="Raster.reproject"><a class="viewcode-back" href="../../reference/generated/raster_tools.Raster.reproject.html#raster_tools.raster.Raster.reproject">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">reproject</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">crs_or_geobox</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">resample_method</span><span class="o">=</span><span class="s2">&quot;nearest&quot;</span><span class="p">,</span> <span class="n">resolution</span><span class="o">=</span><span class="kc">None</span>
     <span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Reproject to a new projection or resolution.</span>
@@ -2621,7 +2621,7 @@ document.write(`
 <span class="sd">            The reprojected raster on the new grid.</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="kn">from</span> <span class="nn">raster_tools.warp</span> <span class="kn">import</span> <span class="n">reproject</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.warp</span><span class="w"> </span><span class="kn">import</span> <span class="n">reproject</span>
 
         <span class="k">return</span> <span class="n">reproject</span><span class="p">(</span>
             <span class="bp">self</span><span class="p">,</span>
@@ -2630,7 +2630,7 @@ document.write(`
             <span class="n">resolution</span><span class="o">=</span><span class="n">resolution</span><span class="p">,</span>
         <span class="p">)</span></div>
 
-<div class="viewcode-block" id="Raster.xy"><a class="viewcode-back" href="../../reference/generated/raster_tools.Raster.xy.html#raster_tools.raster.Raster.xy">[docs]</a>    <span class="k">def</span> <span class="nf">xy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">row</span><span class="p">,</span> <span class="n">col</span><span class="p">,</span> <span class="n">offset</span><span class="o">=</span><span class="s2">&quot;center&quot;</span><span class="p">):</span>
+<div class="viewcode-block" id="Raster.xy"><a class="viewcode-back" href="../../reference/generated/raster_tools.Raster.xy.html#raster_tools.raster.Raster.xy">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">xy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">row</span><span class="p">,</span> <span class="n">col</span><span class="p">,</span> <span class="n">offset</span><span class="o">=</span><span class="s2">&quot;center&quot;</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the `(x, y)` coordinates of the pixel at `(row, col)`.</span>
 
 <span class="sd">        Parameters</span>
@@ -2663,7 +2663,7 @@ document.write(`
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">rowcol_to_xy</span><span class="p">(</span><span class="n">row</span><span class="p">,</span> <span class="n">col</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">affine</span><span class="p">,</span> <span class="n">offset</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="Raster.index"><a class="viewcode-back" href="../../reference/generated/raster_tools.Raster.index.html#raster_tools.raster.Raster.index">[docs]</a>    <span class="k">def</span> <span class="nf">index</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">):</span>
+<div class="viewcode-block" id="Raster.index"><a class="viewcode-back" href="../../reference/generated/raster_tools.Raster.index.html#raster_tools.raster.Raster.index">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">index</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the `(row, col)` index of the pixel at `(x, y)`.</span>
 
 <span class="sd">        Parameters</span>
@@ -2682,7 +2682,7 @@ document.write(`
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">xy_to_rowcol</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">affine</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="Raster.to_polygons"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.Raster.to_polygons">[docs]</a>    <span class="k">def</span> <span class="nf">to_polygons</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">neighbors</span><span class="o">=</span><span class="mi">4</span><span class="p">):</span>
+<div class="viewcode-block" id="Raster.to_polygons"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.Raster.to_polygons">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">to_polygons</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">neighbors</span><span class="o">=</span><span class="mi">4</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Convert the raster to a vector of polygons.</span>
 
 <span class="sd">        Null cells are ignored. The resulting vector is randomly ordered.</span>
@@ -2753,7 +2753,7 @@ document.write(`
             <span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="p">)</span></div>
 
-<div class="viewcode-block" id="Raster.to_vector"><a class="viewcode-back" href="../../reference/generated/raster_tools.Raster.to_vector.html#raster_tools.raster.Raster.to_vector">[docs]</a>    <span class="k">def</span> <span class="nf">to_vector</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">as_polygons</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">neighbors</span><span class="o">=</span><span class="mi">4</span><span class="p">):</span>
+<div class="viewcode-block" id="Raster.to_vector"><a class="viewcode-back" href="../../reference/generated/raster_tools.Raster.to_vector.html#raster_tools.raster.Raster.to_vector">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">to_vector</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">as_polygons</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">neighbors</span><span class="o">=</span><span class="mi">4</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Convert the raster to a vector.</span>
 
 <span class="sd">        Parameters</span>
@@ -2788,7 +2788,7 @@ document.write(`
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">to_polygons</span><span class="p">(</span><span class="n">neighbors</span><span class="o">=</span><span class="n">neighbors</span><span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">to_points</span><span class="p">()</span></div>
 
-<div class="viewcode-block" id="Raster.to_points"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.Raster.to_points">[docs]</a>    <span class="k">def</span> <span class="nf">to_points</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="Raster.to_points"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.Raster.to_points">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">to_points</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Convert the raster into a vector where each non-null cell is a point.</span>
 
@@ -2833,7 +2833,7 @@ document.write(`
         <span class="p">]</span>
         <span class="k">return</span> <span class="n">dd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">results</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="Raster.to_quadrants"><a class="viewcode-back" href="../../reference/generated/raster_tools.Raster.to_quadrants.html#raster_tools.raster.Raster.to_quadrants">[docs]</a>    <span class="k">def</span> <span class="nf">to_quadrants</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="Raster.to_quadrants"><a class="viewcode-back" href="../../reference/generated/raster_tools.Raster.to_quadrants.html#raster_tools.raster.Raster.to_quadrants">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">to_quadrants</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Split the raster into quadrants</span>
 
 <span class="sd">        This returns the quadrants of the raster in the order northwest,</span>
@@ -2877,7 +2877,7 @@ document.write(`
             <span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Raster</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="n">_fast_path</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
         <span class="k">return</span> <span class="n">RasterQuadrantsResult</span><span class="p">(</span><span class="o">*</span><span class="n">results</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="Raster.get_chunk_bounding_boxes"><a class="viewcode-back" href="../../reference/generated/raster_tools.Raster.get_chunk_bounding_boxes.html#raster_tools.raster.Raster.get_chunk_bounding_boxes">[docs]</a>    <span class="k">def</span> <span class="nf">get_chunk_bounding_boxes</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">include_band</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<div class="viewcode-block" id="Raster.get_chunk_bounding_boxes"><a class="viewcode-back" href="../../reference/generated/raster_tools.Raster.get_chunk_bounding_boxes.html#raster_tools.raster.Raster.get_chunk_bounding_boxes">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">get_chunk_bounding_boxes</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">include_band</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return GeoDataFrame with the chunk bounding boxes.</span>
 
 <span class="sd">        This method generates a GeoDataFrame of bounding boxes for the</span>
@@ -2957,7 +2957,7 @@ document.write(`
             <span class="p">}</span>
         <span class="k">return</span> <span class="n">gpd</span><span class="o">.</span><span class="n">GeoDataFrame</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">crs</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">crs</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="Raster.get_chunk_rasters"><a class="viewcode-back" href="../../reference/generated/raster_tools.Raster.get_chunk_rasters.html#raster_tools.raster.Raster.get_chunk_rasters">[docs]</a>    <span class="k">def</span> <span class="nf">get_chunk_rasters</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="Raster.get_chunk_rasters"><a class="viewcode-back" href="../../reference/generated/raster_tools.Raster.get_chunk_rasters.html#raster_tools.raster.Raster.get_chunk_rasters">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">get_chunk_rasters</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the underlying data chunks as an array of Rasters.</span>
 
 <span class="sd">        This returns a 3D array where each element corresponds to a chunk of</span>
@@ -3009,7 +3009,7 @@ document.write(`
 <span class="p">}</span>
 
 
-<div class="viewcode-block" id="rowcol_to_xy"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.rowcol_to_xy">[docs]</a><span class="k">def</span> <span class="nf">rowcol_to_xy</span><span class="p">(</span><span class="n">row</span><span class="p">,</span> <span class="n">col</span><span class="p">,</span> <span class="n">affine</span><span class="p">,</span> <span class="n">offset</span><span class="p">):</span>
+<div class="viewcode-block" id="rowcol_to_xy"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.rowcol_to_xy">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">rowcol_to_xy</span><span class="p">(</span><span class="n">row</span><span class="p">,</span> <span class="n">col</span><span class="p">,</span> <span class="n">affine</span><span class="p">,</span> <span class="n">offset</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Convert (row, col) index values to (x, y) coords using the transformation.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
@@ -3018,7 +3018,7 @@ document.write(`
     <span class="k">return</span> <span class="n">affine</span> <span class="o">*</span> <span class="n">transform</span> <span class="o">*</span> <span class="p">(</span><span class="n">col</span><span class="p">,</span> <span class="n">row</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="xy_to_rowcol"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.xy_to_rowcol">[docs]</a><span class="k">def</span> <span class="nf">xy_to_rowcol</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">affine</span><span class="p">):</span>
+<div class="viewcode-block" id="xy_to_rowcol"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.xy_to_rowcol">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">xy_to_rowcol</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">affine</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Convert (x, y) coords to (row, col) index values using the transformation.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
@@ -3029,7 +3029,7 @@ document.write(`
 
 
 <span class="nd">@jit</span><span class="p">(</span><span class="n">nopython</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">nogil</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<span class="k">def</span> <span class="nf">_extract_points</span><span class="p">(</span><span class="n">mask</span><span class="p">,</span> <span class="n">xc</span><span class="p">,</span> <span class="n">yc</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_extract_points</span><span class="p">(</span><span class="n">mask</span><span class="p">,</span> <span class="n">xc</span><span class="p">,</span> <span class="n">yc</span><span class="p">):</span>
     <span class="n">n</span> <span class="o">=</span> <span class="n">mask</span><span class="o">.</span><span class="n">size</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">mask</span><span class="p">)</span>
     <span class="n">rx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">xc</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
     <span class="n">ry</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">yc</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
@@ -3048,7 +3048,7 @@ document.write(`
 
 
 <span class="nd">@jit</span><span class="p">(</span><span class="n">nopython</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">nogil</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<span class="k">def</span> <span class="nf">_extract_values</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">mask</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_extract_values</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">mask</span><span class="p">):</span>
     <span class="n">n</span> <span class="o">=</span> <span class="n">mask</span><span class="o">.</span><span class="n">size</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">mask</span><span class="p">)</span>
     <span class="n">results</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">data</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">n</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
@@ -3065,7 +3065,7 @@ document.write(`
 
 
 <span class="nd">@jit</span><span class="p">(</span><span class="n">nopython</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">nogil</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<span class="k">def</span> <span class="nf">_extract</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">mask</span><span class="p">,</span> <span class="n">band</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">inv_affine</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_extract</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">mask</span><span class="p">,</span> <span class="n">band</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">inv_affine</span><span class="p">):</span>
     <span class="n">n</span> <span class="o">=</span> <span class="n">mask</span><span class="o">.</span><span class="n">size</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">mask</span><span class="p">)</span>
 
     <span class="n">bands</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="s2">&quot;int64&quot;</span><span class="p">)</span>
@@ -3108,7 +3108,7 @@ document.write(`
 
 
 <span class="nd">@dask</span><span class="o">.</span><span class="n">delayed</span>
-<span class="k">def</span> <span class="nf">_vectorize</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">mask</span><span class="p">,</span> <span class="n">geochunk</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_vectorize</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">mask</span><span class="p">,</span> <span class="n">geochunk</span><span class="p">):</span>
     <span class="n">values</span><span class="p">,</span> <span class="n">bands</span><span class="p">,</span> <span class="n">rows</span><span class="p">,</span> <span class="n">cols</span><span class="p">,</span> <span class="n">xs</span><span class="p">,</span> <span class="n">ys</span> <span class="o">=</span> <span class="n">_extract</span><span class="p">(</span>
         <span class="n">data</span><span class="p">,</span>
         <span class="n">mask</span><span class="p">,</span>
@@ -3137,7 +3137,7 @@ document.write(`
     <span class="k">return</span> <span class="n">vec</span>
 
 
-<span class="k">def</span> <span class="nf">_get_rio_shapes_dtype</span><span class="p">(</span><span class="n">dtype</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_get_rio_shapes_dtype</span><span class="p">(</span><span class="n">dtype</span><span class="p">):</span>
     <span class="k">if</span> <span class="n">dtype</span> <span class="ow">in</span> <span class="p">(</span><span class="n">I16</span><span class="p">,</span> <span class="n">I32</span><span class="p">,</span> <span class="n">U8</span><span class="p">,</span> <span class="n">U16</span><span class="p">,</span> <span class="n">F32</span><span class="p">):</span>
         <span class="k">return</span> <span class="n">dtype</span>
 
@@ -3154,7 +3154,7 @@ document.write(`
 
 
 <span class="nd">@dask</span><span class="o">.</span><span class="n">delayed</span>
-<span class="k">def</span> <span class="nf">_shapes_delayed</span><span class="p">(</span><span class="n">chunk</span><span class="p">,</span> <span class="n">mask</span><span class="p">,</span> <span class="n">neighbors</span><span class="p">,</span> <span class="n">transform</span><span class="p">,</span> <span class="n">band</span><span class="p">,</span> <span class="n">crs</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_shapes_delayed</span><span class="p">(</span><span class="n">chunk</span><span class="p">,</span> <span class="n">mask</span><span class="p">,</span> <span class="n">neighbors</span><span class="p">,</span> <span class="n">transform</span><span class="p">,</span> <span class="n">band</span><span class="p">,</span> <span class="n">crs</span><span class="p">):</span>
     <span class="c1"># Rasterio&#39;s shapes function only supports a small set of dtypes. This may</span>
     <span class="c1"># cause the dtype to be downcast.</span>
     <span class="c1"># ref: rasterio._features._shapes</span>
@@ -3192,7 +3192,7 @@ document.write(`
     <span class="p">)</span>
 
 
-<span class="k">def</span> <span class="nf">_build_x_coord</span><span class="p">(</span><span class="n">affine</span><span class="p">,</span> <span class="n">shape_3d</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_build_x_coord</span><span class="p">(</span><span class="n">affine</span><span class="p">,</span> <span class="n">shape_3d</span><span class="p">):</span>
     <span class="n">nx</span> <span class="o">=</span> <span class="n">shape_3d</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
     <span class="c1"># Cell size for x dim</span>
     <span class="n">a</span> <span class="o">=</span> <span class="n">affine</span><span class="o">.</span><span class="n">a</span>
@@ -3203,7 +3203,7 @@ document.write(`
     <span class="k">return</span> <span class="n">xc</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
 
 
-<span class="k">def</span> <span class="nf">_build_y_coord</span><span class="p">(</span><span class="n">affine</span><span class="p">,</span> <span class="n">shape_3d</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_build_y_coord</span><span class="p">(</span><span class="n">affine</span><span class="p">,</span> <span class="n">shape_3d</span><span class="p">):</span>
     <span class="n">ny</span> <span class="o">=</span> <span class="n">shape_3d</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
     <span class="c1"># Cell size for y dim (should be &lt; 0)</span>
     <span class="n">e</span> <span class="o">=</span> <span class="n">affine</span><span class="o">.</span><span class="n">e</span>
@@ -3214,11 +3214,11 @@ document.write(`
     <span class="k">return</span> <span class="n">yc</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
 
 
-<span class="k">def</span> <span class="nf">_build_coords</span><span class="p">(</span><span class="n">affine</span><span class="p">,</span> <span class="n">shape</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_build_coords</span><span class="p">(</span><span class="n">affine</span><span class="p">,</span> <span class="n">shape</span><span class="p">):</span>
     <span class="k">return</span> <span class="n">_build_x_coord</span><span class="p">(</span><span class="n">affine</span><span class="p">,</span> <span class="n">shape</span><span class="p">),</span> <span class="n">_build_y_coord</span><span class="p">(</span><span class="n">affine</span><span class="p">,</span> <span class="n">shape</span><span class="p">)</span>
 
 
-<div class="viewcode-block" id="GeoChunk"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.GeoChunk">[docs]</a><span class="k">class</span> <span class="nc">GeoChunk</span><span class="p">:</span>
+<div class="viewcode-block" id="GeoChunk"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.GeoChunk">[docs]</a><span class="k">class</span><span class="w"> </span><span class="nc">GeoChunk</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Object representing a geo-located chunk.</span>
 
 <span class="sd">    A GeoChunk contains information needed to geo-locate a chunk and locate it</span>
@@ -3228,7 +3228,7 @@ document.write(`
 
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">shape</span><span class="p">,</span>
         <span class="n">geobox</span><span class="p">,</span>
@@ -3247,25 +3247,25 @@ document.write(`
         <span class="bp">self</span><span class="o">.</span><span class="n">array_location</span> <span class="o">=</span> <span class="n">array_location</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">chunk_location</span> <span class="o">=</span> <span class="n">chunk_location</span>
 
-    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="p">(</span>
             <span class="sa">f</span><span class="s2">&quot;&lt;</span><span class="si">{</span><span class="n">GeoChunk</span><span class="o">.</span><span class="vm">__module__</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">GeoChunk</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">&quot;</span>
             <span class="sa">f</span><span class="s2">&quot; shape: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">, chunk_location: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">chunk_location</span><span class="si">}</span><span class="s2">)&gt;&quot;</span>
         <span class="p">)</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">x</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">x</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="n">_build_x_coord</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">affine</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">y</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">y</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="n">_build_y_coord</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">affine</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">band</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">band</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">array_location</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
 
-<div class="viewcode-block" id="GeoChunk.resize_dim"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.GeoChunk.resize_dim">[docs]</a>    <span class="k">def</span> <span class="nf">resize_dim</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">,</span> <span class="n">dim</span><span class="p">):</span>
+<div class="viewcode-block" id="GeoChunk.resize_dim"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.GeoChunk.resize_dim">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">resize_dim</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">,</span> <span class="n">dim</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Resize the given dimension in the left and right directions.</span>
 
 <span class="sd">        Parameters</span>
@@ -3323,15 +3323,15 @@ document.write(`
             <span class="bp">self</span><span class="o">.</span><span class="n">chunk_location</span><span class="p">,</span>
         <span class="p">)</span></div>
 
-<div class="viewcode-block" id="GeoChunk.pad_rows"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.GeoChunk.pad_rows">[docs]</a>    <span class="k">def</span> <span class="nf">pad_rows</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nrows</span><span class="p">):</span>
+<div class="viewcode-block" id="GeoChunk.pad_rows"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.GeoChunk.pad_rows">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">pad_rows</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nrows</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Pad both sides of the chunk in the row dimension.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">resize_dim</span><span class="p">(</span><span class="n">nrows</span><span class="p">,</span> <span class="n">nrows</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="GeoChunk.pad_cols"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.GeoChunk.pad_cols">[docs]</a>    <span class="k">def</span> <span class="nf">pad_cols</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ncols</span><span class="p">):</span>
+<div class="viewcode-block" id="GeoChunk.pad_cols"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.GeoChunk.pad_cols">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">pad_cols</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ncols</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Pad both sides of the chunk in the column dimension.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">resize_dim</span><span class="p">(</span><span class="n">ncols</span><span class="p">,</span> <span class="n">ncols</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="GeoChunk.pad"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.GeoChunk.pad">[docs]</a>    <span class="k">def</span> <span class="nf">pad</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nrows</span><span class="p">,</span> <span class="n">ncols</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<div class="viewcode-block" id="GeoChunk.pad"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.GeoChunk.pad">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">pad</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nrows</span><span class="p">,</span> <span class="n">ncols</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Pad both sides of the chunk in the x and y directions.</span>
 
 <span class="sd">        The size of the chunk along a given axis will grow by twice the</span>
@@ -3342,31 +3342,31 @@ document.write(`
             <span class="n">ncols</span> <span class="o">=</span> <span class="n">nrows</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">pad_rows</span><span class="p">(</span><span class="n">nrows</span><span class="p">)</span><span class="o">.</span><span class="n">pad_cols</span><span class="p">(</span><span class="n">ncols</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="GeoChunk.trim_left"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.GeoChunk.trim_left">[docs]</a>    <span class="k">def</span> <span class="nf">trim_left</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ncols</span><span class="p">):</span>
+<div class="viewcode-block" id="GeoChunk.trim_left"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.GeoChunk.trim_left">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">trim_left</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ncols</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Trim the chunk&#39;s left most columns by `ncols`.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">resize_dim</span><span class="p">(</span><span class="o">-</span><span class="n">ncols</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="GeoChunk.trim_right"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.GeoChunk.trim_right">[docs]</a>    <span class="k">def</span> <span class="nf">trim_right</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ncols</span><span class="p">):</span>
+<div class="viewcode-block" id="GeoChunk.trim_right"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.GeoChunk.trim_right">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">trim_right</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ncols</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Trim the chunk&#39;s right most columns by `ncols`.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">resize_dim</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="n">ncols</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="GeoChunk.trim_top"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.GeoChunk.trim_top">[docs]</a>    <span class="k">def</span> <span class="nf">trim_top</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nrows</span><span class="p">):</span>
+<div class="viewcode-block" id="GeoChunk.trim_top"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.GeoChunk.trim_top">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">trim_top</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nrows</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Trim the chunk&#39;s top rows by `nrows`.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">resize_dim</span><span class="p">(</span><span class="o">-</span><span class="n">nrows</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="GeoChunk.trim_bottom"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.GeoChunk.trim_bottom">[docs]</a>    <span class="k">def</span> <span class="nf">trim_bottom</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nrows</span><span class="p">):</span>
+<div class="viewcode-block" id="GeoChunk.trim_bottom"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.GeoChunk.trim_bottom">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">trim_bottom</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nrows</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Trim the chunk&#39;s bottom rows by `nrows`.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">resize_dim</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="n">nrows</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="GeoChunk.trim_rows"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.GeoChunk.trim_rows">[docs]</a>    <span class="k">def</span> <span class="nf">trim_rows</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nrows</span><span class="p">):</span>
+<div class="viewcode-block" id="GeoChunk.trim_rows"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.GeoChunk.trim_rows">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">trim_rows</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nrows</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Trim the chunk&#39;s rows on both sides by `nrows`.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">resize_dim</span><span class="p">(</span><span class="o">-</span><span class="n">nrows</span><span class="p">,</span> <span class="o">-</span><span class="n">nrows</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="GeoChunk.trim_cols"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.GeoChunk.trim_cols">[docs]</a>    <span class="k">def</span> <span class="nf">trim_cols</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ncols</span><span class="p">):</span>
+<div class="viewcode-block" id="GeoChunk.trim_cols"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.GeoChunk.trim_cols">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">trim_cols</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ncols</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Trim the chunk&#39;s columns on both sides by `ncols`.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">resize_dim</span><span class="p">(</span><span class="o">-</span><span class="n">ncols</span><span class="p">,</span> <span class="o">-</span><span class="n">ncols</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="GeoChunk.trim"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.GeoChunk.trim">[docs]</a>    <span class="k">def</span> <span class="nf">trim</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nrows</span><span class="p">,</span> <span class="n">ncols</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<div class="viewcode-block" id="GeoChunk.trim"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.GeoChunk.trim">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">trim</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nrows</span><span class="p">,</span> <span class="n">ncols</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Trim the chunk&#39;s columns and rows on both sides by `nrows` and `ncols`.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -3374,7 +3374,7 @@ document.write(`
             <span class="n">ncols</span> <span class="o">=</span> <span class="n">nrows</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">trim_rows</span><span class="p">(</span><span class="n">nrows</span><span class="p">)</span><span class="o">.</span><span class="n">trim_cols</span><span class="p">(</span><span class="n">ncols</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="GeoChunk.shift_rows"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.GeoChunk.shift_rows">[docs]</a>    <span class="k">def</span> <span class="nf">shift_rows</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nrows</span><span class="p">):</span>
+<div class="viewcode-block" id="GeoChunk.shift_rows"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.GeoChunk.shift_rows">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">shift_rows</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nrows</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Shift the chunk up or down.</span>
 
 <span class="sd">        Negative values shift the chunk up.</span>
@@ -3382,7 +3382,7 @@ document.write(`
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">resize_dim</span><span class="p">(</span><span class="o">-</span><span class="n">nrows</span><span class="p">,</span> <span class="n">nrows</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="GeoChunk.shift_cols"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.GeoChunk.shift_cols">[docs]</a>    <span class="k">def</span> <span class="nf">shift_cols</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ncols</span><span class="p">):</span>
+<div class="viewcode-block" id="GeoChunk.shift_cols"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.GeoChunk.shift_cols">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">shift_cols</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ncols</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Shift the chunk left or right.</span>
 
 <span class="sd">        Negative values shift the chunk left.</span>
@@ -3390,65 +3390,65 @@ document.write(`
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">resize_dim</span><span class="p">(</span><span class="o">-</span><span class="n">ncols</span><span class="p">,</span> <span class="n">ncols</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="GeoChunk.shift"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.GeoChunk.shift">[docs]</a>    <span class="k">def</span> <span class="nf">shift</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nrows</span><span class="p">,</span> <span class="n">ncols</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<div class="viewcode-block" id="GeoChunk.shift"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.GeoChunk.shift">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">shift</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nrows</span><span class="p">,</span> <span class="n">ncols</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Shift the chunk in both row and column dimensions.&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">ncols</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">ncols</span> <span class="o">=</span> <span class="n">nrows</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">shift_rows</span><span class="p">(</span><span class="n">nrows</span><span class="p">)</span><span class="o">.</span><span class="n">shift_cols</span><span class="p">(</span><span class="n">ncols</span><span class="p">)</span></div></div>
 
 
-<div class="viewcode-block" id="GeoChunkArray"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.GeoChunkArray">[docs]</a><span class="k">class</span> <span class="nc">GeoChunkArray</span><span class="p">:</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">geochunks</span><span class="p">):</span>
+<div class="viewcode-block" id="GeoChunkArray"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.GeoChunkArray">[docs]</a><span class="k">class</span><span class="w"> </span><span class="nc">GeoChunkArray</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">geochunks</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_array</span> <span class="o">=</span> <span class="n">geochunks</span>
 
-    <span class="k">def</span> <span class="fm">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">idx</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">idx</span><span class="p">):</span>
         <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_array</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">GeoChunk</span><span class="p">):</span>
             <span class="k">return</span> <span class="n">result</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">GeoChunkArray</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">GeoChunkArray</span><span class="p">):</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_array</span> <span class="ow">is</span> <span class="n">other</span><span class="o">.</span><span class="n">_array</span>
         <span class="k">return</span> <span class="bp">NotImplemented</span>
 
-    <span class="k">def</span> <span class="nf">__array__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">__array__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_array</span>
 
-    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="p">(</span>
             <span class="sa">f</span><span class="s2">&quot;&lt;</span><span class="si">{</span><span class="n">GeoChunkArray</span><span class="o">.</span><span class="vm">__module__</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">GeoChunkArray</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">&quot;</span>
             <span class="sa">f</span><span class="s2">&quot; (shape: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">)&gt;&quot;</span>
         <span class="p">)</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">size</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">size</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_array</span><span class="o">.</span><span class="n">size</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">shape</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">shape</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_array</span><span class="o">.</span><span class="n">shape</span>
 
-<div class="viewcode-block" id="GeoChunkArray.ravel"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.GeoChunkArray.ravel">[docs]</a>    <span class="k">def</span> <span class="nf">ravel</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="GeoChunkArray.ravel"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.GeoChunkArray.ravel">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">ravel</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the array as a flattened list of geochunks.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_array</span><span class="o">.</span><span class="n">ravel</span><span class="p">())</span></div>
 
-<div class="viewcode-block" id="GeoChunkArray.map"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.GeoChunkArray.map">[docs]</a>    <span class="k">def</span> <span class="nf">map</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">func</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<div class="viewcode-block" id="GeoChunkArray.map"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.GeoChunkArray.map">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">map</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">func</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="n">new</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">object</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">idx</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">ndindex</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">shape</span><span class="p">):</span>
             <span class="n">new</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">func</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_array</span><span class="p">[</span><span class="n">idx</span><span class="p">],</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">GeoChunkArray</span><span class="p">(</span><span class="n">new</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="GeoChunkArray.to_numpy"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.GeoChunkArray.to_numpy">[docs]</a>    <span class="k">def</span> <span class="nf">to_numpy</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="GeoChunkArray.to_numpy"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.GeoChunkArray.to_numpy">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">to_numpy</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_array</span></div>
 
-<div class="viewcode-block" id="GeoChunkArray.to_dask"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.GeoChunkArray.to_dask">[docs]</a>    <span class="k">def</span> <span class="nf">to_dask</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="GeoChunkArray.to_dask"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.GeoChunkArray.to_dask">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">to_dask</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return as a dask array with chunksize of 1.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">da</span><span class="o">.</span><span class="n">from_array</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(),</span> <span class="n">chunks</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span></div></div>
 
 
-<div class="viewcode-block" id="get_raster"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.get_raster">[docs]</a><span class="k">def</span> <span class="nf">get_raster</span><span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">null_to_nan</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<div class="viewcode-block" id="get_raster"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.get_raster">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">get_raster</span><span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">null_to_nan</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
     <span class="n">rs</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="n">Raster</span><span class="p">):</span>
         <span class="n">rs</span> <span class="o">=</span> <span class="n">src</span>
@@ -3464,7 +3464,7 @@ document.write(`
         <span class="k">except</span> <span class="p">(</span><span class="ne">ValueError</span><span class="p">,</span> <span class="ne">TypeError</span><span class="p">,</span> <span class="n">RasterDataError</span><span class="p">,</span> <span class="n">RasterIOError</span><span class="p">)</span> <span class="k">as</span> <span class="n">err</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                 <span class="sa">f</span><span class="s2">&quot;Could not convert input to Raster: </span><span class="si">{</span><span class="nb">repr</span><span class="p">(</span><span class="n">src</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
-            <span class="p">)</span> <span class="kn">from</span> <span class="nn">err</span>
+            <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">err</span>
 
     <span class="k">if</span> <span class="n">null_to_nan</span> <span class="ow">and</span> <span class="n">rs</span><span class="o">.</span><span class="n">_masked</span><span class="p">:</span>
         <span class="n">rs</span> <span class="o">=</span> <span class="n">rs</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>

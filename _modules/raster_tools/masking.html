@@ -8,7 +8,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>raster_tools.masking &#8212; raster_tools 0.9.7 documentation</title>
+    <title>raster_tools.masking &#8212; raster_tools 0.9.8 documentation</title>
   
   
   
@@ -114,7 +114,7 @@
   
   
   
-    <p class="title logo__title">raster_tools 0.9.7 documentation</p>
+    <p class="title logo__title">raster_tools 0.9.8 documentation</p>
   
 </a></div>
         <div class="sidebar-primary-item"><nav class="bd-links" id="bd-docs-nav" aria-label="Main">
@@ -405,12 +405,12 @@ document.write(`
                 <article class="bd-article" role="main">
                   
   <h1>Source code for raster_tools.masking</h1><div class="highlight"><pre>
-<span></span><span class="kn">import</span> <span class="nn">warnings</span>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
 
-<span class="kn">import</span> <span class="nn">dask</span>
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">dask</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 
-<span class="kn">from</span> <span class="nn">raster_tools.dtypes</span> <span class="kn">import</span> <span class="p">(</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.dtypes</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">BOOL</span><span class="p">,</span>
     <span class="n">DTYPE_INPUT_TO_DTYPE</span><span class="p">,</span>
     <span class="n">F16</span><span class="p">,</span>
@@ -431,7 +431,7 @@ document.write(`
 <span class="p">)</span>
 
 
-<div class="viewcode-block" id="create_null_mask"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.masking.create_null_mask">[docs]</a><span class="k">def</span> <span class="nf">create_null_mask</span><span class="p">(</span><span class="n">xrs</span><span class="p">,</span> <span class="n">null_value</span><span class="p">):</span>
+<div class="viewcode-block" id="create_null_mask"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.masking.create_null_mask">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">create_null_mask</span><span class="p">(</span><span class="n">xrs</span><span class="p">,</span> <span class="n">null_value</span><span class="p">):</span>
     <span class="k">if</span> <span class="n">null_value</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">null_value</span><span class="p">):</span>
             <span class="n">mask</span> <span class="o">=</span> <span class="n">xrs</span><span class="o">.</span><span class="n">data</span> <span class="o">==</span> <span class="n">null_value</span>
@@ -459,13 +459,13 @@ document.write(`
 <span class="p">}</span>
 
 
-<div class="viewcode-block" id="get_default_null_value"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.masking.get_default_null_value">[docs]</a><span class="k">def</span> <span class="nf">get_default_null_value</span><span class="p">(</span><span class="n">dtype</span><span class="p">):</span>
+<div class="viewcode-block" id="get_default_null_value"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.masking.get_default_null_value">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">get_default_null_value</span><span class="p">(</span><span class="n">dtype</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Get the default null value for a given dtype.&quot;&quot;&quot;</span>
     <span class="n">dtype</span> <span class="o">=</span> <span class="n">DTYPE_INPUT_TO_DTYPE</span><span class="p">[</span><span class="n">dtype</span><span class="p">]</span>
     <span class="k">return</span> <span class="n">DTYPE_TO_DEFAULT_NULL</span><span class="p">[</span><span class="n">dtype</span><span class="p">]</span></div>
 
 
-<div class="viewcode-block" id="reconcile_nullvalue_with_dtype"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.masking.reconcile_nullvalue_with_dtype">[docs]</a><span class="k">def</span> <span class="nf">reconcile_nullvalue_with_dtype</span><span class="p">(</span><span class="n">null_value</span><span class="p">,</span> <span class="n">dtype</span><span class="p">,</span> <span class="n">warn</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<div class="viewcode-block" id="reconcile_nullvalue_with_dtype"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.masking.reconcile_nullvalue_with_dtype">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">reconcile_nullvalue_with_dtype</span><span class="p">(</span><span class="n">null_value</span><span class="p">,</span> <span class="n">dtype</span><span class="p">,</span> <span class="n">warn</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Make sure that the null value is consistent with the given dtype</span>
 
 <span class="sd">    The null value is cast to the given dtype, if possible. If not, a warning</span>

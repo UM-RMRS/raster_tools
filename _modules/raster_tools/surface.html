@@ -8,7 +8,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>raster_tools.surface &#8212; raster_tools 0.9.7 documentation</title>
+    <title>raster_tools.surface &#8212; raster_tools 0.9.8 documentation</title>
   
   
   
@@ -114,7 +114,7 @@
   
   
   
-    <p class="title logo__title">raster_tools 0.9.7 documentation</p>
+    <p class="title logo__title">raster_tools 0.9.8 documentation</p>
   
 </a></div>
         <div class="sidebar-primary-item"><nav class="bd-links" id="bd-docs-nav" aria-label="Main">
@@ -412,15 +412,15 @@ document.write(`
 <span class="sd">ref: https://github.com/makepath/xarray-spatial</span>
 <span class="sd">&quot;&quot;&quot;</span>  <span class="c1"># noqa: E501</span>
 
-<span class="kn">import</span> <span class="nn">dask.array</span> <span class="k">as</span> <span class="nn">da</span>
-<span class="kn">import</span> <span class="nn">numba</span> <span class="k">as</span> <span class="nn">nb</span>
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">dask.array</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">da</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numba</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">nb</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 
-<span class="kn">from</span> <span class="nn">raster_tools</span> <span class="kn">import</span> <span class="n">focal</span>
-<span class="kn">from</span> <span class="nn">raster_tools.dtypes</span> <span class="kn">import</span> <span class="n">F32</span><span class="p">,</span> <span class="n">F64</span><span class="p">,</span> <span class="n">I32</span><span class="p">,</span> <span class="n">U8</span><span class="p">,</span> <span class="n">is_int</span>
-<span class="kn">from</span> <span class="nn">raster_tools.masking</span> <span class="kn">import</span> <span class="n">get_default_null_value</span>
-<span class="kn">from</span> <span class="nn">raster_tools.raster</span> <span class="kn">import</span> <span class="n">Raster</span><span class="p">,</span> <span class="n">data_to_xr_raster_ds_like</span><span class="p">,</span> <span class="n">get_raster</span>
-<span class="kn">from</span> <span class="nn">raster_tools.utils</span> <span class="kn">import</span> <span class="n">single_band_mappable</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools</span><span class="w"> </span><span class="kn">import</span> <span class="n">focal</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.dtypes</span><span class="w"> </span><span class="kn">import</span> <span class="n">F32</span><span class="p">,</span> <span class="n">F64</span><span class="p">,</span> <span class="n">I32</span><span class="p">,</span> <span class="n">U8</span><span class="p">,</span> <span class="n">is_int</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.masking</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_default_null_value</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.raster</span><span class="w"> </span><span class="kn">import</span> <span class="n">Raster</span><span class="p">,</span> <span class="n">data_to_xr_raster_ds_like</span><span class="p">,</span> <span class="n">get_raster</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">single_band_mappable</span>
 
 <span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
     <span class="s2">&quot;aspect&quot;</span><span class="p">,</span>
@@ -437,7 +437,7 @@ document.write(`
 <span class="n">DEGREES_TO_RADIANS</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">/</span> <span class="mi">180</span>
 
 
-<span class="k">def</span> <span class="nf">_finalize</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">like</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_finalize</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">like</span><span class="p">):</span>
     <span class="c1"># Invalidate edges</span>
     <span class="n">mask</span> <span class="o">=</span> <span class="n">like</span><span class="o">.</span><span class="n">mask</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
     <span class="n">mask</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="kc">True</span>
@@ -453,7 +453,7 @@ document.write(`
 
 <span class="nd">@single_band_mappable</span>
 <span class="nd">@nb</span><span class="o">.</span><span class="n">jit</span><span class="p">(</span><span class="n">nopython</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">nogil</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<span class="k">def</span> <span class="nf">_surface_area_3d</span><span class="p">(</span><span class="n">xarr</span><span class="p">,</span> <span class="n">res</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_surface_area_3d</span><span class="p">(</span><span class="n">xarr</span><span class="p">,</span> <span class="n">res</span><span class="p">):</span>
     <span class="c1"># TODO: handle non-symmetrical resolutions</span>
     <span class="n">sd</span> <span class="o">=</span> <span class="n">res</span><span class="o">**</span><span class="mi">2</span>
     <span class="n">dd</span> <span class="o">=</span> <span class="n">sd</span> <span class="o">*</span> <span class="mi">2</span>
@@ -507,7 +507,7 @@ document.write(`
     <span class="k">return</span> <span class="n">outx</span>
 
 
-<div class="viewcode-block" id="surface_area_3d"><a class="viewcode-back" href="../../reference/generated/raster_tools.surface.surface_area_3d.html#raster_tools.surface.surface_area_3d">[docs]</a><span class="k">def</span> <span class="nf">surface_area_3d</span><span class="p">(</span><span class="n">raster</span><span class="p">):</span>
+<div class="viewcode-block" id="surface_area_3d"><a class="viewcode-back" href="../../reference/generated/raster_tools.surface.surface_area_3d.html#raster_tools.surface.surface_area_3d">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">surface_area_3d</span><span class="p">(</span><span class="n">raster</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Calculates the 3D surface area of each raster cell for each raster band.</span>
 
 <span class="sd">    The approach is based on Jense, 2004.</span>
@@ -545,7 +545,7 @@ document.write(`
 
 <span class="nd">@single_band_mappable</span>
 <span class="nd">@nb</span><span class="o">.</span><span class="n">jit</span><span class="p">(</span><span class="n">nopython</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">nogil</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<span class="k">def</span> <span class="nf">_slope</span><span class="p">(</span><span class="n">xarr</span><span class="p">,</span> <span class="n">res</span><span class="p">,</span> <span class="n">degrees</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_slope</span><span class="p">(</span><span class="n">xarr</span><span class="p">,</span> <span class="n">res</span><span class="p">,</span> <span class="n">degrees</span><span class="p">):</span>
     <span class="c1"># ref: https://pro.arcgis.com/en/pro-app/latest/tool-reference/3d-analyst/how-slope-works.htm  # noqa: E501</span>
     <span class="n">outx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty_like</span><span class="p">(</span><span class="n">xarr</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">F64</span><span class="p">)</span>
     <span class="n">rows</span><span class="p">,</span> <span class="n">cols</span> <span class="o">=</span> <span class="n">xarr</span><span class="o">.</span><span class="n">shape</span>
@@ -572,7 +572,7 @@ document.write(`
     <span class="k">return</span> <span class="n">outx</span>
 
 
-<div class="viewcode-block" id="slope"><a class="viewcode-back" href="../../reference/generated/raster_tools.surface.slope.html#raster_tools.surface.slope">[docs]</a><span class="k">def</span> <span class="nf">slope</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">degrees</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<div class="viewcode-block" id="slope"><a class="viewcode-back" href="../../reference/generated/raster_tools.surface.slope.html#raster_tools.surface.slope">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">slope</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">degrees</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Calculates the slope (degrees) of each raster cell for each raster band.</span>
 
 <span class="sd">    The approach is based on ESRI&#39;s degree slope calculation.</span>
@@ -615,7 +615,7 @@ document.write(`
 
 <span class="nd">@single_band_mappable</span>
 <span class="nd">@nb</span><span class="o">.</span><span class="n">jit</span><span class="p">(</span><span class="n">nopython</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">nogil</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<span class="k">def</span> <span class="nf">_aspect</span><span class="p">(</span><span class="n">xarr</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_aspect</span><span class="p">(</span><span class="n">xarr</span><span class="p">):</span>
     <span class="c1"># ref: https://desktop.arcgis.com/en/arcmap/10.3/tools/spatial-analyst-toolbox/how-aspect-works.htm  # noqa: E501</span>
     <span class="c1"># At each grid cell, the neighbors are labeled:</span>
     <span class="c1">#   a  b  c</span>
@@ -649,7 +649,7 @@ document.write(`
     <span class="k">return</span> <span class="n">outx</span>
 
 
-<div class="viewcode-block" id="aspect"><a class="viewcode-back" href="../../reference/generated/raster_tools.surface.aspect.html#raster_tools.surface.aspect">[docs]</a><span class="k">def</span> <span class="nf">aspect</span><span class="p">(</span><span class="n">raster</span><span class="p">):</span>
+<div class="viewcode-block" id="aspect"><a class="viewcode-back" href="../../reference/generated/raster_tools.surface.aspect.html#raster_tools.surface.aspect">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">aspect</span><span class="p">(</span><span class="n">raster</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Calculates the aspect of each raster cell for each raster band.</span>
 
 <span class="sd">    The approach is based on ESRI&#39;s aspect calculation.</span>
@@ -686,7 +686,7 @@ document.write(`
 
 <span class="nd">@single_band_mappable</span>
 <span class="nd">@nb</span><span class="o">.</span><span class="n">jit</span><span class="p">(</span><span class="n">nopython</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">nogil</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<span class="k">def</span> <span class="nf">_curv</span><span class="p">(</span><span class="n">xarr</span><span class="p">,</span> <span class="n">res</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_curv</span><span class="p">(</span><span class="n">xarr</span><span class="p">,</span> <span class="n">res</span><span class="p">):</span>
     <span class="c1"># ref: https://desktop.arcgis.com/en/arcmap/10.3/tools/spatial-analyst-toolbox/how-curvature-works.htm  # noqa: E501</span>
     <span class="c1"># Neighbors are labeled like so:</span>
     <span class="c1">#   z1  z2  z3</span>
@@ -708,7 +708,7 @@ document.write(`
     <span class="k">return</span> <span class="n">outx</span>
 
 
-<div class="viewcode-block" id="curvature"><a class="viewcode-back" href="../../reference/generated/raster_tools.surface.curvature.html#raster_tools.surface.curvature">[docs]</a><span class="k">def</span> <span class="nf">curvature</span><span class="p">(</span><span class="n">raster</span><span class="p">):</span>
+<div class="viewcode-block" id="curvature"><a class="viewcode-back" href="../../reference/generated/raster_tools.surface.curvature.html#raster_tools.surface.curvature">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">curvature</span><span class="p">(</span><span class="n">raster</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Calculates the curvature of each raster cell for each raster band.</span>
 
 <span class="sd">    The approach is based on ESRI&#39;s curvature calculation.</span>
@@ -744,7 +744,7 @@ document.write(`
     <span class="k">return</span> <span class="n">_finalize</span><span class="p">(</span><span class="n">out_data</span><span class="p">,</span> <span class="n">raster</span><span class="p">)</span></div>
 
 
-<span class="k">def</span> <span class="nf">_northing_easting</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">do_northing</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_northing_easting</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">do_northing</span><span class="p">):</span>
     <span class="n">trig</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span> <span class="k">if</span> <span class="n">do_northing</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span>
     <span class="n">data</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">data</span>
     <span class="c1"># Operate on raster.data rather than raster.xdata to avoid xarray&#39;s</span>
@@ -756,7 +756,7 @@ document.write(`
     <span class="k">return</span> <span class="n">raster</span>
 
 
-<div class="viewcode-block" id="northing"><a class="viewcode-back" href="../../reference/generated/raster_tools.surface.northing.html#raster_tools.surface.northing">[docs]</a><span class="k">def</span> <span class="nf">northing</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">is_aspect</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<div class="viewcode-block" id="northing"><a class="viewcode-back" href="../../reference/generated/raster_tools.surface.northing.html#raster_tools.surface.northing">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">northing</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">is_aspect</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Calculates the nothing component of each raster cell for each band.</span>
 
@@ -784,7 +784,7 @@ document.write(`
     <span class="k">return</span> <span class="n">_northing_easting</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="easting"><a class="viewcode-back" href="../../reference/generated/raster_tools.surface.easting.html#raster_tools.surface.easting">[docs]</a><span class="k">def</span> <span class="nf">easting</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">is_aspect</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<div class="viewcode-block" id="easting"><a class="viewcode-back" href="../../reference/generated/raster_tools.surface.easting.html#raster_tools.surface.easting">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">easting</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">is_aspect</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Calculates the easting component of each raster cell for each band.</span>
 
@@ -815,7 +815,7 @@ document.write(`
 
 <span class="nd">@single_band_mappable</span>
 <span class="nd">@nb</span><span class="o">.</span><span class="n">jit</span><span class="p">(</span><span class="n">nopython</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">nogil</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<span class="k">def</span> <span class="nf">_hillshade</span><span class="p">(</span><span class="n">xarr</span><span class="p">,</span> <span class="n">res</span><span class="p">,</span> <span class="n">azimuth</span><span class="p">,</span> <span class="n">altitude</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_hillshade</span><span class="p">(</span><span class="n">xarr</span><span class="p">,</span> <span class="n">res</span><span class="p">,</span> <span class="n">azimuth</span><span class="p">,</span> <span class="n">altitude</span><span class="p">):</span>
     <span class="c1"># ref: https://pro.arcgis.com/en/pro-app/latest/tool-reference/spatial-analyst/how-hillshade-works.htm  # noqa: E501</span>
     <span class="n">a_rad</span> <span class="o">=</span> <span class="p">(</span><span class="mf">360.0</span> <span class="o">-</span> <span class="n">azimuth</span> <span class="o">+</span> <span class="mf">90.0</span><span class="p">)</span> <span class="o">*</span> <span class="n">DEGREES_TO_RADIANS</span>
     <span class="n">z_rad</span> <span class="o">=</span> <span class="p">(</span><span class="mi">90</span> <span class="o">-</span> <span class="n">altitude</span><span class="p">)</span> <span class="o">*</span> <span class="n">DEGREES_TO_RADIANS</span>
@@ -858,7 +858,7 @@ document.write(`
     <span class="k">return</span> <span class="n">outx</span>
 
 
-<div class="viewcode-block" id="hillshade"><a class="viewcode-back" href="../../reference/generated/raster_tools.surface.hillshade.html#raster_tools.surface.hillshade">[docs]</a><span class="k">def</span> <span class="nf">hillshade</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">azimuth</span><span class="o">=</span><span class="mi">315</span><span class="p">,</span> <span class="n">altitude</span><span class="o">=</span><span class="mi">45</span><span class="p">):</span>
+<div class="viewcode-block" id="hillshade"><a class="viewcode-back" href="../../reference/generated/raster_tools.surface.hillshade.html#raster_tools.surface.hillshade">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">hillshade</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">azimuth</span><span class="o">=</span><span class="mi">315</span><span class="p">,</span> <span class="n">altitude</span><span class="o">=</span><span class="mi">45</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Calculates the hillshade component of each raster cell for each band.</span>
 
@@ -909,7 +909,7 @@ document.write(`
     <span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="tpi"><a class="viewcode-back" href="../../reference/generated/raster_tools.surface.tpi.html#raster_tools.surface.tpi">[docs]</a><span class="k">def</span> <span class="nf">tpi</span><span class="p">(</span><span class="n">dem</span><span class="p">,</span> <span class="n">annulus_inner</span><span class="p">,</span> <span class="n">annulus_outer</span><span class="p">):</span>
+<div class="viewcode-block" id="tpi"><a class="viewcode-back" href="../../reference/generated/raster_tools.surface.tpi.html#raster_tools.surface.tpi">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">tpi</span><span class="p">(</span><span class="n">dem</span><span class="p">,</span> <span class="n">annulus_inner</span><span class="p">,</span> <span class="n">annulus_outer</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute the Topographic Position Index of a DEM.</span>
 
 <span class="sd">    This function compares each elevation value to the mean of its neighborhood</span>

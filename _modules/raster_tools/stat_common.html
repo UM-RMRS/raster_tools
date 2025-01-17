@@ -8,7 +8,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>raster_tools.stat_common &#8212; raster_tools 0.9.7 documentation</title>
+    <title>raster_tools.stat_common &#8212; raster_tools 0.9.8 documentation</title>
   
   
   
@@ -114,7 +114,7 @@
   
   
   
-    <p class="title logo__title">raster_tools 0.9.7 documentation</p>
+    <p class="title logo__title">raster_tools 0.9.8 documentation</p>
   
 </a></div>
         <div class="sidebar-primary-item"><nav class="bd-links" id="bd-docs-nav" aria-label="Main">
@@ -405,9 +405,9 @@ document.write(`
                 <article class="bd-article" role="main">
                   
   <h1>Source code for raster_tools.stat_common</h1><div class="highlight"><pre>
-<span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="kn">from</span> <span class="nn">numba</span> <span class="kn">import</span> <span class="n">jit</span><span class="p">,</span> <span class="n">types</span>
-<span class="kn">from</span> <span class="nn">numba.extending</span> <span class="kn">import</span> <span class="n">overload</span>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">numba</span><span class="w"> </span><span class="kn">import</span> <span class="n">jit</span><span class="p">,</span> <span class="n">types</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">numba.extending</span><span class="w"> </span><span class="kn">import</span> <span class="n">overload</span>
 
 <span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
     <span class="s2">&quot;nan_unique_count_jit&quot;</span><span class="p">,</span>
@@ -429,7 +429,7 @@ document.write(`
 <span class="n">ngjit</span> <span class="o">=</span> <span class="n">jit</span><span class="p">(</span><span class="n">nopython</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">nogil</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
 
-<span class="k">def</span> <span class="nf">_atleast_1d</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_atleast_1d</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
     <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
 
 
@@ -443,63 +443,63 @@ document.write(`
     <span class="n">_atleast_1d</span><span class="p">,</span>
     <span class="n">jit_options</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;nopython&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span> <span class="s2">&quot;nogil&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">},</span>
 <span class="p">)</span>
-<span class="k">def</span> <span class="nf">_atleast_1d_ol</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_atleast_1d_ol</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">types</span><span class="o">.</span><span class="n">Number</span><span class="p">):</span>
 
-        <span class="k">def</span> <span class="nf">impl</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">impl</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
             <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">x</span><span class="p">])</span>
 
         <span class="k">return</span> <span class="n">impl</span>
     <span class="k">else</span><span class="p">:</span>
 
-        <span class="k">def</span> <span class="nf">impl</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">impl</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
             <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">impl</span>
 
 
 <div class="viewcode-block" id="nanmin_jit"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.stat_common.nanmin_jit">[docs]</a><span class="nd">@ngjit</span>
-<span class="k">def</span> <span class="nf">nanmin_jit</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">nanmin_jit</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
     <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmin</span><span class="p">(</span><span class="n">x</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="nanmax_jit"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.stat_common.nanmax_jit">[docs]</a><span class="nd">@ngjit</span>
-<span class="k">def</span> <span class="nf">nanmax_jit</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">nanmax_jit</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
     <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmax</span><span class="p">(</span><span class="n">x</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="nanmean_jit"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.stat_common.nanmean_jit">[docs]</a><span class="nd">@ngjit</span>
-<span class="k">def</span> <span class="nf">nanmean_jit</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">nanmean_jit</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
     <span class="n">x</span> <span class="o">=</span> <span class="n">_atleast_1d</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmean</span><span class="p">(</span><span class="n">x</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="nanmedian_jit"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.stat_common.nanmedian_jit">[docs]</a><span class="nd">@ngjit</span>
-<span class="k">def</span> <span class="nf">nanmedian_jit</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">nanmedian_jit</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
     <span class="n">x</span> <span class="o">=</span> <span class="n">_atleast_1d</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmedian</span><span class="p">(</span><span class="n">x</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="nansum_jit"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.stat_common.nansum_jit">[docs]</a><span class="nd">@ngjit</span>
-<span class="k">def</span> <span class="nf">nansum_jit</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">nansum_jit</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
     <span class="n">x</span> <span class="o">=</span> <span class="n">_atleast_1d</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">nansum</span><span class="p">(</span><span class="n">x</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="nanvar_jit"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.stat_common.nanvar_jit">[docs]</a><span class="nd">@ngjit</span>
-<span class="k">def</span> <span class="nf">nanvar_jit</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">nanvar_jit</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
     <span class="n">x</span> <span class="o">=</span> <span class="n">_atleast_1d</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">nanvar</span><span class="p">(</span><span class="n">x</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="nanstd_jit"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.stat_common.nanstd_jit">[docs]</a><span class="nd">@ngjit</span>
-<span class="k">def</span> <span class="nf">nanstd_jit</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">nanstd_jit</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
     <span class="n">x</span> <span class="o">=</span> <span class="n">_atleast_1d</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">nanstd</span><span class="p">(</span><span class="n">x</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="nan_unique_count_jit"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.stat_common.nan_unique_count_jit">[docs]</a><span class="nd">@ngjit</span>
-<span class="k">def</span> <span class="nf">nan_unique_count_jit</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">nan_unique_count_jit</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
     <span class="n">x</span> <span class="o">=</span> <span class="n">_atleast_1d</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
     <span class="c1"># Create set of floats. {1.0} is a hack to tell numba.jit what type the set</span>
     <span class="c1"># contains</span>
@@ -512,7 +512,7 @@ document.write(`
 
 
 <div class="viewcode-block" id="nanmode_jit"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.stat_common.nanmode_jit">[docs]</a><span class="nd">@ngjit</span>
-<span class="k">def</span> <span class="nf">nanmode_jit</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">nanmode_jit</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
     <span class="c1"># Returns NaN if all values are NaN.</span>
     <span class="n">x</span> <span class="o">=</span> <span class="n">_atleast_1d</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
     <span class="n">c</span> <span class="o">=</span> <span class="p">{}</span>
@@ -538,7 +538,7 @@ document.write(`
 
 
 <div class="viewcode-block" id="nanentropy_jit"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.stat_common.nanentropy_jit">[docs]</a><span class="nd">@ngjit</span>
-<span class="k">def</span> <span class="nf">nanentropy_jit</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">nanentropy_jit</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
     <span class="n">x</span> <span class="o">=</span> <span class="n">_atleast_1d</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
     <span class="n">c</span> <span class="o">=</span> <span class="p">{}</span>
     <span class="n">n</span> <span class="o">=</span> <span class="mi">0</span>
@@ -559,7 +559,7 @@ document.write(`
 
 
 <div class="viewcode-block" id="nanasm_jit"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.stat_common.nanasm_jit">[docs]</a><span class="nd">@ngjit</span>
-<span class="k">def</span> <span class="nf">nanasm_jit</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">nanasm_jit</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
     <span class="n">x</span> <span class="o">=</span> <span class="n">_atleast_1d</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
     <span class="n">c</span> <span class="o">=</span> <span class="p">{}</span>
     <span class="n">n</span> <span class="o">=</span> <span class="mi">0</span>
@@ -580,7 +580,7 @@ document.write(`
 
 
 <div class="viewcode-block" id="nanargmin_jit"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.stat_common.nanargmin_jit">[docs]</a><span class="nd">@ngjit</span>
-<span class="k">def</span> <span class="nf">nanargmin_jit</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">nanargmin_jit</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
     <span class="c1"># Get argmin. If empty give -1, if all nan, give -2. This differs from</span>
     <span class="c1"># numpy which throws an error.</span>
     <span class="n">x</span> <span class="o">=</span> <span class="n">_atleast_1d</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
@@ -604,7 +604,7 @@ document.write(`
 
 
 <div class="viewcode-block" id="nanargmax_jit"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.stat_common.nanargmax_jit">[docs]</a><span class="nd">@ngjit</span>
-<span class="k">def</span> <span class="nf">nanargmax_jit</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">nanargmax_jit</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
     <span class="c1"># Get argmax. If empty give -1, if all nan, give -2. This differs from</span>
     <span class="c1"># numpy which throws an error.</span>
     <span class="n">x</span> <span class="o">=</span> <span class="n">_atleast_1d</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>

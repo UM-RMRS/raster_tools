@@ -8,7 +8,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>raster_tools.distance.cost_distance &#8212; raster_tools 0.9.7 documentation</title>
+    <title>raster_tools.distance.cost_distance &#8212; raster_tools 0.9.8 documentation</title>
   
   
   
@@ -114,7 +114,7 @@
   
   
   
-    <p class="title logo__title">raster_tools 0.9.7 documentation</p>
+    <p class="title logo__title">raster_tools 0.9.8 documentation</p>
   
 </a></div>
         <div class="sidebar-primary-item"><nav class="bd-links" id="bd-docs-nav" aria-label="Main">
@@ -405,19 +405,19 @@ document.write(`
                 <article class="bd-article" role="main">
                   
   <h1>Source code for raster_tools.distance.cost_distance</h1><div class="highlight"><pre>
-<span></span><span class="kn">import</span> <span class="nn">dask.array</span> <span class="k">as</span> <span class="nn">da</span>
-<span class="kn">import</span> <span class="nn">numba</span> <span class="k">as</span> <span class="nn">nb</span>
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="kn">import</span> <span class="nn">xarray</span> <span class="k">as</span> <span class="nn">xr</span>
-<span class="kn">from</span> <span class="nn">numba.types</span> <span class="kn">import</span> <span class="n">float64</span><span class="p">,</span> <span class="n">int8</span><span class="p">,</span> <span class="n">int64</span>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">dask.array</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">da</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numba</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">nb</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">xarray</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">xr</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">numba.types</span><span class="w"> </span><span class="kn">import</span> <span class="n">float64</span><span class="p">,</span> <span class="n">int8</span><span class="p">,</span> <span class="n">int64</span>
 
-<span class="kn">from</span> <span class="nn">raster_tools.distance._heap</span> <span class="kn">import</span> <span class="p">(</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.distance._heap</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">init_heap_data</span><span class="p">,</span>
     <span class="n">pop</span><span class="p">,</span>
     <span class="n">push</span><span class="p">,</span>
     <span class="n">push_if_lower</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">raster_tools.dtypes</span> <span class="kn">import</span> <span class="p">(</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.dtypes</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">F16</span><span class="p">,</span>
     <span class="n">F32</span><span class="p">,</span>
     <span class="n">F64</span><span class="p">,</span>
@@ -427,14 +427,14 @@ document.write(`
     <span class="n">is_scalar</span><span class="p">,</span>
     <span class="n">is_str</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">raster_tools.raster</span> <span class="kn">import</span> <span class="n">Raster</span><span class="p">,</span> <span class="n">dataarray_to_xr_raster_ds</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.raster</span><span class="w"> </span><span class="kn">import</span> <span class="n">Raster</span><span class="p">,</span> <span class="n">dataarray_to_xr_raster_ds</span>
 
 <span class="n">JIT_KWARGS</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;nopython&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span> <span class="s2">&quot;nogil&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">}</span>
 <span class="n">ngjit</span> <span class="o">=</span> <span class="n">nb</span><span class="o">.</span><span class="n">jit</span><span class="p">(</span><span class="o">**</span><span class="n">JIT_KWARGS</span><span class="p">)</span>
 
 
 <span class="nd">@ngjit</span>
-<span class="k">def</span> <span class="nf">_mult_accumulate</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_mult_accumulate</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
     <span class="n">out</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">I64</span><span class="p">)</span>
     <span class="n">c</span> <span class="o">=</span> <span class="mi">1</span>
     <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="p">)):</span>
@@ -449,7 +449,7 @@ document.write(`
     <span class="p">],</span>
     <span class="o">**</span><span class="n">JIT_KWARGS</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="k">def</span> <span class="nf">_get_strides</span><span class="p">(</span><span class="n">shape</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_get_strides</span><span class="p">(</span><span class="n">shape</span><span class="p">):</span>
     <span class="c1"># Get strides for given nd array shape. Assumes c style strides</span>
     <span class="c1"># NOTE: output must have a standardized type because windows has different</span>
     <span class="c1"># default int types from linux.</span>
@@ -461,7 +461,7 @@ document.write(`
 
 
 <span class="nd">@ngjit</span>
-<span class="k">def</span> <span class="nf">_ravel_indices</span><span class="p">(</span><span class="n">indices</span><span class="p">,</span> <span class="n">shape</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_ravel_indices</span><span class="p">(</span><span class="n">indices</span><span class="p">,</span> <span class="n">shape</span><span class="p">):</span>
     <span class="c1"># Convert nd c-strided indices to flat indices</span>
     <span class="n">strides</span> <span class="o">=</span> <span class="n">_get_strides</span><span class="p">(</span><span class="n">shape</span><span class="p">)</span>
     <span class="n">flat_indices</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">strides</span> <span class="o">*</span> <span class="n">idx</span><span class="p">)</span> <span class="k">for</span> <span class="n">idx</span> <span class="ow">in</span> <span class="n">indices</span><span class="p">]</span>
@@ -516,7 +516,7 @@ document.write(`
 
 
 <span class="nd">@ngjit</span>
-<span class="k">def</span> <span class="nf">_cost_distance_analysis_core</span><span class="p">(</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_cost_distance_analysis_core</span><span class="p">(</span>
     <span class="n">flat_costs</span><span class="p">,</span>
     <span class="n">flat_sources</span><span class="p">,</span>
     <span class="n">flat_moves</span><span class="p">,</span>
@@ -676,7 +676,7 @@ document.write(`
     <span class="k">return</span> <span class="n">flat_cost_distance</span><span class="p">,</span> <span class="n">flat_traceback</span><span class="p">,</span> <span class="n">flat_allocation</span>
 
 
-<div class="viewcode-block" id="cost_distance_analysis_numpy"><a class="viewcode-back" href="../../../raster_tools.distance.html#raster_tools.distance.cost_distance.cost_distance_analysis_numpy">[docs]</a><span class="k">def</span> <span class="nf">cost_distance_analysis_numpy</span><span class="p">(</span>
+<div class="viewcode-block" id="cost_distance_analysis_numpy"><a class="viewcode-back" href="../../../raster_tools.distance.html#raster_tools.distance.cost_distance.cost_distance_analysis_numpy">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">cost_distance_analysis_numpy</span><span class="p">(</span>
     <span class="n">costs</span><span class="p">,</span>
     <span class="n">sources</span><span class="p">,</span>
     <span class="n">sources_null_value</span><span class="p">,</span>
@@ -814,7 +814,7 @@ document.write(`
     <span class="k">return</span> <span class="n">cost_distance</span><span class="p">,</span> <span class="n">traceback</span><span class="p">,</span> <span class="n">allocation</span></div>
 
 
-<span class="k">def</span> <span class="nf">_normalize_raster_data</span><span class="p">(</span><span class="n">rs</span><span class="p">,</span> <span class="n">missing</span><span class="o">=-</span><span class="mi">1</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_normalize_raster_data</span><span class="p">(</span><span class="n">rs</span><span class="p">,</span> <span class="n">missing</span><span class="o">=-</span><span class="mi">1</span><span class="p">):</span>
     <span class="n">data</span> <span class="o">=</span> <span class="n">rs</span><span class="o">.</span><span class="n">data</span>
     <span class="c1"># Make sure that null values are skipped</span>
     <span class="n">nv</span> <span class="o">=</span> <span class="n">rs</span><span class="o">.</span><span class="n">null_value</span>
@@ -836,7 +836,7 @@ document.write(`
 <span class="n">_TRACEBACK_NOT_REACHED</span> <span class="o">=</span> <span class="o">-</span><span class="mi">2</span>
 
 
-<div class="viewcode-block" id="cost_distance_analysis"><a class="viewcode-back" href="../../../reference/generated/raster_tools.distance.cost_distance_analysis.html#raster_tools.distance.cost_distance.cost_distance_analysis">[docs]</a><span class="k">def</span> <span class="nf">cost_distance_analysis</span><span class="p">(</span><span class="n">costs</span><span class="p">,</span> <span class="n">sources</span><span class="p">,</span> <span class="n">elevation</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<div class="viewcode-block" id="cost_distance_analysis"><a class="viewcode-back" href="../../../reference/generated/raster_tools.distance.cost_distance_analysis.html#raster_tools.distance.cost_distance.cost_distance_analysis">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">cost_distance_analysis</span><span class="p">(</span><span class="n">costs</span><span class="p">,</span> <span class="n">sources</span><span class="p">,</span> <span class="n">elevation</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Calculate accumulated cost distance, traceback, and allocation.</span>
 
 <span class="sd">    This function uses Dijkstra&#39;s algorithm to compute the many-sources</span>
@@ -948,7 +948,7 @@ document.write(`
                 <span class="nb">len</span><span class="p">(</span><span class="n">sources</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">I64</span>
             <span class="p">)</span>
         <span class="k">except</span> <span class="ne">TypeError</span> <span class="k">as</span> <span class="n">err</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Could not understand sources argument&quot;</span><span class="p">)</span> <span class="kn">from</span> <span class="nn">err</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Could not understand sources argument&quot;</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">err</span>
 
     <span class="n">data</span> <span class="o">=</span> <span class="n">_normalize_raster_data</span><span class="p">(</span><span class="n">costs</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">elevation</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -1000,7 +1000,7 @@ document.write(`
     <span class="k">return</span> <span class="n">cd</span><span class="p">,</span> <span class="n">tr</span><span class="p">,</span> <span class="n">al</span></div>
 
 
-<div class="viewcode-block" id="cda_cost_distance"><a class="viewcode-back" href="../../../reference/generated/raster_tools.distance.cda_cost_distance.html#raster_tools.distance.cost_distance.cda_cost_distance">[docs]</a><span class="k">def</span> <span class="nf">cda_cost_distance</span><span class="p">(</span><span class="n">costs</span><span class="p">,</span> <span class="n">sources</span><span class="p">,</span> <span class="n">elevation</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<div class="viewcode-block" id="cda_cost_distance"><a class="viewcode-back" href="../../../reference/generated/raster_tools.distance.cda_cost_distance.html#raster_tools.distance.cost_distance.cda_cost_distance">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">cda_cost_distance</span><span class="p">(</span><span class="n">costs</span><span class="p">,</span> <span class="n">sources</span><span class="p">,</span> <span class="n">elevation</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Calculate just the cost distance for a cost surface</span>
 
 <span class="sd">    See cost_distance_analysis for a full description.</span>
@@ -1038,7 +1038,7 @@ document.write(`
     <span class="k">return</span> <span class="n">cost_dist</span></div>
 
 
-<div class="viewcode-block" id="cda_traceback"><a class="viewcode-back" href="../../../reference/generated/raster_tools.distance.cda_traceback.html#raster_tools.distance.cost_distance.cda_traceback">[docs]</a><span class="k">def</span> <span class="nf">cda_traceback</span><span class="p">(</span><span class="n">costs</span><span class="p">,</span> <span class="n">sources</span><span class="p">,</span> <span class="n">elevation</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<div class="viewcode-block" id="cda_traceback"><a class="viewcode-back" href="../../../reference/generated/raster_tools.distance.cda_traceback.html#raster_tools.distance.cost_distance.cda_traceback">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">cda_traceback</span><span class="p">(</span><span class="n">costs</span><span class="p">,</span> <span class="n">sources</span><span class="p">,</span> <span class="n">elevation</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Calculate just the cost distance traceback for a cost surface.</span>
 
 <span class="sd">    See cost_distance_analysis for a full description.</span>
@@ -1076,7 +1076,7 @@ document.write(`
     <span class="k">return</span> <span class="n">trb</span></div>
 
 
-<div class="viewcode-block" id="cda_allocation"><a class="viewcode-back" href="../../../reference/generated/raster_tools.distance.cda_allocation.html#raster_tools.distance.cost_distance.cda_allocation">[docs]</a><span class="k">def</span> <span class="nf">cda_allocation</span><span class="p">(</span><span class="n">costs</span><span class="p">,</span> <span class="n">sources</span><span class="p">,</span> <span class="n">elevation</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<div class="viewcode-block" id="cda_allocation"><a class="viewcode-back" href="../../../reference/generated/raster_tools.distance.cda_allocation.html#raster_tools.distance.cost_distance.cda_allocation">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">cda_allocation</span><span class="p">(</span><span class="n">costs</span><span class="p">,</span> <span class="n">sources</span><span class="p">,</span> <span class="n">elevation</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Calculate just the cost distance allocation for a cost surface.</span>
 
 <span class="sd">    See cost_distance_analysis for a full description.</span>

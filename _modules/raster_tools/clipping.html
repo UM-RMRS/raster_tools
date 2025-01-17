@@ -8,7 +8,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>raster_tools.clipping &#8212; raster_tools 0.9.7 documentation</title>
+    <title>raster_tools.clipping &#8212; raster_tools 0.9.8 documentation</title>
   
   
   
@@ -114,7 +114,7 @@
   
   
   
-    <p class="title logo__title">raster_tools 0.9.7 documentation</p>
+    <p class="title logo__title">raster_tools 0.9.8 documentation</p>
   
 </a></div>
         <div class="sidebar-primary-item"><nav class="bd-links" id="bd-docs-nav" aria-label="Main">
@@ -405,25 +405,25 @@ document.write(`
                 <article class="bd-article" role="main">
                   
   <h1>Source code for raster_tools.clipping</h1><div class="highlight"><pre>
-<span></span><span class="kn">import</span> <span class="nn">dask</span>
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="kn">import</span> <span class="nn">rioxarray</span> <span class="k">as</span> <span class="nn">rxr</span>
-<span class="kn">import</span> <span class="nn">xarray</span> <span class="k">as</span> <span class="nn">xr</span>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">dask</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">rioxarray</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">rxr</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">xarray</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">xr</span>
 
-<span class="kn">from</span> <span class="nn">raster_tools.creation</span> <span class="kn">import</span> <span class="n">ones_like</span><span class="p">,</span> <span class="n">zeros_like</span>
-<span class="kn">from</span> <span class="nn">raster_tools.exceptions</span> <span class="kn">import</span> <span class="n">RasterNoDataError</span>
-<span class="kn">from</span> <span class="nn">raster_tools.general</span> <span class="kn">import</span> <span class="n">band_concat</span>
-<span class="kn">from</span> <span class="nn">raster_tools.masking</span> <span class="kn">import</span> <span class="n">get_default_null_value</span>
-<span class="kn">from</span> <span class="nn">raster_tools.raster</span> <span class="kn">import</span> <span class="p">(</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.creation</span><span class="w"> </span><span class="kn">import</span> <span class="n">ones_like</span><span class="p">,</span> <span class="n">zeros_like</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">RasterNoDataError</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.general</span><span class="w"> </span><span class="kn">import</span> <span class="n">band_concat</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.masking</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_default_null_value</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.raster</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">Raster</span><span class="p">,</span>
     <span class="n">dataarray_to_xr_raster_ds</span><span class="p">,</span>
     <span class="n">get_raster</span><span class="p">,</span>
     <span class="n">xr_where_with_meta</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">raster_tools.vector</span> <span class="kn">import</span> <span class="n">get_vector</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.vector</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_vector</span>
 
 
-<span class="k">def</span> <span class="nf">_clip</span><span class="p">(</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_clip</span><span class="p">(</span>
     <span class="n">feature</span><span class="p">,</span>
     <span class="n">data_raster</span><span class="p">,</span>
     <span class="n">invert</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
@@ -453,7 +453,7 @@ document.write(`
             <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
                 <span class="s2">&quot;No data in given bounds. Make sure that the bounds are in the&quot;</span>
                 <span class="s2">&quot; same CRS as the data raster.&quot;</span>
-            <span class="p">)</span> <span class="kn">from</span> <span class="nn">err</span>
+            <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">err</span>
 
     <span class="n">feature_raster</span> <span class="o">=</span> <span class="n">feat</span><span class="o">.</span><span class="n">to_raster</span><span class="p">(</span><span class="n">data_raster</span><span class="p">,</span> <span class="n">mask</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">envelope</span><span class="p">:</span>
@@ -485,7 +485,7 @@ document.write(`
     <span class="k">return</span> <span class="n">Raster</span><span class="p">(</span><span class="n">ds_out</span><span class="p">,</span> <span class="n">_fast_path</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
 
-<div class="viewcode-block" id="clip"><a class="viewcode-back" href="../../reference/generated/raster_tools.clipping.clip.html#raster_tools.clipping.clip">[docs]</a><span class="k">def</span> <span class="nf">clip</span><span class="p">(</span><span class="n">feature</span><span class="p">,</span> <span class="n">data_raster</span><span class="p">,</span> <span class="n">bounds</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<div class="viewcode-block" id="clip"><a class="viewcode-back" href="../../reference/generated/raster_tools.clipping.clip.html#raster_tools.clipping.clip">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">clip</span><span class="p">(</span><span class="n">feature</span><span class="p">,</span> <span class="n">data_raster</span><span class="p">,</span> <span class="n">bounds</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Clip the data raster using the given feature.</span>
 
 <span class="sd">    Parameters</span>
@@ -515,7 +515,7 @@ document.write(`
     <span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="erase"><a class="viewcode-back" href="../../reference/generated/raster_tools.clipping.erase.html#raster_tools.clipping.erase">[docs]</a><span class="k">def</span> <span class="nf">erase</span><span class="p">(</span><span class="n">feature</span><span class="p">,</span> <span class="n">data_raster</span><span class="p">,</span> <span class="n">bounds</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<div class="viewcode-block" id="erase"><a class="viewcode-back" href="../../reference/generated/raster_tools.clipping.erase.html#raster_tools.clipping.erase">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">erase</span><span class="p">(</span><span class="n">feature</span><span class="p">,</span> <span class="n">data_raster</span><span class="p">,</span> <span class="n">bounds</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Erase the data raster using the given feature. Inverse of :func:`clip`.</span>
 
 <span class="sd">    Parameters</span>
@@ -547,7 +547,7 @@ document.write(`
     <span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="mask"><a class="viewcode-back" href="../../reference/generated/raster_tools.clipping.mask.html#raster_tools.clipping.mask">[docs]</a><span class="k">def</span> <span class="nf">mask</span><span class="p">(</span><span class="n">feature</span><span class="p">,</span> <span class="n">data_raster</span><span class="p">,</span> <span class="n">invert</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<div class="viewcode-block" id="mask"><a class="viewcode-back" href="../../reference/generated/raster_tools.clipping.mask.html#raster_tools.clipping.mask">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">mask</span><span class="p">(</span><span class="n">feature</span><span class="p">,</span> <span class="n">data_raster</span><span class="p">,</span> <span class="n">invert</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Mask the data raster using the given feature.</span>
 
 <span class="sd">    Depending on `invert`, the area inside (``True``) or outside (``False``)</span>
@@ -580,7 +580,7 @@ document.write(`
     <span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="envelope"><a class="viewcode-back" href="../../reference/generated/raster_tools.clipping.envelope.html#raster_tools.clipping.envelope">[docs]</a><span class="k">def</span> <span class="nf">envelope</span><span class="p">(</span><span class="n">feature</span><span class="p">,</span> <span class="n">data_raster</span><span class="p">):</span>
+<div class="viewcode-block" id="envelope"><a class="viewcode-back" href="../../reference/generated/raster_tools.clipping.envelope.html#raster_tools.clipping.envelope">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">envelope</span><span class="p">(</span><span class="n">feature</span><span class="p">,</span> <span class="n">data_raster</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Clip the data raster using the bounds of the given feature.</span>
 
 <span class="sd">    This is the same as :func:`clip` but the bounding box of the feature is</span>
@@ -609,7 +609,7 @@ document.write(`
     <span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="clip_box"><a class="viewcode-back" href="../../reference/generated/raster_tools.clipping.clip_box.html#raster_tools.clipping.clip_box">[docs]</a><span class="k">def</span> <span class="nf">clip_box</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">bounds</span><span class="p">):</span>
+<div class="viewcode-block" id="clip_box"><a class="viewcode-back" href="../../reference/generated/raster_tools.clipping.clip_box.html#raster_tools.clipping.clip_box">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">clip_box</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">bounds</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Clip the raster to the specified box.</span>
 
 <span class="sd">    Parameters</span>
@@ -633,7 +633,7 @@ document.write(`
     <span class="k">except</span> <span class="n">rxr</span><span class="o">.</span><span class="n">exceptions</span><span class="o">.</span><span class="n">NoDataInBounds</span> <span class="k">as</span> <span class="n">err</span><span class="p">:</span>
         <span class="k">raise</span> <span class="n">RasterNoDataError</span><span class="p">(</span>
             <span class="s2">&quot;No data found within provided bounds&quot;</span>
-        <span class="p">)</span> <span class="kn">from</span> <span class="nn">err</span>
+        <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">err</span>
     <span class="k">if</span> <span class="n">raster</span><span class="o">.</span><span class="n">_masked</span><span class="p">:</span>
         <span class="n">xmask</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">xmask</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">clip_box</span><span class="p">(</span><span class="o">*</span><span class="n">bounds</span><span class="p">,</span> <span class="n">auto_expand</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>

@@ -8,7 +8,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>raster_tools.rasterize &#8212; raster_tools 0.9.7 documentation</title>
+    <title>raster_tools.rasterize &#8212; raster_tools 0.9.8 documentation</title>
   
   
   
@@ -114,7 +114,7 @@
   
   
   
-    <p class="title logo__title">raster_tools 0.9.7 documentation</p>
+    <p class="title logo__title">raster_tools 0.9.8 documentation</p>
   
 </a></div>
         <div class="sidebar-primary-item"><nav class="bd-links" id="bd-docs-nav" aria-label="Main">
@@ -405,25 +405,25 @@ document.write(`
                 <article class="bd-article" role="main">
                   
   <h1>Source code for raster_tools.rasterize</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">partial</span>
+<span></span><span class="kn">from</span><span class="w"> </span><span class="nn">functools</span><span class="w"> </span><span class="kn">import</span> <span class="n">partial</span>
 
-<span class="kn">import</span> <span class="nn">dask.array</span> <span class="k">as</span> <span class="nn">da</span>
-<span class="kn">import</span> <span class="nn">geopandas</span> <span class="k">as</span> <span class="nn">gpd</span>
-<span class="kn">import</span> <span class="nn">numba</span> <span class="k">as</span> <span class="nn">nb</span>
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="kn">import</span> <span class="nn">rasterio</span> <span class="k">as</span> <span class="nn">rio</span>
-<span class="kn">import</span> <span class="nn">shapely</span>
-<span class="kn">from</span> <span class="nn">dask.diagnostics</span> <span class="kn">import</span> <span class="n">ProgressBar</span>
-<span class="kn">from</span> <span class="nn">packaging</span> <span class="kn">import</span> <span class="n">version</span>
-<span class="kn">from</span> <span class="nn">rasterio.enums</span> <span class="kn">import</span> <span class="n">MergeAlg</span>
-<span class="kn">from</span> <span class="nn">rasterio.env</span> <span class="kn">import</span> <span class="n">GDALVersion</span>
-<span class="kn">from</span> <span class="nn">rasterio.features</span> <span class="kn">import</span> <span class="n">rasterize</span> <span class="k">as</span> <span class="n">rio_rasterize</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">dask.array</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">da</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">geopandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">gpd</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numba</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">nb</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">rasterio</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">rio</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">shapely</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dask.diagnostics</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProgressBar</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">packaging</span><span class="w"> </span><span class="kn">import</span> <span class="n">version</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">rasterio.enums</span><span class="w"> </span><span class="kn">import</span> <span class="n">MergeAlg</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">rasterio.env</span><span class="w"> </span><span class="kn">import</span> <span class="n">GDALVersion</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">rasterio.features</span><span class="w"> </span><span class="kn">import</span> <span class="n">rasterize</span> <span class="k">as</span> <span class="n">rio_rasterize</span>
 
-<span class="kn">from</span> <span class="nn">raster_tools.dtypes</span> <span class="kn">import</span> <span class="n">F64</span><span class="p">,</span> <span class="n">I8</span><span class="p">,</span> <span class="n">I16</span><span class="p">,</span> <span class="n">I64</span><span class="p">,</span> <span class="n">U8</span><span class="p">,</span> <span class="n">U64</span><span class="p">,</span> <span class="n">is_float</span><span class="p">,</span> <span class="n">is_int</span>
-<span class="kn">from</span> <span class="nn">raster_tools.masking</span> <span class="kn">import</span> <span class="n">get_default_null_value</span>
-<span class="kn">from</span> <span class="nn">raster_tools.raster</span> <span class="kn">import</span> <span class="n">data_to_raster_like</span><span class="p">,</span> <span class="n">get_raster</span>
-<span class="kn">from</span> <span class="nn">raster_tools.utils</span> <span class="kn">import</span> <span class="n">list_reshape_2d</span>
-<span class="kn">from</span> <span class="nn">raster_tools.vector</span> <span class="kn">import</span> <span class="n">get_vector</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.dtypes</span><span class="w"> </span><span class="kn">import</span> <span class="n">F64</span><span class="p">,</span> <span class="n">I8</span><span class="p">,</span> <span class="n">I16</span><span class="p">,</span> <span class="n">I64</span><span class="p">,</span> <span class="n">U8</span><span class="p">,</span> <span class="n">U64</span><span class="p">,</span> <span class="n">is_float</span><span class="p">,</span> <span class="n">is_int</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.masking</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_default_null_value</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.raster</span><span class="w"> </span><span class="kn">import</span> <span class="n">data_to_raster_like</span><span class="p">,</span> <span class="n">get_raster</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">list_reshape_2d</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.vector</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_vector</span>
 
 <span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;rasterize&quot;</span><span class="p">]</span>
 
@@ -433,7 +433,7 @@ document.write(`
 <span class="p">)</span>
 
 
-<span class="k">def</span> <span class="nf">_get_rio_dtype</span><span class="p">(</span><span class="n">dtype</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_get_rio_dtype</span><span class="p">(</span><span class="n">dtype</span><span class="p">):</span>
     <span class="k">if</span> <span class="n">dtype</span> <span class="o">==</span> <span class="n">I8</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">I16</span>
     <span class="c1"># GDAL &gt;= 3.5 and Rasterio &gt;= 1.3 support 64-bit (u)ints</span>
@@ -442,7 +442,7 @@ document.write(`
     <span class="k">return</span> <span class="n">dtype</span>
 
 
-<span class="k">def</span> <span class="nf">_rio_rasterize_wrapper</span><span class="p">(</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_rio_rasterize_wrapper</span><span class="p">(</span>
     <span class="n">shape</span><span class="p">,</span> <span class="n">transform</span><span class="p">,</span> <span class="n">geometry</span><span class="p">,</span> <span class="n">values</span><span class="p">,</span> <span class="n">out_dtype</span><span class="p">,</span> <span class="n">fill</span><span class="p">,</span> <span class="n">all_touched</span>
 <span class="p">):</span>
     <span class="n">rio_dtype</span> <span class="o">=</span> <span class="n">_get_rio_dtype</span><span class="p">(</span><span class="n">out_dtype</span><span class="p">)</span>
@@ -465,7 +465,7 @@ document.write(`
     <span class="k">return</span> <span class="n">rast_array</span>
 
 
-<span class="k">def</span> <span class="nf">_rio_mask</span><span class="p">(</span><span class="n">geoms</span><span class="p">,</span> <span class="n">shape</span><span class="p">,</span> <span class="n">transform</span><span class="p">,</span> <span class="n">all_touched</span><span class="p">,</span> <span class="n">invert</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_rio_mask</span><span class="p">(</span><span class="n">geoms</span><span class="p">,</span> <span class="n">shape</span><span class="p">,</span> <span class="n">transform</span><span class="p">,</span> <span class="n">all_touched</span><span class="p">,</span> <span class="n">invert</span><span class="p">):</span>
     <span class="n">fill</span><span class="p">,</span> <span class="n">geom_value</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="k">if</span> <span class="n">invert</span> <span class="k">else</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">rio_rasterize</span><span class="p">(</span>
         <span class="n">geoms</span><span class="p">,</span>
@@ -477,7 +477,7 @@ document.write(`
     <span class="p">)</span>
 
 
-<span class="k">def</span> <span class="nf">_rasterize_onto_chunk</span><span class="p">(</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_rasterize_onto_chunk</span><span class="p">(</span>
     <span class="n">gdf</span><span class="p">,</span>
     <span class="n">transform</span><span class="p">,</span>
     <span class="n">out_dtype</span><span class="p">,</span>
@@ -555,7 +555,7 @@ document.write(`
     <span class="p">)</span>
 
 
-<span class="k">def</span> <span class="nf">_mask_onto_chunk</span><span class="p">(</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_mask_onto_chunk</span><span class="p">(</span>
     <span class="n">gdf</span><span class="p">,</span> <span class="n">transform</span><span class="p">,</span> <span class="n">all_touched</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">invert</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">block_info</span><span class="o">=</span><span class="kc">None</span>
 <span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
@@ -581,21 +581,21 @@ document.write(`
 
 
 <span class="nd">@nb</span><span class="o">.</span><span class="n">jit</span><span class="p">(</span><span class="n">nopython</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">nogil</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<span class="k">def</span> <span class="nf">_resolve_first</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">fill</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_resolve_first</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">fill</span><span class="p">):</span>
     <span class="c1"># Take first valid values along band dimension</span>
     <span class="n">out</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span> <span class="o">==</span> <span class="n">fill</span><span class="p">,</span> <span class="n">x</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">x</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">])</span>
     <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">expand_dims</span><span class="p">(</span><span class="n">out</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
 
 
 <span class="nd">@nb</span><span class="o">.</span><span class="n">jit</span><span class="p">(</span><span class="n">nopython</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">nogil</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<span class="k">def</span> <span class="nf">_resolve_last</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">fill</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_resolve_last</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">fill</span><span class="p">):</span>
     <span class="c1"># Take last valid values along band dimension</span>
     <span class="n">out</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="n">fill</span><span class="p">,</span> <span class="n">x</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">],</span> <span class="n">x</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
     <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">expand_dims</span><span class="p">(</span><span class="n">out</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
 
 
 <span class="nd">@nb</span><span class="o">.</span><span class="n">jit</span><span class="p">(</span><span class="n">nopython</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">nogil</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<span class="k">def</span> <span class="nf">_all_axis0</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_all_axis0</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
     <span class="c1"># Compute all along first axis</span>
     <span class="n">out</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">]),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">bool_</span><span class="p">)</span>
     <span class="n">nr</span><span class="p">,</span> <span class="n">nc</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
@@ -606,7 +606,7 @@ document.write(`
 
 
 <span class="nd">@nb</span><span class="o">.</span><span class="n">jit</span><span class="p">(</span><span class="n">nopython</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">nogil</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<span class="k">def</span> <span class="nf">_min_axis0</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_min_axis0</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
     <span class="c1"># Compute min along first axis</span>
     <span class="n">out</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">]),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">x</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
     <span class="n">nr</span><span class="p">,</span> <span class="n">nc</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
@@ -617,7 +617,7 @@ document.write(`
 
 
 <span class="nd">@nb</span><span class="o">.</span><span class="n">jit</span><span class="p">(</span><span class="n">nopython</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">nogil</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<span class="k">def</span> <span class="nf">_max_axis0</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_max_axis0</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
     <span class="c1"># Compute max along first axis</span>
     <span class="n">out</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">]),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">x</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
     <span class="n">nr</span><span class="p">,</span> <span class="n">nc</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
@@ -628,7 +628,7 @@ document.write(`
 
 
 <span class="nd">@nb</span><span class="o">.</span><span class="n">jit</span><span class="p">(</span><span class="n">nopython</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">nogil</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<span class="k">def</span> <span class="nf">_resolve_min</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">fill</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_resolve_min</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">fill</span><span class="p">):</span>
     <span class="c1"># Take min values along band dimension</span>
     <span class="n">mask</span> <span class="o">=</span> <span class="n">x</span> <span class="o">==</span> <span class="n">fill</span>
     <span class="n">out</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">mask</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmax</span><span class="p">(</span><span class="n">x</span><span class="p">),</span> <span class="n">x</span><span class="p">)</span>
@@ -638,7 +638,7 @@ document.write(`
 
 
 <span class="nd">@nb</span><span class="o">.</span><span class="n">jit</span><span class="p">(</span><span class="n">nopython</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">nogil</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<span class="k">def</span> <span class="nf">_resolve_max</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">fill</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_resolve_max</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">fill</span><span class="p">):</span>
     <span class="c1"># Take max values along band dimension</span>
     <span class="n">mask</span> <span class="o">=</span> <span class="n">x</span> <span class="o">==</span> <span class="n">fill</span>
     <span class="n">out</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">mask</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmin</span><span class="p">(</span><span class="n">x</span><span class="p">),</span> <span class="n">x</span><span class="p">)</span>
@@ -655,7 +655,7 @@ document.write(`
 <span class="p">}</span>
 
 
-<span class="k">def</span> <span class="nf">_reduction_wrapper</span><span class="p">(</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_reduction_wrapper</span><span class="p">(</span>
     <span class="n">x</span><span class="p">,</span> <span class="n">fill</span><span class="p">,</span> <span class="n">resolve_func</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">keepdims</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span>
 <span class="p">):</span>
     <span class="k">if</span> <span class="n">x</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
@@ -671,11 +671,11 @@ document.write(`
     <span class="k">return</span> <span class="n">out</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
 
 
-<span class="k">def</span> <span class="nf">_copy</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_copy</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
     <span class="k">return</span> <span class="n">x</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
 
 
-<span class="k">def</span> <span class="nf">_reduce_stacked_feature_rasters_custom</span><span class="p">(</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_reduce_stacked_feature_rasters_custom</span><span class="p">(</span>
     <span class="n">stack</span><span class="p">,</span> <span class="n">fill</span><span class="p">,</span> <span class="n">overlap_resolve_method</span><span class="p">,</span> <span class="n">keepdims</span>
 <span class="p">):</span>
     <span class="n">agg_func</span> <span class="o">=</span> <span class="n">partial</span><span class="p">(</span>
@@ -696,7 +696,7 @@ document.write(`
     <span class="k">return</span> <span class="n">reduced</span>
 
 
-<span class="k">def</span> <span class="nf">_reduce_stacked_feature_rasters</span><span class="p">(</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_reduce_stacked_feature_rasters</span><span class="p">(</span>
     <span class="n">chunk_stack</span><span class="p">,</span>
     <span class="n">fill</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
     <span class="n">overlap_resolve_method</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
@@ -719,9 +719,9 @@ document.write(`
     <span class="k">return</span> <span class="n">chunk</span>
 
 
-<span class="k">def</span> <span class="nf">_rasterize_spatial_matches</span><span class="p">(</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_rasterize_spatial_matches</span><span class="p">(</span>
     <span class="n">matches</span><span class="p">,</span>
-    <span class="n">partitions</span><span class="p">,</span>
+    <span class="n">dgdf</span><span class="p">,</span>
     <span class="n">like_chunk_rasters</span><span class="p">,</span>
     <span class="n">all_touched</span><span class="p">,</span>
     <span class="n">fill</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
@@ -730,6 +730,24 @@ document.write(`
     <span class="n">mask</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
     <span class="n">mask_invert</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
 <span class="p">):</span>
+    <span class="c1"># NOTE: Convert the partitions to delayed objects to work around some</span>
+    <span class="c1"># flakey behavior in dask. The partitions are passed into map_blocks below</span>
+    <span class="c1"># as args, which should work just fine. A very small and random percentage</span>
+    <span class="c1"># of the time, however, this fails and one of the partitions will evaluate</span>
+    <span class="c1"># to a pandas.Series object with a single element containing a dask graph</span>
+    <span class="c1"># key(?). This started happening after dask-expr became the main dask</span>
+    <span class="c1"># dataframe backend so I believe the issue originates there. Converting to</span>
+    <span class="c1"># delayed objects avoids this behavior.</span>
+    <span class="n">partitions_as_delayed</span> <span class="o">=</span> <span class="n">dgdf</span><span class="o">.</span><span class="n">to_delayed</span><span class="p">()</span>
+    <span class="n">chunk_func</span> <span class="o">=</span> <span class="n">_mask_onto_chunk</span> <span class="k">if</span> <span class="n">mask</span> <span class="k">else</span> <span class="n">_rasterize_onto_chunk</span>
+    <span class="n">target_dtype</span> <span class="o">=</span> <span class="n">U8</span> <span class="k">if</span> <span class="n">mask</span> <span class="k">else</span> <span class="n">target_dtype</span>
+    <span class="n">func_kwargs</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;all_touched&quot;</span><span class="p">:</span> <span class="n">all_touched</span><span class="p">}</span>
+    <span class="k">if</span> <span class="n">mask</span><span class="p">:</span>
+        <span class="n">func_kwargs</span><span class="p">[</span><span class="s2">&quot;invert&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">mask_invert</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">func_kwargs</span><span class="p">[</span><span class="s2">&quot;out_dtype&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">target_dtype</span>
+        <span class="n">func_kwargs</span><span class="p">[</span><span class="s2">&quot;fill&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">fill</span>
+        <span class="n">func_kwargs</span><span class="p">[</span><span class="s2">&quot;overlap_resolve_method&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">overlap_resolve_method</span>
     <span class="c1"># Create a list for holding rasterization results. Each element corresponds</span>
     <span class="c1"># to a chunk in the like raster. All elements start as None. Elements will</span>
     <span class="c1"># will be replaced by a stack of dask arrays, if that chunk intersects a</span>
@@ -739,44 +757,28 @@ document.write(`
     <span class="c1"># Group by partition and iterate over the groups</span>
     <span class="k">for</span> <span class="n">ipart</span><span class="p">,</span> <span class="n">grp</span> <span class="ow">in</span> <span class="n">matches</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">&quot;part_idx&quot;</span><span class="p">):</span>
         <span class="c1"># Get the vector partition</span>
-        <span class="n">part</span> <span class="o">=</span> <span class="n">partitions</span><span class="p">[</span><span class="n">ipart</span><span class="p">]</span>
+        <span class="n">part</span> <span class="o">=</span> <span class="n">partitions_as_delayed</span><span class="p">[</span><span class="n">ipart</span><span class="p">]</span>
         <span class="c1"># Iterate over the chunks that intersected the vector partition and</span>
         <span class="c1"># rasterize the partition to each intersecting chunk&#39;s grid</span>
         <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">grp</span><span class="o">.</span><span class="n">iterrows</span><span class="p">():</span>
             <span class="n">little_like</span> <span class="o">=</span> <span class="n">like_chunk_rasters</span><span class="p">[</span><span class="n">row</span><span class="o">.</span><span class="n">flat_idx</span><span class="p">]</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="n">mask</span><span class="p">:</span>
-                <span class="n">chunk</span> <span class="o">=</span> <span class="n">da</span><span class="o">.</span><span class="n">map_blocks</span><span class="p">(</span>
-                    <span class="n">_rasterize_onto_chunk</span><span class="p">,</span>
-                    <span class="n">dtype</span><span class="o">=</span><span class="n">target_dtype</span><span class="p">,</span>
-                    <span class="n">chunks</span><span class="o">=</span><span class="n">little_like</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span>
-                    <span class="n">meta</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">((),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">target_dtype</span><span class="p">),</span>
-                    <span class="c1"># func args</span>
-                    <span class="n">gdf</span><span class="o">=</span><span class="n">part</span><span class="p">,</span>
-                    <span class="n">transform</span><span class="o">=</span><span class="n">little_like</span><span class="o">.</span><span class="n">affine</span><span class="p">,</span>
-                    <span class="n">out_dtype</span><span class="o">=</span><span class="n">target_dtype</span><span class="p">,</span>
-                    <span class="n">fill</span><span class="o">=</span><span class="n">fill</span><span class="p">,</span>
-                    <span class="n">all_touched</span><span class="o">=</span><span class="n">all_touched</span><span class="p">,</span>
-                    <span class="n">overlap_resolve_method</span><span class="o">=</span><span class="n">overlap_resolve_method</span><span class="p">,</span>
-                <span class="p">)</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="n">chunk</span> <span class="o">=</span> <span class="n">da</span><span class="o">.</span><span class="n">map_blocks</span><span class="p">(</span>
-                    <span class="n">_mask_onto_chunk</span><span class="p">,</span>
-                    <span class="n">dtype</span><span class="o">=</span><span class="n">U8</span><span class="p">,</span>
-                    <span class="n">chunks</span><span class="o">=</span><span class="n">little_like</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span>
-                    <span class="n">meta</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">((),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">U8</span><span class="p">),</span>
-                    <span class="c1"># Func args</span>
-                    <span class="n">gdf</span><span class="o">=</span><span class="n">part</span><span class="p">,</span>
-                    <span class="n">transform</span><span class="o">=</span><span class="n">little_like</span><span class="o">.</span><span class="n">affine</span><span class="p">,</span>
-                    <span class="n">all_touched</span><span class="o">=</span><span class="n">all_touched</span><span class="p">,</span>
-                    <span class="n">invert</span><span class="o">=</span><span class="n">mask_invert</span><span class="p">,</span>
-                <span class="p">)</span>
+            <span class="n">func_kwargs</span><span class="p">[</span><span class="s2">&quot;transform&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">little_like</span><span class="o">.</span><span class="n">affine</span>
+            <span class="n">chunk</span> <span class="o">=</span> <span class="n">da</span><span class="o">.</span><span class="n">map_blocks</span><span class="p">(</span>
+                <span class="n">chunk_func</span><span class="p">,</span>
+                <span class="n">part</span><span class="p">,</span>
+                <span class="n">dtype</span><span class="o">=</span><span class="n">target_dtype</span><span class="p">,</span>
+                <span class="n">chunks</span><span class="o">=</span><span class="n">little_like</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span>
+                <span class="n">meta</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">((),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">target_dtype</span><span class="p">),</span>
+                <span class="c1"># func args</span>
+                <span class="o">**</span><span class="n">func_kwargs</span><span class="p">,</span>
+            <span class="p">)</span>
             <span class="k">if</span> <span class="n">out_chunks</span><span class="p">[</span><span class="n">row</span><span class="o">.</span><span class="n">flat_idx</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="n">out_chunks</span><span class="p">[</span><span class="n">row</span><span class="o">.</span><span class="n">flat_idx</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
             <span class="n">out_chunks</span><span class="p">[</span><span class="n">row</span><span class="o">.</span><span class="n">flat_idx</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">chunk</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">out_chunks</span>
 
 
-<span class="k">def</span> <span class="nf">_raw_rasterized_chunks_to_dask_array</span><span class="p">(</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_raw_rasterized_chunks_to_dask_array</span><span class="p">(</span>
     <span class="n">raw_chunk_list</span><span class="p">,</span>
     <span class="n">like_chunk_rasters</span><span class="p">,</span>
     <span class="n">like_blocks_shape</span><span class="p">,</span>
@@ -816,7 +818,7 @@ document.write(`
     <span class="k">return</span> <span class="n">da</span><span class="o">.</span><span class="n">block</span><span class="p">([</span><span class="n">processed_chunks</span><span class="p">])</span>
 
 
-<span class="k">def</span> <span class="nf">_rasterize_spatial_aware</span><span class="p">(</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_rasterize_spatial_aware</span><span class="p">(</span>
     <span class="n">dgdf</span><span class="p">,</span>
     <span class="n">like</span><span class="p">,</span>
     <span class="n">field</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
@@ -872,7 +874,7 @@ document.write(`
     <span class="c1"># Each element is either None or a list of 2D dask arrays</span>
     <span class="n">raw_chunk_list</span> <span class="o">=</span> <span class="n">_rasterize_spatial_matches</span><span class="p">(</span>
         <span class="n">matches</span><span class="p">,</span>
-        <span class="n">dgdf</span><span class="o">.</span><span class="n">partitions</span><span class="p">,</span>
+        <span class="n">dgdf</span><span class="p">,</span>
         <span class="n">like_chunk_rasters</span><span class="p">,</span>
         <span class="n">all_touched</span><span class="p">,</span>
         <span class="n">fill</span><span class="o">=</span><span class="n">fill</span><span class="p">,</span>
@@ -899,7 +901,7 @@ document.write(`
     <span class="k">return</span> <span class="n">raster</span>
 
 
-<span class="k">def</span> <span class="nf">_rasterize_spatial_naive</span><span class="p">(</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_rasterize_spatial_naive</span><span class="p">(</span>
     <span class="n">df</span><span class="p">,</span>
     <span class="n">like</span><span class="p">,</span>
     <span class="n">field</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
@@ -932,7 +934,7 @@ document.write(`
     <span class="p">)</span>
 
 
-<div class="viewcode-block" id="rasterize"><a class="viewcode-back" href="../../reference/generated/raster_tools.rasterize.rasterize.html#raster_tools.rasterize.rasterize">[docs]</a><span class="k">def</span> <span class="nf">rasterize</span><span class="p">(</span>
+<div class="viewcode-block" id="rasterize"><a class="viewcode-back" href="../../reference/generated/raster_tools.rasterize.rasterize.html#raster_tools.rasterize.rasterize">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">rasterize</span><span class="p">(</span>
     <span class="n">features</span><span class="p">,</span>
     <span class="n">like</span><span class="p">,</span>
     <span class="n">field</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>

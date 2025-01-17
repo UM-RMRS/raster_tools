@@ -8,7 +8,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>raster_tools.distance.proximity &#8212; raster_tools 0.9.7 documentation</title>
+    <title>raster_tools.distance.proximity &#8212; raster_tools 0.9.8 documentation</title>
   
   
   
@@ -114,7 +114,7 @@
   
   
   
-    <p class="title logo__title">raster_tools 0.9.7 documentation</p>
+    <p class="title logo__title">raster_tools 0.9.8 documentation</p>
   
 </a></div>
         <div class="sidebar-primary-item"><nav class="bd-links" id="bd-docs-nav" aria-label="Main">
@@ -405,14 +405,14 @@ document.write(`
                 <article class="bd-article" role="main">
                   
   <h1>Source code for raster_tools.distance.proximity</h1><div class="highlight"><pre>
-<span></span><span class="kn">import</span> <span class="nn">dask.array</span> <span class="k">as</span> <span class="nn">da</span>
-<span class="kn">import</span> <span class="nn">numba</span> <span class="k">as</span> <span class="nn">nb</span>
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">dask.array</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">da</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numba</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">nb</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 
-<span class="kn">from</span> <span class="nn">raster_tools.dtypes</span> <span class="kn">import</span> <span class="n">F16</span><span class="p">,</span> <span class="n">F32</span><span class="p">,</span> <span class="n">F64</span>
-<span class="kn">from</span> <span class="nn">raster_tools.masking</span> <span class="kn">import</span> <span class="n">get_default_null_value</span>
-<span class="kn">from</span> <span class="nn">raster_tools.raster</span> <span class="kn">import</span> <span class="n">Raster</span><span class="p">,</span> <span class="n">data_to_raster_like</span><span class="p">,</span> <span class="n">get_raster</span>
-<span class="kn">from</span> <span class="nn">raster_tools.utils</span> <span class="kn">import</span> <span class="n">single_band_mappable</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.dtypes</span><span class="w"> </span><span class="kn">import</span> <span class="n">F16</span><span class="p">,</span> <span class="n">F32</span><span class="p">,</span> <span class="n">F64</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.masking</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_default_null_value</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.raster</span><span class="w"> </span><span class="kn">import</span> <span class="n">Raster</span><span class="p">,</span> <span class="n">data_to_raster_like</span><span class="p">,</span> <span class="n">get_raster</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">single_band_mappable</span>
 
 <span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
     <span class="s2">&quot;pa_allocation&quot;</span><span class="p">,</span>
@@ -432,7 +432,7 @@ document.write(`
     <span class="p">],</span>
     <span class="o">**</span><span class="n">_JIT_KWARGS</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="k">def</span> <span class="nf">_euclidean_dist_sqr</span><span class="p">(</span><span class="n">x1</span><span class="p">,</span> <span class="n">y1</span><span class="p">,</span> <span class="n">x2</span><span class="p">,</span> <span class="n">y2</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_euclidean_dist_sqr</span><span class="p">(</span><span class="n">x1</span><span class="p">,</span> <span class="n">y1</span><span class="p">,</span> <span class="n">x2</span><span class="p">,</span> <span class="n">y2</span><span class="p">):</span>
     <span class="n">dx</span> <span class="o">=</span> <span class="n">x1</span> <span class="o">-</span> <span class="n">x2</span>
     <span class="n">dy</span> <span class="o">=</span> <span class="n">y1</span> <span class="o">-</span> <span class="n">y2</span>
     <span class="k">return</span> <span class="p">(</span><span class="n">dx</span> <span class="o">*</span> <span class="n">dx</span><span class="p">)</span> <span class="o">+</span> <span class="p">(</span><span class="n">dy</span> <span class="o">*</span> <span class="n">dy</span><span class="p">)</span>
@@ -445,7 +445,7 @@ document.write(`
     <span class="p">],</span>
     <span class="o">**</span><span class="n">_JIT_KWARGS</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="k">def</span> <span class="nf">_taxi_cab_dist_sqr</span><span class="p">(</span><span class="n">x1</span><span class="p">,</span> <span class="n">y1</span><span class="p">,</span> <span class="n">x2</span><span class="p">,</span> <span class="n">y2</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_taxi_cab_dist_sqr</span><span class="p">(</span><span class="n">x1</span><span class="p">,</span> <span class="n">y1</span><span class="p">,</span> <span class="n">x2</span><span class="p">,</span> <span class="n">y2</span><span class="p">):</span>
     <span class="n">dx</span> <span class="o">=</span> <span class="n">x1</span> <span class="o">-</span> <span class="n">x2</span>
     <span class="n">dy</span> <span class="o">=</span> <span class="n">y1</span> <span class="o">-</span> <span class="n">y2</span>
     <span class="n">dist</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">dx</span><span class="p">)</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">dy</span><span class="p">)</span>
@@ -459,7 +459,7 @@ document.write(`
     <span class="p">],</span>
     <span class="o">**</span><span class="n">_JIT_KWARGS</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="k">def</span> <span class="nf">_chebyshev_dist_sqr</span><span class="p">(</span><span class="n">x1</span><span class="p">,</span> <span class="n">y1</span><span class="p">,</span> <span class="n">x2</span><span class="p">,</span> <span class="n">y2</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_chebyshev_dist_sqr</span><span class="p">(</span><span class="n">x1</span><span class="p">,</span> <span class="n">y1</span><span class="p">,</span> <span class="n">x2</span><span class="p">,</span> <span class="n">y2</span><span class="p">):</span>
     <span class="n">dx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">x1</span> <span class="o">-</span> <span class="n">x2</span><span class="p">)</span>
     <span class="n">dy</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">y1</span> <span class="o">-</span> <span class="n">y2</span><span class="p">)</span>
     <span class="n">dist</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">dx</span><span class="p">,</span> <span class="n">dy</span><span class="p">)</span>
@@ -473,7 +473,7 @@ document.write(`
     <span class="p">],</span>
     <span class="o">**</span><span class="n">_JIT_KWARGS</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="k">def</span> <span class="nf">_haversine_dist_sqr</span><span class="p">(</span><span class="n">x1</span><span class="p">,</span> <span class="n">y1</span><span class="p">,</span> <span class="n">x2</span><span class="p">,</span> <span class="n">y2</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_haversine_dist_sqr</span><span class="p">(</span><span class="n">x1</span><span class="p">,</span> <span class="n">y1</span><span class="p">,</span> <span class="n">x2</span><span class="p">,</span> <span class="n">y2</span><span class="p">):</span>
     <span class="c1"># Great Circle or Haversine distance in meters (squared)</span>
     <span class="c1"># ref: https://en.wikipedia.org/wiki/Great-circle_distance</span>
     <span class="c1"># ref: https://en.wikipedia.org/wiki/Haversine_formula</span>
@@ -515,7 +515,7 @@ document.write(`
     <span class="p">],</span>
     <span class="o">**</span><span class="n">_JIT_KWARGS</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="k">def</span> <span class="nf">_direction</span><span class="p">(</span><span class="n">x1</span><span class="p">,</span> <span class="n">y1</span><span class="p">,</span> <span class="n">x2</span><span class="p">,</span> <span class="n">y2</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_direction</span><span class="p">(</span><span class="n">x1</span><span class="p">,</span> <span class="n">y1</span><span class="p">,</span> <span class="n">x2</span><span class="p">,</span> <span class="n">y2</span><span class="p">):</span>
     <span class="c1"># (x1, y1): current cell</span>
     <span class="c1"># (x2, y2): nearest target cell</span>
     <span class="c1"># From ArcMap Euclidean Direction docs: The output values are based on</span>
@@ -553,7 +553,7 @@ document.write(`
 
 
 <span class="nd">@ngjit</span>
-<span class="k">def</span> <span class="nf">_process_proximity_line</span><span class="p">(</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_process_proximity_line</span><span class="p">(</span>
     <span class="n">scan_line</span><span class="p">,</span>
     <span class="n">line_proximity</span><span class="p">,</span>
     <span class="n">pan_near_xi</span><span class="p">,</span>
@@ -660,7 +660,7 @@ document.write(`
 
 
 <span class="nd">@ngjit</span>
-<span class="k">def</span> <span class="nf">_compute_proximity</span><span class="p">(</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_compute_proximity</span><span class="p">(</span>
     <span class="n">src</span><span class="p">,</span>
     <span class="n">proximity</span><span class="p">,</span>
     <span class="n">secondary</span><span class="p">,</span>
@@ -850,7 +850,7 @@ document.write(`
         <span class="n">proximity</span><span class="p">[</span><span class="n">iline</span><span class="p">]</span> <span class="o">=</span> <span class="n">line_proximity</span>
 
 
-<span class="k">def</span> <span class="nf">_get_coords_for_chunk</span><span class="p">(</span><span class="n">xc</span><span class="p">,</span> <span class="n">yc</span><span class="p">,</span> <span class="n">coords_block_info</span><span class="p">,</span> <span class="n">block_info</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_get_coords_for_chunk</span><span class="p">(</span><span class="n">xc</span><span class="p">,</span> <span class="n">yc</span><span class="p">,</span> <span class="n">coords_block_info</span><span class="p">,</span> <span class="n">block_info</span><span class="p">):</span>
     <span class="c1"># Trim off band dim if present</span>
     <span class="n">chunk_loc</span> <span class="o">=</span> <span class="n">block_info</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="s2">&quot;chunk-location&quot;</span><span class="p">][</span><span class="o">-</span><span class="mi">2</span><span class="p">:]</span>
     <span class="n">ychunks</span><span class="p">,</span> <span class="n">xchunks</span> <span class="o">=</span> <span class="n">coords_block_info</span><span class="p">[</span><span class="s2">&quot;chunks&quot;</span><span class="p">]</span>
@@ -865,7 +865,7 @@ document.write(`
 
 
 <span class="nd">@single_band_mappable</span><span class="p">(</span><span class="n">pass_block_info</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<span class="k">def</span> <span class="nf">_proximity_analysis_chunk</span><span class="p">(</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_proximity_analysis_chunk</span><span class="p">(</span>
     <span class="n">src</span><span class="p">,</span>
     <span class="n">target_values</span><span class="p">,</span>
     <span class="n">xc</span><span class="p">,</span>
@@ -912,7 +912,7 @@ document.write(`
         <span class="k">return</span> <span class="n">secondary_dst</span>
 
 
-<span class="k">def</span> <span class="nf">_validate_lonlat_coords</span><span class="p">(</span><span class="n">lon</span><span class="p">,</span> <span class="n">lat</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_validate_lonlat_coords</span><span class="p">(</span><span class="n">lon</span><span class="p">,</span> <span class="n">lat</span><span class="p">):</span>
     <span class="k">if</span> <span class="p">((</span><span class="n">lat</span> <span class="o">&lt;</span> <span class="o">-</span><span class="mi">90</span><span class="p">)</span> <span class="o">|</span> <span class="p">(</span><span class="n">lat</span> <span class="o">&gt;</span> <span class="mi">90</span><span class="p">))</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
             <span class="s2">&quot;Invalid longitude values for great circle distance calculation.&quot;</span>
@@ -930,7 +930,7 @@ document.write(`
         <span class="p">)</span>
 
 
-<span class="k">def</span> <span class="nf">_estimate_min_resolution</span><span class="p">(</span><span class="n">lon</span><span class="p">,</span> <span class="n">lat</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_estimate_min_resolution</span><span class="p">(</span><span class="n">lon</span><span class="p">,</span> <span class="n">lat</span><span class="p">):</span>
     <span class="n">x1</span> <span class="o">=</span> <span class="n">lon</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
     <span class="n">y1</span> <span class="o">=</span> <span class="n">lat</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
     <span class="n">x2</span> <span class="o">=</span> <span class="n">lon</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
@@ -944,7 +944,7 @@ document.write(`
     <span class="k">return</span> <span class="n">xmin</span><span class="p">,</span> <span class="n">ymin</span>
 
 
-<span class="k">def</span> <span class="nf">_proximity_analysis</span><span class="p">(</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_proximity_analysis</span><span class="p">(</span>
     <span class="n">raster</span><span class="p">,</span>
     <span class="n">mode</span><span class="p">,</span>
     <span class="n">target_values</span><span class="p">,</span>
@@ -1029,7 +1029,7 @@ document.write(`
     <span class="k">return</span> <span class="n">data_to_raster_like</span><span class="p">(</span><span class="n">out_data</span><span class="p">,</span> <span class="n">raster</span><span class="p">,</span> <span class="n">nv</span><span class="o">=</span><span class="n">nodata</span><span class="p">)</span>
 
 
-<div class="viewcode-block" id="pa_proximity"><a class="viewcode-back" href="../../../reference/generated/raster_tools.distance.pa_proximity.html#raster_tools.distance.proximity.pa_proximity">[docs]</a><span class="k">def</span> <span class="nf">pa_proximity</span><span class="p">(</span>
+<div class="viewcode-block" id="pa_proximity"><a class="viewcode-back" href="../../../reference/generated/raster_tools.distance.pa_proximity.html#raster_tools.distance.proximity.pa_proximity">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">pa_proximity</span><span class="p">(</span>
     <span class="n">raster</span><span class="p">,</span>
     <span class="n">target_values</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
     <span class="n">max_distance</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">inf</span><span class="p">,</span>
@@ -1114,7 +1114,7 @@ document.write(`
     <span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="pa_allocation"><a class="viewcode-back" href="../../../reference/generated/raster_tools.distance.pa_allocation.html#raster_tools.distance.proximity.pa_allocation">[docs]</a><span class="k">def</span> <span class="nf">pa_allocation</span><span class="p">(</span>
+<div class="viewcode-block" id="pa_allocation"><a class="viewcode-back" href="../../../reference/generated/raster_tools.distance.pa_allocation.html#raster_tools.distance.proximity.pa_allocation">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">pa_allocation</span><span class="p">(</span>
     <span class="n">raster</span><span class="p">,</span>
     <span class="n">target_values</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
     <span class="n">distance_metric</span><span class="o">=</span><span class="s2">&quot;euclidean&quot;</span><span class="p">,</span>
@@ -1199,7 +1199,7 @@ document.write(`
     <span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="pa_direction"><a class="viewcode-back" href="../../../reference/generated/raster_tools.distance.pa_direction.html#raster_tools.distance.proximity.pa_direction">[docs]</a><span class="k">def</span> <span class="nf">pa_direction</span><span class="p">(</span>
+<div class="viewcode-block" id="pa_direction"><a class="viewcode-back" href="../../../reference/generated/raster_tools.distance.pa_direction.html#raster_tools.distance.proximity.pa_direction">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">pa_direction</span><span class="p">(</span>
     <span class="n">raster</span><span class="p">,</span>
     <span class="n">target_values</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
     <span class="n">distance_metric</span><span class="o">=</span><span class="s2">&quot;euclidean&quot;</span><span class="p">,</span>
@@ -1285,7 +1285,7 @@ document.write(`
     <span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="proximity_analysis"><a class="viewcode-back" href="../../../reference/generated/raster_tools.distance.proximity_analysis.html#raster_tools.distance.proximity.proximity_analysis">[docs]</a><span class="k">def</span> <span class="nf">proximity_analysis</span><span class="p">(</span>
+<div class="viewcode-block" id="proximity_analysis"><a class="viewcode-back" href="../../../reference/generated/raster_tools.distance.proximity_analysis.html#raster_tools.distance.proximity.proximity_analysis">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">proximity_analysis</span><span class="p">(</span>
     <span class="n">raster</span><span class="p">,</span>
     <span class="n">target_values</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
     <span class="n">distance_metric</span><span class="o">=</span><span class="s2">&quot;euclidean&quot;</span><span class="p">,</span>

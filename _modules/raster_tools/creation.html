@@ -8,7 +8,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>raster_tools.creation &#8212; raster_tools 0.9.7 documentation</title>
+    <title>raster_tools.creation &#8212; raster_tools 0.9.8 documentation</title>
   
   
   
@@ -114,7 +114,7 @@
   
   
   
-    <p class="title logo__title">raster_tools 0.9.7 documentation</p>
+    <p class="title logo__title">raster_tools 0.9.8 documentation</p>
   
 </a></div>
         <div class="sidebar-primary-item"><nav class="bd-links" id="bd-docs-nav" aria-label="Main">
@@ -405,14 +405,14 @@ document.write(`
                 <article class="bd-article" role="main">
                   
   <h1>Source code for raster_tools.creation</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span> <span class="nn">collections.abc</span> <span class="kn">import</span> <span class="n">Sequence</span>
+<span></span><span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Sequence</span>
 
-<span class="kn">import</span> <span class="nn">dask.array</span> <span class="k">as</span> <span class="nn">da</span>
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">dask.array</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">da</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 
-<span class="kn">from</span> <span class="nn">raster_tools.dtypes</span> <span class="kn">import</span> <span class="n">is_int</span><span class="p">,</span> <span class="n">is_scalar</span>
-<span class="kn">from</span> <span class="nn">raster_tools.masking</span> <span class="kn">import</span> <span class="n">get_default_null_value</span>
-<span class="kn">from</span> <span class="nn">raster_tools.raster</span> <span class="kn">import</span> <span class="n">data_to_raster_like</span><span class="p">,</span> <span class="n">get_raster</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.dtypes</span><span class="w"> </span><span class="kn">import</span> <span class="n">is_int</span><span class="p">,</span> <span class="n">is_scalar</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.masking</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_default_null_value</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.raster</span><span class="w"> </span><span class="kn">import</span> <span class="n">data_to_raster_like</span><span class="p">,</span> <span class="n">get_raster</span>
 
 <span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
     <span class="s2">&quot;constant_raster&quot;</span><span class="p">,</span>
@@ -439,31 +439,31 @@ document.write(`
 <span class="p">)</span>
 
 
-<span class="k">def</span> <span class="nf">_get_bands</span><span class="p">(</span><span class="n">bands</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_get_bands</span><span class="p">(</span><span class="n">bands</span><span class="p">):</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">is_int</span><span class="p">(</span><span class="n">bands</span><span class="p">):</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">bands</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">bands</span><span class="p">)</span>
         <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
                 <span class="sa">f</span><span class="s2">&quot;Could not coerce bands argument to an int: </span><span class="si">{</span><span class="nb">repr</span><span class="p">(</span><span class="n">bands</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
-            <span class="p">)</span> <span class="kn">from</span> <span class="kc">None</span>
+            <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="kc">None</span>
     <span class="k">if</span> <span class="n">bands</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Number of bands must be greater than 0&quot;</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">bands</span>
 
 
-<span class="k">def</span> <span class="nf">_get_dtype</span><span class="p">(</span><span class="n">dtype</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_get_dtype</span><span class="p">(</span><span class="n">dtype</span><span class="p">):</span>
     <span class="k">if</span> <span class="n">dtype</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">dtype</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span>
         <span class="k">except</span> <span class="ne">TypeError</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                 <span class="sa">f</span><span class="s2">&quot;Could not understand dtype argument: </span><span class="si">{</span><span class="nb">repr</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
-            <span class="p">)</span> <span class="kn">from</span> <span class="kc">None</span>
+            <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="kc">None</span>
     <span class="k">return</span> <span class="n">dtype</span>
 
 
-<span class="k">def</span> <span class="nf">_copy_mask</span><span class="p">(</span><span class="n">template</span><span class="p">,</span> <span class="n">out_bands</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_copy_mask</span><span class="p">(</span><span class="n">template</span><span class="p">,</span> <span class="n">out_bands</span><span class="p">):</span>
     <span class="k">if</span> <span class="n">out_bands</span> <span class="o">==</span> <span class="n">template</span><span class="o">.</span><span class="n">nbands</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">template</span><span class="o">.</span><span class="n">mask</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
     <span class="n">mask</span> <span class="o">=</span> <span class="n">template</span><span class="o">.</span><span class="n">mask</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
@@ -471,7 +471,7 @@ document.write(`
     <span class="k">return</span> <span class="n">mask</span>
 
 
-<span class="k">def</span> <span class="nf">_build_result</span><span class="p">(</span><span class="n">template</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">nbands</span><span class="p">,</span> <span class="n">copy_mask</span><span class="p">,</span> <span class="n">copy_nv</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_build_result</span><span class="p">(</span><span class="n">template</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">nbands</span><span class="p">,</span> <span class="n">copy_mask</span><span class="p">,</span> <span class="n">copy_nv</span><span class="p">):</span>
     <span class="k">if</span> <span class="n">template</span><span class="o">.</span><span class="n">_masked</span> <span class="ow">and</span> <span class="n">copy_mask</span><span class="p">:</span>
         <span class="n">mask</span> <span class="o">=</span> <span class="n">_copy_mask</span><span class="p">(</span><span class="n">template</span><span class="p">,</span> <span class="n">nbands</span><span class="p">)</span>
         <span class="n">nv</span> <span class="o">=</span> <span class="p">(</span>
@@ -489,7 +489,7 @@ document.write(`
     <span class="p">)</span>
 
 
-<div class="viewcode-block" id="random_raster"><a class="viewcode-back" href="../../reference/generated/raster_tools.random_raster.html#raster_tools.creation.random_raster">[docs]</a><span class="k">def</span> <span class="nf">random_raster</span><span class="p">(</span>
+<div class="viewcode-block" id="random_raster"><a class="viewcode-back" href="../../reference/generated/raster_tools.random_raster.html#raster_tools.creation.random_raster">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">random_raster</span><span class="p">(</span>
     <span class="n">raster_template</span><span class="p">,</span>
     <span class="n">distribution</span><span class="o">=</span><span class="s2">&quot;normal&quot;</span><span class="p">,</span>
     <span class="n">bands</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
@@ -549,7 +549,7 @@ document.write(`
         <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
                 <span class="sa">f</span><span class="s2">&quot;Could not coerce params argument to a list: </span><span class="si">{</span><span class="nb">repr</span><span class="p">(</span><span class="n">params</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
-            <span class="p">)</span> <span class="kn">from</span> <span class="kc">None</span>
+            <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="kc">None</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="n">params</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">params</span><span class="p">)</span>
 
@@ -591,7 +591,7 @@ document.write(`
     <span class="k">return</span> <span class="n">_build_result</span><span class="p">(</span><span class="n">raster_template</span><span class="p">,</span> <span class="n">ndata</span><span class="p">,</span> <span class="n">bands</span><span class="p">,</span> <span class="n">copy_mask</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="empty_like"><a class="viewcode-back" href="../../reference/generated/raster_tools.empty_like.html#raster_tools.creation.empty_like">[docs]</a><span class="k">def</span> <span class="nf">empty_like</span><span class="p">(</span><span class="n">raster_template</span><span class="p">,</span> <span class="n">bands</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">copy_mask</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<div class="viewcode-block" id="empty_like"><a class="viewcode-back" href="../../reference/generated/raster_tools.empty_like.html#raster_tools.creation.empty_like">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">empty_like</span><span class="p">(</span><span class="n">raster_template</span><span class="p">,</span> <span class="n">bands</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">copy_mask</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a Raster filled with uninitialized data like a template raster.</span>
 
 <span class="sd">    Parameters</span>
@@ -624,7 +624,7 @@ document.write(`
     <span class="k">return</span> <span class="n">_build_result</span><span class="p">(</span><span class="n">rst</span><span class="p">,</span> <span class="n">ndata</span><span class="p">,</span> <span class="n">bands</span><span class="p">,</span> <span class="n">copy_mask</span><span class="p">,</span> <span class="n">copy_null</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="full_like"><a class="viewcode-back" href="../../reference/generated/raster_tools.full_like.html#raster_tools.creation.full_like">[docs]</a><span class="k">def</span> <span class="nf">full_like</span><span class="p">(</span><span class="n">raster_template</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">bands</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">copy_mask</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<div class="viewcode-block" id="full_like"><a class="viewcode-back" href="../../reference/generated/raster_tools.full_like.html#raster_tools.creation.full_like">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">full_like</span><span class="p">(</span><span class="n">raster_template</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">bands</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">copy_mask</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a Raster filled with a constant value like a template raster.</span>
 
 <span class="sd">    Parameters</span>
@@ -656,7 +656,7 @@ document.write(`
         <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
                 <span class="sa">f</span><span class="s2">&quot;Could not coerce value argument to a scalar: </span><span class="si">{</span><span class="nb">repr</span><span class="p">(</span><span class="n">value</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
-            <span class="p">)</span> <span class="kn">from</span> <span class="kc">None</span>
+            <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="kc">None</span>
     <span class="n">dtype</span> <span class="o">=</span> <span class="n">_get_dtype</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span>
 
     <span class="n">shape</span> <span class="o">=</span> <span class="p">(</span><span class="n">bands</span><span class="p">,)</span> <span class="o">+</span> <span class="n">rst</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
@@ -670,7 +670,7 @@ document.write(`
     <span class="k">return</span> <span class="n">_build_result</span><span class="p">(</span><span class="n">rst</span><span class="p">,</span> <span class="n">ndata</span><span class="p">,</span> <span class="n">bands</span><span class="p">,</span> <span class="n">copy_mask</span><span class="p">,</span> <span class="n">copy_null</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="constant_raster"><a class="viewcode-back" href="../../reference/generated/raster_tools.constant_raster.html#raster_tools.creation.constant_raster">[docs]</a><span class="k">def</span> <span class="nf">constant_raster</span><span class="p">(</span>
+<div class="viewcode-block" id="constant_raster"><a class="viewcode-back" href="../../reference/generated/raster_tools.constant_raster.html#raster_tools.creation.constant_raster">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">constant_raster</span><span class="p">(</span>
     <span class="n">raster_template</span><span class="p">,</span> <span class="n">value</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">bands</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">copy_mask</span><span class="o">=</span><span class="kc">False</span>
 <span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a Raster filled with a constant value like a template raster.</span>
@@ -703,7 +703,7 @@ document.write(`
     <span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="zeros_like"><a class="viewcode-back" href="../../reference/generated/raster_tools.zeros_like.html#raster_tools.creation.zeros_like">[docs]</a><span class="k">def</span> <span class="nf">zeros_like</span><span class="p">(</span><span class="n">raster_template</span><span class="p">,</span> <span class="n">bands</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">copy_mask</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<div class="viewcode-block" id="zeros_like"><a class="viewcode-back" href="../../reference/generated/raster_tools.zeros_like.html#raster_tools.creation.zeros_like">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">zeros_like</span><span class="p">(</span><span class="n">raster_template</span><span class="p">,</span> <span class="n">bands</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">copy_mask</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a Raster filled with zeros like a template raster.</span>
 
 <span class="sd">    Parameters</span>
@@ -730,7 +730,7 @@ document.write(`
     <span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="ones_like"><a class="viewcode-back" href="../../reference/generated/raster_tools.ones_like.html#raster_tools.creation.ones_like">[docs]</a><span class="k">def</span> <span class="nf">ones_like</span><span class="p">(</span><span class="n">raster_template</span><span class="p">,</span> <span class="n">bands</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">copy_mask</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<div class="viewcode-block" id="ones_like"><a class="viewcode-back" href="../../reference/generated/raster_tools.ones_like.html#raster_tools.creation.ones_like">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">ones_like</span><span class="p">(</span><span class="n">raster_template</span><span class="p">,</span> <span class="n">bands</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">copy_mask</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a Raster filled with ones like a template raster.</span>
 
 <span class="sd">    Parameters</span>
