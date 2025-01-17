@@ -323,6 +323,15 @@ def _rasterize_spatial_matches(
     mask=False,
     mask_invert=False,
 ):
+    chunk_func = _mask_onto_chunk if mask else _rasterize_onto_chunk
+    target_dtype = U8 if mask else target_dtype
+    func_kwargs = {"all_touched": all_touched}
+    if mask:
+        func_kwargs["invert"] = mask_invert
+    else:
+        func_kwargs["out_dtype"] = target_dtype
+        func_kwargs["fill"] = fill
+        func_kwargs["overlap_resolve_method"] = overlap_resolve_method
     # Create a list for holding rasterization results. Each element corresponds
     # to a chunk in the like raster. All elements start as None. Elements will
     # will be replaced by a stack of dask arrays, if that chunk intersects a
@@ -337,32 +346,16 @@ def _rasterize_spatial_matches(
         # rasterize the partition to each intersecting chunk's grid
         for _, row in grp.iterrows():
             little_like = like_chunk_rasters[row.flat_idx]
-            if not mask:
-                chunk = da.map_blocks(
-                    _rasterize_onto_chunk,
-                    dtype=target_dtype,
-                    chunks=little_like.shape[1:],
-                    meta=np.array((), dtype=target_dtype),
-                    # func args
-                    gdf=part,
-                    transform=little_like.affine,
-                    out_dtype=target_dtype,
-                    fill=fill,
-                    all_touched=all_touched,
-                    overlap_resolve_method=overlap_resolve_method,
-                )
-            else:
-                chunk = da.map_blocks(
-                    _mask_onto_chunk,
-                    dtype=U8,
-                    chunks=little_like.shape[1:],
-                    meta=np.array((), dtype=U8),
-                    # Func args
-                    gdf=part,
-                    transform=little_like.affine,
-                    all_touched=all_touched,
-                    invert=mask_invert,
-                )
+            func_kwargs["transform"] = little_like.affine
+            chunk = da.map_blocks(
+                chunk_func,
+                part,
+                dtype=target_dtype,
+                chunks=little_like.shape[1:],
+                meta=np.array((), dtype=target_dtype),
+                # func args
+                **func_kwargs,
+            )
             if out_chunks[row.flat_idx] is None:
                 out_chunks[row.flat_idx] = []
             out_chunks[row.flat_idx].append(chunk)
