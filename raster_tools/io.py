@@ -1,6 +1,5 @@
 import os
 import urllib
-from pathlib import Path
 
 import dask
 import numpy as np
@@ -70,8 +69,6 @@ READ_NOT_IMPLEMENTED_EXTS = NC_EXTS | HDF_EXTS | GRIB_EXTS
 # File extenstions that can't be written out yet
 WRITE_NOT_IMPLEMENTED_EXTS = NC_EXTS | HDF_EXTS | GRIB_EXTS
 
-IO_UNDERSTOOD_TYPES = (str, Path)
-
 
 def is_batch_file(path):
     return _get_extension(path) in BATCH_EXTS
@@ -99,23 +96,29 @@ def open_raster_from_path_or_url(path):
         normalize_xarray_data,
     )
 
-    if type(path) in IO_UNDERSTOOD_TYPES:
-        path = str(path)
+    if isinstance(path, os.PathLike):
+        ext = path.suffix
+    elif isinstance(path, str):
+        if urllib.parse.urlparse(path) == "":
+            # Assume file path
+            validate_path(path)
+            ext = _get_extension(path)
+        else:
+            # Could be a URL or path
+            ext = ""
     else:
         raise RasterIOError(
             f"Could not resolve input to a raster path or URL: '{path}'"
         )
-    if urllib.parse.urlparse(path) == "":
-        # Assume file path
-        validate_path(path)
-        ext = _get_extension(path)
-    else:
-        # URL
-        ext = ""
 
     xrs = None
     # Try to let gdal open anything but NC, HDF, GRIB files
-    if not ext or ext not in READ_NOT_IMPLEMENTED_EXTS:
+    if ext in READ_NOT_IMPLEMENTED_EXTS:
+        raise NotImplementedError(
+            "Reading of NetCDF, HDF, and GRIB files is not supported at this"
+            " time. Try 'raster_tools.open_dataset'."
+        )
+    else:
         try:
             xrs = xrio.open_rasterio(
                 path, chunks=to_chunk_dict(_get_chunks()), lock=False
@@ -124,13 +127,6 @@ def open_raster_from_path_or_url(path):
             raise RasterIOError(
                 "Could not open given path as a raster."
             ) from e
-    elif ext in READ_NOT_IMPLEMENTED_EXTS:
-        raise NotImplementedError(
-            "Reading of NetCDF, HDF, and GRIB files is not supported at this"
-            " time."
-        )
-    else:
-        raise RasterIOError("Unknown file type")
     if isinstance(xrs, xr.Dataset):
         raise RasterDataError("Too many data variables in input data")
     assert isinstance(

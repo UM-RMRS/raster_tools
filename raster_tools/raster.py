@@ -1,4 +1,5 @@
 import numbers
+import os
 import warnings
 from collections import namedtuple
 
@@ -60,7 +61,6 @@ from raster_tools.utils import (
 )
 
 from .io import (
-    IO_UNDERSTOOD_TYPES,
     chunk,
     is_batch_file,
     open_raster_from_path_or_url,
@@ -1250,7 +1250,7 @@ def get_raster_ds(raster):
         ds = _xarray_input_to_raster_ds(raster.copy())
     elif isinstance(raster, (np.ndarray, da.Array)):
         ds = _array_input_to_raster_ds(raster.copy())
-    elif type(raster) in IO_UNDERSTOOD_TYPES:
+    elif isinstance(raster, (str, os.PathLike)):
         if is_batch_file(raster):
             # Import here to avoid circular import errors
             from raster_tools.batch import parse_batch_script

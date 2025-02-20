@@ -6,6 +6,7 @@ import raster_tools as rts
 # isort: on
 
 import operator
+import pathlib
 import unittest
 
 import affine
@@ -441,6 +442,18 @@ def test_raster_from_dataarray_str_band(xdem_small):
     assert np.allclose(raster.band, np.array([1]))
     assert np.allclose(raster.xdata.band.to_numpy(), np.array([1]))
     assert raster.xdata.band.to_numpy().dtype == I64
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "tests/data/raster/dem_small.tif",
+        pathlib.Path("tests/data/raster/dem_small.tif"),
+    ],
+)
+def test_raster_from_path(path):
+    raster = Raster(path)
+    assert_valid_raster(raster)
 
 
 @pytest.mark.parametrize(
