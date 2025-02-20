@@ -407,7 +407,6 @@ document.write(`
   <h1>Source code for raster_tools.io</h1><div class="highlight"><pre>
 <span></span><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">urllib</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">dask</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
@@ -477,8 +476,6 @@ document.write(`
 <span class="c1"># File extenstions that can&#39;t be written out yet</span>
 <span class="n">WRITE_NOT_IMPLEMENTED_EXTS</span> <span class="o">=</span> <span class="n">NC_EXTS</span> <span class="o">|</span> <span class="n">HDF_EXTS</span> <span class="o">|</span> <span class="n">GRIB_EXTS</span>
 
-<span class="n">IO_UNDERSTOOD_TYPES</span> <span class="o">=</span> <span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">)</span>
-
 
 <div class="viewcode-block" id="is_batch_file"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.io.is_batch_file">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">is_batch_file</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
     <span class="k">return</span> <span class="n">_get_extension</span><span class="p">(</span><span class="n">path</span><span class="p">)</span> <span class="ow">in</span> <span class="n">BATCH_EXTS</span></div>
@@ -506,23 +503,29 @@ document.write(`
         <span class="n">normalize_xarray_data</span><span class="p">,</span>
     <span class="p">)</span>
 
-    <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">path</span><span class="p">)</span> <span class="ow">in</span> <span class="n">IO_UNDERSTOOD_TYPES</span><span class="p">:</span>
-        <span class="n">path</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">PathLike</span><span class="p">):</span>
+        <span class="n">ext</span> <span class="o">=</span> <span class="n">path</span><span class="o">.</span><span class="n">suffix</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">urllib</span><span class="o">.</span><span class="n">parse</span><span class="o">.</span><span class="n">urlparse</span><span class="p">(</span><span class="n">path</span><span class="p">)</span> <span class="o">==</span> <span class="s2">&quot;&quot;</span><span class="p">:</span>
+            <span class="c1"># Assume file path</span>
+            <span class="n">validate_path</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+            <span class="n">ext</span> <span class="o">=</span> <span class="n">_get_extension</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Could be a URL or path</span>
+            <span class="n">ext</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="k">raise</span> <span class="n">RasterIOError</span><span class="p">(</span>
             <span class="sa">f</span><span class="s2">&quot;Could not resolve input to a raster path or URL: &#39;</span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">&#39;&quot;</span>
         <span class="p">)</span>
-    <span class="k">if</span> <span class="n">urllib</span><span class="o">.</span><span class="n">parse</span><span class="o">.</span><span class="n">urlparse</span><span class="p">(</span><span class="n">path</span><span class="p">)</span> <span class="o">==</span> <span class="s2">&quot;&quot;</span><span class="p">:</span>
-        <span class="c1"># Assume file path</span>
-        <span class="n">validate_path</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
-        <span class="n">ext</span> <span class="o">=</span> <span class="n">_get_extension</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="c1"># URL</span>
-        <span class="n">ext</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
 
     <span class="n">xrs</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="c1"># Try to let gdal open anything but NC, HDF, GRIB files</span>
-    <span class="k">if</span> <span class="ow">not</span> <span class="n">ext</span> <span class="ow">or</span> <span class="n">ext</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">READ_NOT_IMPLEMENTED_EXTS</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">ext</span> <span class="ow">in</span> <span class="n">READ_NOT_IMPLEMENTED_EXTS</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+            <span class="s2">&quot;Reading of NetCDF, HDF, and GRIB files is not supported at this&quot;</span>
+            <span class="s2">&quot; time. Try &#39;raster_tools.open_dataset&#39;.&quot;</span>
+        <span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">xrs</span> <span class="o">=</span> <span class="n">xrio</span><span class="o">.</span><span class="n">open_rasterio</span><span class="p">(</span>
                 <span class="n">path</span><span class="p">,</span> <span class="n">chunks</span><span class="o">=</span><span class="n">to_chunk_dict</span><span class="p">(</span><span class="n">_get_chunks</span><span class="p">()),</span> <span class="n">lock</span><span class="o">=</span><span class="kc">False</span>
@@ -531,13 +534,6 @@ document.write(`
             <span class="k">raise</span> <span class="n">RasterIOError</span><span class="p">(</span>
                 <span class="s2">&quot;Could not open given path as a raster.&quot;</span>
             <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
-    <span class="k">elif</span> <span class="n">ext</span> <span class="ow">in</span> <span class="n">READ_NOT_IMPLEMENTED_EXTS</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
-            <span class="s2">&quot;Reading of NetCDF, HDF, and GRIB files is not supported at this&quot;</span>
-            <span class="s2">&quot; time.&quot;</span>
-        <span class="p">)</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="n">RasterIOError</span><span class="p">(</span><span class="s2">&quot;Unknown file type&quot;</span><span class="p">)</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">xrs</span><span class="p">,</span> <span class="n">xr</span><span class="o">.</span><span class="n">Dataset</span><span class="p">):</span>
         <span class="k">raise</span> <span class="n">RasterDataError</span><span class="p">(</span><span class="s2">&quot;Too many data variables in input data&quot;</span><span class="p">)</span>
     <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span>
