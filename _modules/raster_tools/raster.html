@@ -2828,10 +2828,23 @@ document.write(`
             <span class="p">},</span>
             <span class="n">crs</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">crs</span><span class="p">,</span>
         <span class="p">)</span>
-        <span class="n">results</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">parts</span> <span class="o">=</span> <span class="p">[</span>
             <span class="n">dd</span><span class="o">.</span><span class="n">from_delayed</span><span class="p">(</span><span class="n">_vectorize</span><span class="p">(</span><span class="o">*</span><span class="n">chunk</span><span class="p">),</span> <span class="n">meta</span><span class="o">=</span><span class="n">meta</span><span class="p">)</span> <span class="k">for</span> <span class="n">chunk</span> <span class="ow">in</span> <span class="n">chunks</span>
         <span class="p">]</span>
-        <span class="k">return</span> <span class="n">dd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">results</span><span class="p">)</span></div>
+        <span class="n">points</span> <span class="o">=</span> <span class="n">dd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span>
+        <span class="c1"># Add spatial partitions</span>
+        <span class="n">xres</span><span class="p">,</span> <span class="n">yres</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">resolution</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span>
+        <span class="n">bboxes</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_chunk_bounding_boxes</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">geometry</span>
+        <span class="n">bbox_tuples</span> <span class="o">=</span> <span class="p">[</span><span class="n">bb</span><span class="o">.</span><span class="n">bounds</span> <span class="k">for</span> <span class="n">bb</span> <span class="ow">in</span> <span class="n">bboxes</span><span class="p">]</span>
+        <span class="n">sparts</span> <span class="o">=</span> <span class="n">gpd</span><span class="o">.</span><span class="n">GeoSeries</span><span class="p">(</span>
+            <span class="p">[</span>
+                <span class="n">box</span><span class="p">(</span><span class="n">minx</span> <span class="o">+</span> <span class="n">xres</span><span class="p">,</span> <span class="n">miny</span> <span class="o">+</span> <span class="n">yres</span><span class="p">,</span> <span class="n">maxx</span> <span class="o">-</span> <span class="n">xres</span><span class="p">,</span> <span class="n">maxy</span> <span class="o">-</span> <span class="n">yres</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">minx</span><span class="p">,</span> <span class="n">miny</span><span class="p">,</span> <span class="n">maxx</span><span class="p">,</span> <span class="n">maxy</span> <span class="ow">in</span> <span class="n">bbox_tuples</span>
+            <span class="p">],</span>
+            <span class="n">crs</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">crs</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">points</span><span class="o">.</span><span class="n">spatial_partitions</span> <span class="o">=</span> <span class="n">sparts</span>
+        <span class="k">return</span> <span class="n">points</span></div>
 
 <div class="viewcode-block" id="Raster.to_quadrants"><a class="viewcode-back" href="../../reference/generated/raster_tools.Raster.to_quadrants.html#raster_tools.raster.Raster.to_quadrants">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">to_quadrants</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Split the raster into quadrants</span>
@@ -2917,6 +2930,9 @@ document.write(`
 
 <span class="sd">        &quot;&quot;&quot;</span>  <span class="c1"># noqa: E501</span>
         <span class="n">_</span><span class="p">,</span> <span class="n">ychunks</span><span class="p">,</span> <span class="n">xchunks</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">chunks</span>
+        <span class="n">xres</span><span class="p">,</span> <span class="n">yres</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">resolution</span>
+        <span class="n">xres_half</span> <span class="o">=</span> <span class="n">xres</span> <span class="o">/</span> <span class="mf">2.0</span>
+        <span class="n">yres_half</span> <span class="o">=</span> <span class="n">yres</span> <span class="o">/</span> <span class="mf">2.0</span>
         <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span>
         <span class="n">j</span> <span class="o">=</span> <span class="mi">0</span>
         <span class="n">chunk_boxes</span> <span class="o">=</span> <span class="p">[]</span>
@@ -2927,9 +2943,16 @@ document.write(`
                 <span class="n">y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">y</span><span class="p">[</span><span class="n">i</span> <span class="p">:</span> <span class="n">i</span> <span class="o">+</span> <span class="n">yc</span><span class="p">]</span>
                 <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">x</span><span class="p">[</span><span class="n">j</span> <span class="p">:</span> <span class="n">j</span> <span class="o">+</span> <span class="n">xc</span><span class="p">]</span>
                 <span class="n">j</span> <span class="o">+=</span> <span class="n">xc</span>
-                <span class="n">bounds</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">(</span>
-                    <span class="n">da</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="n">yc</span><span class="p">,</span> <span class="n">xc</span><span class="p">)),</span> <span class="n">dims</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="s2">&quot;x&quot;</span><span class="p">),</span> <span class="n">coords</span><span class="o">=</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
-                <span class="p">)</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">bounds</span><span class="p">()</span>
+                <span class="k">if</span> <span class="n">xc</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">or</span> <span class="n">yc</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                    <span class="c1"># rioxarray fails when width or height are 1. This can</span>
+                    <span class="c1"># happen when chunks of size 1 are used.</span>
+                    <span class="n">bounds</span> <span class="o">=</span> <span class="n">_get_ordered_bounds</span><span class="p">(</span>
+                        <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">xres</span><span class="p">,</span> <span class="n">yres</span><span class="p">,</span> <span class="n">xres_half</span><span class="p">,</span> <span class="n">yres_half</span>
+                    <span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">bounds</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">(</span>
+                        <span class="n">da</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="n">yc</span><span class="p">,</span> <span class="n">xc</span><span class="p">)),</span> <span class="n">dims</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="s2">&quot;x&quot;</span><span class="p">),</span> <span class="n">coords</span><span class="o">=</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+                    <span class="p">)</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">bounds</span><span class="p">()</span>
                 <span class="n">chunk_boxes</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">box</span><span class="p">(</span><span class="o">*</span><span class="n">bounds</span><span class="p">))</span>
                 <span class="n">rows</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">row</span><span class="p">)</span>
                 <span class="n">cols</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">col</span><span class="p">)</span>
@@ -2998,6 +3021,20 @@ document.write(`
             <span class="n">b</span> <span class="o">+=</span> <span class="n">bc</span>
             <span class="n">y</span> <span class="o">=</span> <span class="mi">0</span>
         <span class="k">return</span> <span class="n">out</span></div></div>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_get_ordered_bounds</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">xres</span><span class="p">,</span> <span class="n">yres</span><span class="p">,</span> <span class="n">xres_half</span><span class="p">,</span> <span class="n">yres_half</span><span class="p">):</span>
+    <span class="n">left</span> <span class="o">=</span> <span class="n">xmin</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">xres_half</span>
+    <span class="n">right</span> <span class="o">=</span> <span class="n">xmax</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">xres_half</span>
+    <span class="n">top</span> <span class="o">=</span> <span class="n">ymax</span> <span class="o">=</span> <span class="n">y</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">yres_half</span>
+    <span class="n">bottom</span> <span class="o">=</span> <span class="n">ymin</span> <span class="o">=</span> <span class="n">y</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">yres_half</span>
+    <span class="k">if</span> <span class="n">yres</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">top</span> <span class="o">=</span> <span class="n">ymin</span>
+        <span class="n">bottom</span> <span class="o">=</span> <span class="n">ymax</span>
+    <span class="k">if</span> <span class="n">xres</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">left</span> <span class="o">=</span> <span class="n">xmax</span>
+        <span class="n">right</span> <span class="o">=</span> <span class="n">xmin</span>
+    <span class="k">return</span> <span class="n">left</span><span class="p">,</span> <span class="n">bottom</span><span class="p">,</span> <span class="n">right</span><span class="p">,</span> <span class="n">top</span>
 
 
 <span class="n">_offset_name_to_rc_offset</span> <span class="o">=</span> <span class="p">{</span>
