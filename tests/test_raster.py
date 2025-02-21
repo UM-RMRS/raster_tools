@@ -23,6 +23,7 @@ import rioxarray as riox
 import shapely
 import xarray as xr
 from affine import Affine
+from geopandas.testing import assert_geoseries_equal
 from shapely.geometry import box
 
 import raster_tools.raster
@@ -2411,6 +2412,26 @@ def test_to_points(raster, expected):
     # Check that index values are independent of chunking
     cresult = raster.chunk((1, 1, 1)).to_points().compute()
     assert cresult.sort_index().equals(cexpected.sort_index())
+
+
+@pytest.mark.parametrize(
+    "raster",
+    [
+        arange_raster((4, 4)),
+        arange_raster((5, 4, 4)).chunk((1, 2, 2)),
+        testdata.raster.dem_small.chunk((1, 10, 10)),
+    ],
+)
+def test_to_points_spatial_partitions(raster):
+    points = raster.to_points()
+    assert points.spatial_partitions is not None
+
+    points2 = points.copy()
+    points2.spatial_partitions = None
+    points2.calculate_spatial_partitions()
+    assert_geoseries_equal(
+        points.spatial_partitions, points2.spatial_partitions
+    )
 
 
 @pytest.mark.parametrize(
