@@ -32,6 +32,20 @@ def is_strictly_decreasing(x):
     return len(diff) > 0 and (diff < 0).all()
 
 
+def nan_equal(left, right):
+    if np.isnan(left):
+        return np.isnan(right)
+    return left == right
+
+
+def null_values_equal(left, right):
+    if left is None:
+        return right is None
+    elif right is None:
+        return False
+    return nan_equal(left, right)
+
+
 def can_broadcast(*shapes, max_dim=3, min_dim=3):
     try:
         result = np.broadcast_shapes(*shapes)
