@@ -425,7 +425,7 @@ document.write(`
 <span class="kn">from</span><span class="w"> </span><span class="nn">odc.geo.geobox</span><span class="w"> </span><span class="kn">import</span> <span class="n">GeoBox</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">shapely.geometry</span><span class="w"> </span><span class="kn">import</span> <span class="n">box</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools._compat</span><span class="w"> </span><span class="kn">import</span> <span class="n">NUMPY_GE_2</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools._compat</span><span class="w"> </span><span class="kn">import</span> <span class="n">NUMPY_GE_2</span><span class="p">,</span> <span class="n">PY_VER_310_PLUS</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.dask_utils</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">chunks_to_array_locations</span><span class="p">,</span>
     <span class="n">dask_nanmax</span><span class="p">,</span>
@@ -751,7 +751,10 @@ document.write(`
             <span class="k">raise</span> <span class="n">err</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">__array__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ds</span><span class="o">.</span><span class="n">raster</span><span class="o">.</span><span class="n">__array__</span><span class="p">(</span><span class="n">dtype</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="n">copy</span><span class="p">)</span>
+        <span class="n">kwargs</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">if</span> <span class="n">PY_VER_310_PLUS</span><span class="p">:</span>
+            <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;copy&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">copy</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ds</span><span class="o">.</span><span class="n">raster</span><span class="o">.</span><span class="n">__array__</span><span class="p">(</span><span class="n">dtype</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_normalize_bandwise_other</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">target_shape</span><span class="p">):</span>
