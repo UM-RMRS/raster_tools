@@ -2421,23 +2421,10 @@ class Raster(_RasterBase):
             },
             crs=self.crs,
         )
-        parts = [
+        results = [
             dd.from_delayed(_vectorize(*chunk), meta=meta) for chunk in chunks
         ]
-        points = dd.concat(parts)
-        # Add spatial partitions
-        xres, yres = np.abs(self.resolution) / 2
-        bboxes = self.get_chunk_bounding_boxes(True).geometry
-        bbox_tuples = [bb.bounds for bb in bboxes]
-        sparts = gpd.GeoSeries(
-            [
-                box(minx + xres, miny + yres, maxx - xres, maxy - yres)
-                for minx, miny, maxx, maxy in bbox_tuples
-            ],
-            crs=self.crs,
-        )
-        points.spatial_partitions = sparts
-        return points
+        return dd.concat(results)
 
     def to_quadrants(self):
         """Split the raster into quadrants
@@ -2523,9 +2510,6 @@ class Raster(_RasterBase):
 
         """  # noqa: E501
         _, ychunks, xchunks = self.data.chunks
-        xres, yres = self.resolution
-        xres_half = xres / 2.0
-        yres_half = yres / 2.0
         i = 0
         j = 0
         chunk_boxes = []
@@ -2536,16 +2520,9 @@ class Raster(_RasterBase):
                 y = self.y[i : i + yc]
                 x = self.x[j : j + xc]
                 j += xc
-                if xc == 1 or yc == 1:
-                    # rioxarray fails when width or height are 1. This can
-                    # happen when chunks of size 1 are used.
-                    bounds = _get_ordered_bounds(
-                        x, y, xres, yres, xres_half, yres_half
-                    )
-                else:
-                    bounds = xr.DataArray(
-                        da.empty((yc, xc)), dims=("y", "x"), coords=(y, x)
-                    ).rio.bounds()
+                bounds = xr.DataArray(
+                    da.empty((yc, xc)), dims=("y", "x"), coords=(y, x)
+                ).rio.bounds()
                 chunk_boxes.append(box(*bounds))
                 rows.append(row)
                 cols.append(col)
@@ -2614,20 +2591,6 @@ class Raster(_RasterBase):
             b += bc
             y = 0
         return out
-
-
-def _get_ordered_bounds(x, y, xres, yres, xres_half, yres_half):
-    left = xmin = x[0] - xres_half
-    right = xmax = x[-1] + xres_half
-    top = ymax = y[0] - yres_half
-    bottom = ymin = y[-1] + yres_half
-    if yres > 0:
-        top = ymin
-        bottom = ymax
-    if xres < 0:
-        left = xmax
-        right = xmin
-    return left, bottom, right, top
 
 
 _offset_name_to_rc_offset = {
