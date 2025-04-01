@@ -5,7 +5,11 @@ import xarray as xr
 
 from raster_tools.dtypes import is_bool, is_scalar
 from raster_tools.raster import Raster
-from raster_tools.utils import is_strictly_decreasing, is_strictly_increasing
+from raster_tools.utils import (
+    is_strictly_decreasing,
+    is_strictly_increasing,
+    null_values_equal,
+)
 
 
 def assert_coords_equal(ac, bc):
@@ -99,6 +103,21 @@ def assert_valid_raster(raster):
     assert raster.crs == raster._ds.rio.crs
     assert raster.crs == raster._ds.raster.rio.crs
     assert raster.crs == raster._ds.mask.rio.crs
+
+
+def assert_rasters_equal(left, right, strict=False, check_chunks=True):
+    assert isinstance(left, Raster)
+    assert isinstance(right, Raster)
+    assert left.crs == right.crs
+    assert left.affine == right.affine
+    assert null_values_equal(left.null_value, right.null_value)
+    if not strict:
+        assert left._ds.equals(right._ds)
+    else:
+        # Make sure attributes match
+        assert left._ds.identical(right._ds)
+    if check_chunks:
+        assert left._ds.chunks == right._ds.chunks
 
 
 def assert_rasters_similar(left, right, check_nbands=True, check_chunks=True):

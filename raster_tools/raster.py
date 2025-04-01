@@ -3082,7 +3082,7 @@ def get_raster(src, strict=True, null_to_nan=False):
     rs = None
     if isinstance(src, Raster):
         rs = src
-    elif is_str(src):
+    elif is_str(src) or isinstance(src, os.PathLike):
         rs = Raster(src)
     elif strict:
         raise TypeError(

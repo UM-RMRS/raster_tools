@@ -4,8 +4,10 @@ import pytest
 
 from raster_tools import creation
 from raster_tools.masking import get_default_null_value
+from tests import testdata
 from tests.utils import (
     arange_raster,
+    assert_rasters_equal,
     assert_rasters_similar,
     assert_valid_raster,
 )
@@ -168,3 +170,23 @@ def test_full_like_single_chunk_result_writeable(dem_small):
     mask = result.mask.compute()
     assert data.flags.writeable
     assert mask.flags.writeable
+
+
+def test_full_like_dataarray():
+    like = testdata.raster.dem_small
+    expected = (like / like).astype(int).set_null_value(None)
+    like = like.astype(int)
+    result = creation.full_like(like.xdata, 1)
+    assert_rasters_equal(result, expected)
+
+
+def test_empty_like_dataarray():
+    like = testdata.raster.dem_small
+    result = creation.empty_like(like.xdata)
+    assert_rasters_similar(result, like)
+
+
+def test_random_raster_dataarray():
+    like = testdata.raster.dem_small
+    result = creation.random_raster(like.xdata)
+    assert_rasters_similar(result, like)
