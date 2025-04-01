@@ -200,7 +200,7 @@ def open_vectors(path, layers=None):
 def get_vector(src):
     if isinstance(src, Vector):
         return src
-    elif is_str(src):
+    elif is_str(src) or isinstance(src, os.PathLike):
         result = open_vectors(src)
         if not isinstance(result, Vector):
             # More than one layer was found
@@ -215,7 +215,7 @@ def get_vector(src):
 def get_dask_geodataframe(src):
     if isinstance(src, Vector):
         return src.data
-    elif is_str(src):
+    elif is_str(src) or isinstance(src, os.PathLike):
         return get_vector(src).data
     elif isinstance(src, gpd.GeoSeries):
         return dgpd.from_geopandas(src.to_frame("geometry"), npartitions=1)
