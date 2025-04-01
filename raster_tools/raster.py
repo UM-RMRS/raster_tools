@@ -18,7 +18,7 @@ from numba import jit
 from odc.geo.geobox import GeoBox
 from shapely.geometry import box
 
-from raster_tools._compat import NUMPY_GE_2
+from raster_tools._compat import NUMPY_GE_2, PY_VER_310_PLUS
 from raster_tools.dask_utils import (
     chunks_to_array_locations,
     dask_nanmax,
@@ -344,7 +344,10 @@ class _RasterBase(np.lib.mixins.NDArrayOperatorsMixin, _ReductionsMixin):
             raise err
 
     def __array__(self, dtype=None, copy=None):
-        return self._ds.raster.__array__(dtype, copy=copy)
+        kwargs = {}
+        if PY_VER_310_PLUS:
+            kwargs["copy"] = copy
+        return self._ds.raster.__array__(dtype, **kwargs)
 
 
 def _normalize_bandwise_other(other, target_shape):
