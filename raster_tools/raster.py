@@ -343,8 +343,8 @@ class _RasterBase(np.lib.mixins.NDArrayOperatorsMixin, _ReductionsMixin):
                 ) from err
             raise err
 
-    def __array__(self, dtype=None):
-        return self._ds.raster.__array__(dtype)
+    def __array__(self, dtype=None, copy=None):
+        return self._ds.raster.__array__(dtype, copy=copy)
 
 
 def _normalize_bandwise_other(other, target_shape):
