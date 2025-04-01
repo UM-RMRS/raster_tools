@@ -134,7 +134,7 @@ def random_raster(
         The resulting raster of random values pulled from the distribution.
 
     """
-    raster_template = get_raster(raster_template)
+    raster_template = get_raster(raster_template, strict=False)
     bands = _get_bands(bands)
     if not isinstance(params, Sequence):
         try:
@@ -206,7 +206,7 @@ def empty_like(raster_template, bands=1, dtype=None, copy_mask=False):
         The resulting raster of uninitialized data.
 
     """
-    rst = get_raster(raster_template)
+    rst = get_raster(raster_template, strict=False)
     bands = _get_bands(bands)
     dtype = _get_dtype(dtype)
 
@@ -241,7 +241,7 @@ def full_like(raster_template, value, bands=1, dtype=None, copy_mask=False):
         The resulting raster of constant values.
 
     """
-    rst = get_raster(raster_template)
+    rst = get_raster(raster_template, strict=False)
     bands = _get_bands(bands)
     if not is_scalar(value):
         try:
