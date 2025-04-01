@@ -8,7 +8,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>raster_tools.creation &#8212; raster_tools 0.9.8 documentation</title>
+    <title>raster_tools.creation &#8212; raster_tools 0.9.9 documentation</title>
   
   
   
@@ -114,7 +114,7 @@
   
   
   
-    <p class="title logo__title">raster_tools 0.9.8 documentation</p>
+    <p class="title logo__title">raster_tools 0.9.9 documentation</p>
   
 </a></div>
         <div class="sidebar-primary-item"><nav class="bd-links" id="bd-docs-nav" aria-label="Main">
@@ -541,7 +541,7 @@ document.write(`
 <span class="sd">        The resulting raster of random values pulled from the distribution.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">raster_template</span> <span class="o">=</span> <span class="n">get_raster</span><span class="p">(</span><span class="n">raster_template</span><span class="p">)</span>
+    <span class="n">raster_template</span> <span class="o">=</span> <span class="n">get_raster</span><span class="p">(</span><span class="n">raster_template</span><span class="p">,</span> <span class="n">strict</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
     <span class="n">bands</span> <span class="o">=</span> <span class="n">_get_bands</span><span class="p">(</span><span class="n">bands</span><span class="p">)</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">):</span>
         <span class="k">try</span><span class="p">:</span>
@@ -613,7 +613,7 @@ document.write(`
 <span class="sd">        The resulting raster of uninitialized data.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">rst</span> <span class="o">=</span> <span class="n">get_raster</span><span class="p">(</span><span class="n">raster_template</span><span class="p">)</span>
+    <span class="n">rst</span> <span class="o">=</span> <span class="n">get_raster</span><span class="p">(</span><span class="n">raster_template</span><span class="p">,</span> <span class="n">strict</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
     <span class="n">bands</span> <span class="o">=</span> <span class="n">_get_bands</span><span class="p">(</span><span class="n">bands</span><span class="p">)</span>
     <span class="n">dtype</span> <span class="o">=</span> <span class="n">_get_dtype</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span>
 
@@ -648,7 +648,7 @@ document.write(`
 <span class="sd">        The resulting raster of constant values.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">rst</span> <span class="o">=</span> <span class="n">get_raster</span><span class="p">(</span><span class="n">raster_template</span><span class="p">)</span>
+    <span class="n">rst</span> <span class="o">=</span> <span class="n">get_raster</span><span class="p">(</span><span class="n">raster_template</span><span class="p">,</span> <span class="n">strict</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
     <span class="n">bands</span> <span class="o">=</span> <span class="n">_get_bands</span><span class="p">(</span><span class="n">bands</span><span class="p">)</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">is_scalar</span><span class="p">(</span><span class="n">value</span><span class="p">):</span>
         <span class="k">try</span><span class="p">:</span>

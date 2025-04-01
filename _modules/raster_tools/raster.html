@@ -8,7 +8,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>raster_tools.raster &#8212; raster_tools 0.9.8 documentation</title>
+    <title>raster_tools.raster &#8212; raster_tools 0.9.9 documentation</title>
   
   
   
@@ -114,7 +114,7 @@
   
   
   
-    <p class="title logo__title">raster_tools 0.9.8 documentation</p>
+    <p class="title logo__title">raster_tools 0.9.9 documentation</p>
   
 </a></div>
         <div class="sidebar-primary-item"><nav class="bd-links" id="bd-docs-nav" aria-label="Main">
@@ -3489,7 +3489,7 @@ document.write(`
     <span class="n">rs</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="n">Raster</span><span class="p">):</span>
         <span class="n">rs</span> <span class="o">=</span> <span class="n">src</span>
-    <span class="k">elif</span> <span class="n">is_str</span><span class="p">(</span><span class="n">src</span><span class="p">):</span>
+    <span class="k">elif</span> <span class="n">is_str</span><span class="p">(</span><span class="n">src</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">PathLike</span><span class="p">):</span>
         <span class="n">rs</span> <span class="o">=</span> <span class="n">Raster</span><span class="p">(</span><span class="n">src</span><span class="p">)</span>
     <span class="k">elif</span> <span class="n">strict</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
