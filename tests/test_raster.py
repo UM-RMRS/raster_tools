@@ -1251,7 +1251,7 @@ def test_binary_ops_arithmetic_inplace():
     assert rr.crs == rs.crs
 
 
-_UNSUPPORED_UFUNCS = [np.isnat, np.matmul]
+_UNSUPPORED_UFUNCS = [np.isnat, np.matmul, np.matvec, np.vecmat]
 if NUMPY_GE_2:
     _UNSUPPORED_UFUNCS.append(np.vecdot)
 _UNSUPPORED_UFUNCS = tuple(_UNSUPPORED_UFUNCS)

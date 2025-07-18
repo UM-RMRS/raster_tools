@@ -253,7 +253,7 @@ def _apply_ufunc(ufunc, this, left, right=None, kwargs=None, out=None):
 _UNARY_UFUNCS = frozenset(
     (np.absolute, np.invert, np.logical_not, np.negative, np.positive)
 )
-_UNSUPPORED_UFUNCS = frozenset((np.isnat, np.matmul))
+_UNSUPPORED_UFUNCS = frozenset((np.isnat, np.matmul, np.matvec, np.vecmat))
 
 
 class _RasterBase(np.lib.mixins.NDArrayOperatorsMixin, _ReductionsMixin):
