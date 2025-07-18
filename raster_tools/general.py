@@ -845,7 +845,7 @@ def dilate(raster, size):
     Returns
     -------
     Raster
-        The resulting raster with eroded features. This raster will have the
+        The resulting raster with dilated features. This raster will have the
         same shape and meta data as the original
 
     See also
