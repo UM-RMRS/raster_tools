@@ -425,7 +425,7 @@ document.write(`
 <span class="kn">from</span><span class="w"> </span><span class="nn">odc.geo.geobox</span><span class="w"> </span><span class="kn">import</span> <span class="n">GeoBox</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">shapely.geometry</span><span class="w"> </span><span class="kn">import</span> <span class="n">box</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools._compat</span><span class="w"> </span><span class="kn">import</span> <span class="n">NUMPY_GE_2</span><span class="p">,</span> <span class="n">PY_VER_310_PLUS</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools._compat</span><span class="w"> </span><span class="kn">import</span> <span class="n">NUMPY_GE_2</span><span class="p">,</span> <span class="n">NUMPY_GE_2_2</span><span class="p">,</span> <span class="n">PY_VER_310_PLUS</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.dask_utils</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">chunks_to_array_locations</span><span class="p">,</span>
     <span class="n">dask_nanmax</span><span class="p">,</span>
@@ -660,7 +660,10 @@ document.write(`
 <span class="n">_UNARY_UFUNCS</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">(</span>
     <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">absolute</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">invert</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">logical_not</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">negative</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">positive</span><span class="p">)</span>
 <span class="p">)</span>
-<span class="n">_UNSUPPORED_UFUNCS</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">((</span><span class="n">np</span><span class="o">.</span><span class="n">isnat</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">matmul</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">matvec</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">vecmat</span><span class="p">))</span>
+<span class="n">_UNSUPPORED_UFUNCS</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">isnat</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">matmul</span><span class="p">]</span>
+<span class="k">if</span> <span class="n">NUMPY_GE_2_2</span><span class="p">:</span>
+    <span class="n">_UNSUPPORED_UFUNCS</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">matvec</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">vecmat</span><span class="p">])</span>
+<span class="n">_UNSUPPORED_UFUNCS</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">(</span><span class="n">_UNSUPPORED_UFUNCS</span><span class="p">)</span>
 
 
 <span class="k">class</span><span class="w"> </span><span class="nc">_RasterBase</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">lib</span><span class="o">.</span><span class="n">mixins</span><span class="o">.</span><span class="n">NDArrayOperatorsMixin</span><span class="p">,</span> <span class="n">_ReductionsMixin</span><span class="p">):</span>
