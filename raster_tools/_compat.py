@@ -19,5 +19,7 @@ if gpd.options.use_pygeos:
 
 # Numpy 2.0 made several changes to type promotion rules.
 NUMPY_GE_2 = version_to_tuple(np.__version__) >= (2, 0, 0)
+# Numpy 2.2 added two new matrix/vector ufuncs that don't work with rasters
+NUMPY_GE_2_2 = version_to_tuple(np.__version__) >= (2, 2, 0)
 
 PY_VER_310_PLUS = sys.version_info >= (3, 10)

@@ -27,7 +27,7 @@ from shapely.geometry import box
 
 import raster_tools.raster
 from raster_tools import Raster, band_concat
-from raster_tools._compat import NUMPY_GE_2
+from raster_tools._compat import NUMPY_GE_2, NUMPY_GE_2_2
 from raster_tools.dtypes import (
     DTYPE_INPUT_TO_DTYPE,
     F16,
@@ -1251,9 +1251,11 @@ def test_binary_ops_arithmetic_inplace():
     assert rr.crs == rs.crs
 
 
-_UNSUPPORED_UFUNCS = [np.isnat, np.matmul, np.matvec, np.vecmat]
+_UNSUPPORED_UFUNCS = [np.isnat, np.matmul]
 if NUMPY_GE_2:
     _UNSUPPORED_UFUNCS.append(np.vecdot)
+if NUMPY_GE_2_2:
+    _UNSUPPORED_UFUNCS.extend([np.matvec, np.vecmat])
 _UNSUPPORED_UFUNCS = tuple(_UNSUPPORED_UFUNCS)
 _NP_UFUNCS = np.array(
     [

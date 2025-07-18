@@ -18,7 +18,7 @@ from numba import jit
 from odc.geo.geobox import GeoBox
 from shapely.geometry import box
 
-from raster_tools._compat import NUMPY_GE_2, PY_VER_310_PLUS
+from raster_tools._compat import NUMPY_GE_2, NUMPY_GE_2_2, PY_VER_310_PLUS
 from raster_tools.dask_utils import (
     chunks_to_array_locations,
     dask_nanmax,
@@ -253,7 +253,10 @@ def _apply_ufunc(ufunc, this, left, right=None, kwargs=None, out=None):
 _UNARY_UFUNCS = frozenset(
     (np.absolute, np.invert, np.logical_not, np.negative, np.positive)
 )
-_UNSUPPORED_UFUNCS = frozenset((np.isnat, np.matmul, np.matvec, np.vecmat))
+_UNSUPPORED_UFUNCS = [np.isnat, np.matmul]
+if NUMPY_GE_2_2:
+    _UNSUPPORED_UFUNCS.extend([np.matvec, np.vecmat])
+_UNSUPPORED_UFUNCS = frozenset(_UNSUPPORED_UFUNCS)
 
 
 class _RasterBase(np.lib.mixins.NDArrayOperatorsMixin, _ReductionsMixin):
