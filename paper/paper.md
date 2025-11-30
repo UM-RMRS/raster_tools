@@ -228,14 +228,15 @@ writing of the result rasters. A chunk size of 256 MiB was used.
 +==========================+==============================+==================================================+
 
 
+![**Left**) Runtimes for all scenarios. **Right**) The runtimes for all
+scenarios, excluding the Focal Entropy scenario.
+\label(fig:runtimes)
+](runtimes.png){ width=100% }
+
 \autoref{fig:runtimes} shows the runtimes of the scenarios as the number of cores
 being used increases. Filtering out the Focal Entropy case for the right-hand
-plot allows the results for the other scenarios to be viewed more clearly.
-
- ![**Left**: Runtimes for all scenarios. **Right**: The runtimes for all scenarios, excluding the Focal Entropy scenario.\label(fig:runtimes)](runtimes.png)
-
-
-The Focal Entropy scenario shows strong scaling with the number of cores. Focal
+plot allows the results for the other scenarios to be viewed more clearly. The
+Focal Entropy scenario shows strong scaling with the number of cores. Focal
 Mean shows moderate scaling. The rest show scaling that varies from none to
 mild.
 
