@@ -228,11 +228,11 @@ writing of the result rasters. A chunk size of 256 MiB was used.
 +==========================+==============================+==================================================+
 
 
-\ref{fig_runtimes} shows the runtimes of the scenarios as the number of cores
+\autoref{fig:runtimes} shows the runtimes of the scenarios as the number of cores
 being used increases. Filtering out the Focal Entropy case for the right-hand
 plot allows the results for the other scenarios to be viewed more clearly.
 
- ![**Left**: Runtimes for all scenarios. **Right**: The runtimes for all scenarios, excluding the Focal Entropy scenario.](runtimes.png)\label(fig_runtimes)
+ ![**Left**: Runtimes for all scenarios. **Right**: The runtimes for all scenarios, excluding the Focal Entropy scenario.\label(fig:runtimes)](runtimes.png)
 
 
 The Focal Entropy scenario shows strong scaling with the number of cores. Focal
@@ -265,8 +265,8 @@ incompatibilities with Dask’s new distributed scheduler. The Dask developers
 have shifted their efforts to the new distributed scheduler, which is now the
 recommended scheduler going forward. We are actively working to fix this since
 the new scheduler is more performant and allows use with distributed systems.
-The overhead of the default scheduler can be seen in \ref{fig_runtimes}. The
-scheduler overhead dominates the runtime for most of the scenarios. The two
+The overhead of the default scheduler can be seen in \autoref{fig:runtimes}.
+The scheduler overhead dominates the runtime for most of the scenarios. The two
 scenarios which show decent scaling are the two most compute intensive
 operations on a per-data-chunk basis. They are expensive enough that the
 scheduler overhead no longer dominates.
