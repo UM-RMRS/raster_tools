@@ -1,14 +1,14 @@
-name: Paper Draft PDF
+name: Joss Paper Draft PDF
 on:
   push:
     paths:
-      - 'paper/paper.md'
-      - 'paper/paper.bib'
+      - paper/**
+      - .github/workflows/draft-pdf.yml
 
 jobs:
   paper:
     runs-on: ubuntu-latest
-    name: Paper Draft
+    name: Joss Paper Draft
     steps:
       - name: Checkout
         uses: actions/checkout@v4
