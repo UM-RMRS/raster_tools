@@ -2181,13 +2181,13 @@ class Raster(_RasterBase):
             'nearest'
                 Nearest neighbor resampling. This is the default.
             'bilinear'
-                Bilinear resmapling.
+                Bilinear resampling.
             'cubic'
-                Cubic resmapling.
+                Cubic resampling.
             'cubic_spline'
-                Cubic spline resmapling.
+                Cubic spline resampling.
             'lanczos'
-                Lanczos windowed sinc resmapling.
+                Lanczos windowed sinc resampling.
             'average'
                 Average resampling, computes the weighted average of all
                 contributing pixels.
