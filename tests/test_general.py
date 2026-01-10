@@ -1,7 +1,7 @@
 # isort: off
 # TODO(pygeos): remove this once shapely is the default backend for geopandas.
 # Force raster_tools._compat to be loaded before geopandas when running tests
-import raster_tools  # noqa: F401
+import raster_tools as rts  # noqa: F401
 
 # isort: on
 
@@ -893,26 +893,15 @@ def test_remap_range_errors():
         general.remap_range(rs, ())
 
 
-def _make_raster(data, mask, dtype=None):
+def _make_raster(data, mask=None, dtype=None):
     data = np.asarray(data)
-    mask = np.asarray(mask).astype(bool)
-    # Allow nan values as valid data. Raster() automatically converts nans to
-    # null.
-    nan_mask = np.isnan(data)
-    if mask.any():
-        nan_mask[mask] = False
-    sent = -99
-    if nan_mask.any():
-        data[nan_mask] = sent
-    r = Raster(data).set_crs("EPSG:3857")
-    if nan_mask.any():
-        r._ds.raster.data = da.where(nan_mask, np.nan, r._ds.raster.data)
-    mask = Raster(mask)
-    if mask is not None:
-        r = r.set_null(mask)
     if dtype is not None:
-        r = r.astype(dtype, False)
-    return r
+        data = data.astype(dtype)
+    if mask is not None:
+        mask = np.asarray(mask).astype(bool)
+        if not mask.any():
+            mask = None
+    return rts.data_to_raster(data, mask=mask, burn=True).set_crs("EPSG:3857")
 
 
 @pytest.mark.parametrize(
@@ -920,36 +909,36 @@ def _make_raster(data, mask, dtype=None):
     [
         # 0
         (
-            _make_raster([[0, 0], [1, 1]], np.zeros((2, 2)), bool),
-            _make_raster(np.ones((2, 2)), np.zeros((2, 2))),
-            _make_raster(np.full((2, 2), 2), np.zeros((2, 2))),
-            _make_raster([[2, 2], [1, 1]], np.zeros((2, 2))),
+            _make_raster([[0, 0], [1, 1]], None, bool),
+            _make_raster(np.ones((2, 2), int)),
+            _make_raster(np.full((2, 2), 2)),
+            _make_raster([[2, 2], [1, 1]]),
         ),
         # 1
         (
             _make_raster([[0, 0], [1, 1]], [[1, 0], [0, 0]], bool),
-            _make_raster(np.ones((2, 2)), np.zeros((2, 2))),
-            _make_raster(np.full((2, 2), 2), np.zeros((2, 2))),
+            _make_raster(np.ones((2, 2), int)),
+            _make_raster(np.full((2, 2), 2), None),
             _make_raster([[0, 2], [1, 1]], [[1, 0], [0, 0]]),
         ),
         # 2
         (
             _make_raster([[0, 0], [1, 1]], [[1, 0], [0, 0]], bool),
-            _make_raster(np.ones((2, 2)), [[0, 1], [0, 0]]),
+            _make_raster(np.ones((2, 2), int), [[0, 1], [0, 0]]),
             _make_raster(np.full((2, 2), 2), [[0, 0], [1, 0]]),
             _make_raster([[0, 2], [1, 1]], [[1, 0], [0, 0]]),
         ),
         # 3
         (
             _make_raster([[0, 0], [1, 1]], [[1, 0], [0, 0]], bool),
-            _make_raster(np.ones((2, 2)), [[0, 0], [0, 1]]),
+            _make_raster(np.ones((2, 2), int), [[0, 0], [0, 1]]),
             _make_raster(np.full((2, 2), 2), [[0, 1], [0, 0]]),
             _make_raster([[2, 2], [1, 1]], [[1, 1], [0, 1]]),
         ),
         # 4
         (
             _make_raster([[0, 0], [1, 1]], [[1, 0], [0, 0]], bool),
-            _make_raster(np.ones((2, 2)), [[0, 0], [0, 1]]),
+            _make_raster(np.ones((2, 2), int), [[0, 0], [0, 1]]),
             2,
             _make_raster([[2, 2], [1, 1]], [[1, 0], [0, 1]]),
         ),
@@ -993,7 +982,7 @@ def _make_raster(data, mask, dtype=None):
         # 10
         (
             _make_raster([[0, 0], [1, 1]], [[1, 0], [0, 0]], bool),
-            _make_raster(np.ones((2, 2)), [[0, 0], [0, 1]]),
+            _make_raster(np.ones((2, 2), int), [[0, 0], [0, 1]]),
             None,
             _make_raster([[2, 2], [1, 1]], [[1, 1], [0, 1]]),
         ),
