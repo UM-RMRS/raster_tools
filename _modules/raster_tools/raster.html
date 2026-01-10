@@ -8,7 +8,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>raster_tools.raster &#8212; raster_tools 0.9.9 documentation</title>
+    <title>raster_tools.raster &#8212; raster_tools 0.9.10 documentation</title>
   
   
   
@@ -114,7 +114,7 @@
   
   
   
-    <p class="title logo__title">raster_tools 0.9.9 documentation</p>
+    <p class="title logo__title">raster_tools 0.9.10 documentation</p>
   
 </a></div>
         <div class="sidebar-primary-item"><nav class="bd-links" id="bd-docs-nav" aria-label="Main">
@@ -2096,7 +2096,7 @@ document.write(`
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns a copy of this Raster.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">Raster</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="Raster.astype"><a class="viewcode-back" href="../../reference/generated/raster_tools.Raster.astype.html#raster_tools.raster.Raster.astype">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">astype</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dtype</span><span class="p">,</span> <span class="n">warn_about_null_change</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<div class="viewcode-block" id="Raster.astype"><a class="viewcode-back" href="../../reference/generated/raster_tools.Raster.astype.html#raster_tools.raster.Raster.astype">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">astype</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dtype</span><span class="p">,</span> <span class="n">new_null_value</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">warn_about_null_change</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a copy of the Raster cast to the specified type.</span>
 
 <span class="sd">        Parameters</span>
@@ -2107,6 +2107,10 @@ document.write(`
 <span class="sd">            new type, a default null value for the given `dtype` is used. This</span>
 <span class="sd">            will produce a warning unless `warn_about_null_change` is set to</span>
 <span class="sd">            ``False``.</span>
+<span class="sd">        new_null_value: scalar, optional</span>
+<span class="sd">            If provided, this sets the new null value to use in the result.</span>
+<span class="sd">            Default is to use the already present null value, if possible, or</span>
+<span class="sd">            use the default null value for the new `dtype`.</span>
 <span class="sd">        warn_about_null_change : bool, optional</span>
 <span class="sd">            Can be used to silence warnings. The default is to always warn</span>
 <span class="sd">            about null value changes.</span>
@@ -2128,14 +2132,37 @@ document.write(`
         <span class="n">nv</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">null_value</span>
         <span class="n">mask</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ds</span><span class="o">.</span><span class="n">mask</span>
 
-        <span class="n">xrs</span> <span class="o">=</span> <span class="n">xrs</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_masked</span><span class="p">:</span>
+        <span class="n">xrs_casted</span> <span class="o">=</span> <span class="n">xrs</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">new_null_value</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_masked</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span>
+                <span class="n">new_null_value</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">null_value</span><span class="p">,</span> <span class="n">equal_nan</span><span class="o">=</span><span class="kc">True</span>
+            <span class="p">):</span>
+                <span class="k">with</span> <span class="n">warnings</span><span class="o">.</span><span class="n">catch_warnings</span><span class="p">():</span>
+                    <span class="n">warnings</span><span class="o">.</span><span class="n">simplefilter</span><span class="p">(</span><span class="s2">&quot;error&quot;</span><span class="p">)</span>
+                    <span class="k">try</span><span class="p">:</span>
+                        <span class="n">nv</span> <span class="o">=</span> <span class="n">reconcile_nullvalue_with_dtype</span><span class="p">(</span>
+                            <span class="n">new_null_value</span><span class="p">,</span> <span class="n">dtype</span><span class="p">,</span> <span class="n">warn</span><span class="o">=</span><span class="kc">True</span>
+                        <span class="p">)</span>
+                    <span class="k">except</span> <span class="ne">UserWarning</span><span class="p">:</span>
+                        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                            <span class="s2">&quot;Could not use provided null value with the new &quot;</span>
+                            <span class="s2">&quot;dtype&quot;</span>
+                        <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="kc">None</span>
+                    <span class="n">xrs_casted</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
+                        <span class="n">mask</span><span class="p">,</span> <span class="n">nv</span><span class="p">,</span> <span class="n">xrs_casted</span>
+                    <span class="p">)</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_nodata</span><span class="p">(</span><span class="n">nv</span><span class="p">)</span>
+            <span class="c1"># else: do nothing since the null values already match</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">_masked</span><span class="p">:</span>
             <span class="n">nv</span> <span class="o">=</span> <span class="n">reconcile_nullvalue_with_dtype</span><span class="p">(</span>
                 <span class="n">nv</span><span class="p">,</span> <span class="n">dtype</span><span class="p">,</span> <span class="n">warn_about_null_change</span>
             <span class="p">)</span>
-            <span class="k">if</span> <span class="n">nv</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">null_value</span><span class="p">:</span>
-                <span class="n">xrs</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">mask</span><span class="p">,</span> <span class="n">nv</span><span class="p">,</span> <span class="n">xrs</span><span class="p">)</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_nodata</span><span class="p">(</span><span class="n">nv</span><span class="p">)</span>
-        <span class="n">ds</span> <span class="o">=</span> <span class="n">make_raster_ds</span><span class="p">(</span><span class="n">xrs</span><span class="p">,</span> <span class="n">mask</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">nv</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">null_value</span> <span class="ow">or</span> <span class="ow">not</span> <span class="p">(</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">nv</span><span class="p">)</span> <span class="ow">and</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">null_value</span><span class="p">)</span>
+            <span class="p">):</span>
+                <span class="n">xrs_casted</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">mask</span><span class="p">,</span> <span class="n">nv</span><span class="p">,</span> <span class="n">xrs_casted</span><span class="p">)</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_nodata</span><span class="p">(</span>
+                    <span class="n">nv</span>
+                <span class="p">)</span>
+        <span class="n">ds</span> <span class="o">=</span> <span class="n">make_raster_ds</span><span class="p">(</span><span class="n">xrs_casted</span><span class="p">,</span> <span class="n">mask</span><span class="p">)</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">crs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">ds</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_crs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">crs</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">Raster</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="n">_fast_path</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div>

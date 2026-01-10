@@ -9,7 +9,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
 
-    <title>raster_tools.Raster.astype &#8212; raster_tools 0.9.9 documentation</title>
+    <title>raster_tools.Raster.astype &#8212; raster_tools 0.9.10 documentation</title>
   
   
   
@@ -117,7 +117,7 @@
   
   
   
-    <p class="title logo__title">raster_tools 0.9.9 documentation</p>
+    <p class="title logo__title">raster_tools 0.9.10 documentation</p>
   
 </a></div>
         <div class="sidebar-primary-item"><nav class="bd-links" id="bd-docs-nav" aria-label="Main">
@@ -459,7 +459,7 @@ document.write(`
 <h1>raster_tools.Raster.astype<a class="headerlink" href="#raster-tools-raster-astype" title="Permalink to this headline">#</a></h1>
 <dl class="py method">
 <dt class="sig sig-object py" id="raster_tools.Raster.astype">
-<span class="sig-prename descclassname"><span class="pre">Raster.</span></span><span class="sig-name descname"><span class="pre">astype</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dtype</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">warn_about_null_change</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/raster_tools/raster.html#Raster.astype"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.Raster.astype" title="Permalink to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">Raster.</span></span><span class="sig-name descname"><span class="pre">astype</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dtype</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">new_null_value</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">warn_about_null_change</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/raster_tools/raster.html#Raster.astype"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.Raster.astype" title="Permalink to this definition">#</a></dt>
 <dd><p>Return a copy of the Raster cast to the specified type.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -469,6 +469,9 @@ cast to this type. If the null value cannot be safely cast to the
 new type, a default null value for the given <cite>dtype</cite> is used. This
 will produce a warning unless <cite>warn_about_null_change</cite> is set to
 <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p></li>
+<li><p><strong>new_null_value</strong> (<em>scalar</em><em>, </em><em>optional</em>) – If provided, this sets the new null value to use in the result.
+Default is to use the already present null value, if possible, or
+use the default null value for the new <cite>dtype</cite>.</p></li>
 <li><p><strong>warn_about_null_change</strong> (<em>bool</em><em>, </em><em>optional</em>) – Can be used to silence warnings. The default is to always warn
 about null value changes.</p></li>
 </ul>
