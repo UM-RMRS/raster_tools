@@ -664,6 +664,22 @@ def test_raster_from_any_errors(data, error_type):
         Raster(data)
 
 
+def test_raster_from_float_data_with_small_null_value():
+    xdata = (
+        xr.DataArray(
+            da.ones((4, 4), dtype=float) * -9999.0,
+            dims=("y", "x"),
+            coords=([3, 2, 1, 0], [0, 1, 2, 3]),
+        )
+        # This nv can fit in a float16 but loses precision.
+        .rio.write_nodata(-9_999.0)
+    )
+    raster = Raster(xdata)
+    # Make sure that the value wasn't altered
+    assert raster.null_value == np.float64(-9_999.0)
+    assert np.allclose(raster.to_numpy(), -9_999.0)
+
+
 @pytest.fixture(params=[True, False])
 def boolean(request):
     return request.param
