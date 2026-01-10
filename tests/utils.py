@@ -105,17 +105,50 @@ def assert_valid_raster(raster):
     assert raster.crs == raster._ds.mask.rio.crs
 
 
-def assert_rasters_equal(left, right, strict=False, check_chunks=True):
+def assert_raster_dataset_data_equal_any_nv(left, right, dtype_match=True):
+    if dtype_match:
+        assert left.raster.dtype == right.raster.dtype
+    assert np.allclose(left.mask.to_numpy(), right.mask.to_numpy())
+    assert (right.raster.rio.nodata is not None) == (
+        right.raster.rio.nodata is not None
+    )
+    ldata = left.raster.data.compute()
+    rdata = right.raster.data.compute()
+    lmask = left.mask.data.compute()
+    rmask = right.mask.data.compute()
+    assert np.allclose(ldata[~lmask], rdata[~rmask], equal_nan=True)
+
+
+def assert_dataset_structure_equal(left, right):
+    # Create skeletons with same structure but dummy data
+    left_skel = left.map(lambda x: xr.zeros_like(x), keep_attrs=True)
+    right_skel = right.map(lambda x: xr.zeros_like(x), keep_attrs=True)
+    xr.testing.assert_equal(left_skel, right_skel)
+
+
+def assert_raster_ds_equal(left, right, nv_match=True, dtype_match=True):
+    if dtype_match:
+        assert left.dtypes == right.dtypes
+    if nv_match:
+        assert left.equals(right)
+        assert null_values_equal(
+            left.raster.rio.nodata, right.raster.rio.nodata
+        )
+    else:
+        assert_dataset_structure_equal(left, right)
+        assert_raster_dataset_data_equal_any_nv(left, right)
+
+
+def assert_rasters_equal(
+    left, right, check_chunks=True, nv_match=True, dtype_match=True
+):
     assert isinstance(left, Raster)
     assert isinstance(right, Raster)
     assert left.crs == right.crs
     assert left.affine == right.affine
-    assert null_values_equal(left.null_value, right.null_value)
-    if not strict:
-        assert left._ds.equals(right._ds)
-    else:
-        # Make sure attributes match
-        assert left._ds.identical(right._ds)
+    assert_raster_ds_equal(
+        left._ds, right._ds, nv_match=nv_match, dtype_match=dtype_match
+    )
     if check_chunks:
         assert left._ds.chunks == right._ds.chunks
 

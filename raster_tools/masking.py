@@ -70,9 +70,10 @@ def reconcile_nullvalue_with_dtype(null_value, dtype, warn=False):
         return get_default_null_value(dtype)
 
     dtype = np.dtype(dtype)
-    null_value = np.min_scalar_type(null_value).type(null_value)
+    original_nv = null_value
+    null_value = np.result_type(null_value).type(null_value)
     if np.can_cast(null_value, dtype):
-        return null_value
+        return original_nv
 
     original_nv = null_value
     # TODO: stop checking if the value is an integer. Too much complexity. If
@@ -90,7 +91,7 @@ def reconcile_nullvalue_with_dtype(null_value, dtype, warn=False):
             if min_type.kind == "O":
                 nv = original_nv
     else:
-        nv = original_nv
+        nv = np.min_scalar_type(original_nv).type(original_nv)
     if np.can_cast(nv, dtype) or (is_bool(dtype) and nv in (0, 1)):
         return dtype.type(nv)
     nv = get_default_null_value(dtype)
