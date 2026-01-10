@@ -47,6 +47,7 @@ from raster_tools.vector import Vector
 from tests import testdata
 from tests.utils import (
     arange_raster,
+    assert_rasters_equal,
     assert_rasters_similar,
     assert_valid_raster,
 )
@@ -997,7 +998,7 @@ def test_where(condition, x, y, expected):
     assert_valid_raster(result)
     assert_rasters_similar(result, condition)
     assert result._masked == masked
-    assert np.allclose(result, expected, equal_nan=True)
+    assert_rasters_equal(result, expected)
     assert np.allclose(result.mask.compute(), expected.mask.compute())
 
     if isinstance(x, Raster):
