@@ -8,6 +8,7 @@ import raster_tools as rts
 import operator
 import pathlib
 import unittest
+import warnings
 
 import affine
 import dask
@@ -1752,13 +1753,14 @@ def test_astype(rs, type_code, dtype):
     )
 
 
-@pytest.mark.filterwarnings("ignore:The null value ")
-def test_astype_wrong_type_codes():
-    rs = testdata.raster.dem_small
-    with pytest.raises(ValueError):
-        rs.astype("not float32")
-    with pytest.raises(ValueError):
-        rs.astype("other")
+def test_astype_new_null_value():
+    raster = arange_raster((4, 4)).set_null_value(0).set_null_value(-1)
+    assert raster.dtype == "int64"
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        result = raster.astype("uint64", 99)
+    assert result.dtype == "uint64"
+    assert result.null_value == 99
 
 
 def test_copy():

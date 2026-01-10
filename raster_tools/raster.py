@@ -1689,7 +1689,7 @@ class Raster(_RasterBase):
         """Returns a copy of this Raster."""
         return Raster(self)
 
-    def astype(self, dtype, warn_about_null_change=True):
+    def astype(self, dtype, new_null_value=None, warn_about_null_change=True):
         """Return a copy of the Raster cast to the specified type.
 
         Parameters
@@ -1700,6 +1700,10 @@ class Raster(_RasterBase):
             new type, a default null value for the given `dtype` is used. This
             will produce a warning unless `warn_about_null_change` is set to
             ``False``.
+        new_null_value: scalar, optional
+            If provided, this sets the new null value to use in the result.
+            Default is to use the already present null value, if possible, or
+            use the default null value for the new `dtype`.
         warn_about_null_change : bool, optional
             Can be used to silence warnings. The default is to always warn
             about null value changes.
@@ -1721,14 +1725,37 @@ class Raster(_RasterBase):
         nv = self.null_value
         mask = self._ds.mask
 
-        xrs = xrs.astype(dtype)
-        if self._masked:
+        xrs_casted = xrs.astype(dtype)
+        if new_null_value is not None:
+            if self._masked and not np.allclose(
+                new_null_value, self.null_value, equal_nan=True
+            ):
+                with warnings.catch_warnings():
+                    warnings.simplefilter("error")
+                    try:
+                        nv = reconcile_nullvalue_with_dtype(
+                            new_null_value, dtype, warn=True
+                        )
+                    except UserWarning:
+                        raise ValueError(
+                            "Could not use provided null value with the new "
+                            "dtype"
+                        ) from None
+                    xrs_casted = xr.where(
+                        mask, nv, xrs_casted
+                    ).rio.write_nodata(nv)
+            # else: do nothing since the null values already match
+        elif self._masked:
             nv = reconcile_nullvalue_with_dtype(
                 nv, dtype, warn_about_null_change
             )
-            if nv != self.null_value:
-                xrs = xr.where(mask, nv, xrs).rio.write_nodata(nv)
-        ds = make_raster_ds(xrs, mask)
+            if nv != self.null_value or not (
+                np.isnan(nv) and np.isnan(self.null_value)
+            ):
+                xrs_casted = xr.where(mask, nv, xrs_casted).rio.write_nodata(
+                    nv
+                )
+        ds = make_raster_ds(xrs_casted, mask)
         if self.crs is not None:
             ds = ds.rio.write_crs(self.crs)
         return Raster(ds, _fast_path=True)

@@ -91,7 +91,7 @@ def reconcile_nullvalue_with_dtype(null_value, dtype, warn=False):
             if min_type.kind == "O":
                 nv = original_nv
     else:
-        nv = original_nv
+        nv = np.min_scalar_type(original_nv).type(original_nv)
     if np.can_cast(nv, dtype) or (is_bool(dtype) and nv in (0, 1)):
         return dtype.type(nv)
     nv = get_default_null_value(dtype)
