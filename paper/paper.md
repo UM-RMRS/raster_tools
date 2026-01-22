@@ -248,7 +248,7 @@ fire severity raster data for all of Montana into a tabular format for model
 training. It was used in @lahrichi2025 to process burn mask rasters for use in
 training fire spread prediction models. Raster tools was also used to process
 rasters, rasterize vectors, and complete a wide range of geospatial analysis in
-@wiard2025.
+@wiard2025 and @wiard2026.
 
 Raster Tools is also being used in production by the Forest Service for their
 Potential Control Locations (PCL) product [@conner2017], [@conner2022]. When
