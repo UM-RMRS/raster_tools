@@ -67,8 +67,8 @@ working with geospatial data, but does not implement many of GDAL's features. A
 third package, rioxarray [@rioxarray], is a plugin for Xarray that allows
 raster formats to be easily read into Xarray's data structures and for those
 data structures to use Rasterio operations on the underlying data. Finally,
-odc-geo [@odcgeo] provides several geospatial tools and algorithms such as
-grid definitions and reprojection. It also can function as a plugin for Xarray.
+odc-geo [@odcgeo] provides several geospatial tools and algorithms such as grid
+definitions and reprojection. It also can function as a plugin for Xarray.
 
 Together, these packages and the wider Python data stack can be leveraged to
 carry out simple and advanced raster processing and geographic information
@@ -79,14 +79,14 @@ while in much of Python’s data stack, this is handled with NaN values. These
 two paradigms can be difficult to reconcile, and it requires boilerplate code
 to properly mask data. Second, Numpy does not support parallel processing
 without writing C extensions, which is difficult at best. Newer packages such
-as Numba [@numba] and Numexpr [@numexpr] can help with this, but their scope
-is still limited. They also require more boilerplate code to be written. Third,
-if the size of the target dataset approaches or exceeds the available memory,
+as Numba [@numba] and Numexpr [@numexpr] can help with this, but their scope is
+still limited. They also require more boilerplate code to be written. Third, if
+the size of the target dataset approaches or exceeds the available memory,
 Numpy and everything built on it will exhaust the available memory and fail.
-This is because Numpy and most of the Python data stack is "in-core". All the
+This is because Numpy and most of the Python data stack is "in-core." All the
 data is in memory when processing occurs. To tackle this problem, more
-boilerplate code has to be written to manually chunk up the data and process it
-in batches.
+boilerplate code must be written to manually chunk the data and process it in
+batches.
 
 The last two issues can be solved by using the Dask package. Dask provides a
 relatively simple interface for parallel computing in Python. It allows large
@@ -105,6 +105,47 @@ compatibility gaps, such as making Rasterio and SciPy functions compatible with
 Dask. Code is also needed to properly handle missing data and to implement
 common and advanced GIS operations. There is no package that does all of this
 for the user.
+
+
+# Current State of the Field
+
+Several open-source Python packages try to address these needs in the Python
+ecosystem, but each does so differently and has its own limitations. Some
+examples are WhteboxTools [@wbtgat; @wbtman], GeoUtils [@geoutils], and
+Xarray-Spatial [@xrspatial].
+
+WhiteboxTools is a geospatial library providing hundreds of raster and GIS
+analysis functions through Python bindings. It is compiled and highly
+performant and capable of processing raster data in parallel. However, it
+presents several limitations: it lacks integration with the Python data stack
+and requires data to be fully loaded into memory for processing. Additionally,
+operations cannot be chained in memory; each tool must read from storage,
+process the data, and write the output back to storage before the next step can
+begin. A newer adaptation, Whitebox Workflows for Python, has been released,
+which allows chaining. It is proprietary freeware with a paid upgrade package,
+however.
+
+Built on top of Rasterio, GeoUtils is a package designed for efficient
+geospatial analysis with Python operator overloading and NumPy integration. It
+leverages Python’s multiprocessing module to process rasters in parallel.
+However, the package has notable limitations: most operations are eager and
+load the full dataset into memory, and it only implements a few geospatial
+operations such as reproject and proximity. Additionally, GeoUtils currently
+lacks compatibility with Dask and offers limited integration with Xarray. Work
+is ongoing to add Dask support, and an Xarray extension is planned. xDEM is a
+package from the same authors, built on top of GeoUtils, which provides a suite
+of digital elevation model (DEM) focused functions.
+
+Finally, Xarray-Spatial is a package designed for spatial analysis of rasters,
+built directly on Xarray data objects. It provides a variety of analysis
+functions and features acceleration via Numba and scalability through Dask
+support. Additionally, the library offers GPU capabilities by leveraging CuPy
+and Numba’s just-in-time (JIT) cuda compilation. However, the package has some
+limitations, including an inflexible and, sometimes, inconsistent interface
+where support for Dask, GPU acceleration, and parallel processing varies across
+different functions. Data type support is also restricted, with most functions
+converting inputs to float 32 and using NaNs for missing data, and the library
+currently lacks some common raster operations found in other tools.
 
 
 # Software Description
@@ -130,12 +171,13 @@ Ufunc interface, Raster objects provide compatibility with Numpy’s element-wis
 functions such as sin, cos, sqrt, exp, etc. The result of calling a Numpy Ufunc
 on a Raster object will always be another Raster object. These two features,
 together, make implementing mathematical models as easy as writing the
-equations as expressions in code. All of these operations are missing-data
-aware. The Raster class also behaves like a Dask array in that all operations
-on it are lazy. No computation or data loading happens until the raster is
-saved back to disk or explicitly loaded into memory. The code listing below
-shows an example of an index being calculated from Landsat 8 bands and saved to
-disk.
+equations as expressions in code. All these operations are missing-data aware.
+The Raster class implements a lazy evaluation model inherited from Dask.
+Computational graphs are constructed during operation chaining, deferring data
+loading and processing until an explicit trigger, such as saving to disk or
+explicit loading, is executed. This enables the definition of complex pipelines
+that exceed local memory limits. The code listing below shows an example of an
+index being calculated from Landsat 8 bands and saved to disk.
 
 
 ```python
@@ -145,9 +187,9 @@ import raster_tools as rts
 # Create two Raster objects pointing to the red and near-IR bands
 red = rts.Raster("data/landsat_stack.tif").get_bands(4)
 nir = rts.Raster("data/landsat_stack.tif").get_bands(5)
-# Calculate the MSAVI2 index
+# Calculate the MSAVI2 index. This is lazy and no computation has occurred.
 msavi2 = (2 * (nir + 1) - np.sqrt((2 * nir + 1) ** 2 - 8 * (nir - red))) / 2
-# Save to storage which starts computation
+# Save to storage. This starts computation.
 msavi2.save( "outputs/msavi2.tif", tiled=True, bigtiff="IF_NEEDED", compress="LZW" )
 ```
 
@@ -163,7 +205,7 @@ processing. This API consists of the following modules:
 * `general:` general purpose functions such as raster value remapping.
 * `line_stats:` advanced function for calculating statistics on line-vectors overlayed on a raster.
 * `rasterize:` functions for rasterizing vector geometries.
-* `surface:` functions for transforming digital elevation models (DEM) such as aspect, slope, and 3D surface area.
+* `surface:` functions for transforming DEMs, such as aspect, slope, and 3D surface area.
 * `vector:` functions for handling vector data.
 * `warp:` functions for reprojecting rasters.
 * `zonal:` functions for computing zonal statistics.
@@ -200,13 +242,17 @@ To evaluate the performance and scaling of Raster Tools, we benchmarked it in a
 controlled computing environment. The environment used was a virtual machine
 with 400 GiB of memory and a variable number of CPU cores. We created several
 scenarios for benchmarking. To test scaling, we set the CPU count at 2, 4, 8,
-16, and 32 and ran all of the scenarios for each count.  The scenarios are
+16, and 32 and ran all the scenarios for each count.  The scenarios are
 described in the table below. The input rasters for the scenarios, labeled A,
 B, and C below, were copies of the same 30m digital elevation model (DEM) of
 the continental US (CONUS).  These were single precision (float 32) rasters and
 roughly 60 GB uncompressed on disk. The timing for the scenarios was done using
-Python’s time module and includes both loading of the input rasters and
-writing of the result rasters. A chunk size of 256 MiB was used.
+Python’s `time` module and includes both loading of the input rasters and
+writing of the result rasters. A chunk size of 256 MiB was used. Testing was
+performed in Q3-Q4 2025. At the time, Raster Tools was only compatible with
+Dask’s default scheduler, so that was the Dask scheduler used. The results
+shown here should be taken as a baseline, since the new scheduler is expected
+to improve performance.
 
 +--------------------------+------------------------------+--------------------------------------------------+
 | Scenario                 | Basic Forumula               | Description                                      |
@@ -260,25 +306,36 @@ dynamic and can be produced hourly for local fire support.
 
 # Limitations
 
-Raster Tools has some limitations, which we acknowledge here. At present,
-Raster Tools is tied to Dask’s original, but default, task scheduler due to
-incompatibilities with Dask’s new distributed scheduler. The Dask developers
-have shifted their efforts to the new distributed scheduler, which is now the
-recommended scheduler going forward. We are actively working to fix this since
-the new scheduler is more performant and allows use with distributed systems.
-The overhead of the default scheduler can be seen in \autoref{fig:runtimes}.
-The scheduler overhead dominates the runtime for most of the scenarios. The two
-scenarios which show decent scaling are the two most compute intensive
-operations on a per-data-chunk basis. They are expensive enough that the
-scheduler overhead no longer dominates.
+Raster Tools has some limitations, which we acknowledge here. At the time of
+testing and benchmarking, Q3-Q4 2025, Raster Tools was tied to Dask’s original,
+and default, task scheduler. This was due to incompatibilities with Dask’s new
+distributed scheduler and another dependency, which has since been fixed. The
+Dask developers have shifted their efforts to the new distributed scheduler,
+which is now the recommended scheduler going forward. The new scheduler is more
+performant and allows use with distributed systems. The overhead of the default
+scheduler can be seen in \ref{fig_runtimes}. The scheduler overhead dominates
+the runtime for most of the scenarios. The two scenarios which show decent
+scaling are the two most compute intensive operations on a per-data-chunk
+basis. They are expensive enough that the scheduler overhead no longer
+dominates.
 
 Another related limitation is that the default Dask scheduler prioritizes CPU
 utilization over respecting memory limitations. The amount of memory used by
-Dask is proportional to the number of available CPU cores times the data-chunk
-size. Thus, the amount of memory needed will need to be larger on a system with
-a larger number of cores when using Raster Tools. Adjusting Dask's target chunk
-size down can help with this issue, but also means more chunks to process and
-greater scheduling overhead. This is handled better with the new scheduler.
+Dask is proportional to the number of available CPU cores multiplied by the
+data-chunk size. Thus, the amount of memory needed will need to be larger on a
+system with a larger number of cores when using Raster Tools. Adjusting Dask's
+target chunk size down can help with this issue but also means more chunks to
+process and greater scheduling overhead. This is handled better with the new
+scheduler.
+
+# Comparison
+
+Except for cost-distance functions, Raster Tools provides a lazy, parallel,
+OOC, consistent, and chainable API, along with a suite of raster processing
+functions, and fully integrates with the wider Python data stack. This
+contrasts with other packages in the field like those listed above, which are
+either in-memory, not chainable, inconsistent, or incompatible with the Python
+data stack.
 
 # Conclusion
 
