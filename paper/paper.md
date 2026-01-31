@@ -309,15 +309,15 @@ dynamic and can be produced hourly for local fire support.
 Raster Tools has some limitations, which we acknowledge here. At the time of
 testing and benchmarking, Q3-Q4 2025, Raster Tools was tied to Dask’s original,
 and default, task scheduler. This was due to incompatibilities with Dask’s new
-distributed scheduler and another dependency, which has since been fixed. The
-Dask developers have shifted their efforts to the new distributed scheduler,
-which is now the recommended scheduler going forward. The new scheduler is more
-performant and allows use with distributed systems. The overhead of the default
-scheduler can be seen in \ref{fig_runtimes}. The scheduler overhead dominates
-the runtime for most of the scenarios. The two scenarios which show decent
-scaling are the two most compute intensive operations on a per-data-chunk
-basis. They are expensive enough that the scheduler overhead no longer
-dominates.
+Distributed scheduler [@dask_dist] and another dependency, which has since been
+fixed. The Dask developers have shifted their efforts to the new Distributed
+scheduler, which is now the recommended scheduler going forward. The new
+scheduler is more performant and allows use with distributed systems. The
+overhead of the default scheduler can be seen in \ref{fig_runtimes}. The
+scheduler overhead dominates the runtime for most of the scenarios. The two
+scenarios which show decent scaling are the two most compute intensive
+operations on a per-data-chunk basis. They are expensive enough that the
+scheduler overhead no longer dominates.
 
 Another related limitation is that the default Dask scheduler prioritizes CPU
 utilization over respecting memory limitations. The amount of memory used by
