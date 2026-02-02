@@ -140,12 +140,13 @@ Finally, Xarray-Spatial is a package designed for spatial analysis of rasters,
 built directly on Xarray data objects. It provides a variety of analysis
 functions and features acceleration via Numba and scalability through Dask
 support. Additionally, the library offers GPU capabilities by leveraging CuPy
-and Numba’s just-in-time (JIT) cuda compilation. However, the package has some
-limitations, including an inflexible and, sometimes, inconsistent interface
-where support for Dask, GPU acceleration, and parallel processing varies across
-different functions. Data type support is also restricted, with most functions
-converting inputs to float 32 and using NaNs for missing data, and the library
-currently lacks some common raster operations found in other tools.
+[@cupy] and Numba’s just-in-time (JIT) cuda compilation. However, the package
+has some limitations, including an inflexible and, sometimes, inconsistent
+interface where support for Dask, GPU acceleration, and parallel processing
+varies across different functions. Data type support is also restricted, with
+most functions converting inputs to float 32 and using NaNs for missing data,
+and the library currently lacks some common raster operations found in other
+tools.
 
 
 # Software Description
