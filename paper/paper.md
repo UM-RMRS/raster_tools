@@ -339,11 +339,11 @@ benefit from future improvements in the Dask ecosystem.
 # Comparison
 
 Except for cost-distance functions, Raster Tools provides a lazy, parallel,
-OOC, consistent, and chainable API, along with a suite of raster processing
-functions, and fully integrates with the wider Python data stack. This
-contrasts with other packages in the field like those listed above, which are
-either in-memory, not chainable, inconsistent, or incompatible with the Python
-data stack.
+OOC, flaxible, consistent, and chainable API, along with a suite of raster
+processing functions, and fully integrates with the wider Python data stack.
+This contrasts with other packages in the field like those listed above, which
+are either in-memory, not chainable, inconsistent, inflexible, or incompatible
+with the Python data stack.
 
 # Conclusion
 
