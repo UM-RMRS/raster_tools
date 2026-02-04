@@ -307,27 +307,34 @@ dynamic and can be produced hourly for local fire support.
 
 # Limitations
 
-Raster Tools has some limitations, which we acknowledge here. At the time of
-testing and benchmarking, Q3-Q4 2025, Raster Tools was tied to Dask’s original,
-and default, task scheduler. This was due to incompatibilities with Dask’s new
-Distributed scheduler [@dask_dist] and another dependency, which has since been
-fixed. The Dask developers have shifted their efforts to the new Distributed
-scheduler, which is now the recommended scheduler going forward. The new
-scheduler is more performant and allows use with distributed systems. The
-overhead of the default scheduler can be seen in \ref{fig_runtimes}. The
-scheduler overhead dominates the runtime for most of the scenarios. The two
-scenarios which show decent scaling are the two most compute intensive
-operations on a per-data-chunk basis. They are expensive enough that the
-scheduler overhead no longer dominates.
+Raster Tools has limitations which we acknowledge here. During the benchmarking
+period (Q3–Q4 2025), Raster Tools was constrained to Dask’s default threaded
+scheduler due to a dependency being incompatible with the newer Distributed
+scheduler [@dask_dist]. While this incompatibility has since been resolved, the
+performance data in \ref{fig_runtimes} reflects the overhead inherent to the
+threaded scheduler. As shown, scheduling overhead dominates the runtime for
+lighter tasks. However, scenarios involving compute-intensive operations (high
+computation-to-chunk-size ratio) essentially mask this overhead, demonstrating
+that the package scales well when the scheduler is not the bottleneck.
 
-Another related limitation is that the default Dask scheduler prioritizes CPU
-utilization over respecting memory limitations. The amount of memory used by
-Dask is proportional to the number of available CPU cores multiplied by the
-data-chunk size. Thus, the amount of memory needed will need to be larger on a
-system with a larger number of cores when using Raster Tools. Adjusting Dask's
-target chunk size down can help with this issue but also means more chunks to
-process and greater scheduling overhead. This is handled better with the new
-scheduler.
+Therefore, the presented benchmarks represent a performance baseline. Since the
+Distributed scheduler is generally more performant and handles memory
+backpressure more effectively, users can expect performance to match or exceed
+these figures.
+
+A related limitation of the threaded scheduler is its prioritization of CPU
+utilization over memory constraints. Memory consumption is proportional to the
+number of cores multiplied by the data-chunk size. On systems with a
+high-core-count, this requires significant available memory. While reducing
+Dask’s target chunk size mitigates this, it increases the number of chunks and
+adds scheduling overhead.
+
+Importantly, Raster Tools is designed to be scheduler and configuration
+agnostic. It builds the computational graph but does not enforce a specific
+execution engine or set of configurations. This ensures that users retain full
+control over Dask configuration, including the ability to switch to the
+Distributed scheduler. It also means that Raster Tools will automatically
+benefit from future improvements in the Dask ecosystem.
 
 # Comparison
 
