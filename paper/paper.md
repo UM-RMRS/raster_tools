@@ -237,6 +237,11 @@ Because of Raster Tools’ compatibility, it is possible to easily convert data
 to an appropriate format for another library and then ingest results back into
 Raster Tools, or vice versa.
 
+Raster Tools also provides the Model Predict API. This API allows a model
+to be applied to any raster in a lazy fashion, compatible with the rest of the
+package. Using the Model Predict API allows models not normally compatible with
+Dask or Raster Tools to be easily folded into pipelines.
+
 # Scaling
 
 To evaluate the performance and scaling of Raster Tools, we benchmarked it in a
