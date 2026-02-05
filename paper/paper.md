@@ -39,9 +39,10 @@ Raster Tools can efficiently process extremely large raster datasets, including
 those larger than the system’s available memory. Raster Tools can be deployed
 on systems ranging from small laptops to high performance computing
 environments. To aid in the construction of raster processing pipelines, Raster
-Tools provides a consistent API to a suite of scalable raster processing
-functions including focal, zonal, clipping, convolution, and distance analysis
-operations.
+Tools provides a consistent API to a suite of scalable and lazy raster
+processing functions including focal, zonal, clipping, convolution, and
+distance analysis operations. Raster Tools makes it much easier and more
+accessible to perform research using today's massive raster datasets.
 
 # Statement of Need
 
@@ -137,7 +138,7 @@ package from the same authors, built on top of GeoUtils, which provides a suite
 of digital elevation model (DEM) focused functions.
 
 Finally, Xarray-Spatial is a package designed for spatial analysis of rasters,
-built directly on Xarray data objects. It provides a variety of analysis
+built directly on Xarray data objects. It provides a wide variety of analysis
 functions and features acceleration via Numba and scalability through Dask
 support. Additionally, the library offers GPU capabilities by leveraging CuPy
 [@cupy] and Numba’s just-in-time (JIT) cuda compilation. However, the package
@@ -344,11 +345,10 @@ benefit from future improvements in the Dask ecosystem.
 # Comparison
 
 Except for cost-distance functions, Raster Tools provides a lazy, parallel,
-OOC, flaxible, consistent, and chainable API, along with a suite of raster
+OOC, flexible, consistent, and chainable API, along with a suite of raster
 processing functions, and fully integrates with the wider Python data stack.
 This contrasts with other packages in the field like those listed above, which
-are either in-memory, not chainable, inconsistent, inflexible, or incompatible
-with the Python data stack.
+force a trade-off in one way or another, between these traits.
 
 # Conclusion
 
