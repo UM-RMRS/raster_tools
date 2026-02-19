@@ -144,6 +144,8 @@ def assert_rasters_equal(
 ):
     assert isinstance(left, Raster)
     assert isinstance(right, Raster)
+    assert_valid_raster(left)
+    assert_valid_raster(right)
     assert left.crs == right.crs
     assert left.affine == right.affine
     assert_raster_ds_equal(
