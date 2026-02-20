@@ -139,7 +139,7 @@ def _rasterize_onto_chunk(
         gdf = gdf.sort_values(by=["values"], na_position="first")
 
     geometry = gdf.geometry.to_numpy()
-    values = gdf["values"].to_numpy()
+    values = gdf["values"].to_numpy().copy()
     if use_index:
         values += 1
 
