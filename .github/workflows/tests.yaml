@@ -7,6 +7,9 @@ on:
       - 'docs/**'
       - 'paper/**'
       - 'notebooks/**'
+  schedule:
+    # Run every Wednesday, 11am UTC/6am EST
+    - cron: '0 11 * * 3'
 
 concurrency:
   group: ${{ github.ref }}
