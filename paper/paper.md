@@ -317,7 +317,7 @@ Raster Tools has limitations which we acknowledge here. During the benchmarking
 period (Q3–Q4 2025), Raster Tools was constrained to Dask’s default threaded
 scheduler due to a dependency being incompatible with the newer Distributed
 scheduler [@dask_dist]. While this incompatibility has since been resolved, the
-performance data in Figure \ref{fig_runtimes} reflects the overhead inherent to
+performance data in \autoref{fig_runtimes} reflects the overhead inherent to
 the threaded scheduler. As shown, scheduling overhead dominates the runtime for
 lighter tasks. However, scenarios involving compute-intensive operations (high
 computation-to-chunk-size ratio) essentially mask this overhead, demonstrating
