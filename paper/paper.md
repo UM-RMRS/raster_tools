@@ -27,7 +27,7 @@ affiliations:
   - index: 2
     name: Rocky Mountain Research Station, USA
     ror: 04347cr60
-date: 5 February 2026
+date: 23 February 2026
 bibliography: paper.bib
 ---
 
@@ -283,7 +283,7 @@ to improve performance.
 
 ![**Left**) Runtimes for all scenarios. **Right**) The runtimes for all
 scenarios, excluding the Focal Entropy scenario.
-\label(fig:runtimes)
+\label(fig_runtimes)
 ](runtimes.png){ width=100% }
 
 \autoref{fig:runtimes} shows the runtimes of the scenarios as the number of cores
@@ -304,7 +304,7 @@ rasters, rasterize vectors, and complete a wide range of geospatial analysis in
 @wiard2025 and @wiard2026.
 
 Raster Tools is also being used in production by the Forest Service for their
-Potential Control Locations (PCL) product [@conner2017], [@conner2022]. When
+Potential Control Locations (PCL) product [@connor2017], [@conner2022]. When
 initially created, the PCL product was a static, yearly raster for the western
 half of the United States at 30m resolution. The pipeline for producing PCL was
 large and time intensive. In 2023 and 2024, the pipeline was completely rebuilt
