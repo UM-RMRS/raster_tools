@@ -283,7 +283,7 @@ to improve performance.
 
 ![**Left**) Runtimes for all scenarios. **Right**) The runtimes for all
 scenarios, excluding the Focal Entropy scenario.
-\label(fig_runtimes)
+\label{fig_runtimes}
 ](runtimes.png){ width=100% }
 
 \autoref{fig_runtimes} shows the runtimes of the scenarios as the number of cores
