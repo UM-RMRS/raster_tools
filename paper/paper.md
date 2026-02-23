@@ -286,7 +286,7 @@ scenarios, excluding the Focal Entropy scenario.
 \label(fig_runtimes)
 ](runtimes.png){ width=100% }
 
-\autoref{fig:runtimes} shows the runtimes of the scenarios as the number of cores
+\autoref{fig_runtimes} shows the runtimes of the scenarios as the number of cores
 being used increases. Filtering out the Focal Entropy case for the right-hand
 plot allows the results for the other scenarios to be viewed more clearly. The
 Focal Entropy scenario shows strong scaling with the number of cores. Focal
