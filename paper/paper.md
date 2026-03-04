@@ -278,7 +278,7 @@ to improve performance.
 | Curvature                | curvature(A)                 | Calculate the curvature of the DEM               |
 +--------------------------+------------------------------+--------------------------------------------------+
 | Reproject                | reproject(A, new_crs)        | Calculate the curvature of the DEM               |
-+==========================+==============================+==================================================+
++--------------------------+------------------------------+--------------------------------------------------+
 
 
 ![**Left**) Runtimes for all scenarios. **Right**) The runtimes for all
