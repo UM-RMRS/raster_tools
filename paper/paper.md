@@ -141,7 +141,7 @@ Finally, Xarray-Spatial is a package designed for spatial analysis of rasters,
 built directly on Xarray data objects. It provides a wide variety of analysis
 functions and features acceleration via Numba and scalability through Dask
 support. Additionally, the library offers GPU capabilities by leveraging CuPy
-[@cupy] and Numba’s just-in-time (JIT) cuda compilation. However, the package
+[@cupy] and Numba’s just-in-time (JIT) CUDA compilation. However, the package
 has some limitations, including an inflexible and, sometimes, inconsistent
 interface where support for Dask, GPU acceleration, and parallel processing
 varies across different functions. Data type support is also restricted, with
@@ -304,7 +304,7 @@ rasters, rasterize vectors, and complete a wide range of geospatial analysis in
 @wiard2025 and @wiard2026.
 
 Raster Tools is also being used in production by the Forest Service for their
-Potential Control Locations (PCL) product [@connor2017], [@conner2022]. When
+Potential Control Locations (PCL) product [@connor2017; @conner2022]. When
 initially created, the PCL product was a static, yearly raster for the western
 half of the United States at 30m resolution. The pipeline for producing PCL was
 large and time intensive. In 2023 and 2024, the pipeline was completely rebuilt
@@ -362,3 +362,5 @@ opportunities for research projects that previously faced technical or resource
 limitations. Raster Tools has already proven valuable in real-world studies and
 operational contexts, and it continues to expand the possibilities for
 geospatial science and applied research.
+
+# References
