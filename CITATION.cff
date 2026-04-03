@@ -1,0 +1,38 @@
+cff-version: "1.2.0"
+authors:
+- family-names: Bunt
+  given-names: Fredrick
+  orcid: "https://orcid.org/0000-0003-4139-5355"
+- family-names: Johnson
+  given-names: Jesse
+  orcid: "https://orcid.org/0000-0002-7387-6500"
+- family-names: Hogland
+  given-names: John
+  orcid: "https://orcid.org/0000-0003-2676-6277"
+doi: 10.5281/zenodo.19100698
+message: If you use this software, please cite our article in the
+  Journal of Open Source Software.
+preferred-citation:
+  authors:
+  - family-names: Bunt
+    given-names: Fredrick
+    orcid: "https://orcid.org/0000-0003-4139-5355"
+  - family-names: Johnson
+    given-names: Jesse
+    orcid: "https://orcid.org/0000-0002-7387-6500"
+  - family-names: Hogland
+    given-names: John
+    orcid: "https://orcid.org/0000-0003-2676-6277"
+  date-published: 2026-03-24
+  doi: 10.21105/joss.08134
+  issn: 2475-9066
+  issue: 119
+  journal: Journal of Open Source Software
+  publisher:
+    name: Open Journals
+  start: 8134
+  title: "Raster Tools: An Open Source Toolbox for Raster Processing"
+  type: article
+  url: "https://joss.theoj.org/papers/10.21105/joss.08134"
+  volume: 11
+title: "Raster Tools: An Open Source Toolbox for Raster Processing"
