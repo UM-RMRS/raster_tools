@@ -487,14 +487,65 @@ document.write(`
     <span class="k">return</span> <span class="n">is_int</span><span class="p">(</span><span class="n">value_or_dtype</span><span class="p">)</span> <span class="ow">or</span> <span class="n">is_float</span><span class="p">(</span><span class="n">value_or_dtype</span><span class="p">)</span></div>
 
 
-<span class="k">def</span><span class="w"> </span><span class="nf">_custom_min_scalar_type</span><span class="p">(</span><span class="n">value</span><span class="p">):</span>
-    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">):</span>
-        <span class="k">return</span> <span class="n">value</span>
-    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">min_scalar_type</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+<div class="viewcode-block" id="safe_min_scalar_type"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.dtypes.safe_min_scalar_type">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">safe_min_scalar_type</span><span class="p">(</span><span class="n">value</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;wraps np.min_scalar_type but accounts for precision loss&quot;&quot;&quot;</span>
+    <span class="n">suggested_dtype</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">min_scalar_type</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+
+    <span class="c1"># If it&#39;s a float, check for precision loss</span>
+    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">issubdtype</span><span class="p">(</span><span class="n">suggested_dtype</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">floating</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="ow">or</span> <span class="n">np</span><span class="o">.</span><span class="n">isinf</span><span class="p">(</span><span class="n">value</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">suggested_dtype</span>
+
+        <span class="k">for</span> <span class="n">dtype</span> <span class="ow">in</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float16</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]:</span>
+            <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span><span class="o">.</span><span class="n">itemsize</span> <span class="o">&lt;</span> <span class="n">suggested_dtype</span><span class="o">.</span><span class="n">itemsize</span><span class="p">:</span>
+                <span class="k">continue</span>
+
+            <span class="n">casted_value</span> <span class="o">=</span> <span class="n">dtype</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">value</span> <span class="o">==</span> <span class="nb">float</span><span class="p">(</span><span class="n">casted_value</span><span class="p">):</span>
+                <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="s2">&quot;float64&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">suggested_dtype</span></div>
 
 
-<div class="viewcode-block" id="get_common_dtype"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.dtypes.get_common_dtype">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">get_common_dtype</span><span class="p">(</span><span class="n">values</span><span class="p">):</span>
-    <span class="k">return</span> <span class="n">reduce</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">promote_types</span><span class="p">,</span> <span class="nb">map</span><span class="p">(</span><span class="n">_custom_min_scalar_type</span><span class="p">,</span> <span class="n">values</span><span class="p">))</span></div>
+<div class="viewcode-block" id="get_common_dtype"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.dtypes.get_common_dtype">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">get_common_dtype</span><span class="p">(</span><span class="n">items</span><span class="p">):</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">items</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Cannot determine common dtype of an empty sequence&quot;</span><span class="p">)</span>
+
+    <span class="n">dtypes_to_promote</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">int_literals</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">items</span><span class="p">:</span>
+        <span class="c1"># Pass explicit dtypes straight through</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">):</span>
+            <span class="n">dtypes_to_promote</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="c1"># Pool raw integers (excluding bools) for collective bounds checking</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="nb">bool</span><span class="p">):</span>
+            <span class="n">int_literals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="c1"># Handle floats individually so they pass through your precision</span>
+        <span class="c1"># checks</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">dtypes_to_promote</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">safe_min_scalar_type</span><span class="p">(</span><span class="n">x</span><span class="p">))</span>
+
+    <span class="c1"># Find the absolute minimum dtype that fits the entire range of pooled</span>
+    <span class="c1"># integers</span>
+    <span class="k">if</span> <span class="n">int_literals</span><span class="p">:</span>
+        <span class="n">min_val</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">int_literals</span><span class="p">)</span>
+        <span class="n">max_val</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">int_literals</span><span class="p">)</span>
+        <span class="c1"># Ordered to match np.min_scalar_type&#39;s exact preference for unsigned</span>
+        <span class="c1"># types</span>
+        <span class="n">int_types</span> <span class="o">=</span> <span class="p">[</span><span class="n">U8</span><span class="p">,</span> <span class="n">I8</span><span class="p">,</span> <span class="n">U16</span><span class="p">,</span> <span class="n">I16</span><span class="p">,</span> <span class="n">U32</span><span class="p">,</span> <span class="n">I32</span><span class="p">,</span> <span class="n">U64</span><span class="p">,</span> <span class="n">I64</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">dt</span> <span class="ow">in</span> <span class="n">int_types</span><span class="p">:</span>
+            <span class="c1"># If we have negative numbers, immediately skip any unsigned types</span>
+            <span class="k">if</span> <span class="n">min_val</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">np</span><span class="o">.</span><span class="n">issubdtype</span><span class="p">(</span><span class="n">dt</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">unsignedinteger</span><span class="p">):</span>
+                <span class="k">continue</span>
+
+            <span class="n">info</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">iinfo</span><span class="p">(</span><span class="n">dt</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">info</span><span class="o">.</span><span class="n">min</span> <span class="o">&lt;=</span> <span class="n">min_val</span> <span class="ow">and</span> <span class="n">max_val</span> <span class="o">&lt;=</span> <span class="n">info</span><span class="o">.</span><span class="n">max</span><span class="p">:</span>
+                <span class="n">dtypes_to_promote</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="n">dt</span><span class="p">))</span>
+                <span class="k">break</span>
+
+    <span class="k">return</span> <span class="n">reduce</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">promote_types</span><span class="p">,</span> <span class="n">dtypes_to_promote</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="promote_dtype_to_float"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.dtypes.promote_dtype_to_float">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">promote_dtype_to_float</span><span class="p">(</span><span class="n">dtype</span><span class="p">):</span>

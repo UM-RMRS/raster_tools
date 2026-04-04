@@ -831,7 +831,7 @@ copied <cite>bands</cite> times.</p></li>
 <span id="raster-tools-dtypes-module"></span><h2>raster_tools.dtypes module<a class="headerlink" href="#module-raster_tools.dtypes" title="Permalink to this headline">#</a></h2>
 <dl class="py function">
 <dt class="sig sig-object py" id="raster_tools.dtypes.get_common_dtype">
-<span class="sig-prename descclassname"><span class="pre">raster_tools.dtypes.</span></span><span class="sig-name descname"><span class="pre">get_common_dtype</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">values</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/dtypes.html#get_common_dtype"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.dtypes.get_common_dtype" title="Permalink to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">raster_tools.dtypes.</span></span><span class="sig-name descname"><span class="pre">get_common_dtype</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">items</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/dtypes.html#get_common_dtype"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.dtypes.get_common_dtype" title="Permalink to this definition">#</a></dt>
 <dd></dd></dl>
 
 <dl class="py function">
@@ -884,6 +884,12 @@ copied <cite>bands</cite> times.</p></li>
 <dt class="sig sig-object py" id="raster_tools.dtypes.promote_dtype_to_float">
 <span class="sig-prename descclassname"><span class="pre">raster_tools.dtypes.</span></span><span class="sig-name descname"><span class="pre">promote_dtype_to_float</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dtype</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/dtypes.html#promote_dtype_to_float"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.dtypes.promote_dtype_to_float" title="Permalink to this definition">#</a></dt>
 <dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="raster_tools.dtypes.safe_min_scalar_type">
+<span class="sig-prename descclassname"><span class="pre">raster_tools.dtypes.</span></span><span class="sig-name descname"><span class="pre">safe_min_scalar_type</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/dtypes.html#safe_min_scalar_type"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.dtypes.safe_min_scalar_type" title="Permalink to this definition">#</a></dt>
+<dd><p>wraps np.min_scalar_type but accounts for precision loss</p>
+</dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="raster_tools.dtypes.should_promote_to_fit">
