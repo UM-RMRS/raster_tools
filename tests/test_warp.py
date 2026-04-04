@@ -2,6 +2,7 @@ import numpy as np
 import pytest
 from odc.geo.geobox import GeoBox
 
+import raster_tools as rts
 from raster_tools import warp
 from raster_tools.masking import get_default_null_value
 from tests import testdata
@@ -187,3 +188,13 @@ def test_reproject_crs_and_resolution(crs, resolution):
     assert result.null_value == truth_reprojected.rio.nodata
     assert np.allclose(result.to_numpy(), truth_reprojected.to_numpy())
     assert np.allclose(result.xmask, truth_mask)
+
+
+def test_reproject_nodata_duplication():
+    raster = testdata.raster.dem_small
+    assert raster.null_value == np.float32(-3.402823e38)
+    assert "nodata" not in raster.xdata.attrs
+
+    raster_rp = rts.warp.reproject(raster, 3857)
+    assert raster_rp.null_value == np.float32(-3.402823e38)
+    assert "nodata" not in raster_rp.xdata.attrs

@@ -105,6 +105,12 @@ def reproject(
     reprojected = raster.xdata.odc.reproject(
         dst_gb, resampling=resample_method, dst_nodata=nv
     ).rio.write_nodata(nv)
+    # reproject sets a "nodata" attribute that has type int for whole-number
+    # null values (e.g. -3.4028235e+38 becomes a VERY long python int). This
+    # can cause all kinds of issues for downstream operations
+    # since .rio will get confused. We are already handling null values so it
+    # can be dropped.
+    reprojected.attrs.pop("nodata", None)
     if "longitude" in reprojected.dims:
         # odc-geo will rename x/y to lon/lat for lon/lat based projections, so
         # revert to x/y
