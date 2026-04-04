@@ -512,6 +512,12 @@ document.write(`
     <span class="n">reprojected</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">xdata</span><span class="o">.</span><span class="n">odc</span><span class="o">.</span><span class="n">reproject</span><span class="p">(</span>
         <span class="n">dst_gb</span><span class="p">,</span> <span class="n">resampling</span><span class="o">=</span><span class="n">resample_method</span><span class="p">,</span> <span class="n">dst_nodata</span><span class="o">=</span><span class="n">nv</span>
     <span class="p">)</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_nodata</span><span class="p">(</span><span class="n">nv</span><span class="p">)</span>
+    <span class="c1"># reproject sets a &quot;nodata&quot; attribute that has type int for whole-number</span>
+    <span class="c1"># null values (e.g. -3.4028235e+38 becomes a VERY long python int). This</span>
+    <span class="c1"># can cause all kinds of issues for downstream operations</span>
+    <span class="c1"># since .rio will get confused. We are already handling null values so it</span>
+    <span class="c1"># can be dropped.</span>
+    <span class="n">reprojected</span><span class="o">.</span><span class="n">attrs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;nodata&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
     <span class="k">if</span> <span class="s2">&quot;longitude&quot;</span> <span class="ow">in</span> <span class="n">reprojected</span><span class="o">.</span><span class="n">dims</span><span class="p">:</span>
         <span class="c1"># odc-geo will rename x/y to lon/lat for lon/lat based projections, so</span>
         <span class="c1"># revert to x/y</span>
