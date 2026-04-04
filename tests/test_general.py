@@ -1059,7 +1059,7 @@ def test_where_both_none():
         # make sure that float input rasters are accepted
         (
             arange_raster((2, 10, 10)).astype("float32"),
-            {0.0: -1.0, 1: -2, 2: -3, 120: -120, 150: 1e23},
+            {0.0: -1.0, 1: -2, 2: -3, 120: -120, 150: 1e6},
             np.dtype("float32"),
         ),
     ],

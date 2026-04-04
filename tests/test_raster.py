@@ -1832,6 +1832,17 @@ def test_set_null_value():
     assert rs2.crs == rs2.crs
 
 
+def test_set_null_value_float16_precision_loss():
+    rs = rts.data_to_raster(np.ones((2, 2), dtype="float16"), nv=-1)
+    rs2 = rs.set_null_value(-9999.0)
+    assert rs2.dtype == np.dtype("float32")
+    assert rs2.null_value == np.float64(-9999)
+
+    rs2 = rs.set_null_value(-9999)
+    assert rs2.dtype == np.dtype("float32")
+    assert rs2.null_value == np.float64(-9999)
+
+
 @pytest.mark.parametrize(
     "raster,value,expected_dtype",
     [

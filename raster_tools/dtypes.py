@@ -80,14 +80,65 @@ def is_scalar(value_or_dtype):
     return is_int(value_or_dtype) or is_float(value_or_dtype)
 
 
-def _custom_min_scalar_type(value):
-    if isinstance(value, np.dtype):
-        return value
-    return np.min_scalar_type(value)
+def safe_min_scalar_type(value):
+    """wraps np.min_scalar_type but accounts for precision loss"""
+    suggested_dtype = np.min_scalar_type(value)
+
+    # If it's a float, check for precision loss
+    if np.issubdtype(suggested_dtype, np.floating):
+        if np.isnan(value) or np.isinf(value):
+            return suggested_dtype
+
+        for dtype in [np.float16, np.float32, np.float64]:
+            if np.dtype(dtype).itemsize < suggested_dtype.itemsize:
+                continue
+
+            casted_value = dtype(value)
+            if value == float(casted_value):
+                return np.dtype(dtype)
+        return np.dtype("float64")
+
+    return suggested_dtype
 
 
-def get_common_dtype(values):
-    return reduce(np.promote_types, map(_custom_min_scalar_type, values))
+def get_common_dtype(items):
+    if not items:
+        raise TypeError("Cannot determine common dtype of an empty sequence")
+
+    dtypes_to_promote = []
+    int_literals = []
+
+    for x in items:
+        # Pass explicit dtypes straight through
+        if isinstance(x, np.dtype):
+            dtypes_to_promote.append(x)
+        # Pool raw integers (excluding bools) for collective bounds checking
+        elif isinstance(x, int) and not isinstance(x, bool):
+            int_literals.append(x)
+        # Handle floats individually so they pass through your precision
+        # checks
+        else:
+            dtypes_to_promote.append(safe_min_scalar_type(x))
+
+    # Find the absolute minimum dtype that fits the entire range of pooled
+    # integers
+    if int_literals:
+        min_val = min(int_literals)
+        max_val = max(int_literals)
+        # Ordered to match np.min_scalar_type's exact preference for unsigned
+        # types
+        int_types = [U8, I8, U16, I16, U32, I32, U64, I64]
+        for dt in int_types:
+            # If we have negative numbers, immediately skip any unsigned types
+            if min_val < 0 and np.issubdtype(dt, np.unsignedinteger):
+                continue
+
+            info = np.iinfo(dt)
+            if info.min <= min_val and max_val <= info.max:
+                dtypes_to_promote.append(np.dtype(dt))
+                break
+
+    return reduce(np.promote_types, dtypes_to_promote)
 
 
 def promote_dtype_to_float(dtype):
