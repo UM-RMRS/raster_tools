@@ -26,6 +26,15 @@
     $ pip install -r ./requirements/dev.txt
     ```
 
+    With make:
+
+    ```sh
+    make dev
+    ```
+
+    This builds the conda env for you. With the make option, you can skip step
+    5.
+
 5. Install the project into the virtual environment:
 
     ```sh
@@ -37,6 +46,7 @@
     ```sh
     $ pre-commit install
     ```
+
 7. Create your development branch:
 
     ```sh
