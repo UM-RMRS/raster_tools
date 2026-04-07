@@ -20,6 +20,7 @@ pytest-mock
 pytest-xdist
 rasterio
 rioxarray
+ruff
 scipy
 shapely>=2.0
 twine
