@@ -1,15 +1,16 @@
-.PHONY: all dist clean clean-env clean-build clean-pyc clean-docs dev test test-mp
+.PHONY: all dist clean clean-env clean-build clean-pyc clean-docs dev test test-mp upload
 
 all: dist
+
+upload: dist
+	python -m twine upload dist/*
 
 dist: clean
 	python -m build
 
 dev:
 	conda env create -f requirements/dev.yml
-
-install-dev:
-	pip install -e .
+	pip install --no-deps -e .
 
 test:
 	pytest
