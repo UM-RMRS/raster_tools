@@ -62,9 +62,9 @@ ignore = [
     "E203",
 ]
 [tool.ruff.lint.isort]
-known-first-party = ["raster_tools", "test"]
+known-first-party = ["raster_tools", "tests"]
 
 [tool.isort]
 profile = "black"
 line_length = 79
-known_first_party = ["raster_tools", "test"]
+known_first_party = ["raster_tools", "tests"]
