@@ -42,8 +42,10 @@ DTYPE_TO_DEFAULT_NULL = {
     U16: U16.type(65_535),
     # 2^32 - 1
     U32: U32.type(4_294_967_295),
-    # 2^64 - 1
-    U64: U64.type(18_446_744_073_709_551_615),
+    # 2^64 - 2048: largest float64-representable uint64 sentinel. Needed to due
+    # to old versions of rioxarray casting the value to a float and checking
+    # if the value changed.
+    U64: U64.type(18_446_744_073_709_549_568),
     I8: I8.type(-128),
     # -2^15
     I16: I16.type(-32_768),
