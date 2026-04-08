@@ -681,6 +681,47 @@ def test_raster_from_float_data_with_small_null_value():
     assert np.allclose(raster.to_numpy(), -9_999.0)
 
 
+@pytest.fixture
+def raster_ones_missing_data():
+    nv = -1
+    data = np.ones((1, 6, 6), dtype=int)
+    data[0, 0] = nv
+    return rts.data_to_raster(data, nv=nv, crs="EPSG:3857").chunk((1, 3, 3))
+
+
+@pytest.mark.parametrize(
+    "op",
+    [operator.add, operator.sub, operator.mul],
+    ids=["add", "sub", "mult"],
+)
+@pytest.mark.parametrize(
+    "use_raster_operand", [False, True], ids=["scalar", "raster"]
+)
+@pytest.mark.parametrize("dtype", [I8, I16, U8, U16])
+def test_null_value_overflow_underflow(
+    raster_ones_missing_data, dtype, use_raster_operand, op
+):
+    raster = raster_ones_missing_data.astype(
+        dtype, new_null_value=get_default_null_value(dtype)
+    )
+    nv = get_default_null_value(dtype)
+
+    mask = raster_ones_missing_data.mask.compute()
+    pre_expected = raster_ones_missing_data.to_numpy()
+    pre_expected = np.where(mask, np.nan, pre_expected)
+
+    if use_raster_operand:
+        operand = rts.data_to_raster(np.full(raster.shape, 2, dtype=dtype))
+    else:
+        operand = dtype.type(2)
+
+    # Check if the operation causes the null values to overflow/underflow
+    result = op(raster, operand)
+    expected = op(pre_expected, operand)
+    expected = np.where(mask, nv, expected).astype(dtype)
+    assert np.allclose(result.to_numpy(), expected)
+
+
 @pytest.fixture(params=[True, False])
 def boolean(request):
     return request.param
