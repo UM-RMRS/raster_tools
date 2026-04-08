@@ -449,8 +449,10 @@ document.write(`
     <span class="n">U16</span><span class="p">:</span> <span class="n">U16</span><span class="o">.</span><span class="n">type</span><span class="p">(</span><span class="mi">65_535</span><span class="p">),</span>
     <span class="c1"># 2^32 - 1</span>
     <span class="n">U32</span><span class="p">:</span> <span class="n">U32</span><span class="o">.</span><span class="n">type</span><span class="p">(</span><span class="mi">4_294_967_295</span><span class="p">),</span>
-    <span class="c1"># 2^64 - 1</span>
-    <span class="n">U64</span><span class="p">:</span> <span class="n">U64</span><span class="o">.</span><span class="n">type</span><span class="p">(</span><span class="mi">18_446_744_073_709_551_615</span><span class="p">),</span>
+    <span class="c1"># 2^64 - 2048: largest float64-representable uint64 sentinel. Needed to due</span>
+    <span class="c1"># to old versions of rioxarray casting the value to a float and checking</span>
+    <span class="c1"># if the value changed.</span>
+    <span class="n">U64</span><span class="p">:</span> <span class="n">U64</span><span class="o">.</span><span class="n">type</span><span class="p">(</span><span class="mi">18_446_744_073_709_549_568</span><span class="p">),</span>
     <span class="n">I8</span><span class="p">:</span> <span class="n">I8</span><span class="o">.</span><span class="n">type</span><span class="p">(</span><span class="o">-</span><span class="mi">128</span><span class="p">),</span>
     <span class="c1"># -2^15</span>
     <span class="n">I16</span><span class="p">:</span> <span class="n">I16</span><span class="o">.</span><span class="n">type</span><span class="p">(</span><span class="o">-</span><span class="mi">32_768</span><span class="p">),</span>
