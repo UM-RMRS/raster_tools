@@ -483,7 +483,9 @@ document.write(`
 
 <div class="viewcode-block" id="is_scalar"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.dtypes.is_scalar">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">is_scalar</span><span class="p">(</span><span class="n">value_or_dtype</span><span class="p">):</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value_or_dtype</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">):</span>
-        <span class="k">return</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value_or_dtype</span><span class="p">,</span> <span class="n">Number</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value_or_dtype</span><span class="p">,</span> <span class="n">Number</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">is_bool</span><span class="p">(</span>
+            <span class="n">value_or_dtype</span>
+        <span class="p">)</span>
     <span class="k">return</span> <span class="n">is_int</span><span class="p">(</span><span class="n">value_or_dtype</span><span class="p">)</span> <span class="ow">or</span> <span class="n">is_float</span><span class="p">(</span><span class="n">value_or_dtype</span><span class="p">)</span></div>
 
 
