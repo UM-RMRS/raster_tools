@@ -57,6 +57,7 @@ from raster_tools.utils import (
     is_strictly_decreasing,
     is_strictly_increasing,
     merge_masks,
+    null_values_equal,
     to_chunk_dict,
 )
 
@@ -1718,7 +1719,10 @@ class Raster(_RasterBase):
             raise ValueError(f"Unsupported type: '{dtype}'")
         dtype = DTYPE_INPUT_TO_DTYPE[dtype]
 
-        if dtype == self.dtype:
+        if dtype == self.dtype and (
+            new_null_value is None
+            or null_values_equal(self.null_value, new_null_value)
+        ):
             return self.copy()
 
         xrs = self._ds.raster

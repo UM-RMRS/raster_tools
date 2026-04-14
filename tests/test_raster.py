@@ -1804,6 +1804,15 @@ def test_astype_new_null_value():
     assert result.null_value == 99
 
 
+def test_astype_new_null_value_same_dtype_new_null():
+    raster = arange_raster((4, 4)).set_null_value(0).set_null_value(-1)
+    assert raster.dtype == "int64"
+    assert raster.null_value == -1
+    result = raster.astype(raster.dtype, new_null_value=-99)
+    assert result.dtype == "int64"
+    assert result.null_value == -99
+
+
 def test_copy():
     rs = testdata.raster.dem_clipped_small
     copy = rs.copy()
