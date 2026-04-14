@@ -464,6 +464,7 @@ document.write(`
     <span class="n">is_strictly_decreasing</span><span class="p">,</span>
     <span class="n">is_strictly_increasing</span><span class="p">,</span>
     <span class="n">merge_masks</span><span class="p">,</span>
+    <span class="n">null_values_equal</span><span class="p">,</span>
     <span class="n">to_chunk_dict</span><span class="p">,</span>
 <span class="p">)</span>
 
@@ -2125,7 +2126,10 @@ document.write(`
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unsupported type: &#39;</span><span class="si">{</span><span class="n">dtype</span><span class="si">}</span><span class="s2">&#39;&quot;</span><span class="p">)</span>
         <span class="n">dtype</span> <span class="o">=</span> <span class="n">DTYPE_INPUT_TO_DTYPE</span><span class="p">[</span><span class="n">dtype</span><span class="p">]</span>
 
-        <span class="k">if</span> <span class="n">dtype</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">dtype</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">dtype</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">dtype</span> <span class="ow">and</span> <span class="p">(</span>
+            <span class="n">new_null_value</span> <span class="ow">is</span> <span class="kc">None</span>
+            <span class="ow">or</span> <span class="n">null_values_equal</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">null_value</span><span class="p">,</span> <span class="n">new_null_value</span><span class="p">)</span>
+        <span class="p">):</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
 
         <span class="n">xrs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ds</span><span class="o">.</span><span class="n">raster</span>
