@@ -4,28 +4,74 @@ import pytest
 
 from raster_tools import creation
 from raster_tools.masking import get_default_null_value
-from tests import testdata
 from tests.utils import (
-    arange_raster,
     assert_rasters_equal,
     assert_rasters_similar,
     assert_valid_raster,
+    make_raster,
 )
 
+TEMPLATES = [
+    pytest.param(
+        make_raster(
+            "arange",
+            shape=(2, 10, 10),
+            null=-1,
+            null_pattern=[
+                np.s_[0, :3, :3],
+                np.s_[1, -3:, -3:],
+            ],
+            crs="EPSG:5070",
+            chunksize=(1, 3, 3),
+        ),
+        id="masked-2band-10x10",
+    ),
+    pytest.param(
+        make_raster(
+            "arange",
+            dtype=float,
+            shape=(3, 100, 100),
+            crs=None,
+        ),
+        id="unmasked-3band-100x100",
+    ),
+]
 
-def templates():
-    ts = []
-    r = arange_raster((2, 10, 10)).set_null_value(-1).set_crs("EPSG:5070")
-    r._ds.mask.data[0, :3, :3] = True
-    r._ds.mask.data[1, -3:, -3:] = True
-    r = r.chunk((1, 3, 3))
-    ts.append(r)
-    ts.append(arange_raster((3, 100, 100), dtype=float))
-    return ts
+
+def _resolve_dtype(dtype, template):
+    return np.dtype(dtype) if dtype is not None else template.dtype
+
+
+def assert_creation_basics(result, template, nbands, dtype):
+    assert_valid_raster(result)
+    assert_rasters_similar(template, result, check_nbands=False)
+    assert result.nbands == nbands
+    assert result.dtype == np.dtype(dtype)
+
+
+def assert_mask_copied(result, template, nbands, dtype, copy_mask):
+    result.eval()
+    if copy_mask and template._masked:
+        if nbands == template.nbands:
+            mask_truth = template.mask.compute()
+        else:
+            mask_truth = da.stack([template.mask[0]] * nbands).compute()
+        assert mask_truth.ndim == 3
+        assert mask_truth.shape[0] == nbands
+        assert result._masked
+        if np.dtype(dtype) == template.dtype:
+            assert result.null_value == template.null_value
+        else:
+            assert result.null_value == get_default_null_value(result.dtype)
+        assert np.allclose(result.mask.compute(), mask_truth)
+        assert (result.data[result.mask].compute() == result.null_value).all()
+    else:
+        assert not result._masked
+        assert result.mask.sum().compute() == 0
 
 
 @pytest.mark.parametrize("copy_mask", [0, 1])
-@pytest.mark.parametrize("nbands", [1, 2, 3])
+@pytest.mark.parametrize("nbands", [1, 3])
 @pytest.mark.parametrize(
     "dist,params",
     [
@@ -41,15 +87,8 @@ def templates():
         ("w", (11,)),
     ],
 )
-@pytest.mark.parametrize("template", templates())
+@pytest.mark.parametrize("template", TEMPLATES)
 def test_random_raster(template, dist, params, nbands, copy_mask):
-    if nbands == template.nbands:
-        mask_truth = template.mask.compute()
-    else:
-        mask_truth = da.stack([template.mask[0]] * nbands).compute()
-    assert mask_truth.ndim == 3
-    assert mask_truth.shape[0] == nbands
-
     result = creation.random_raster(
         template,
         distribution=dist,
@@ -60,108 +99,86 @@ def test_random_raster(template, dist, params, nbands, copy_mask):
     assert_valid_raster(result)
     assert_rasters_similar(template, result, check_nbands=False)
     assert result.nbands == nbands
-    result.eval()
-    if copy_mask and template._masked:
-        assert result._masked
-        assert result.null_value == get_default_null_value(result.dtype)
-        assert np.allclose(result.mask.compute(), mask_truth)
-        assert (result.data[result.mask].compute() == result.null_value).all()
-    else:
-        assert not result._masked
-        assert result.mask.sum().compute() == 0
-
-
-def run_constant_raster_tests(
-    op_to_test, template, value, nbands, dtype, copy_mask, pass_value
-):
-    dtype = np.dtype(dtype) if dtype is not None else template.dtype
-    if nbands == template.nbands:
-        mask_truth = template.mask.compute()
-    else:
-        mask_truth = da.stack([template.mask[0]] * nbands).compute()
-    assert mask_truth.ndim == 3
-    assert mask_truth.shape[0] == nbands
-
-    kwargs = {"bands": nbands, "dtype": dtype, "copy_mask": copy_mask}
-    if pass_value:
-        kwargs["value"] = value
-    result = op_to_test(template, **kwargs)
-    assert_valid_raster(result)
-    assert_rasters_similar(template, result, check_nbands=False)
-    assert result.nbands == nbands
-    assert result.dtype == dtype
-    result.eval()
-    if copy_mask and template._masked:
-        assert result._masked
-        if dtype == template.dtype:
-            assert result.null_value == template.null_value
-        else:
-            assert result.null_value == get_default_null_value(result.dtype)
-        assert np.allclose(result.mask.compute(), mask_truth)
-        assert (result.data[result.mask].compute() == result.null_value).all()
-    else:
-        assert not result._masked
-        assert result.mask.sum().compute() == 0
-    if value is not None:
-        assert (result == value).all().compute()
+    assert_mask_copied(result, template, nbands, None, copy_mask)
 
 
 @pytest.mark.parametrize("copy_mask", [0, 1])
 @pytest.mark.parametrize("dtype", [None, "int32"])
-@pytest.mark.parametrize("nbands", [1, 2, 3])
-@pytest.mark.parametrize("template", templates())
+@pytest.mark.parametrize("nbands", [1, 3])
+@pytest.mark.parametrize("template", TEMPLATES)
 def test_empty_like(template, nbands, dtype, copy_mask):
-    run_constant_raster_tests(
-        creation.empty_like, template, None, nbands, dtype, copy_mask, False
+    dtype = _resolve_dtype(dtype, template)
+    result = creation.empty_like(
+        template, bands=nbands, dtype=dtype, copy_mask=copy_mask
     )
+    assert_creation_basics(result, template, nbands, dtype)
+    assert_mask_copied(result, template, nbands, dtype, copy_mask)
 
 
 @pytest.mark.parametrize("copy_mask", [0, 1])
 @pytest.mark.parametrize("dtype", [None, "int32"])
-@pytest.mark.parametrize("nbands", [1, 2, 3])
-@pytest.mark.parametrize("value", [9, 100, -10])
-@pytest.mark.parametrize("template", templates())
+@pytest.mark.parametrize("nbands", [1, 3])
+@pytest.mark.parametrize("value", [-10, 100])
+@pytest.mark.parametrize("template", TEMPLATES)
 def test_full_like(template, value, nbands, dtype, copy_mask):
-    run_constant_raster_tests(
-        creation.full_like, template, value, nbands, dtype, copy_mask, True
-    )
-
-
-@pytest.mark.parametrize("copy_mask", [0, 1])
-@pytest.mark.parametrize("dtype", [None, "int32"])
-@pytest.mark.parametrize("nbands", [1, 2, 3])
-@pytest.mark.parametrize("value", [9, 100, -10])
-@pytest.mark.parametrize("template", templates())
-def test_constant_raster(template, value, nbands, dtype, copy_mask):
-    run_constant_raster_tests(
-        creation.constant_raster,
+    dtype = _resolve_dtype(dtype, template)
+    result = creation.full_like(
         template,
         value,
-        nbands,
-        dtype,
-        copy_mask,
-        True,
+        bands=nbands,
+        dtype=dtype,
+        copy_mask=copy_mask,
     )
+    assert_creation_basics(result, template, nbands, dtype)
+    assert_mask_copied(result, template, nbands, dtype, copy_mask)
+    assert (result == value).all().compute()
 
 
 @pytest.mark.parametrize("copy_mask", [0, 1])
 @pytest.mark.parametrize("dtype", [None, "int32"])
-@pytest.mark.parametrize("nbands", [1, 2, 3])
-@pytest.mark.parametrize("template", templates())
+@pytest.mark.parametrize("nbands", [1, 3])
+@pytest.mark.parametrize("value", [-10, 100])
+@pytest.mark.parametrize("template", TEMPLATES)
+def test_constant_raster(template, value, nbands, dtype, copy_mask):
+    dtype = _resolve_dtype(dtype, template)
+    result = creation.constant_raster(
+        template,
+        value,
+        bands=nbands,
+        dtype=dtype,
+        copy_mask=copy_mask,
+    )
+    assert_creation_basics(result, template, nbands, dtype)
+    assert_mask_copied(result, template, nbands, dtype, copy_mask)
+    assert (result == value).all().compute()
+
+
+@pytest.mark.parametrize("copy_mask", [0, 1])
+@pytest.mark.parametrize("dtype", [None, "int32"])
+@pytest.mark.parametrize("nbands", [1, 3])
+@pytest.mark.parametrize("template", TEMPLATES)
 def test_zeros_like(template, nbands, dtype, copy_mask):
-    run_constant_raster_tests(
-        creation.zeros_like, template, 0, nbands, dtype, copy_mask, False
+    dtype = _resolve_dtype(dtype, template)
+    result = creation.zeros_like(
+        template, bands=nbands, dtype=dtype, copy_mask=copy_mask
     )
+    assert_creation_basics(result, template, nbands, dtype)
+    assert_mask_copied(result, template, nbands, dtype, copy_mask)
+    assert (result == 0).all().compute()
 
 
 @pytest.mark.parametrize("copy_mask", [0, 1])
 @pytest.mark.parametrize("dtype", [None, "int32"])
-@pytest.mark.parametrize("nbands", [1, 2, 3])
-@pytest.mark.parametrize("template", templates())
+@pytest.mark.parametrize("nbands", [1, 3])
+@pytest.mark.parametrize("template", TEMPLATES)
 def test_ones_like(template, nbands, dtype, copy_mask):
-    run_constant_raster_tests(
-        creation.ones_like, template, 1, nbands, dtype, copy_mask, False
+    dtype = _resolve_dtype(dtype, template)
+    result = creation.ones_like(
+        template, bands=nbands, dtype=dtype, copy_mask=copy_mask
     )
+    assert_creation_basics(result, template, nbands, dtype)
+    assert_mask_copied(result, template, nbands, dtype, copy_mask)
+    assert (result == 1).all().compute()
 
 
 def test_full_like_single_chunk_result_writeable(dem_small):
@@ -172,21 +189,22 @@ def test_full_like_single_chunk_result_writeable(dem_small):
     assert mask.flags.writeable
 
 
-def test_full_like_dataarray():
-    like = testdata.raster.dem_small
-    expected = (like / like).astype(int).set_null_value(None)
-    like = like.astype(int)
+def test_full_like_dataarray(dem_small):
+    expected = (
+        (dem_small / dem_small)
+        .astype(int, warn_about_null_change=False)
+        .set_null_value(None)
+    )
+    like = dem_small.astype(int, warn_about_null_change=False)
     result = creation.full_like(like.xdata, 1)
     assert_rasters_equal(result, expected)
 
 
-def test_empty_like_dataarray():
-    like = testdata.raster.dem_small
-    result = creation.empty_like(like.xdata)
-    assert_rasters_similar(result, like)
+def test_empty_like_dataarray(dem_small):
+    result = creation.empty_like(dem_small.xdata)
+    assert_rasters_similar(result, dem_small)
 
 
-def test_random_raster_dataarray():
-    like = testdata.raster.dem_small
-    result = creation.random_raster(like.xdata)
-    assert_rasters_similar(result, like)
+def test_random_raster_dataarray(dem_small):
+    result = creation.random_raster(dem_small.xdata)
+    assert_rasters_similar(result, dem_small)

@@ -26,7 +26,7 @@ from raster_tools.zonal import (
     zonal_stats,
 )
 from tests import testdata
-from tests.utils import arange_raster
+from tests.utils import make_raster
 
 
 def asm(x):
@@ -244,7 +244,7 @@ def test_zonal_stats_handle_overlap():
         ],
         crs="EPSG:3857",
     )
-    data_raster = arange_raster((4, 4)).set_crs("EPSG:3857")
+    data_raster = make_raster("arange", shape=(4, 4))
     # Confirm that first zone is dropped due to overlap and second &
     # third zones are halved in area.
     expected = pd.DataFrame(
@@ -305,8 +305,8 @@ def dem_clipped_small():
             4,
             None,
         ),
-        (arange_raster((700, 6, 6)), 10, 1, None),
-        (arange_raster((700, 6, 6)).set_crs("EPSG:3857"), 10, 1, None),
+        (make_raster("arange", shape=(700, 6, 6), crs=None), 10, 1, None),
+        (make_raster("arange", shape=(700, 6, 6)), 10, 1, None),
     ],
 )
 def test_extract_points_eager(dem, n, nparts, name):

@@ -16,9 +16,9 @@ from raster_tools import line_stats
 from raster_tools.raster import Raster
 from raster_tools.vector import Vector
 from tests.utils import (
-    arange_raster,
     assert_rasters_similar,
     assert_valid_raster,
+    make_raster,
 )
 
 
@@ -286,7 +286,9 @@ def test_length(geoms, like, radius, truth, weight):
 
 def test_length_with_radius_larger_than_chunk():
     # Rechunk so that right most chunk's width is less than the radius
-    like = arange_raster((1, 100, 100)).chunk((1, 100, 90)).set_crs("5070")
+    like = make_raster(
+        "arange", shape=(1, 100, 100), chunksize=(1, 100, 90), crs="5070"
+    )
     geoms = gpd.GeoDataFrame(
         # zero length
         {"geometry": [LineString([(0, 3), (0, 3)])]},
