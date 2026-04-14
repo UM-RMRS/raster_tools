@@ -14,7 +14,7 @@ import shapely
 from raster_tools import rasterize
 from raster_tools.masking import get_default_null_value
 from tests import testdata
-from tests.utils import assert_rasters_similar, assert_valid_raster
+from tests.utils import assert_rasters_similar, assert_valid_raster, zip_strict
 
 
 def test_rasterize_spatial_aware_reduces_operations(mocker):
@@ -82,7 +82,7 @@ def rasterize_helper(
         y = grid_pts.geometry.y.to_numpy()
         boxes = [
             shapely.geometry.box(xi - 15, yi - 15, xi + 15, yi + 15)
-            for xi, yi in zip(x, y)
+            for xi, yi in zip_strict(x, y)
         ]
         grid_pts["geometry"] = boxes
 

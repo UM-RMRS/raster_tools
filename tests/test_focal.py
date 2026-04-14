@@ -6,7 +6,7 @@ import pytest
 from scipy import ndimage, stats
 
 from raster_tools import focal
-from tests.utils import assert_valid_raster, make_raster
+from tests.utils import assert_valid_raster, make_raster, zip_strict
 
 
 def test_get_focal_window_circle_rect():
@@ -63,7 +63,7 @@ def test_get_focal_window_circle_rect():
         ),
     ]
     truths = [t.astype(bool) for t in truths]
-    for r, truth in zip(range(1, len(truths) + 1), truths, strict=True):
+    for r, truth in zip_strict(range(1, len(truths) + 1), truths):
         window = focal.get_focal_window(r)
         assert np.allclose(window, truth)
         assert window.dtype == bool
