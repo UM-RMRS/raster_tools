@@ -44,12 +44,11 @@ from raster_tools.stat_common import (
     nanmode_jit,
 )
 from raster_tools.vector import Vector
-from tests import testdata
 from tests.utils import (
-    arange_raster,
     assert_rasters_equal,
     assert_rasters_similar,
     assert_valid_raster,
+    make_raster,
 )
 
 stat_funcs = {
@@ -151,15 +150,18 @@ def test_local_stats(stat, chunk, dtype):
     assert result.affine == rs.affine
 
 
-def test_local_stats_reject_bad_stat():
-    rs = Raster(np.arange(5 * 4 * 4).reshape(5, 4, 4))
+@pytest.mark.parametrize("stat", [0, np.nanvar, float])
+def test_local_stats_reject_bad_stat_type(stat):
+    rs = make_raster("arange", shape=(5, 4, 4))
+    with pytest.raises(TypeError):
+        general.local_stats(rs, stat)
 
-    for stat in [0, np.nanvar, float]:
-        with pytest.raises(TypeError):
-            general.local_stats(rs, stat)
-    for stat in ["", "nanstd", "minn"]:
-        with pytest.raises(ValueError):
-            general.local_stats(rs, stat)
+
+@pytest.mark.parametrize("stat", ["", "nanstd", "minn"])
+def test_local_stats_reject_bad_stat_value(stat):
+    rs = make_raster("arange", shape=(5, 4, 4))
+    with pytest.raises(ValueError):
+        general.local_stats(rs, stat)
 
 
 coarsen_stats = {
@@ -298,7 +300,7 @@ def test_aggregate(stat, window_y, window_x, chunk):
     ],
 )
 def test_aggregate_errors(window, stat, error_type):
-    rs = testdata.raster.dem
+    rs = make_raster(shape=(1, 12, 12))
     with pytest.raises(error_type):
         general.aggregate(rs, window, stat)
 
@@ -327,33 +329,33 @@ class ModelAdaptor:
     "raster,model,nout",
     [
         (
-            arange_raster((3, 4, 4)),
+            make_raster("arange", shape=(3, 4, 4)),
             ModelAdaptor(lambda x: np.sum(x, axis=-1, keepdims=True)),
             1,
         ),
         (
-            arange_raster((3, 4, 4)).set_null_value(0).set_crs("5070"),
+            make_raster("arange", shape=(3, 4, 4), null=0, crs=5070),
             ModelAdaptor(lambda x: np.sum(x, axis=-1, keepdims=True)),
             1,
         ),
         (
-            arange_raster((3, 4, 4), dtype="int8"),
+            make_raster("arange", None, "int8", shape=(3, 4, 4)),
             ModelAdaptor(np.sin),
             3,
         ),
         (
-            arange_raster((2, 4, 4)).chunk((1, 2, 2)),
+            make_raster("arange", shape=(2, 4, 4), chunksize=2),
             ModelAdaptor(lambda x: np.concatenate([x, x], axis=1)),
             4,
         ),
         # Params to test ModelPredictAdaptor
         (
-            arange_raster((3, 4, 4)).chunk((1, 2, 2)),
+            make_raster("arange", shape=(3, 4, 4), chunksize=2),
             general.ModelPredictAdaptor(mock_model_function),
             1,
         ),
         (
-            arange_raster((3, 4, 4)),
+            make_raster("arange", shape=(3, 4, 4)),
             general.ModelPredictAdaptor(
                 MockModelClass(mock_model_function), "apply"
             ),
@@ -457,7 +459,7 @@ def test_model_predict_vector(features, model, columns, nout, prefix):
     if r.ndim == 1:
         r = r[:, None]
     truth[valid] = r
-    new_df = pd.DataFrame(dict(zip(new_columns, truth.T)))
+    new_df = pd.DataFrame(dict(zip(new_columns, truth.T, strict=True)))
     truth_df = pd.concat([feats_df, new_df], axis=1)
 
     for result in [
@@ -532,143 +534,134 @@ def test_erode_dilate(name, size, null_value, chunk):
         assert np.isnan(result.null_value)
 
 
+@pytest.mark.parametrize("size", [3.0, None])
 @pytest.mark.parametrize("name", ["erode", "dilate"])
-def test_erode_dilate_errors(name):
+def test_erode_dilate_errors_type(name, size):
     func = getattr(general, name)
-    rs = testdata.raster.dem_small
+    rs = make_raster(shape=(1, 8, 8))
+    with pytest.raises(TypeError):
+        func(rs, size)
 
-    for size in [3.0, None]:
-        with pytest.raises(TypeError):
-            func(rs, size)
-    for size in [0, 1, -1, (3,), (1, 1), (3, 3, 3), (-3, 3), ()]:
-        with pytest.raises(ValueError):
-            func(rs, size)
+
+@pytest.mark.parametrize(
+    "size", [0, 1, -1, (3,), (1, 1), (3, 3, 3), (-3, 3), ()]
+)
+@pytest.mark.parametrize("name", ["erode", "dilate"])
+def test_erode_dilate_errors_value(name, size):
+    func = getattr(general, name)
+    rs = make_raster(shape=(1, 8, 8))
+    with pytest.raises(ValueError):
+        func(rs, size)
 
 
 @pytest.mark.parametrize(
     "raster,expected,neighbors,unique_values",
     [
         (
-            Raster(
-                np.array(
-                    [
-                        [7, 7, 1, 1],
-                        [9, 7, 1, 3],
-                        [0, 5, 7, 3],
-                        [5, 5, 4, 4],
-                    ]
-                )
-            )
-            .chunk((1, 2, 2))
-            .set_null_value(9)
-            .set_crs("5070"),
-            Raster(
-                np.array(
-                    [
-                        [5, 5, 1, 1],
-                        [9, 5, 1, 2],
-                        [0, 4, 6, 2],
-                        [4, 4, 3, 3],
-                    ]
-                )
-            )
-            .chunk((1, 2, 2))
-            .set_null_value(9)
-            .set_crs("5070")
-            .astype("uint64"),
+            make_raster(
+                [
+                    [7, 7, 1, 1],
+                    [9, 7, 1, 3],
+                    [0, 5, 7, 3],
+                    [5, 5, 4, 4],
+                ],
+                chunksize=2,
+                crs=5070,
+                null=9,
+            ),
+            make_raster(
+                [
+                    [5, 5, 1, 1],
+                    [9, 5, 1, 2],
+                    [0, 4, 6, 2],
+                    [4, 4, 3, 3],
+                ],
+                dtype="uint64",
+                chunksize=2,
+                crs=5070,
+                null=9,
+            ),
             4,
             None,
         ),
         (
-            Raster(
-                np.array(
-                    [
-                        [7, 7, 1, 1],
-                        [9, 7, 1, 3],
-                        [0, 5, 7, 3],
-                        [5, 5, 4, 4],
-                    ]
-                )
-            )
-            .chunk((1, 2, 2))
-            .set_null_value(9)
-            .set_crs("5070"),
-            Raster(
-                np.array(
-                    [
-                        [5, 5, 1, 1],
-                        [9, 5, 1, 2],
-                        [0, 4, 5, 2],
-                        [4, 4, 3, 3],
-                    ]
-                )
-            )
-            .chunk((1, 2, 2))
-            .set_null_value(9)
-            .set_crs("5070")
-            .astype("uint64"),
+            make_raster(
+                [
+                    [7, 7, 1, 1],
+                    [9, 7, 1, 3],
+                    [0, 5, 7, 3],
+                    [5, 5, 4, 4],
+                ],
+                chunksize=2,
+                crs=5070,
+                null=9,
+            ),
+            make_raster(
+                [
+                    [5, 5, 1, 1],
+                    [9, 5, 1, 2],
+                    [0, 4, 5, 2],
+                    [4, 4, 3, 3],
+                ],
+                dtype="uint64",
+                chunksize=2,
+                null=9,
+                crs=5070,
+            ),
             8,
             None,
         ),
         (
-            Raster(
-                np.array(
-                    [
-                        [7, 7, 1, 1],
-                        [9, 7, 1, 3],
-                        [0, 5, 7, 3],
-                        [5, 5, 4, 4],
-                    ]
-                )
-            )
-            .chunk((1, 2, 2))
-            .set_null_value(9)
-            .set_crs("5070"),
-            Raster(
-                np.array(
-                    [
-                        [1, 1, 3, 3],
-                        [9, 1, 3, 4],
-                        [0, 6, 2, 4],
-                        [6, 6, 5, 5],
-                    ]
-                )
-            )
-            .chunk((1, 2, 2))
-            .set_null_value(9)
-            .set_crs("5070")
-            .astype("uint64"),
+            make_raster(
+                [
+                    [7, 7, 1, 1],
+                    [9, 7, 1, 3],
+                    [0, 5, 7, 3],
+                    [5, 5, 4, 4],
+                ],
+                chunksize=2,
+                null=9,
+                crs=5070,
+            ),
+            make_raster(
+                [
+                    [1, 1, 3, 3],
+                    [9, 1, 3, 4],
+                    [0, 6, 2, 4],
+                    [6, 6, 5, 5],
+                ],
+                dtype="uint64",
+                chunksize=2,
+                null=9,
+                crs=5070,
+            ),
             4,
             [7, 1, 3, 4, 5],
         ),
         (
-            Raster(
-                np.array(
-                    [
-                        [7, 7, 1, 1],
-                        [9, 7, 1, 3],
-                        [0, 5, 7, 3],
-                        [5, 5, 4, 4],
-                    ]
-                )
-            )
-            .chunk((1, 2, 2))
-            .set_null_value(9)
-            .set_crs("5070"),
-            Raster(
-                np.array(
-                    [
-                        [1, 1, 2, 2],
-                        [9, 1, 2, 3],
-                        [0, 5, 1, 3],
-                        [5, 5, 4, 4],
-                    ]
-                )
-            )
-            .chunk((1, 2, 2))
-            .set_null_value(9)
-            .set_crs("5070")
-            .astype("uint64"),
+            make_raster(
+                [
+                    [7, 7, 1, 1],
+                    [9, 7, 1, 3],
+                    [0, 5, 7, 3],
+                    [5, 5, 4, 4],
+                ],
+                chunksize=2,
+                null=9,
+                crs=5070,
+            ),
+            make_raster(
+                [
+                    [1, 1, 2, 2],
+                    [9, 1, 2, 3],
+                    [0, 5, 1, 3],
+                    [5, 5, 4, 4],
+                ],
+                dtype="uint64",
+                chunksize=2,
+                null=9,
+                crs=5070,
+            ),
             8,
             [7, 1, 3, 4, 5],
         ),
@@ -685,7 +678,13 @@ def test_regions(raster, expected, neighbors, unique_values):
 
 
 def test_band_concat():
-    rs1 = testdata.raster.dem_clipped_small
+    rs1 = make_raster(
+        "arange",
+        dtype="float32",
+        shape=(1, 8, 8),
+        null_pattern=np.s_[:, :2, :2],
+        crs="EPSG:3310",
+    )
     rs2 = rs1 + 30
     rsnp1 = rs1.to_numpy()
     rsnp2 = rs2.to_numpy()
@@ -716,7 +715,9 @@ def test_band_concat():
 
 @pytest.mark.filterwarnings("ignore:The null value")
 def test_band_concat_bool_rasters():
-    rs1 = testdata.raster.dem_small > -100
+    rs1 = (
+        make_raster("ones", dtype="float32", shape=(1, 6, 6), null=True) > -100
+    )
     rs2 = rs1.copy()
     result = general.band_concat((rs1, rs2))
     assert result.null_value == get_default_null_value(result.dtype)
@@ -739,16 +740,16 @@ def test_band_concat_errors():
 @pytest.mark.parametrize(
     "raster,mapping",
     [
-        (arange_raster((1, 5, 5)), (0, 5, 1)),
-        (arange_raster((1, 5, 5)), [(0, 5, 1), (5, 15, -1)]),
+        (make_raster("arange", shape=(1, 5, 5)), (0, 5, 1)),
+        (make_raster("arange", shape=(1, 5, 5)), [(0, 5, 1), (5, 15, -1)]),
         (
-            arange_raster((1, 5, 5)),
+            make_raster("arange", shape=(1, 5, 5)),
             # Test multiple with potential conflict in last 2
             [(0, 1, 0), (1, 2, 1), (2, 3, 8), (8, 9, 2)],
         ),
         # Test precedence
-        (arange_raster((1, 5, 5)), [(0, 2, 0), (1, 2, 1)]),
-        (arange_raster((1, 5, 5)) + 0.1, [(0, 2, 0), (1, 2, 1)]),
+        (make_raster("arange", shape=(1, 5, 5)), [(0, 2, 0), (1, 2, 1)]),
+        (make_raster("arange", shape=(1, 5, 5)) + 0.1, [(0, 2, 0), (1, 2, 1)]),
     ],
 )
 def test_remap_range(raster, mapping, inc):
@@ -785,9 +786,9 @@ def test_remap_range(raster, mapping, inc):
 @pytest.mark.parametrize(
     "rast,mapping",
     [
-        (Raster(np.arange(16).reshape((4, 4))), [(0, 4, -1), (8, 12, 0)]),
+        (make_raster("arange", shape=(1, 4, 4)), [(0, 4, -1), (8, 12, 0)]),
         (
-            Raster(np.arange(32).reshape((2, 4, 4))),
+            make_raster("arange", shape=(2, 4, 4)),
             [(0, 4, -1), (8, 12, 0), (15, 20, 0)],
         ),
     ],
@@ -817,7 +818,7 @@ def test_remap_range_inclusivity(rast, mapping, inc):
 
 
 def test_remap_range_f16():
-    rs = Raster(np.arange(25).reshape((5, 5))).astype("float16")
+    rs = make_raster("arange", dtype="float16", shape=(1, 5, 5))
     rsnp = rs.to_numpy()
     mapping = (0, 5, 1)
     result = general.remap_range(rs, mapping)
@@ -827,7 +828,7 @@ def test_remap_range_f16():
     assert result.dtype == np.dtype("float16")
     assert np.allclose(result, truth)
 
-    rs = Raster(np.arange(25).reshape((5, 5))).astype("int8")
+    rs = make_raster("arange", dtype="int8", shape=(1, 5, 5))
     rsnp = rs.to_numpy()
     mapping = (0, 5, 2.0)
     result = general.remap_range(rs, mapping)
@@ -839,7 +840,9 @@ def test_remap_range_f16():
 
 
 def test_remap_range_null_mapping():
-    raster = testdata.raster.dem_small.set_null_value(None)
+    raster = make_raster(
+        "arange", dtype="float32", shape=(1, 8, 8), offset=1450.5
+    ).set_null_value(None)
     assert raster.null_value is None
     nv = get_default_null_value(raster.dtype)
     mapping = (0, 1500, None)
@@ -870,7 +873,7 @@ def test_remap_range_null_mapping():
 
 
 def test_remap_range_errors():
-    rs = testdata.raster.dem_small
+    rs = make_raster(shape=(1, 6, 6))
     # TypeError if not scalars
     with pytest.raises(TypeError):
         general.remap_range(rs, (None, 2, 4))
@@ -894,98 +897,87 @@ def test_remap_range_errors():
         general.remap_range(rs, ())
 
 
-def _make_raster(data, mask=None, dtype=None):
-    data = np.asarray(data)
-    if dtype is not None:
-        data = data.astype(dtype)
-    if mask is not None:
-        mask = np.asarray(mask).astype(bool)
-        if not mask.any():
-            mask = None
-    return rts.data_to_raster(data, mask=mask, burn=True).set_crs("EPSG:3857")
-
-
 @pytest.mark.parametrize(
     "condition,x,y,expected",
     [
         # 0
         (
-            _make_raster([[0, 0], [1, 1]], None, bool),
-            _make_raster(np.ones((2, 2), int)),
-            _make_raster(np.full((2, 2), 2)),
-            _make_raster([[2, 2], [1, 1]]),
+            make_raster([[0, 0], [1, 1]], None, bool),
+            make_raster(np.ones((2, 2), int)),
+            make_raster(np.full((2, 2), 2)),
+            make_raster([[2, 2], [1, 1]]),
         ),
         # 1
         (
-            _make_raster([[0, 0], [1, 1]], [[1, 0], [0, 0]], bool),
-            _make_raster(np.ones((2, 2), int)),
-            _make_raster(np.full((2, 2), 2), None),
-            _make_raster([[0, 2], [1, 1]], [[1, 0], [0, 0]]),
+            make_raster([[0, 0], [1, 1]], [[1, 0], [0, 0]], bool),
+            make_raster(np.ones((2, 2), int)),
+            make_raster(np.full((2, 2), 2), None),
+            make_raster([[0, 2], [1, 1]], [[1, 0], [0, 0]]),
         ),
         # 2
         (
-            _make_raster([[0, 0], [1, 1]], [[1, 0], [0, 0]], bool),
-            _make_raster(np.ones((2, 2), int), [[0, 1], [0, 0]]),
-            _make_raster(np.full((2, 2), 2), [[0, 0], [1, 0]]),
-            _make_raster([[0, 2], [1, 1]], [[1, 0], [0, 0]]),
+            make_raster([[0, 0], [1, 1]], [[1, 0], [0, 0]], bool),
+            make_raster(np.ones((2, 2), int), [[0, 1], [0, 0]]),
+            make_raster(np.full((2, 2), 2), [[0, 0], [1, 0]]),
+            make_raster([[0, 2], [1, 1]], [[1, 0], [0, 0]]),
         ),
         # 3
         (
-            _make_raster([[0, 0], [1, 1]], [[1, 0], [0, 0]], bool),
-            _make_raster(np.ones((2, 2), int), [[0, 0], [0, 1]]),
-            _make_raster(np.full((2, 2), 2), [[0, 1], [0, 0]]),
-            _make_raster([[2, 2], [1, 1]], [[1, 1], [0, 1]]),
+            make_raster([[0, 0], [1, 1]], [[1, 0], [0, 0]], bool),
+            make_raster(np.ones((2, 2), int), [[0, 0], [0, 1]]),
+            make_raster(np.full((2, 2), 2), [[0, 1], [0, 0]]),
+            make_raster([[2, 2], [1, 1]], [[1, 1], [0, 1]]),
         ),
         # 4
         (
-            _make_raster([[0, 0], [1, 1]], [[1, 0], [0, 0]], bool),
-            _make_raster(np.ones((2, 2), int), [[0, 0], [0, 1]]),
+            make_raster([[0, 0], [1, 1]], [[1, 0], [0, 0]], bool),
+            make_raster(np.ones((2, 2), int), [[0, 0], [0, 1]]),
             2,
-            _make_raster([[2, 2], [1, 1]], [[1, 0], [0, 1]]),
+            make_raster([[2, 2], [1, 1]], [[1, 0], [0, 1]]),
         ),
         # 5
         (
-            _make_raster([[0, 0], [1, 1]], [[1, 0], [0, 0]], bool),
+            make_raster([[0, 0], [1, 1]], [[1, 0], [0, 0]], bool),
             1,
-            _make_raster(np.full((2, 2), 2), [[0, 1], [0, 0]]),
-            _make_raster([[2, 2], [1, 1]], [[1, 1], [0, 0]]),
+            make_raster(np.full((2, 2), 2), [[0, 1], [0, 0]]),
+            make_raster([[2, 2], [1, 1]], [[1, 1], [0, 0]]),
         ),
         # 6
         (
-            _make_raster([[0, 0], [1, 1]], [[0, 0], [0, 0]], bool),
+            make_raster([[0, 0], [1, 1]], None, bool),
             1,
             2,
-            _make_raster([[2, 2], [1, 1]], [[0, 0], [0, 0]]),
+            make_raster([[2, 2], [1, 1]]),
         ),
         # 7
         (
-            _make_raster([[0, 0], [1, 1]], [[1, 0], [0, 0]], bool),
+            make_raster([[0, 0], [1, 1]], [[1, 0], [0, 0]], bool),
             1,
             2,
-            _make_raster([[2, 2], [1, 1]], [[1, 0], [0, 0]], np.uint8),
+            make_raster([[2, 2], [1, 1]], [[1, 0], [0, 0]], np.uint8),
         ),
         # 8
         (
-            _make_raster([[0, 0], [1, 1]], [[1, 0], [0, 0]], bool),
+            make_raster([[0, 0], [1, 1]], [[1, 0], [0, 0]], bool),
             1,
             np.nan,
-            _make_raster(
+            make_raster(
                 [[np.nan, np.nan], [1, 1]], [[1, 0], [0, 0]], "float16"
             ),
         ),
         # 9
         (
-            _make_raster([[0, 0], [1, 1]], [[1, 0], [0, 0]], bool),
+            make_raster([[0, 0], [1, 1]], [[1, 0], [0, 0]], bool),
             None,
-            _make_raster(np.full((2, 2), 2), [[0, 1], [0, 0]]),
-            _make_raster([[2, 2], [1, 1]], [[1, 1], [1, 1]]),
+            make_raster(np.full((2, 2), 2), [[0, 1], [0, 0]]),
+            make_raster([[2, 2], [1, 1]], [[1, 1], [1, 1]]),
         ),
         # 10
         (
-            _make_raster([[0, 0], [1, 1]], [[1, 0], [0, 0]], bool),
-            _make_raster(np.ones((2, 2), int), [[0, 0], [0, 1]]),
+            make_raster([[0, 0], [1, 1]], [[1, 0], [0, 0]], bool),
+            make_raster(np.ones((2, 2), int), [[0, 0], [0, 1]]),
             None,
-            _make_raster([[2, 2], [1, 1]], [[1, 1], [0, 1]]),
+            make_raster([[2, 2], [1, 1]], [[1, 1], [0, 1]]),
         ),
     ],
 )
@@ -1012,7 +1004,7 @@ def test_where(condition, x, y, expected):
 
 def test_where_both_none():
     with pytest.raises(ValueError):
-        cond = _make_raster([[0, 0], [1, 1]], [[1, 0], [0, 0]], bool)
+        cond = make_raster([[0, 0], [1, 1]], [[1, 0], [0, 0]], bool)
         general.where(cond, None, None)
 
 
@@ -1021,32 +1013,28 @@ def test_where_both_none():
     "raster,mapping,expected_out_dtype",
     [
         (
-            arange_raster((2, 10, 10))
-            .set_crs("EPSG:3857")
-            .set_null_value(99)
-            .set_null_value(100)
-            .astype("int16"),
+            make_raster(
+                "arange", None, "int16", shape=(2, 10, 10), null=[99, 100]
+            ),
             {0: -1, 1: -2, 2: -3, 120: -120, 150: None},
             np.dtype("int16"),
         ),
         # Check promotion from uint16 to int32
         (
-            arange_raster((2, 10, 10))
-            .set_crs("EPSG:3857")
-            .set_null_value(99)
-            .set_null_value(100)
-            .astype("uint16"),
+            make_raster(
+                "arange", None, "uint16", shape=(2, 10, 10), null=[99, 100]
+            ),
             {0: -1, 1: -2, 2: -3, 120: -120, 150: -150},
             np.dtype("int32"),
         ),
         # Make sure that float values in the mapping cause promotion (i2 -> f4)
         (
-            arange_raster((2, 10, 10)).astype("int16"),
+            make_raster("arange", None, "int16", shape=(2, 10, 10)),
             {0: -1.0, 1: -2, 2: -3, 120: -120, 150: -150},
             np.dtype("float32"),
         ),
         (
-            arange_raster((2, 10, 10)).astype("int16"),
+            make_raster("arange", None, "int16", shape=(2, 10, 10)),
             {
                 0: -1.0,
                 1: -2,
@@ -1058,7 +1046,7 @@ def test_where_both_none():
         ),
         # make sure that float input rasters are accepted
         (
-            arange_raster((2, 10, 10)).astype("float32"),
+            make_raster("arange", None, "float32", shape=(2, 10, 10)),
             {0.0: -1.0, 1: -2, 2: -3, 120: -120, 150: 1e6},
             np.dtype("float32"),
         ),

@@ -76,7 +76,9 @@ def is_bool(value_or_dtype):
 
 def is_scalar(value_or_dtype):
     if not isinstance(value_or_dtype, np.dtype):
-        return isinstance(value_or_dtype, Number)
+        return isinstance(value_or_dtype, Number) and not is_bool(
+            value_or_dtype
+        )
     return is_int(value_or_dtype) or is_float(value_or_dtype)
 
 

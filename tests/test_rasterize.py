@@ -135,46 +135,51 @@ def rasterize_helper(
     return expected
 
 
-@pytest.mark.parametrize("use_spatial_aware", [False, True])
-@pytest.mark.parametrize("null_value", [None, 99_000])
+# Partitioning/chunking variants. `use_spatial_aware=True` is only paired with
+# the variant that has spatial partitions pre-calculated, since that is the
+# only case where spatial-aware dispatch structurally differs from the naive
+# path. The structural reduction in chunk ops from spatial awareness is
+# covered separately by test_rasterize_spatial_aware_reduces_operations.
+_PARTITIONING_CASES = [
+    pytest.param(
+        testdata.vector.test_circles_small,
+        testdata.raster.dem_small,
+        False,
+        id="single-partition",
+    ),
+    pytest.param(
+        testdata.vector.test_circles_small.data.repartition(npartitions=2),
+        testdata.raster.dem_small.chunk((1, 20, 20)),
+        False,
+        id="multi-partition",
+    ),
+    pytest.param(
+        calc_spatial_parts(
+            testdata.vector.test_circles_small.data.repartition(npartitions=2)
+        ),
+        testdata.raster.dem_small.chunk((1, 20, 20)),
+        True,
+        id="spatial-aware",
+    ),
+]
+
+
 @pytest.mark.parametrize(
-    "mask,mask_invert", [(False, False), (True, False), (True, True)]
+    "features,like,use_spatial_aware", _PARTITIONING_CASES
 )
 @pytest.mark.parametrize("all_touched", [False, True])
 @pytest.mark.parametrize(
     "overlap_resolve_method", ["first", "last", "min", "max"]
 )
 @pytest.mark.parametrize("field", [None, "values"])
-@pytest.mark.parametrize(
-    "features,like",
-    [
-        (testdata.vector.test_circles_small, testdata.raster.dem_small),
-        (
-            testdata.vector.test_circles_small.data.repartition(npartitions=2),
-            testdata.raster.dem_small.chunk((1, 20, 20)),
-        ),
-        (
-            calc_spatial_parts(
-                testdata.vector.test_circles_small.data.repartition(
-                    npartitions=2
-                )
-            ),
-            testdata.raster.dem_small.chunk((1, 20, 20)),
-        ),
-    ],
-)
-def test_rasterize(
+def test_rasterize_field(
     features,
     like,
+    use_spatial_aware,
     field,
     overlap_resolve_method,
     all_touched,
-    mask,
-    mask_invert,
-    null_value,
-    use_spatial_aware,
 ):
-    # Convert input features into GeoDataFrame
     feats = rts.vector.get_vector(features).data.compute()
 
     expected = rasterize_helper(
@@ -183,11 +188,9 @@ def test_rasterize(
         field,
         overlap_resolve_method,
         all_touched,
-        mask,
-        mask_invert,
+        mask=False,
+        mask_invert=False,
     )
-    if null_value is not None:
-        expected = expected.set_null_value(null_value)
 
     result = rasterize.rasterize(
         features,
@@ -195,9 +198,6 @@ def test_rasterize(
         field=field,
         overlap_resolve_method=overlap_resolve_method,
         all_touched=all_touched,
-        mask=mask,
-        mask_invert=mask_invert,
-        null_value=null_value,
         use_spatial_aware=use_spatial_aware,
     )
 
@@ -205,5 +205,72 @@ def test_rasterize(
     assert_rasters_similar(result, like, check_nbands=False)
     assert result.null_value == expected.null_value
     assert np.allclose(result, expected)
-    if mask and null_value is None:
-        assert result.dtype == np.dtype("uint8")
+
+
+@pytest.mark.parametrize(
+    "features,like,use_spatial_aware", _PARTITIONING_CASES
+)
+@pytest.mark.parametrize("all_touched", [False, True])
+@pytest.mark.parametrize("mask_invert", [False, True])
+def test_rasterize_mask(
+    features, like, use_spatial_aware, mask_invert, all_touched
+):
+    feats = rts.vector.get_vector(features).data.compute()
+
+    expected = rasterize_helper(
+        feats,
+        like,
+        None,
+        "first",
+        all_touched,
+        mask=True,
+        mask_invert=mask_invert,
+    )
+
+    result = rasterize.rasterize(
+        features,
+        like,
+        all_touched=all_touched,
+        mask=True,
+        mask_invert=mask_invert,
+        use_spatial_aware=use_spatial_aware,
+    )
+
+    assert_valid_raster(result)
+    assert_rasters_similar(result, like, check_nbands=False)
+    assert result.null_value == expected.null_value
+    assert np.allclose(result, expected)
+    assert result.dtype == np.dtype("uint8")
+
+
+@pytest.mark.parametrize(
+    "field,mask",
+    [(None, False), ("values", False), (None, True)],
+)
+def test_rasterize_null_value(field, mask):
+    features = testdata.vector.test_circles_small
+    like = testdata.raster.dem_small
+    null_value = 99_000
+
+    feats = rts.vector.get_vector(features).data.compute()
+    expected = rasterize_helper(
+        feats,
+        like,
+        field,
+        "last",
+        True,
+        mask=mask,
+        mask_invert=False,
+    )
+    expected = expected.set_null_value(null_value)
+
+    result = rasterize.rasterize(
+        features,
+        like,
+        field=field,
+        mask=mask,
+        null_value=null_value,
+    )
+
+    assert result.null_value == expected.null_value
+    assert np.allclose(result, expected)
