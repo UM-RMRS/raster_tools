@@ -26,7 +26,7 @@ else:
     def zip_strict(*iterables):
         sentinel = object()
         for combo in zip_longest(*iterables, fillvalue=sentinel):
-            if sentinel in combo:
+            if any(x is sentinel for x in combo):
                 raise ValueError(
                     "zip_strict: iterables have different lengths"
                 )
