@@ -155,7 +155,7 @@ def make_raster(
     null : scalar, list, tuple, or True, keyword-only, optional
         Controls the raster's null value.
 
-        - A scalar sets the null value directly with no implicit mask.
+        - A scalar sets the null value directly with the corresponding mask.
         - A list or tuple of values builds a mask from positions where
           ``content`` equals any of them and uses the last value as the
           null value.
@@ -287,6 +287,7 @@ def make_raster(
     nv = None
     if null is not None:
         if is_scalar(null):
+            # rts.data_to_raster will set the mask properly
             nv = null
         elif isinstance(null, (list, tuple)):
             if mask is None:
