@@ -1,5 +1,6 @@
 import raster_tools._compat  # noqa: F401
 from raster_tools import clipping, distance, focal, line_stats, surface, zonal
+from raster_tools._mosaic import mosaic
 from raster_tools._version import __version__  # noqa
 from raster_tools.creation import (
     constant_raster,
@@ -55,6 +56,7 @@ __all__ = [
     "get_raster",
     "line_stats",
     "list_layers",
+    "mosaic",
     "ones_like",
     "open_dataset",
     "open_vectors",
