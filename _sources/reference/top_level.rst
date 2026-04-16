@@ -20,6 +20,7 @@ Combining Rasters
    :toctree: generated/
 
    band_concat
+   mosaic
 
 Creating Rasters from a Template
 ================================

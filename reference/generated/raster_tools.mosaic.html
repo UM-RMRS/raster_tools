@@ -9,7 +9,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
 
-    <title>raster_tools.general.erode &#8212; raster_tools 0.10.0 documentation</title>
+    <title>raster_tools.mosaic &#8212; raster_tools 0.10.0 documentation</title>
   
   
   
@@ -41,11 +41,11 @@
     <script src="../../_static/underscore.js"></script>
     <script src="../../_static/doctools.js"></script>
     <script src="../../_static/scripts/sphinx-book-theme.js?digest=5a5c038af52cf7bc1a1ec88eea08e6366ee68824"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'reference/generated/raster_tools.general.erode';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'reference/generated/raster_tools.mosaic';</script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
-    <link rel="next" title="raster_tools.general.local_stats" href="raster_tools.general.local_stats.html" />
-    <link rel="prev" title="raster_tools.general.dilate" href="raster_tools.general.dilate.html" />
+    <link rel="next" title="raster_tools.constant_raster" href="raster_tools.constant_raster.html" />
+    <link rel="prev" title="raster_tools.band_concat" href="raster_tools.band_concat.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="None"/>
   </head>
@@ -125,11 +125,11 @@
         <p aria-level="2" class="caption" role="heading"><span class="caption-text">Contents:</span></p>
 <ul class="current nav bd-sidenav">
 <li class="toctree-l1 current active has-children"><a class="reference internal" href="../index.html">API Reference</a><input checked="" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-1"><i class="fa-solid fa-chevron-down"></i></label><ul class="current">
-<li class="toctree-l2 has-children"><a class="reference internal" href="../top_level.html">Top Level Functions</a><input class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-2"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l2 current active has-children"><a class="reference internal" href="../top_level.html">Top Level Functions</a><input checked="" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-2"><i class="fa-solid fa-chevron-down"></i></label><ul class="current">
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.html">raster_tools.Raster</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.open_dataset.html">raster_tools.open_dataset</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.band_concat.html">raster_tools.band_concat</a></li>
-<li class="toctree-l3"><a class="reference internal" href="raster_tools.mosaic.html">raster_tools.mosaic</a></li>
+<li class="toctree-l3 current active"><a class="current reference internal" href="#">raster_tools.mosaic</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.constant_raster.html">raster_tools.constant_raster</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.empty_like.html">raster_tools.empty_like</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.full_like.html">raster_tools.full_like</a></li>
@@ -259,12 +259,12 @@
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.focal.get_focal_window.html">raster_tools.focal.get_focal_window</a></li>
 </ul>
 </li>
-<li class="toctree-l2 current active has-children"><a class="reference internal" href="../general.html">General Purpose Operations</a><input checked="" class="toctree-checkbox" id="toctree-checkbox-8" name="toctree-checkbox-8" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-8"><i class="fa-solid fa-chevron-down"></i></label><ul class="current">
+<li class="toctree-l2 has-children"><a class="reference internal" href="../general.html">General Purpose Operations</a><input class="toctree-checkbox" id="toctree-checkbox-8" name="toctree-checkbox-8" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-8"><i class="fa-solid fa-chevron-down"></i></label><ul>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.general.ModelPredictAdaptor.html">raster_tools.general.ModelPredictAdaptor</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.general.aggregate.html">raster_tools.general.aggregate</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.general.band_concat.html">raster_tools.general.band_concat</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.general.dilate.html">raster_tools.general.dilate</a></li>
-<li class="toctree-l3 current active"><a class="current reference internal" href="#">raster_tools.general.erode</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.general.erode.html">raster_tools.general.erode</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.general.local_stats.html">raster_tools.general.local_stats</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.general.model_predict_raster.html">raster_tools.general.model_predict_raster</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.general.model_predict_vector.html">raster_tools.general.model_predict_vector</a></li>
@@ -362,7 +362,7 @@
       
       
       
-      <li><a href="../../_sources/reference/generated/raster_tools.general.erode.rst" target="_blank"
+      <li><a href="../../_sources/reference/generated/raster_tools.mosaic.rst" target="_blank"
    class="btn btn-sm btn-download-source-button dropdown-item"
    title="Download source file"
    data-bs-placement="left" data-bs-toggle="tooltip"
@@ -442,7 +442,7 @@ document.write(`
               
 
 <div id="jb-print-docs-body" class="onlyprint">
-    <h1>raster_tools.general.erode</h1>
+    <h1>raster_tools.mosaic</h1>
     <!-- Table of contents -->
     <div id="print-main-content">
         <div id="jb-print-toc">
@@ -456,47 +456,97 @@ document.write(`
 <div id="searchbox"></div>
                 <article class="bd-article" role="main">
                   
-  <section id="raster-tools-general-erode">
-<h1>raster_tools.general.erode<a class="headerlink" href="#raster-tools-general-erode" title="Permalink to this headline">#</a></h1>
+  <section id="raster-tools-mosaic">
+<h1>raster_tools.mosaic<a class="headerlink" href="#raster-tools-mosaic" title="Permalink to this headline">#</a></h1>
 <dl class="py function">
-<dt class="sig sig-object py" id="raster_tools.general.erode">
-<span class="sig-prename descclassname"><span class="pre">raster_tools.general.</span></span><span class="sig-name descname"><span class="pre">erode</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">raster</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">size</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/raster_tools/general.html#erode"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.general.erode" title="Permalink to this definition">#</a></dt>
-<dd><p>Perform erosion on a raster</p>
-<p>Erosion increases the thickness of raster features. Features with higher
-values will cover features with lower values. At each cell, the miximum
-value within a window, defined by <cite>size</cite>, is stored in the output location.
-This is very similar to the max focal filter except that raster features
-are eroded (contracted) into null regions. Erosion is performed on each
-band separately.</p>
+<dt class="sig sig-object py" id="raster_tools.mosaic">
+<span class="sig-prename descclassname"><span class="pre">raster_tools.</span></span><span class="sig-name descname"><span class="pre">mosaic</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">rasters</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mosaic_method</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'last'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dst_crs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dst_grid</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">resampling_method</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'nearest'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">null_value</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/raster_tools/_mosaic.html#mosaic"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.mosaic" title="Permalink to this definition">#</a></dt>
+<dd><p>Mosaic multiple rasters into a new, single raster.</p>
+<p>The inputs can have multiple and differing numbers of bands. The number of
+bands in the output will be the same as the input with the largest number
+of bands.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>raster</strong> (<em>Raster</em><em> or </em><em>path str</em>) – The raster to erode</p></li>
-<li><p><strong>size</strong> (<em>int</em><em> or </em><em>2-tuple of ints</em>) – The shape of the window to use when eroding. A Single int is
-interpreted as the size of a square window. A tuple of 2 ints is used
-as the dimensions of rectangular window. At least one value must be
-greater than 1. Values cannot be less than 1.</p></li>
+<li><p><strong>rasters</strong> (<em>list of raster_tools.Raster</em>) – A list-like object containing the rasters to be mosaicked. These can
+have differing grids, resolutions, and projections.</p></li>
+<li><p><strong>mosaic_method</strong> (<em>str</em><em>, </em><em>optional</em>) – <p>The method to use when resolving overlap. Valid options are:</p>
+<dl class="simple">
+<dt>’first’</dt><dd><p>The final pixel will take its value from the first raster with a
+valid pixel at the pixel’s location.</p>
+</dd>
+<dt>’last’</dt><dd><p>The final pixel will take its value from the last raster with a
+valid pixel at the pixel’s location. Default.</p>
+</dd>
+<dt>’min’</dt><dd><p>The final pixel will take its value from the minimum valid value
+across all input rasters, at the given location.</p>
+</dd>
+<dt>’max’</dt><dd><p>The final pixel will take its value from the maximum valid value
+across all input rasters, at the given location.</p>
+</dd>
+<dt>’sum’</dt><dd><p>The final pixel will be the sum of all valid pixels at the given
+location. Note, this can lead to overflow issues for sufficiently
+large values and small enough dtypes.</p>
+</dd>
+</dl>
+</p></li>
+<li><p><strong>dst_crs</strong> (<em>CRS-like</em><em>, </em><em>str</em><em>, </em><em>int</em><em>, </em><em>optional</em>) – The destination CRS to use when building the destination grid. This can
+be anything that can be parsed by
+<code class="xref py py-meth docutils literal notranslate"><span class="pre">rasterio.CRS.from_user_input()</span></code>. This is only checked if
+<cite>dst_grid</cite> is not provided. The default is to take the CRS from the
+first raster in <cite>rasters</cite>.</p></li>
+<li><p><strong>dst_grid</strong> (<em>odc.geo.GeoBox</em><em>, </em><a class="reference internal" href="raster_tools.Raster.html#raster_tools.Raster" title="raster_tools.Raster"><em>raster_tools.Raster</em></a><em>, </em><em>str</em><em>, </em><em>optional</em>) – The definition for the destination grid to mosaic the <cite>rasters</cite> onto.
+This can be a <code class="xref py py-class docutils literal notranslate"><span class="pre">odc.geo.GeoBox</span></code>,
+<a class="reference internal" href="raster_tools.Raster.html#raster_tools.Raster" title="raster_tools.Raster"><code class="xref py py-class docutils literal notranslate"><span class="pre">raster_tools.Raster</span></code></a> object, or a path str. If the input is
+a raster object or path, this function does NOT write to the given
+raster, it instead uses the raster as a reference for the grid. The
+default is to check <cite>dst_crs</cite> and construct a grid that encompasses all
+inputs, using the resolution from the first raster in <cite>rasters</cite>.</p></li>
+<li><p><strong>resampling_method</strong> (<em>str</em><em>, </em><em>optional</em>) – <p>Resampling method to use when reprojecting input rasters to the
+destination grid. The default is nearest. Valid options are:</p>
+<dl class="simple">
+<dt>’nearest’</dt><dd><p>Nearest neighbor resampling. This is the default.</p>
+</dd>
+<dt>’bilinear’</dt><dd><p>Bilinear resampling.</p>
+</dd>
+<dt>’cubic’</dt><dd><p>Cubic resampling.</p>
+</dd>
+<dt>’cubic_spline’</dt><dd><p>Cubic spline resampling.</p>
+</dd>
+<dt>’lanczos’</dt><dd><p>Lanczos windowed sinc resampling.</p>
+</dd>
+<dt>’average’</dt><dd><p>Average resampling, computes the weighted average of all
+contributing pixels.</p>
+</dd>
+<dt>’mode’</dt><dd><p>Mode resampling, selects the value which appears most often.</p>
+</dd>
+<dt>’max’</dt><dd><p>Maximum resampling. (GDAL 2.0+)</p>
+</dd>
+<dt>’min’</dt><dd><p>Minimum resampling. (GDAL 2.0+)</p>
+</dd>
+<dt>’med’</dt><dd><p>Median resampling. (GDAL 2.0+)</p>
+</dd>
+<dt>’q1’</dt><dd><p>Q1, first quartile resampling. (GDAL 2.0+)</p>
+</dd>
+<dt>’q3’</dt><dd><p>Q3, third quartile resampling. (GDAL 2.0+)</p>
+</dd>
+<dt>’sum’</dt><dd><p>Sum, compute the weighted sum. (GDAL 3.1+)</p>
+</dd>
+<dt>’rms’</dt><dd><p>RMS, root mean square/quadratic mean. (GDAL 3.3+)</p>
+</dd>
+</dl>
+</p></li>
+<li><p><strong>dtype</strong> (<em>numpy.dtype</em><em>, </em><em>str</em><em>, </em><em>optional</em>) – The dtype for the output raster. The default is to use
+<code class="xref py py-func docutils literal notranslate"><span class="pre">numpy.result_type()</span></code> on the dtypes from the input rasters.</p></li>
+<li><p><strong>null_value</strong> (<em>scalar</em><em>, </em><em>optional</em>) – The nodata/null value to use for the output raster. The default is to
+get a default value based on the output raster’s dtype.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
-<dd class="field-even"><p>The resulting raster with eroded features. This raster will have the
-same shape and meta data as the original</p>
+<dd class="field-even"><p>The resulting mosaicked raster.</p>
 </dd>
 <dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p>Raster</p>
-</dd>
-</dl>
-<div class="admonition seealso">
-<p class="admonition-title">See also</p>
-<p><a class="reference internal" href="raster_tools.general.dilate.html#raster_tools.general.dilate" title="raster_tools.general.dilate"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dilate</span></code></a>, <a class="reference internal" href="raster_tools.focal.focal.html#raster_tools.focal.focal" title="raster_tools.focal.focal"><code class="xref py py-obj docutils literal notranslate"><span class="pre">raster_tools.focal.focal</span></code></a></p>
-</div>
-<p class="rubric">References</p>
-<dl class="footnote brackets">
-<dt class="label" id="id1"><span class="brackets">1</span></dt>
-<dd><p><a class="reference external" href="https://en.wikipedia.org/wiki/Erosion_%28morphology%29">https://en.wikipedia.org/wiki/Erosion_%28morphology%29</a></p>
-</dd>
-<dt class="label" id="id2"><span class="brackets">2</span></dt>
-<dd><p><a class="reference external" href="https://en.wikipedia.org/wiki/Mathematical_morphology">https://en.wikipedia.org/wiki/Mathematical_morphology</a></p>
+<dd class="field-odd"><p><a class="reference internal" href="raster_tools.Raster.html#raster_tools.Raster" title="raster_tools.Raster">Raster</a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -516,20 +566,20 @@ same shape and meta data as the original</p>
     <div class="footer-article-item"><!-- Previous / next buttons -->
 <div class="prev-next-area">
     <a class="left-prev"
-       href="raster_tools.general.dilate.html"
+       href="raster_tools.band_concat.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">raster_tools.general.dilate</p>
+        <p class="prev-next-title">raster_tools.band_concat</p>
       </div>
     </a>
     <a class="right-next"
-       href="raster_tools.general.local_stats.html"
+       href="raster_tools.constant_raster.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">raster_tools.general.local_stats</p>
+        <p class="prev-next-title">raster_tools.constant_raster</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
