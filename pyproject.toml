@@ -1,16 +1,55 @@
 [build-system]
-# Minimum requirements for the build system to execute.
-requires = [
-    "setuptools>=42",
-]
+requires = ["setuptools>=64"]
 build-backend = "setuptools.build_meta"
 
-[tool.black]
-line-length = 79
+[project]
+name = "raster-tools"
+description = "Tools for processing geospatial data"
+readme = "README.md"
+license = {text = "GPL-3.0"}
+requires-python = ">=3.9"
+dynamic = ["version"]
+classifiers = [
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: GIS",
+]
+dependencies = [
+    "affine",
+    "cfgrib",
+    "dask",
+    "dask-geopandas",
+    "dask-image",
+    "fiona",
+    "geopandas",
+    "netcdf4",
+    "numba",
+    "numpy>=1.22",
+    "odc-geo<=0.4.11",
+    "pandas",
+    "pyogrio",
+    "pyproj",
+    "rioxarray",
+    "rasterio",
+    "scipy",
+    "shapely>=2.0",
+    "xarray",
+]
+
+[project.urls]
+Homepage = "https://github.com/UM-RMRS/raster_tools"
+"Bug Tracker" = "https://github.com/UM-RMRS/raster_tools/issues"
+
+[tool.setuptools.dynamic]
+version = {attr = "raster_tools._version.__version__"}
+
+[tool.setuptools.packages.find]
+exclude = ["docs*", "tests*"]
 
 [tool.ruff]
 line-length = 79
-# Exclude a variety of commonly ignored directories.
 exclude = [
     ".bzr",
     ".direnv",
@@ -60,11 +99,12 @@ extend-select = ["I"]
 ignore = [
     # Whitespace before ':'. flake8 is wrong when inside slice expressions.
     "E203",
+    # Conflicts with ruff-format; rely on the formatter for implicit concats.
+    "ISC001",
 ]
+
 [tool.ruff.lint.isort]
 known-first-party = ["raster_tools", "tests"]
 
-[tool.isort]
-profile = "black"
-line_length = 79
-known_first_party = ["raster_tools", "tests"]
+[tool.ruff.format]
+quote-style = "double"

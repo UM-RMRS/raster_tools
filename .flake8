@@ -1,6 +1,0 @@
-[flake8]
-ignore =
-    # Whitespace before ':'. flake8 is wrong when inside slice expressions.
-    E203,
-    # Line break before binary operator. flake8 is wrong and goes against PEP8.
-    W503,
