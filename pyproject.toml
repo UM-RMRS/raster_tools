@@ -23,13 +23,11 @@ classifiers = [
 ]
 dependencies = [
     "affine",
-    "cfgrib",
     "dask",
     "dask-geopandas",
     "dask-image",
     "fiona",
     "geopandas",
-    "netcdf4",
     "numba",
     "numpy>=1.22",
     "odc-geo",
@@ -42,6 +40,9 @@ dependencies = [
     "shapely>=2.0",
     "xarray",
 ]
+
+[project.optional-dependencies]
+io = ["netcdf4", "cfgrib"]
 
 [project.urls]
 Homepage = "https://github.com/UM-RMRS/raster_tools"

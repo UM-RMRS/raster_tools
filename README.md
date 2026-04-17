@@ -35,12 +35,21 @@ Limited support is also provided for working with Vector data using
 pip install raster-tools
 ```
 
+To enable reading netCDF and GRIB files via `raster_tools.open_dataset`:
+
+```sh
+pip install raster-tools[io]
+```
+
 #### Conda
 
 ```sh
-conda install -c conda-forge cfgrib dask-geopandas dask-image fiona netcdf4 numba odc-geo pyogrio rioxarray scipy
+conda install -c conda-forge dask-geopandas dask-image fiona numba odc-geo pyogrio rioxarray scipy
 pip install --no-deps raster-tools
 ```
+
+Add `netcdf4` and `cfgrib` to the install command above to enable reading
+netCDF and GRIB files.
 
 
 ## Helpful Links

@@ -74,6 +74,18 @@ def is_batch_file(path):
     return _get_extension(path) in BATCH_EXTS
 
 
+def _require_backend(module, ext, extra):
+    import importlib.util
+
+    if importlib.util.find_spec(module) is None:
+        raise ImportError(
+            f"Reading {ext} files requires the '{module}' package, which is"
+            " not installed. Install it with 'pip install"
+            f" raster-tools[{extra}]' or 'conda install -c conda-forge"
+            f" {module}'."
+        )
+
+
 ESRI_DEFAULT_F32_NV = np.finfo(F32).min
 
 
@@ -279,6 +291,11 @@ def open_dataset(
     if xarray_kwargs is None:
         xarray_kwargs = {}
     xarray_kwargs["decode_coords"] = "all"
+    ext = _get_extension(path)
+    if ext in NC_EXTS:
+        _require_backend("netcdf4", ext, extra="io")
+    elif ext in GRIB_EXTS:
+        _require_backend("cfgrib", ext, extra="io")
     tmp_ds = xr.open_dataset(path, **xarray_kwargs)
     data_vars = _get_valid_variables(tmp_ds, ignore_extra_dim_errors)
     crs = crs or tmp_ds.rio.crs
