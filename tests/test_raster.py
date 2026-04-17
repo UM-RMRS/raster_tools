@@ -68,7 +68,6 @@ from tests.utils import (
     assert_rasters_similar,
     assert_valid_raster,
     make_raster,
-    zip_strict,
 )
 
 
@@ -1273,7 +1272,7 @@ def test_ufuncs_single_input(ufunc):
         assert np.allclose(result, truth, equal_nan=True)
         assert np.allclose(result._ds.mask, raster._ds.mask, equal_nan=True)
     else:
-        for r, t in zip_strict(result, truth):
+        for r, t in zip(result, truth, strict=True):
             assert_valid_raster(r)
             t[mask] = get_default_null_value(t.dtype)
             assert r._masked
@@ -1332,7 +1331,7 @@ def test_ufuncs_multiple_input_against_scalar(
         assert np.allclose(result, expected_np, equal_nan=True)
         assert np.allclose(result._ds.mask, raster._ds.mask, equal_nan=True)
     else:
-        for r, t in zip_strict(result, expected_np):
+        for r, t in zip(result, expected_np, strict=True):
             assert_valid_raster(r)
             assert_rasters_similar(r, raster)
             t[mask] = get_default_null_value(t.dtype)
@@ -1361,7 +1360,7 @@ def test_ufuncs_multiple_input_against_scalar(
         assert np.allclose(result, expected_np, equal_nan=True)
         assert np.allclose(result._ds.mask, raster._ds.mask, equal_nan=True)
     else:
-        for r, t in zip_strict(result, expected_np):
+        for r, t in zip(result, expected_np, strict=True):
             assert_valid_raster(r)
             assert_rasters_similar(r, raster)
             t[mask] = get_default_null_value(t.dtype)
@@ -1413,7 +1412,7 @@ def test_ufuncs_multiple_input_against_raster(ops_test_array_data, ufunc):
         assert np.allclose(result, expected_np, equal_nan=True)
         assert np.allclose(result._ds.mask, mask, equal_nan=True)
     else:
-        for r, t in zip_strict(result, expected_np):
+        for r, t in zip(result, expected_np, strict=True):
             assert_valid_raster(r)
             t[mask] = get_default_null_value(t.dtype)
             assert r._masked
@@ -1434,7 +1433,7 @@ def test_ufuncs_multiple_input_against_raster(ops_test_array_data, ufunc):
         assert np.allclose(result, expected_np, equal_nan=True)
         assert np.allclose(result._ds.mask, mask)
     else:
-        for r, t in zip_strict(result, expected_np):
+        for r, t in zip(result, expected_np, strict=True):
             assert_valid_raster(r)
             t[mask] = get_default_null_value(t.dtype)
             assert r.crs == raster.crs
@@ -1585,7 +1584,7 @@ def test_bandwise(ufunc, other):
         assert np.allclose(result, truth, equal_nan=True)
         assert np.allclose(result._ds.mask, mask)
     else:
-        for r, t in zip_strict(result, truth):
+        for r, t in zip(result, truth, strict=True):
             assert_valid_raster(r)
             t[mask] = get_default_null_value(t.dtype)
             assert r._masked
@@ -1605,7 +1604,7 @@ def test_bandwise(ufunc, other):
         assert np.allclose(result, truth, equal_nan=True)
         assert np.allclose(result._ds.mask, mask)
     else:
-        for r, t in zip_strict(result, truth):
+        for r, t in zip(result, truth, strict=True):
             assert_valid_raster(r)
             t[mask] = get_default_null_value(t.dtype)
             assert r._masked
@@ -2515,7 +2514,7 @@ def _build_chunk_truth(raster, nv=None):
 
 def _assert_chunk_rasters_match(rasters, truth):
     assert rasters.shape == truth.shape
-    for r, t in zip_strict(rasters.ravel(), truth.ravel()):
+    for r, t in zip(rasters.ravel(), truth.ravel(), strict=True):
         assert_valid_raster(r)
         assert r.data.npartitions == 1
         assert r.data.chunksize == r.shape
@@ -2574,8 +2573,8 @@ def test_to_polygons(raster, neighbors):
     raster = raster.burn_mask()
     feats = raster.remap_range(mapping)
     band_truths = []
-    for values, mask, band in zip_strict(
-        feats.to_numpy(), feats.mask, np.arange(raster.nbands) + 1
+    for values, mask, band in zip(
+        feats.to_numpy(), feats.mask, np.arange(raster.nbands) + 1, strict=True
     ):
         raw_shapes_results = list(
             rio.features.shapes(
@@ -2614,8 +2613,8 @@ def test_to_polygons(raster, neighbors):
     result = result.compute()
     result = result.sort_values(by=["band", "value"]).reset_index(drop=True)
     assert result[["value", "band"]].equals(truth[["value", "band"]])
-    for g1, g2 in zip_strict(
-        truth.geometry.to_numpy(), result.geometry.to_numpy()
+    for g1, g2 in zip(
+        truth.geometry.to_numpy(), result.geometry.to_numpy(), strict=True
     ):
         # Resort to shapely's equals because the points for each polygon are
         # the same but the order is shifted due to the starting/ending points

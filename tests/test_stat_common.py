@@ -7,7 +7,6 @@ from scipy import stats
 
 import raster_tools.stat_common as stc
 from raster_tools.dtypes import is_scalar
-from tests.utils import zip_strict
 
 PY_VER_37 = sys.version_info[0] == 3 and sys.version_info[1] == 7
 
@@ -45,7 +44,7 @@ class TestJitStats(TestCase):
                     truth.append(truth_func(i))
                 except ValueError:  # noqa: PERF203
                     truth.append(None)
-        for i, t in zip_strict(INPUTS, truth):
+        for i, t in zip(INPUTS, truth, strict=True):
             if t is not None:
                 self._test(func, i, t)
             else:

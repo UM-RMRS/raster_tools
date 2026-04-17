@@ -49,7 +49,6 @@ from tests.utils import (
     assert_rasters_similar,
     assert_valid_raster,
     make_raster,
-    zip_strict,
 )
 
 stat_funcs = {
@@ -460,7 +459,7 @@ def test_model_predict_vector(features, model, columns, nout, prefix):
     if r.ndim == 1:
         r = r[:, None]
     truth[valid] = r
-    new_df = pd.DataFrame(dict(zip_strict(new_columns, truth.T)))
+    new_df = pd.DataFrame(dict(zip(new_columns, truth.T, strict=True)))
     truth_df = pd.concat([feats_df, new_df], axis=1)
 
     for result in [

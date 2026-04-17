@@ -1,6 +1,3 @@
-import sys
-from itertools import zip_longest
-
 import dask
 import dask.array as da
 import numpy as np
@@ -15,22 +12,6 @@ from raster_tools.utils import (
     is_strictly_increasing,
     null_values_equal,
 )
-
-if sys.version_info >= (3, 10):
-
-    def zip_strict(*iterables):
-        return zip(*iterables, strict=True)
-
-else:
-
-    def zip_strict(*iterables):
-        sentinel = object()
-        for combo in zip_longest(*iterables, fillvalue=sentinel):
-            if any(x is sentinel for x in combo):
-                raise ValueError(
-                    "zip_strict: iterables have different lengths"
-                )
-            yield combo
 
 
 def _as_3d(data):
@@ -394,7 +375,9 @@ def assert_valid_raster(raster):
         assert np.allclose(data, data_copy, equal_nan=True)
     # Declared chunks should sum to the full shape on every axis
     assert raster.data.chunks == raster._ds.raster.data.chunks
-    for axis_chunks, axis_size in zip_strict(raster.data.chunks, raster.shape):
+    for axis_chunks, axis_size in zip(
+        raster.data.chunks, raster.shape, strict=True
+    ):
         assert sum(axis_chunks) == axis_size
     assert raster.shape == data.shape
     assert raster.shape == mask.shape
