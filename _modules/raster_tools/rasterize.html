@@ -452,7 +452,7 @@ document.write(`
         <span class="n">values</span> <span class="o">=</span> <span class="n">values</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">values_dtype</span><span class="p">)</span>
 
     <span class="n">rast_array</span> <span class="o">=</span> <span class="n">rio_rasterize</span><span class="p">(</span>
-        <span class="nb">zip</span><span class="p">(</span><span class="n">geometry</span><span class="p">,</span> <span class="n">values</span><span class="p">),</span>
+        <span class="nb">zip</span><span class="p">(</span><span class="n">geometry</span><span class="p">,</span> <span class="n">values</span><span class="p">,</span> <span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
         <span class="n">out_shape</span><span class="o">=</span><span class="n">shape</span><span class="p">,</span>
         <span class="n">transform</span><span class="o">=</span><span class="n">transform</span><span class="p">,</span>
         <span class="n">fill</span><span class="o">=</span><span class="n">fill</span><span class="p">,</span>

@@ -566,7 +566,7 @@ document.write(`
         <span class="k">return</span> <span class="n">chunks</span>
     <span class="k">if</span> <span class="n">dims</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">dims</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;band&quot;</span><span class="p">,</span> <span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="s2">&quot;x&quot;</span><span class="p">]</span>
-    <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">dims</span><span class="p">,</span> <span class="n">chunks</span><span class="p">))</span></div>
+    <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">dims</span><span class="p">,</span> <span class="n">chunks</span><span class="p">,</span> <span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span></div>
 
 
 <div class="viewcode-block" id="version_to_tuple"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.utils.version_to_tuple">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">version_to_tuple</span><span class="p">(</span><span class="n">version_str</span><span class="p">):</span>
