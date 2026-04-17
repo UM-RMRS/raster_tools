@@ -310,14 +310,16 @@ def length(features, like_rast, radius, weighting_field=None):
     # would result from an overlap in order to get properly sized GeoChunks.
     if any(
         _check_if_dask_needs_rechunk(chunks, depth)
-        for chunks, depth in zip(like_rast.data.chunks[1:], (ydepth, xdepth))
+        for chunks, depth in zip(
+            like_rast.data.chunks[1:], (ydepth, xdepth), strict=True
+        )
     ):
         like_rast = like_rast.copy()
         grid_ds = like_rast._ds
         grid_data = like_rast.data
         new_chunks = tuple(
             da.overlap.ensure_minimum_chunksize(depth, c)
-            for depth, c in zip(depths.values(), grid_data.chunks)
+            for depth, c in zip(depths.values(), grid_data.chunks, strict=True)
         )
         grid_ds.raster.data = grid_ds.raster.data.rechunk(new_chunks)
         grid_ds.mask.data = grid_ds.mask.data.rechunk(new_chunks)

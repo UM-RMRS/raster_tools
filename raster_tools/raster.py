@@ -230,7 +230,7 @@ def _apply_ufunc(ufunc, this, left, right=None, kwargs=None, out=None):
             nvs = [get_default_null_value(x.dtype) for x in xr_out]
             xr_out = [
                 xr.where(xmask, nv, x).rio.write_nodata(nv)
-                for x, nv in zip(xr_out, nvs)
+                for x, nv in zip(xr_out, nvs, strict=True)
             ]
             ds_out = [make_raster_ds(x, xmask) for x in xr_out]
     if out_crs is not None:
@@ -608,7 +608,9 @@ def normalize_xarray_data(xdata):
             name_mapping = {dims[0]: "y", dims[1]: "x"}
         else:
             name_mapping = {
-                d: nd for d, nd in zip(dims, ("band", "y", "x")) if d != nd
+                d: nd
+                for d, nd in zip(dims, ("band", "y", "x"), strict=True)
+                if d != nd
             }
         xdata = xdata.rename(name_mapping)
     else:
@@ -1556,7 +1558,7 @@ class Raster(_RasterBase):
         """
         assert len(chunks) == 3
         return Raster(
-            self._ds.chunk(dict(zip(["band", "y", "x"], chunks))),
+            self._ds.chunk(dict(zip(["band", "y", "x"], chunks, strict=True))),
             _fast_path=True,
         )
 
@@ -2364,7 +2366,9 @@ class Raster(_RasterBase):
                 for r in self.get_bands(iband + 1).get_chunk_rasters().ravel()
             ]
             partitions = []
-            for chnk, mask, transform in zip(chunks, mask_chunks, transforms):
+            for chnk, mask, transform in zip(
+                chunks, mask_chunks, transforms, strict=True
+            ):
                 part = dd.from_delayed(
                     _shapes_delayed(
                         chnk, mask, neighbors, transform, iband + 1, self.crs
@@ -2446,7 +2450,7 @@ class Raster(_RasterBase):
 
         # See issue for inspiration: https://github.com/dask/dask/issues/7589
         # Group chunk data with corresponding coordinate data
-        chunks = list(zip(data_delayed, mask_delayed, geochunks))
+        chunks = list(zip(data_delayed, mask_delayed, geochunks, strict=True))
 
         meta = gpd.GeoDataFrame(
             {

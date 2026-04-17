@@ -158,7 +158,7 @@ def to_chunk_dict(chunks, dims=None):
         return chunks
     if dims is None:
         dims = ["band", "y", "x"]
-    return dict(zip(dims, chunks))
+    return dict(zip(dims, chunks, strict=True))
 
 
 def version_to_tuple(version_str):

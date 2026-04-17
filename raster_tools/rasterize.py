@@ -44,7 +44,7 @@ def _rio_rasterize_wrapper(
         values = values.astype(values_dtype)
 
     rast_array = rio_rasterize(
-        zip(geometry, values),
+        zip(geometry, values, strict=True),
         out_shape=shape,
         transform=transform,
         fill=fill,

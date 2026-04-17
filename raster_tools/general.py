@@ -1059,7 +1059,9 @@ def remap_range(raster, mapping, inclusivity="left"):
         raise TypeError(
             f"inclusivity must be a str. Got type: {type(inclusivity)}"
         )
-    inc_map = dict(zip(("left", "right", "both", "none"), range(4)))
+    inc_map = dict(
+        zip(("left", "right", "both", "none"), range(4), strict=True)
+    )
     if inclusivity not in inc_map:
         raise ValueError(f"Invalid inclusivity value. Got: {inclusivity!r}")
     if not all(m is None for m in map_outs):
@@ -1077,7 +1079,9 @@ def remap_range(raster, mapping, inclusivity="left"):
         nv = get_default_null_value(out_dtype)
     else:
         nv = None
-    start_end_values = np.array([[s, e] for s, e in zip(map_starts, map_ends)])
+    start_end_values = np.array(
+        [[s, e] for s, e in zip(map_starts, map_ends, strict=True)]
+    )
     new_values = np.array([v if v is not None else nv for v in map_outs])
 
     data = raster.data
@@ -1234,7 +1238,7 @@ def where(condition, true_rast, false_rast):
 def _reclassify_chunk(
     x, mask, mapping_from, mapping_to, unmapped_to_null, null, out_dtype
 ):
-    mapping = dict(zip(mapping_from, mapping_to))
+    mapping = dict(zip(mapping_from, mapping_to, strict=True))
     out = np.empty_like(x, dtype=out_dtype)
     nb, ny, nx = x.shape
     for b in range(nb):

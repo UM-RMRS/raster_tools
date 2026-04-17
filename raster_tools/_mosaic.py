@@ -30,6 +30,7 @@ def _grids_close(a, b, pixel_tolerance=_GRID_PIXEL_TOLERANCE):
         for x, y in zip(
             (aa.a, aa.b, aa.c, aa.d, aa.e, aa.f),
             (bb.a, bb.b, bb.c, bb.d, bb.e, bb.f),
+            strict=True,
         )
     )
 
