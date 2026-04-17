@@ -2,7 +2,7 @@ name: test
 channels:
   - conda-forge
 dependencies:
-  - python=3.9
+  - python=3.13
   - affine
   - cfgrib
   - dask
@@ -10,10 +10,10 @@ dependencies:
   - dask-image
   - fiona
   - geopandas
+  - netcdf4
   - numba
   - numpy
-  - netcdf4
-  - odc-geo<=0.4.11
+  - odc-geo
   - pandas
   - pyogrio
   - pyproj
