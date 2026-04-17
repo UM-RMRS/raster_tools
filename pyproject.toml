@@ -75,6 +75,7 @@ exclude = [
 ]
 
 [tool.ruff.lint]
+exclude = ["*.ipynb"]
 select = [
     "E",      # Pycodestyle
     "W",      # Pycodestyle

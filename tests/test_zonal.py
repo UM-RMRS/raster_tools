@@ -277,8 +277,9 @@ def get_random_points(n, nparts, dem):
     xmin, ymin, xmax, ymax = dem.bounds
     xspan = xmax - xmin
     yspan = ymax - ymin
-    x = xmin + (xspan * 1.1 * np.random.random(n)) - (0.05 * xspan)
-    y = ymin + (yspan * 1.1 * np.random.random(n)) - (0.05 * yspan)
+    rng = np.random.default_rng()
+    x = xmin + (xspan * 1.1 * rng.random(n)) - (0.05 * xspan)
+    y = ymin + (yspan * 1.1 * rng.random(n)) - (0.05 * yspan)
     points = gpd.GeoSeries.from_xy(x, y, crs=dem.crs).to_frame("geometry")
     return dgpd.from_geopandas(points, npartitions=nparts)
 

@@ -22,7 +22,7 @@ import raster_tools  # noqa: E402
 # -- Project information -----------------------------------------------------
 
 project = "raster_tools"
-copyright = (
+copyright = (  # noqa: A001
     "Notice: This is a work of the U.S. Government and is not subject to "
     " copyright protection in the United States"
 )
