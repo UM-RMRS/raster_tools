@@ -8,7 +8,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>raster_tools.io &#8212; raster_tools 0.10.1 documentation</title>
+    <title>raster_tools.io &#8212; raster_tools 0.10.2 documentation</title>
   
   
   
@@ -114,7 +114,7 @@
   
   
   
-    <p class="title logo__title">raster_tools 0.10.1 documentation</p>
+    <p class="title logo__title">raster_tools 0.10.2 documentation</p>
   
 </a></div>
         <div class="sidebar-primary-item"><nav class="bd-links" id="bd-docs-nav" aria-label="Main">
@@ -482,6 +482,18 @@ document.write(`
     <span class="k">return</span> <span class="n">_get_extension</span><span class="p">(</span><span class="n">path</span><span class="p">)</span> <span class="ow">in</span> <span class="n">BATCH_EXTS</span></div>
 
 
+<span class="k">def</span><span class="w"> </span><span class="nf">_require_backend</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">ext</span><span class="p">,</span> <span class="n">extra</span><span class="p">):</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">importlib.util</span>
+
+    <span class="k">if</span> <span class="n">importlib</span><span class="o">.</span><span class="n">util</span><span class="o">.</span><span class="n">find_spec</span><span class="p">(</span><span class="n">module</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Reading </span><span class="si">{</span><span class="n">ext</span><span class="si">}</span><span class="s2"> files requires the &#39;</span><span class="si">{</span><span class="n">module</span><span class="si">}</span><span class="s2">&#39; package, which is&quot;</span>
+            <span class="s2">&quot; not installed. Install it with &#39;pip install&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot; raster-tools[</span><span class="si">{</span><span class="n">extra</span><span class="si">}</span><span class="s2">]&#39; or &#39;conda install -c conda-forge&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot; </span><span class="si">{</span><span class="n">module</span><span class="si">}</span><span class="s2">&#39;.&quot;</span>
+        <span class="p">)</span>
+
+
 <span class="n">ESRI_DEFAULT_F32_NV</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">finfo</span><span class="p">(</span><span class="n">F32</span><span class="p">)</span><span class="o">.</span><span class="n">min</span>
 
 
@@ -687,6 +699,11 @@ document.write(`
     <span class="k">if</span> <span class="n">xarray_kwargs</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">xarray_kwargs</span> <span class="o">=</span> <span class="p">{}</span>
     <span class="n">xarray_kwargs</span><span class="p">[</span><span class="s2">&quot;decode_coords&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;all&quot;</span>
+    <span class="n">ext</span> <span class="o">=</span> <span class="n">_get_extension</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">ext</span> <span class="ow">in</span> <span class="n">NC_EXTS</span><span class="p">:</span>
+        <span class="n">_require_backend</span><span class="p">(</span><span class="s2">&quot;netcdf4&quot;</span><span class="p">,</span> <span class="n">ext</span><span class="p">,</span> <span class="n">extra</span><span class="o">=</span><span class="s2">&quot;io&quot;</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">ext</span> <span class="ow">in</span> <span class="n">GRIB_EXTS</span><span class="p">:</span>
+        <span class="n">_require_backend</span><span class="p">(</span><span class="s2">&quot;cfgrib&quot;</span><span class="p">,</span> <span class="n">ext</span><span class="p">,</span> <span class="n">extra</span><span class="o">=</span><span class="s2">&quot;io&quot;</span><span class="p">)</span>
     <span class="n">tmp_ds</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">open_dataset</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="o">**</span><span class="n">xarray_kwargs</span><span class="p">)</span>
     <span class="n">data_vars</span> <span class="o">=</span> <span class="n">_get_valid_variables</span><span class="p">(</span><span class="n">tmp_ds</span><span class="p">,</span> <span class="n">ignore_extra_dim_errors</span><span class="p">)</span>
     <span class="n">crs</span> <span class="o">=</span> <span class="n">crs</span> <span class="ow">or</span> <span class="n">tmp_ds</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">crs</span>
