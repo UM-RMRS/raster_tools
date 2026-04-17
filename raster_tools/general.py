@@ -1238,7 +1238,7 @@ def where(condition, true_rast, false_rast):
 def _reclassify_chunk(
     x, mask, mapping_from, mapping_to, unmapped_to_null, null, out_dtype
 ):
-    mapping = dict(zip(mapping_from, mapping_to, strict=True))
+    mapping = dict(zip(mapping_from, mapping_to))  # noqa: B905
     out = np.empty_like(x, dtype=out_dtype)
     nb, ny, nx = x.shape
     for b in range(nb):
