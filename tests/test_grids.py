@@ -100,10 +100,10 @@ def test_reproject_grid_changes_crs():
     assert reprojected.crs == 4326
 
 
-def test_combine_grids_invalid_extent_raises():
+def test_combine_grids_invalid_how_raises():
     a = _bbox_grid(0, 0, 3000, 3000)
-    with pytest.raises(ValueError, match="extent must be"):
-        _grids.combine_grids([a], extent="bogus")
+    with pytest.raises(ValueError, match="how must be"):
+        _grids.combine_grids([a], how="bogus")
 
 
 def test_combine_grids_identical_grids_returns_input():
@@ -121,7 +121,7 @@ def test_combine_grids_identical_grids_with_dst_crs_reprojects():
 def test_combine_grids_union_covers_both_inputs():
     a = _bbox_grid(0, 0, 3000, 3000)
     b = _bbox_grid(3000, 3000, 6000, 6000)
-    result = _grids.combine_grids([a, b], extent="union")
+    result = _grids.combine_grids([a, b], how="union")
     xmin, ymin, xmax, ymax = _grids.get_grid_bounds(result)
     assert xmin == pytest.approx(0)
     assert ymin == pytest.approx(0)
@@ -132,7 +132,7 @@ def test_combine_grids_union_covers_both_inputs():
 def test_combine_grids_intersection_of_overlap():
     a = _bbox_grid(0, 0, 3000, 3000)
     b = _bbox_grid(1500, 1500, 4500, 4500)
-    result = _grids.combine_grids([a, b], extent="intersection")
+    result = _grids.combine_grids([a, b], how="intersection")
     xmin, ymin, xmax, ymax = _grids.get_grid_bounds(result)
     assert xmin == pytest.approx(1500)
     assert ymin == pytest.approx(1500)
@@ -144,4 +144,4 @@ def test_combine_grids_intersection_empty_raises():
     a = _bbox_grid(0, 0, 3000, 3000)
     b = _bbox_grid(10_000, 10_000, 13_000, 13_000)
     with pytest.raises(ValueError, match="intersection.*empty"):
-        _grids.combine_grids([a, b], extent="intersection")
+        _grids.combine_grids([a, b], how="intersection")

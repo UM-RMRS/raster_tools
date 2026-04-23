@@ -60,18 +60,18 @@ def get_grid_bounds(grid):
     return get_grid_bbox(grid).bounds
 
 
-def combine_grids(grids, extent=None, dst_crs=None):
+def combine_grids(grids, how=None, dst_crs=None):
     """Produce a grid that combines the input grids
 
     Parameters
     ----------
     grids : list of GeoBox
         The input GeoBox grids to combine.
-    extent : str, optional
-        Either ``"union"`` or ``"intersection"``. Union takes the bounding box
-        of the convex hull of the individual grid bounding boxes. Intersection
-        takes the bounding box of the intersection of the bounding boxes of the
-        grids. Default is ``"union"``.
+    how : str, optional
+        How to combine the grids. Either ``"union"`` or ``"intersection"``.
+        Union takes the bounding box of the convex hull of the individual grid
+        bounding boxes. Intersection takes the bounding box of the intersection
+        of the bounding boxes of the grids. Default is ``"union"``.
     dst_crs : CRS-like, optional
         The CRS of the resulting grid. If ``None``, the CRS of the first input
         grid is used. When the input grids do not share a CRS, they are
@@ -84,10 +84,10 @@ def combine_grids(grids, extent=None, dst_crs=None):
         The resulting GeoBox object.
 
     """
-    if extent is None:
-        extent = "union"
-    elif extent not in ("intersection", "union"):
-        raise ValueError("extent must be one of intersection, union, or None")
+    if how is None:
+        how = "union"
+    elif how not in ("intersection", "union"):
+        raise ValueError("how must be one of intersection, union, or None")
 
     if are_all_grids_same(grids):
         if dst_crs is None:
@@ -102,7 +102,7 @@ def combine_grids(grids, extent=None, dst_crs=None):
         reproject_grid(g, dst_crs, resolution=resolution) for g in grids
     ]
     bboxes_dst = [get_grid_bbox(g) for g in grids_dst]
-    if extent == "union":
+    if how == "union":
         total_bounds_dst = gpd.GeoSeries(bboxes_dst, crs=dst_crs).total_bounds
         dst_grid = GeoBox.from_bbox(
             total_bounds_dst, crs=dst_crs, resolution=resolution, tight=True
