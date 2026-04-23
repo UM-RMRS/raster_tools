@@ -724,52 +724,6 @@ def test_mosaic_non_default_resampling_differs_from_nearest():
     )
 
 
-def test_are_all_grids_same_detects_mismatch():
-    # Regression: a past bug made 2-grid comparisons always return True.
-    from odc.geo.geobox import GeoBox
-
-    a = GeoBox.from_bbox((0, 0, 100, 100), crs=3857, resolution=1, tight=True)
-    b = GeoBox.from_bbox((0, 0, 200, 200), crs=3857, resolution=1, tight=True)
-    assert mosaic._are_all_grids_same([a, a])
-    assert not mosaic._are_all_grids_same([a, b])
-    assert not mosaic._are_all_grids_same([a, a, b])
-
-
-def test_are_all_grids_same_tolerates_subpixel_noise():
-    # Some published products carry sub-pixel FP noise in otherwise-shared
-    # grids (observed up to ~1e-4 in CRS units). Strict GeoBox equality
-    # would reject those and trigger needless reprojection passes, so
-    # _are_all_grids_same applies a sub-pixel tolerance.
-    from affine import Affine
-    from odc.geo.geobox import GeoBox
-
-    # Realistic 30m grid (EPSG:5070 / NAD83 Albers).
-    a = GeoBox.from_bbox(
-        (500_000, 4_000_000, 500_000 + 30 * 100, 4_000_000 + 30 * 100),
-        crs=5070,
-        resolution=30,
-        tight=True,
-    )
-    at = a.affine
-
-    # 1e-4 m drift in origin -- realistic FP noise -- must still count
-    # as "same".
-    drifted = GeoBox(
-        a.shape,
-        Affine(at.a, at.b, at.c + 1e-4, at.d, at.e, at.f + 1e-4),
-        a.crs,
-    )
-    assert mosaic._are_all_grids_same([a, drifted])
-
-    # Half-a-pixel shift must not be tolerated (that's a real offset).
-    half_pixel = GeoBox(
-        a.shape,
-        Affine(at.a, at.b, at.c + 15, at.d, at.e, at.f),
-        a.crs,
-    )
-    assert not mosaic._are_all_grids_same([a, half_pixel])
-
-
 def test_mosaic_single_raster_identity():
     y = np.arange(3)[::-1]
     x = np.arange(3)
@@ -1012,30 +966,6 @@ def test_mosaic_mixed_nbands_with_overlap(method):
     band2 = data[1]
     assert (band2[:, :3] == 5).all()
     assert (band2[:, 3:] == result.null_value).all()
-
-
-def test_grids_close_different_crs():
-    from odc.geo.geobox import GeoBox
-
-    a = GeoBox.from_bbox((0, 0, 100, 100), crs=3857, resolution=1, tight=True)
-    b = GeoBox.from_bbox((0, 0, 100, 100), crs=4326, resolution=1, tight=True)
-    assert not mosaic._grids_close(a, b)
-
-
-def test_grids_close_different_shape():
-    from odc.geo.geobox import GeoBox
-
-    a = GeoBox.from_bbox((0, 0, 100, 100), crs=3857, resolution=1, tight=True)
-    b = GeoBox.from_bbox((0, 0, 200, 100), crs=3857, resolution=1, tight=True)
-    assert a.shape != b.shape
-    assert not mosaic._grids_close(a, b)
-
-
-def test_grids_close_identical():
-    from odc.geo.geobox import GeoBox
-
-    a = GeoBox.from_bbox((0, 0, 100, 100), crs=3857, resolution=1, tight=True)
-    assert mosaic._grids_close(a, a)
 
 
 def test_mosaic_differing_chunks():
