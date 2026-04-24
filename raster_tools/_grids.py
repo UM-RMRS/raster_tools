@@ -60,7 +60,7 @@ def get_grid_bounds(grid):
     return get_grid_bbox(grid).bounds
 
 
-def combine_grids(grids, how=None, dst_crs=None):
+def combine_grids(grids, how=None, dst_crs=None, resolution=None):
     """Produce a grid that combines the input grids
 
     Parameters
@@ -77,6 +77,10 @@ def combine_grids(grids, how=None, dst_crs=None):
         grid is used. When the input grids do not share a CRS, they are
         reprojected to ``dst_crs`` (or the first grid's CRS) before being
         combined. Default is ``None``.
+    resolution : scalar, optional
+        Pixel resolution of the resulting grid, in units of ``dst_crs``. If
+        ``None``, the resolution of the first input grid is used. Default is
+        ``None``.
 
     Returns
     -------
@@ -90,14 +94,18 @@ def combine_grids(grids, how=None, dst_crs=None):
         raise ValueError("how must be one of intersection, union, or None")
 
     if are_all_grids_same(grids):
-        if dst_crs is None:
+        if dst_crs is None and resolution is None:
             return grids[0]
-        else:
-            return reproject_grid(grids[0], dst_crs)
+        return reproject_grid(
+            grids[0],
+            dst_crs if dst_crs is not None else grids[0].crs,
+            resolution=resolution,
+        )
 
     if dst_crs is None:
         dst_crs = grids[0].crs
-    resolution = np.abs(grids[0].resolution.x)
+    if resolution is None:
+        resolution = np.abs(grids[0].resolution.x)
     grids_dst = [
         reproject_grid(g, dst_crs, resolution=resolution) for g in grids
     ]

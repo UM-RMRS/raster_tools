@@ -7,23 +7,25 @@ from odc.geo.geobox import GeoBox
 
 import raster_tools as rts
 from raster_tools._grids import are_all_grids_same, combine_grids
+from raster_tools.utils import null_values_equal
 from raster_tools.warp import SUPPORTED_RESAMPLE_METHODS
 
-__all__ = ["band_stack"]
+__all__ = ["stack_bands"]
 
 
-def _reproject(raster, grid, resampling_method):
-    if are_all_grids_same([raster.geobox, grid]):
+def _cast_if_needed(raster, dtype, nodata):
+    if raster.dtype == dtype and null_values_equal(raster.null_value, nodata):
         return raster
-    return raster.reproject(grid, resampling_method=resampling_method)
+    return raster.astype(dtype, new_null_value=nodata)
 
 
-def band_stack(
+def stack_bands(
     rasters,
     dst_crs=None,
     dst_grid=None,
     join="inner",
     resampling_method="nearest",
+    resolution=None,
     dtype=None,
     null_value=None,
 ):
@@ -52,7 +54,8 @@ def band_stack(
         is a raster object or path, this function does NOT write to the given
         raster, it instead uses the raster as a reference for the grid. The
         default is to build a grid from the inputs according to `join`, using
-        the resolution from the first raster in `rasters`.
+        the resolution from the first raster in `rasters`. Passing `dst_grid`
+        together with `dst_crs` or `resolution` is an error.
     join : str, optional
         How to combine the input grids when building the destination grid.
         Only consulted when `dst_grid` is not provided. Valid options are:
@@ -96,6 +99,10 @@ def band_stack(
             Sum, compute the weighted sum. (GDAL 3.1+)
         'rms'
             RMS, root mean square/quadratic mean. (GDAL 3.3+)
+    resolution : scalar, optional
+        Pixel resolution of the output grid, in units of the output CRS. Only
+        consulted when `dst_grid` is not provided. The default is to take the
+        resolution from the first raster in `rasters`.
     dtype : numpy.dtype, str, optional
         The dtype for the output raster. The default is to use
         :py:func:`numpy.result_type` on the dtypes from the input rasters.
@@ -109,13 +116,43 @@ def band_stack(
     Raster
         The resulting multi-band raster.
 
+    Notes
+    -----
+    When `dst_grid` is not provided, the output CRS and resolution default to
+    those of the first raster in `rasters`. Reordering the input list can
+    therefore change the output grid; pass `dst_crs`, `resolution`, or
+    `dst_grid` explicitly when that dependency is undesirable.
+
     """
     if len(rasters) == 0:
         raise ValueError("No rasters provided")
+    if join not in ("inner", "outer"):
+        raise ValueError("join must be one of 'inner' or 'outer'")
     resampling_method = resampling_method or "nearest"
     if resampling_method not in SUPPORTED_RESAMPLE_METHODS:
         raise ValueError("Invalid resampling method")
     nodata = null_value
+    if nodata is not None and not isinstance(nodata, numbers.Number):
+        raise TypeError("null_value must be a scalar or None")
+
+    if dst_grid is not None:
+        if isinstance(dst_grid, (str, rts.Raster)):
+            dst_grid = rts.get_raster(dst_grid).geobox
+        elif not isinstance(dst_grid, GeoBox):
+            raise TypeError(
+                f"Expected dst_grid to have type GeoBox. Got {type(dst_grid)}"
+            )
+        if dst_crs is not None:
+            parsed = rio.CRS.from_user_input(dst_crs)
+            if dst_grid.crs != parsed:
+                raise ValueError(
+                    "dst_crs does not match dst_grid.crs: "
+                    f"{parsed} vs {dst_grid.crs}"
+                )
+        if resolution is not None:
+            raise ValueError(
+                "resolution cannot be specified together with dst_grid"
+            )
 
     src_rasters = [rts.get_raster(r) for r in rasters]
     src_grids = [r.geobox for r in src_rasters]
@@ -126,8 +163,6 @@ def band_stack(
         if dtype is not None
         else np.result_type(*[r.dtype for r in src_rasters])
     )
-    if (nodata is not None) and (not isinstance(nodata, numbers.Number)):
-        raise TypeError("null_value must be a scalar or None")
     if nodata is None:
         nodatas = [
             src.null_value for src in src_rasters if src.null_value is not None
@@ -137,35 +172,53 @@ def band_stack(
         else:
             nodata = rts.masking.get_default_null_value(dtype)
 
+    # Single-raster fast path: no output constraints means we can skip grid
+    # building, reprojection, and concatenation entirely.
+    if (
+        len(src_rasters) == 1
+        and dst_grid is None
+        and dst_crs is None
+        and resolution is None
+    ):
+        return _cast_if_needed(src_rasters[0], dtype, nodata)
+
     if dst_grid is None:
         dst_crs = (
             dst_crs if dst_crs is None else rio.CRS.from_user_input(dst_crs)
         )
-        if src_grids_same and (dst_crs is None or src_grids[0].crs == dst_crs):
+        src_res_matches = resolution is None or np.isclose(
+            abs(src_grids[0].resolution.x), resolution
+        )
+        if (
+            src_grids_same
+            and (dst_crs is None or src_grids[0].crs == dst_crs)
+            and src_res_matches
+        ):
             dst_grid = src_grids[0]
         else:
             how = "union" if join == "outer" else "intersection"
-            dst_grid = combine_grids(src_grids, how=how, dst_crs=dst_crs)
-    elif isinstance(dst_grid, (str, rts.Raster)):
-        dst_grid = rts.get_raster(dst_grid).geobox
-    elif not isinstance(dst_grid, GeoBox):
-        raise TypeError(
-            f"Expected dst_grid to have type GeoBox. Got {type(dst_grid)}"
-        )
+            dst_grid = combine_grids(
+                src_grids,
+                how=how,
+                dst_crs=dst_crs,
+                resolution=resolution,
+            )
 
     # Fast path: all inputs already share the destination grid, so the
     # per-raster reproject check (and potential reproject) is unnecessary.
     if src_grids_same and are_all_grids_same([src_grids[0], dst_grid]):
         src_rasters_in_dst = [
-            r.astype(dtype, new_null_value=nodata) for r in src_rasters
+            _cast_if_needed(r, dtype, nodata) for r in src_rasters
         ]
     else:
         src_rasters_in_dst = [
-            (
+            _cast_if_needed(
                 r
                 if are_all_grids_same([r, dst_grid])
-                else r.reproject(dst_grid, resample_method=resampling_method)
-            ).astype(dtype, new_null_value=nodata)
+                else r.reproject(dst_grid, resample_method=resampling_method),
+                dtype,
+                nodata,
+            )
             for r in src_rasters
         ]
     # Rechunk all of the reprojected inputs so they are chunk aligned. This
