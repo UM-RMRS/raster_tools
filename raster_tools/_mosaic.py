@@ -1,78 +1,19 @@
 import numbers
 
 import dask.array as da
-import geopandas as gpd
 import numba as nb
 import numpy as np
 import rasterio as rio
-import shapely
 from odc.geo.geobox import GeoBox
 
 import raster_tools as rts
+from raster_tools._grids import (
+    _build_empty_raster_from_grid,
+    are_all_grids_same,
+    combine_grids,
+)
 
 __all__ = ["mosaic"]
-
-
-# Tolerance for geobox comparisons, as a fraction of pixel size. Some
-# published products carry sub-pixel FP noise (observed up to ~1e-4 in CRS
-# units) in what are otherwise shared grids; strict odc-geo equality would
-# reject those, forcing unnecessary reprojections.
-_GRID_PIXEL_TOLERANCE = 1e-3
-
-
-def _grids_close(a, b, pixel_tolerance=_GRID_PIXEL_TOLERANCE):
-    if a.crs != b.crs or a.shape != b.shape:
-        return False
-    aa, bb = a.affine, b.affine
-    atol = pixel_tolerance * max(abs(aa.a), abs(aa.e))
-    return all(
-        abs(x - y) <= atol
-        for x, y in zip(
-            (aa.a, aa.b, aa.c, aa.d, aa.e, aa.f),
-            (bb.a, bb.b, bb.c, bb.d, bb.e, bb.f),
-            strict=True,
-        )
-    )
-
-
-def _are_all_grids_same(grids):
-    if not grids:
-        return True
-
-    grids = [getattr(g, "geobox", g) for g in grids]
-    gtest = grids[0]
-    return all(_grids_close(gtest, g) for g in grids[1:])
-
-
-def _build_dst_grid_from_inputs(rasters, dst_crs=None):
-    if _are_all_grids_same(rasters):
-        if dst_crs is None:
-            return rasters[0].geobox
-        else:
-            return rasters[0].reproject(dst_crs).geobox
-
-    if dst_crs is None:
-        dst_crs = rasters[0].crs
-    resolution = np.abs(rasters[0].resolution[0])
-    rasters_dst = [
-        r.reproject(dst_crs, resolution=resolution) for r in rasters
-    ]
-    bboxes_dst = [shapely.box(*r.bounds) for r in rasters_dst]
-    total_bounds_dst = gpd.GeoSeries(bboxes_dst, crs=dst_crs).total_bounds
-    dst_grid = GeoBox.from_bbox(
-        total_bounds_dst, crs=dst_crs, resolution=resolution, tight=True
-    )
-    return dst_grid
-
-
-def _build_raster_from_grid(grid, dtype, nodata):
-    data = da.full((grid.shape.y, grid.shape.x), nodata, dtype=dtype)
-    # coordinates is an ordered (y-axis, x-axis) mapping; key names vary by
-    # CRS (e.g. "x"/"y" for projected, "longitude"/"latitude" for 4326).
-    y_coord, x_coord = grid.coordinates.values()
-    return rts.data_to_raster(
-        data, x=x_coord.values, y=y_coord.values, crs=grid.crs, nv=nodata
-    )
 
 
 @nb.jit(nopython=True, nogil=True)
@@ -365,7 +306,9 @@ def mosaic(
         dst_crs = (
             dst_crs if dst_crs is None else rio.CRS.from_user_input(dst_crs)
         )
-        dst_grid = _build_dst_grid_from_inputs(src_rasters, dst_crs=dst_crs)
+        dst_grid = combine_grids(
+            [r.geobox for r in src_rasters], "union", dst_crs=dst_crs
+        )
     elif isinstance(dst_grid, (str, rts.Raster)):
         dst_grid = rts.get_raster(dst_grid).geobox
     elif not isinstance(dst_grid, GeoBox):
@@ -377,12 +320,12 @@ def mosaic(
     src_rasters_in_dst = [
         (
             r
-            if _are_all_grids_same([r, dst_grid])
+            if are_all_grids_same([r, dst_grid])
             else r.reproject(dst_grid, resample_method=resampling_method)
         ).astype(dtype, new_null_value=nodata)
         for r in src_rasters
     ]
-    dst_raster = _build_raster_from_grid(dst_grid, dtype, nodata)
+    dst_raster = _build_empty_raster_from_grid(dst_grid, dtype, nodata)
     # Rechunk all of the reprojected inputs so they are chunk aligned. This
     # greatly boosts the performance of the dask operations down the line, such
     # as da.concatenate.
