@@ -1,9 +1,8 @@
 import numpy as np
 import pytest
 
-from raster_tools import focal, surface
+from raster_tools import focal, stack_bands, surface
 from raster_tools.dtypes import I32
-from raster_tools.general import band_concat
 from raster_tools.masking import get_default_null_value
 from tests import testdata
 from tests.utils import assert_rasters_similar, assert_valid_raster
@@ -156,8 +155,8 @@ def test_tpi():
     truth2 = ((dem2 - focal.focal(dem2, "mean", (5, 11))) + 0.5).astype(
         I32, False
     )
-    truth = band_concat((truth, truth2))
-    dem = band_concat((dem, dem2))
+    truth = stack_bands((truth, truth2))
+    dem = stack_bands((dem, dem2))
 
     tpi = surface.tpi(dem, 5, 11)
 

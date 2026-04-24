@@ -1,9 +1,9 @@
 import os
 import re
 
+from raster_tools._stack import stack_bands
 from raster_tools.dtypes import is_int, is_scalar
 from raster_tools.exception import BatchScriptParseError
-from raster_tools.general import band_concat
 from raster_tools.masking import get_default_null_value
 from raster_tools.raster import Raster
 from raster_tools.utils import validate_file
@@ -146,7 +146,7 @@ def _batch_parse_composite(state, args_str, line_no):
         _batch_error(
             "COMPOSITE Error: at least 2 rasters are required", on_line
         )
-    return band_concat(rasters)
+    return stack_bands(rasters)
 
 
 def _batch_parse_open(state, args_str, line_no):

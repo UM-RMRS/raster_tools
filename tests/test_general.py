@@ -677,6 +677,7 @@ def test_regions(raster, expected, neighbors, unique_values):
     assert result.dtype == expected.dtype
 
 
+@pytest.mark.filterwarnings("ignore:'band_concat' is deprecated")
 def test_band_concat():
     rs1 = make_raster(
         "arange",
@@ -714,6 +715,7 @@ def test_band_concat():
 
 
 @pytest.mark.filterwarnings("ignore:The null value")
+@pytest.mark.filterwarnings("ignore:'band_concat' is deprecated")
 def test_band_concat_bool_rasters():
     rs1 = (
         make_raster("ones", dtype="float32", shape=(1, 6, 6), null=True) > -100
@@ -731,6 +733,7 @@ def test_band_concat_bool_rasters():
     assert np.all(np.array(result) == 1)
 
 
+@pytest.mark.filterwarnings("ignore:'band_concat' is deprecated")
 def test_band_concat_errors():
     with pytest.raises(ValueError):
         general.band_concat([])

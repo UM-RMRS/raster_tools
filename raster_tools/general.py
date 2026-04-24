@@ -9,6 +9,7 @@ on Raster objects
 
 import os
 import re
+import warnings
 from collections.abc import Iterable, Sequence
 from functools import partial
 
@@ -909,6 +910,10 @@ def erode(raster, size):
 def band_concat(rasters):
     """Join a sequence of rasters along the band dimension.
 
+    .. deprecated::
+        Use :py:func:`raster_tools.stack_bands` instead. ``band_concat``
+        will be removed in a future release.
+
     Parameters
     ----------
     rasters : sequence of Rasters and/or paths
@@ -921,6 +926,12 @@ def band_concat(rasters):
         The resulting concatenated Raster.
 
     """
+    warnings.warn(
+        "'band_concat' is deprecated and will be removed in a future "
+        "release. Use 'raster_tools.stack_bands' instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     rasters = [get_raster(raster) for raster in rasters]
     if not rasters:
         raise ValueError("No rasters provided")

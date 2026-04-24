@@ -3,9 +3,9 @@ import numpy as np
 import rioxarray as rxr
 import xarray as xr
 
+from raster_tools._stack import stack_bands
 from raster_tools.creation import ones_like, zeros_like
 from raster_tools.exceptions import RasterNoDataError
-from raster_tools.general import band_concat
 from raster_tools.masking import get_default_null_value
 from raster_tools.raster import (
     Raster,
@@ -66,7 +66,7 @@ def _clip(
         else get_default_null_value(data_raster.dtype)
     )
     if data_raster.nbands > 1:
-        clip_mask = band_concat([clip_mask] * data_raster.nbands)
+        clip_mask = stack_bands([clip_mask] * data_raster.nbands)
     xdata_out = xr_where_with_meta(
         clip_mask.xdata, data_raster.xdata, nv, crs=crs, nv=nv
     )

@@ -109,9 +109,9 @@ class TestClipping(TestCase):
 
 def test_clip_multiband():
     raster = testdata.raster.dem_small
-    raster2 = rts.band_concat([raster, raster])
+    raster2 = rts.stack_bands([raster, raster])
     vector = testdata.vector.pods_small
-    expected = rts.band_concat([clipping.clip(vector, raster)] * 2)
+    expected = rts.stack_bands([clipping.clip(vector, raster)] * 2)
 
     result = clipping.clip(vector, raster2)
     assert_valid_raster(result)

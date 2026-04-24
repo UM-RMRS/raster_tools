@@ -106,10 +106,12 @@ def stack_bands(
     dtype : numpy.dtype, str, optional
         The dtype for the output raster. The default is to use
         :py:func:`numpy.result_type` on the dtypes from the input rasters.
-    null_value : scalar, optional
+    null_value : scalar or "default", optional
         The nodata/null value to use for the output raster. The default is to
         take the null value from the first input raster that has one, falling
-        back to a default based on the output dtype.
+        back to a default based on the output dtype. Pass the string
+        ``"default"`` to force the dtype-based default regardless of the
+        inputs' null values.
 
     Returns
     -------
@@ -132,8 +134,12 @@ def stack_bands(
     if resampling_method not in SUPPORTED_RESAMPLE_METHODS:
         raise ValueError("Invalid resampling method")
     nodata = null_value
-    if nodata is not None and not isinstance(nodata, numbers.Number):
-        raise TypeError("null_value must be a scalar or None")
+    if (
+        nodata is not None
+        and nodata != "default"
+        and not isinstance(nodata, numbers.Number)
+    ):
+        raise TypeError('null_value must be a scalar, None, or "default"')
 
     if dst_grid is not None:
         if isinstance(dst_grid, (str, rts.Raster)):
@@ -163,7 +169,9 @@ def stack_bands(
         if dtype is not None
         else np.result_type(*[r.dtype for r in src_rasters])
     )
-    if nodata is None:
+    if nodata == "default":
+        nodata = rts.masking.get_default_null_value(dtype)
+    elif nodata is None:
         nodatas = [
             src.null_value for src in src_rasters if src.null_value is not None
         ]

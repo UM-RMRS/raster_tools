@@ -27,7 +27,7 @@ from affine import Affine
 from shapely.geometry import box
 
 import raster_tools.raster
-from raster_tools import Raster, band_concat
+from raster_tools import Raster, stack_bands
 from raster_tools._compat import NUMPY_GE_2, NUMPY_GE_2_2
 from raster_tools.dtypes import (
     DTYPE_INPUT_TO_DTYPE,
@@ -800,7 +800,7 @@ def test_property_shape():
 @pytest.mark.parametrize(
     "raster",
     [
-        band_concat([testdata.raster.dem_small] * 3),
+        stack_bands([testdata.raster.dem_small] * 3),
         make_raster("arange", shape=(4, 20, 25), crs=None),
     ],
 )
@@ -1913,7 +1913,7 @@ def test_set_null():
     assert result._ds.raster.attrs == raster._ds.raster.attrs
 
     # Make sure broadcasting works
-    raster = band_concat([testdata.raster.dem_small] * 3)
+    raster = stack_bands([testdata.raster.dem_small] * 3)
     assert raster.shape == (3, 100, 100)
     mask = (testdata.raster.dem_small < 1500).to_numpy()
     truth[:, mask[0]] = raster.null_value
@@ -2468,7 +2468,7 @@ def test_get_chunk_bounding_boxes():
     ).all()
     assert boxes_df.equals(truth)
 
-    raster = raster_tools.band_concat([raster, raster])
+    raster = raster_tools.stack_bands([raster, raster]).chunk((1, 3, 3))
     rows += rows
     cols += cols
     boxes += boxes
@@ -2534,7 +2534,7 @@ def test_get_chunk_rasters():
     truth = _build_chunk_truth(raster, nv=6)
     _assert_chunk_rasters_match(raster.get_chunk_rasters(), truth)
 
-    raster = raster_tools.band_concat([raster, raster + 3]).set_null_value(6)
+    raster = raster_tools.stack_bands([raster, raster + 3]).set_null_value(6)
     truth = _build_chunk_truth(raster, nv=6)
     _assert_chunk_rasters_match(raster.get_chunk_rasters(), truth)
 
@@ -2560,7 +2560,7 @@ def test_get_chunk_rasters_chunk_size_1_has_geobox_and_affine():
     [
         testdata.raster.dem_small,
         testdata.raster.dem_small.chunk((1, 20, 20)),
-        band_concat(
+        stack_bands(
             [testdata.raster.dem_small, testdata.raster.dem_small]
         ).chunk((1, 20, 20)),
     ],

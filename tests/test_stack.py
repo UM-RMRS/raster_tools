@@ -367,6 +367,19 @@ def test_default_null_fallback_when_all_none():
     assert result.null_value == get_default_null_value(np.dtype("float32"))
 
 
+def test_default_null_string_forces_dtype_default():
+    y = np.arange(3)[::-1]
+    x = np.arange(3)
+    r1 = make_raster(np.ones((3, 3), dtype=int), y=y, x=x, null=-7, crs=5070)
+    r2 = make_raster(
+        np.full((3, 3), 2, dtype=int), y=y, x=x, null=-3, crs=5070
+    )
+    result = stack_bands([r1, r2], null_value="default")
+    assert_valid_raster(result)
+    assert result.null_value == get_default_null_value(result.dtype)
+    assert result.null_value != -7
+
+
 @pytest.mark.parametrize("bad_null_value", ["x", [1], (1, 2), {1}])
 def test_bad_null_value_type_raises(bad_null_value):
     r1, r2 = _same_grid_pair()

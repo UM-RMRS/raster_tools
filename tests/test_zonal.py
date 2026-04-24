@@ -15,7 +15,7 @@ import pytest
 import scipy
 import shapely
 
-from raster_tools import band_concat
+from raster_tools import stack_bands
 from raster_tools.zonal import (
     _asm_agg,
     _entropy_agg,
@@ -198,7 +198,7 @@ def test_zonal_stats(features, raster, stats):
     "raster",
     [
         testdata.raster.dem_small,
-        rts.band_concat(
+        rts.stack_bands(
             [
                 testdata.raster.dem_small,
                 testdata.raster.dem_small,
@@ -295,12 +295,13 @@ def dem_clipped_small():
         (dem_clipped_small(), 1_000, 4, "values"),
         (dem_clipped_small().chunk((1, 10, 10)), 1_000, 4, "points"),
         (
-            band_concat(
+            stack_bands(
                 [
                     dem_clipped_small(),
                     dem_clipped_small() + 1,
                     dem_clipped_small() + 10,
-                ]
+                ],
+                null_value="default",
             ).chunk((1, 10, 10)),
             1_000,
             4,
