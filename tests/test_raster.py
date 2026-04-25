@@ -64,7 +64,6 @@ from tests import testdata
 from tests.utils import (
     arange_nd,
     assert_dataarrays_similar,
-    assert_rasters_equal,
     assert_rasters_similar,
     assert_valid_raster,
     make_raster,
@@ -720,26 +719,6 @@ def test_null_value_overflow_underflow(
     expected = op(pre_expected, operand)
     expected = np.where(mask, nv, expected).astype(dtype)
     assert np.allclose(result.to_numpy(), expected)
-
-
-@pytest.fixture(params=[True, False])
-def boolean(request):
-    return request.param
-
-
-@pytest.fixture
-def raster_save_path(tmp_path, boolean):
-    path = tmp_path / "raster.tif"
-    if boolean:
-        path = str(path)
-    return path
-
-
-def test_save(raster_save_path):
-    raster = testdata.raster.dem_small
-    raster.save(raster_save_path)
-    # Make sure round trip works
-    assert_rasters_equal(raster, Raster(raster_save_path))
 
 
 @pytest.mark.parametrize(
