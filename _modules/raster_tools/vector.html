@@ -127,6 +127,7 @@
 <li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.open_dataset.html">raster_tools.open_dataset</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.band_concat.html">raster_tools.band_concat</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.mosaic.html">raster_tools.mosaic</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.stack_bands.html">raster_tools.stack_bands</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.constant_raster.html">raster_tools.constant_raster</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.empty_like.html">raster_tools.empty_like</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.full_like.html">raster_tools.full_like</a></li>
@@ -408,6 +409,7 @@ document.write(`
   <h1>Source code for raster_tools.vector</h1><div class="highlight"><pre>
 <span></span><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">dask</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">dask.dataframe</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">dd</span>
@@ -890,8 +892,19 @@ document.write(`
         <span class="k">return</span> <span class="n">Vector</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_geo</span><span class="o">.</span><span class="n">copy</span><span class="p">())</span></div>
 
 <div class="viewcode-block" id="Vector.eval"><a class="viewcode-back" href="../../reference/generated/raster_tools.Vector.eval.html#raster_tools.vector.Vector.eval">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">eval</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>  <span class="c1"># noqa: A003</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Computes the built-up chain of operations on the underlying data.&quot;&quot;&quot;</span>
-        <span class="c1"># TODO: deprecate in favor of load</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute the built-up chain of operations on the underlying data.</span>
+
+<span class="sd">        .. deprecated::</span>
+<span class="sd">            Use :meth:`load` instead. ``eval`` will be removed in a future</span>
+<span class="sd">            release.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+            <span class="s2">&quot;&#39;Vector.eval&#39; is deprecated and will be removed in a future &quot;</span>
+            <span class="s2">&quot;release. Use &#39;Vector.load&#39; instead.&quot;</span><span class="p">,</span>
+            <span class="ne">DeprecationWarning</span><span class="p">,</span>
+            <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+        <span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">load</span><span class="p">()</span></div>
 
 <div class="viewcode-block" id="Vector.load"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.vector.Vector.load">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>

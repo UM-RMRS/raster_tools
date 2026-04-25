@@ -127,6 +127,7 @@
 <li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.open_dataset.html">raster_tools.open_dataset</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.band_concat.html">raster_tools.band_concat</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.mosaic.html">raster_tools.mosaic</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.stack_bands.html">raster_tools.stack_bands</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.constant_raster.html">raster_tools.constant_raster</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.empty_like.html">raster_tools.empty_like</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.full_like.html">raster_tools.full_like</a></li>
@@ -411,9 +412,9 @@ document.write(`
 <span class="kn">import</span><span class="w"> </span><span class="nn">rioxarray</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">rxr</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">xarray</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">xr</span>
 
+<span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools._stack</span><span class="w"> </span><span class="kn">import</span> <span class="n">stack_bands</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.creation</span><span class="w"> </span><span class="kn">import</span> <span class="n">ones_like</span><span class="p">,</span> <span class="n">zeros_like</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">RasterNoDataError</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.general</span><span class="w"> </span><span class="kn">import</span> <span class="n">band_concat</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.masking</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_default_null_value</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.raster</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">Raster</span><span class="p">,</span>
@@ -474,7 +475,7 @@ document.write(`
         <span class="k">else</span> <span class="n">get_default_null_value</span><span class="p">(</span><span class="n">data_raster</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
     <span class="p">)</span>
     <span class="k">if</span> <span class="n">data_raster</span><span class="o">.</span><span class="n">nbands</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
-        <span class="n">clip_mask</span> <span class="o">=</span> <span class="n">band_concat</span><span class="p">([</span><span class="n">clip_mask</span><span class="p">]</span> <span class="o">*</span> <span class="n">data_raster</span><span class="o">.</span><span class="n">nbands</span><span class="p">)</span>
+        <span class="n">clip_mask</span> <span class="o">=</span> <span class="n">stack_bands</span><span class="p">([</span><span class="n">clip_mask</span><span class="p">]</span> <span class="o">*</span> <span class="n">data_raster</span><span class="o">.</span><span class="n">nbands</span><span class="p">)</span>
     <span class="n">xdata_out</span> <span class="o">=</span> <span class="n">xr_where_with_meta</span><span class="p">(</span>
         <span class="n">clip_mask</span><span class="o">.</span><span class="n">xdata</span><span class="p">,</span> <span class="n">data_raster</span><span class="o">.</span><span class="n">xdata</span><span class="p">,</span> <span class="n">nv</span><span class="p">,</span> <span class="n">crs</span><span class="o">=</span><span class="n">crs</span><span class="p">,</span> <span class="n">nv</span><span class="o">=</span><span class="n">nv</span>
     <span class="p">)</span>

@@ -130,6 +130,7 @@
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.open_dataset.html">raster_tools.open_dataset</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.band_concat.html">raster_tools.band_concat</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.mosaic.html">raster_tools.mosaic</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.stack_bands.html">raster_tools.stack_bands</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.constant_raster.html">raster_tools.constant_raster</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.empty_like.html">raster_tools.empty_like</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.full_like.html">raster_tools.full_like</a></li>
@@ -460,15 +461,44 @@ document.write(`
 <h1>raster_tools.Raster.save<a class="headerlink" href="#raster-tools-raster-save" title="Permalink to this headline">#</a></h1>
 <dl class="py method">
 <dt class="sig sig-object py" id="raster_tools.Raster.save">
-<span class="sig-prename descclassname"><span class="pre">Raster.</span></span><span class="sig-name descname"><span class="pre">save</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">no_data_value</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">gdal_kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/raster_tools/raster.html#Raster.save"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.Raster.save" title="Permalink to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">Raster.</span></span><span class="sig-name descname"><span class="pre">save</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">null_value</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">driver</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tiled</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">blocksize</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">compress</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">compress_level</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">predictor</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bigtiff</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'if_safer'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">overviews</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">overview_resampling</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'average'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">overview_num_threads</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'all_cpus'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">no_data_value</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">gdal_kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/raster_tools/raster.html#Raster.save"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.Raster.save" title="Permalink to this definition">#</a></dt>
 <dd><p>Compute the final raster and save it to the provided location.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>path</strong> (<em>str</em>) – The target location to save the raster to.</p></li>
-<li><p><strong>no_data_value</strong> (<em>scalar</em><em>, </em><em>optional</em>) – A new null value to use when saving.</p></li>
-<li><p><strong>**gdal_kwargs</strong> (<em>kwargs</em><em>, </em><em>optional</em>) – Additional keyword arguments to to pass to rasterio and GDAL when
-writing the raster data.</p></li>
+<li><p><strong>null_value</strong> (<em>scalar</em><em>, </em><em>optional</em>) – A new null value to use when saving. Defaults to the raster’s
+current null value.</p></li>
+<li><p><strong>driver</strong> (<em>str</em><em>, </em><em>optional</em>) – The GDAL driver to use. If not given, the driver is inferred from
+the file extension.</p></li>
+<li><p><strong>tiled</strong> (<em>bool</em><em>, </em><em>optional</em>) – Whether to write tiled output. Default is True. Applies to drivers
+with a tiling concept (e.g. GTiff); silently ignored for others.</p></li>
+<li><p><strong>blocksize</strong> (<em>int</em><em> or </em><em>(</em><em>int</em><em>, </em><em>int</em><em>)</em><em>, </em><em>optional</em>) – Tile dimensions. An int means a square tile of that size; a tuple
+is <code class="docutils literal notranslate"><span class="pre">(height,</span> <span class="pre">width)</span></code>. Default lets the driver choose.</p></li>
+<li><p><strong>compress</strong> (<em>str</em><em> or </em><em>None</em><em>, </em><em>optional</em>) – Compression. One of <code class="docutils literal notranslate"><span class="pre">&quot;lzw&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;deflate&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;zstd&quot;</span></code>,
+<code class="docutils literal notranslate"><span class="pre">&quot;packbits&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;jpeg&quot;</span></code>, or <code class="docutils literal notranslate"><span class="pre">None</span></code> (default) to disable
+compression.</p></li>
+<li><p><strong>compress_level</strong> (<em>int</em><em>, </em><em>optional</em>) – Compression level. Meaning depends on the compressor (e.g. ZLEVEL
+for deflate, ZSTD_LEVEL for zstd, JPEG_QUALITY for jpeg). Has no
+effect with <code class="docutils literal notranslate"><span class="pre">&quot;lzw&quot;</span></code> or <code class="docutils literal notranslate"><span class="pre">&quot;packbits&quot;</span></code>.</p></li>
+<li><p><strong>predictor</strong> (<em>str</em><em>, </em><em>optional</em>) – Differencing predictor. <code class="docutils literal notranslate"><span class="pre">&quot;horizontal&quot;</span></code> for integer data,
+<code class="docutils literal notranslate"><span class="pre">&quot;float&quot;</span></code> for floating-point. Lossless compressors only.</p></li>
+<li><p><strong>bigtiff</strong> (<em>bool</em><em> or </em><em>str</em><em>, </em><em>optional</em>) – Force BigTIFF. <code class="docutils literal notranslate"><span class="pre">True</span></code>/<code class="docutils literal notranslate"><span class="pre">False</span></code> or one of <code class="docutils literal notranslate"><span class="pre">&quot;if_safer&quot;</span></code>
+(default), <code class="docutils literal notranslate"><span class="pre">&quot;if_needed&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;yes&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;no&quot;</span></code>. GTiff only.</p></li>
+<li><p><strong>overviews</strong> (<em>bool</em><em> or </em><em>list of int</em><em>, </em><em>optional</em>) – Build internal overviews after writing. <code class="docutils literal notranslate"><span class="pre">True</span></code> selects an
+automatic chain based on raster size; pass a list of decimation
+factors (e.g. <code class="docutils literal notranslate"><span class="pre">[2,</span> <span class="pre">4,</span> <span class="pre">8]</span></code>) for explicit control. Default does
+not build overviews.</p></li>
+<li><p><strong>overview_resampling</strong> (<em>str</em><em>, </em><em>optional</em>) – Resampling method used to build overviews. Default <code class="docutils literal notranslate"><span class="pre">&quot;average&quot;</span></code>.</p></li>
+<li><p><strong>overview_num_threads</strong> (<em>str</em><em> or </em><em>int</em><em>, </em><em>optional</em>) – Value passed as <code class="docutils literal notranslate"><span class="pre">GDAL_NUM_THREADS</span></code> while building overviews.
+Default <code class="docutils literal notranslate"><span class="pre">&quot;all_cpus&quot;</span></code>. Set to <code class="docutils literal notranslate"><span class="pre">None</span></code> to leave the env unset.</p></li>
+<li><p><strong>no_data_value</strong> (<em>scalar</em><em>, </em><em>optional</em>) – <div class="deprecated">
+<p><span class="versionmodified deprecated">Deprecated since version Use: </span><cite>null_value</cite> instead. <cite>no_data_value</cite> will be removed in
+a future release.</p>
+</div>
+</p></li>
+<li><p><strong>**gdal_kwargs</strong> (<em>kwargs</em><em>, </em><em>optional</em>) – Additional GDAL creation options forwarded to rasterio. Wins over
+the translated logical kwargs on collisions.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>

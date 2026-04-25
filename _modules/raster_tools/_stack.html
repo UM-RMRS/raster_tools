@@ -8,7 +8,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>raster_tools.dtypes &#8212; raster_tools 0.10.2 documentation</title>
+    <title>raster_tools._stack &#8212; raster_tools 0.10.2 documentation</title>
   
   
   
@@ -40,7 +40,7 @@
     <script src="../../_static/underscore.js"></script>
     <script src="../../_static/doctools.js"></script>
     <script src="../../_static/scripts/sphinx-book-theme.js?digest=5a5c038af52cf7bc1a1ec88eea08e6366ee68824"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = '_modules/raster_tools/dtypes';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = '_modules/raster_tools/_stack';</script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
@@ -406,205 +406,253 @@ document.write(`
 <div id="searchbox"></div>
                 <article class="bd-article" role="main">
                   
-  <h1>Source code for raster_tools.dtypes</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span><span class="w"> </span><span class="nn">functools</span><span class="w"> </span><span class="kn">import</span> <span class="n">reduce</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">numbers</span><span class="w"> </span><span class="kn">import</span> <span class="n">Integral</span><span class="p">,</span> <span class="n">Number</span>
+  <h1>Source code for raster_tools._stack</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numbers</span>
 
+<span class="kn">import</span><span class="w"> </span><span class="nn">dask.array</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">da</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">xarray.core.dtypes</span><span class="w"> </span><span class="kn">import</span> <span class="n">maybe_promote</span> <span class="k">as</span> <span class="n">xr_maybe_promote</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">rasterio</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">rio</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">odc.geo.geobox</span><span class="w"> </span><span class="kn">import</span> <span class="n">GeoBox</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">raster_tools</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">rts</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools._grids</span><span class="w"> </span><span class="kn">import</span> <span class="n">are_all_grids_same</span><span class="p">,</span> <span class="n">combine_grids</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">null_values_equal</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.warp</span><span class="w"> </span><span class="kn">import</span> <span class="n">SUPPORTED_RESAMPLE_METHODS</span>
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;stack_bands&quot;</span><span class="p">]</span>
 
 
-<span class="k">def</span><span class="w"> </span><span class="nf">_add_type</span><span class="p">(</span><span class="n">mapping</span><span class="p">,</span> <span class="n">dt</span><span class="p">,</span> <span class="n">aliases</span><span class="p">):</span>
-    <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="p">[</span><span class="n">dt</span><span class="p">]</span> <span class="o">+</span> <span class="n">aliases</span><span class="p">:</span>
-        <span class="n">mapping</span><span class="p">[</span><span class="n">d</span><span class="p">]</span> <span class="o">=</span> <span class="n">dt</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_cast_if_needed</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">dtype</span><span class="p">,</span> <span class="n">nodata</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">raster</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">dtype</span> <span class="ow">and</span> <span class="n">null_values_equal</span><span class="p">(</span><span class="n">raster</span><span class="o">.</span><span class="n">null_value</span><span class="p">,</span> <span class="n">nodata</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">raster</span>
+    <span class="k">return</span> <span class="n">raster</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">dtype</span><span class="p">,</span> <span class="n">new_null_value</span><span class="o">=</span><span class="n">nodata</span><span class="p">)</span>
 
 
-<span class="n">U8</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">uint8</span><span class="p">)</span>
-<span class="n">U16</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">uint16</span><span class="p">)</span>
-<span class="n">U32</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">)</span>
-<span class="n">U64</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">uint64</span><span class="p">)</span>
-<span class="n">I8</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int8</span><span class="p">)</span>
-<span class="n">I16</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int16</span><span class="p">)</span>
-<span class="n">I32</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
-<span class="n">I64</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
-<span class="n">F16</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float16</span><span class="p">)</span>
-<span class="n">F32</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
-<span class="n">F64</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
-<span class="c1"># Some machines don&#39;t support np.float128 so use longdouble instead. This</span>
-<span class="c1"># aliases f128 on machines that support it and f64 on machines that don&#39;t</span>
-<span class="n">F128</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">longdouble</span><span class="p">)</span>
-<span class="n">BOOL</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="nb">bool</span><span class="p">)</span>
+<div class="viewcode-block" id="stack_bands"><a class="viewcode-back" href="../../reference/generated/raster_tools.stack_bands.html#raster_tools.stack_bands">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">stack_bands</span><span class="p">(</span>
+    <span class="n">rasters</span><span class="p">,</span>
+    <span class="n">dst_crs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">dst_grid</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">join</span><span class="o">=</span><span class="s2">&quot;inner&quot;</span><span class="p">,</span>
+    <span class="n">resampling_method</span><span class="o">=</span><span class="s2">&quot;nearest&quot;</span><span class="p">,</span>
+    <span class="n">resolution</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">dtype</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">null_value</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Stack input rasters into a multi-band raster.</span>
 
-<span class="n">DTYPE_INPUT_TO_DTYPE</span> <span class="o">=</span> <span class="p">{}</span>
-<span class="c1"># Unsigned int</span>
-<span class="n">_add_type</span><span class="p">(</span><span class="n">DTYPE_INPUT_TO_DTYPE</span><span class="p">,</span> <span class="n">U8</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;u1&quot;</span><span class="p">,</span> <span class="s2">&quot;uint8&quot;</span><span class="p">,</span> <span class="s2">&quot;B&quot;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">uint8</span><span class="p">])</span>
-<span class="n">_add_type</span><span class="p">(</span><span class="n">DTYPE_INPUT_TO_DTYPE</span><span class="p">,</span> <span class="n">U16</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;u2&quot;</span><span class="p">,</span> <span class="s2">&quot;uint16&quot;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">uint16</span><span class="p">])</span>
-<span class="n">_add_type</span><span class="p">(</span><span class="n">DTYPE_INPUT_TO_DTYPE</span><span class="p">,</span> <span class="n">U32</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;u4&quot;</span><span class="p">,</span> <span class="s2">&quot;uint32&quot;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">])</span>
-<span class="n">_add_type</span><span class="p">(</span><span class="n">DTYPE_INPUT_TO_DTYPE</span><span class="p">,</span> <span class="n">U64</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;u8&quot;</span><span class="p">,</span> <span class="s2">&quot;uint64&quot;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">uint64</span><span class="p">])</span>
-<span class="c1"># Signed int</span>
-<span class="n">_add_type</span><span class="p">(</span><span class="n">DTYPE_INPUT_TO_DTYPE</span><span class="p">,</span> <span class="n">I8</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;i1&quot;</span><span class="p">,</span> <span class="s2">&quot;int8&quot;</span><span class="p">,</span> <span class="s2">&quot;b&quot;</span><span class="p">,</span> <span class="s2">&quot;byte&quot;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">int8</span><span class="p">])</span>
-<span class="n">_add_type</span><span class="p">(</span><span class="n">DTYPE_INPUT_TO_DTYPE</span><span class="p">,</span> <span class="n">I16</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;i2&quot;</span><span class="p">,</span> <span class="s2">&quot;int16&quot;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">int16</span><span class="p">])</span>
-<span class="n">_add_type</span><span class="p">(</span><span class="n">DTYPE_INPUT_TO_DTYPE</span><span class="p">,</span> <span class="n">I32</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;i4&quot;</span><span class="p">,</span> <span class="s2">&quot;int32&quot;</span><span class="p">,</span> <span class="s2">&quot;i&quot;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">])</span>
-<span class="n">_add_type</span><span class="p">(</span><span class="n">DTYPE_INPUT_TO_DTYPE</span><span class="p">,</span> <span class="n">I64</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;i8&quot;</span><span class="p">,</span> <span class="s2">&quot;int64&quot;</span><span class="p">,</span> <span class="s2">&quot;int&quot;</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">])</span>
-<span class="c1"># Float</span>
-<span class="n">_add_type</span><span class="p">(</span><span class="n">DTYPE_INPUT_TO_DTYPE</span><span class="p">,</span> <span class="n">F16</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;f2&quot;</span><span class="p">,</span> <span class="s2">&quot;float16&quot;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float16</span><span class="p">])</span>
-<span class="n">_add_type</span><span class="p">(</span><span class="n">DTYPE_INPUT_TO_DTYPE</span><span class="p">,</span> <span class="n">F32</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;f4&quot;</span><span class="p">,</span> <span class="s2">&quot;float32&quot;</span><span class="p">,</span> <span class="s2">&quot;f&quot;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">])</span>
-<span class="n">_add_type</span><span class="p">(</span>
-    <span class="n">DTYPE_INPUT_TO_DTYPE</span><span class="p">,</span>
-    <span class="n">F64</span><span class="p">,</span>
-    <span class="p">[</span><span class="s2">&quot;f8&quot;</span><span class="p">,</span> <span class="s2">&quot;float64&quot;</span><span class="p">,</span> <span class="s2">&quot;d&quot;</span><span class="p">,</span> <span class="s2">&quot;float&quot;</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span>
-<span class="p">)</span>
-<span class="n">_add_type</span><span class="p">(</span><span class="n">DTYPE_INPUT_TO_DTYPE</span><span class="p">,</span> <span class="n">F128</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;f16&quot;</span><span class="p">,</span> <span class="s2">&quot;float128&quot;</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">longdouble</span><span class="p">])</span>
-<span class="c1"># Boolean</span>
-<span class="n">_add_type</span><span class="p">(</span>
-    <span class="n">DTYPE_INPUT_TO_DTYPE</span><span class="p">,</span> <span class="n">BOOL</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;bool&quot;</span><span class="p">,</span> <span class="s2">&quot;?&quot;</span><span class="p">,</span> <span class="nb">bool</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">bool_</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="s2">&quot;bool&quot;</span><span class="p">)]</span>
-<span class="p">)</span>
+<span class="sd">    All input bands are concatenated along the band axis onto a single</span>
+<span class="sd">    destination grid. Inputs with differing grids, resolutions, or CRSs are</span>
+<span class="sd">    reprojected onto the destination grid before stacking. The output has</span>
+<span class="sd">    ``sum(r.nbands for r in rasters)`` bands.</span>
 
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    rasters : list of raster_tools.Raster</span>
+<span class="sd">        A list-like object containing the rasters to be stacked. These can</span>
+<span class="sd">        have differing grids, resolutions, and projections.</span>
+<span class="sd">    dst_crs : CRS-like, str, int, optional</span>
+<span class="sd">        The destination CRS to use when building the destination grid. This</span>
+<span class="sd">        can be anything that can be parsed by</span>
+<span class="sd">        :py:meth:`rasterio.CRS.from_user_input`. Only consulted when</span>
+<span class="sd">        `dst_grid` is not provided. The default is to take the CRS from the</span>
+<span class="sd">        first raster in `rasters`.</span>
+<span class="sd">    dst_grid : odc.geo.GeoBox, raster_tools.Raster, str, optional</span>
+<span class="sd">        The definition for the destination grid to stack the `rasters` onto.</span>
+<span class="sd">        This can be a :py:class:`odc.geo.GeoBox`,</span>
+<span class="sd">        :py:class:`raster_tools.Raster` object, or a path str. If the input</span>
+<span class="sd">        is a raster object or path, this function does NOT write to the given</span>
+<span class="sd">        raster, it instead uses the raster as a reference for the grid. The</span>
+<span class="sd">        default is to build a grid from the inputs according to `join`, using</span>
+<span class="sd">        the resolution from the first raster in `rasters`. Passing `dst_grid`</span>
+<span class="sd">        together with `dst_crs` or `resolution` is an error.</span>
+<span class="sd">    join : str, optional</span>
+<span class="sd">        How to combine the input grids when building the destination grid.</span>
+<span class="sd">        Only consulted when `dst_grid` is not provided. Valid options are:</span>
 
-<div class="viewcode-block" id="is_str"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.dtypes.is_str">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">is_str</span><span class="p">(</span><span class="n">value</span><span class="p">):</span>
-    <span class="k">return</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span></div>
+<span class="sd">        &#39;inner&#39;</span>
+<span class="sd">            Use the intersection of the input grid bounds. Only pixels</span>
+<span class="sd">            covered by every input appear in the output. This is the default.</span>
+<span class="sd">        &#39;outer&#39;</span>
+<span class="sd">            Use the union of the input grid bounds. Pixels not covered by a</span>
+<span class="sd">            given input are filled with that band&#39;s null value.</span>
+<span class="sd">    resampling_method : str, optional</span>
+<span class="sd">        Resampling method to use when reprojecting input rasters to the</span>
+<span class="sd">        destination grid. The default is nearest. Valid options are:</span>
 
+<span class="sd">        &#39;nearest&#39;</span>
+<span class="sd">            Nearest neighbor resampling. This is the default.</span>
+<span class="sd">        &#39;bilinear&#39;</span>
+<span class="sd">            Bilinear resampling.</span>
+<span class="sd">        &#39;cubic&#39;</span>
+<span class="sd">            Cubic resampling.</span>
+<span class="sd">        &#39;cubic_spline&#39;</span>
+<span class="sd">            Cubic spline resampling.</span>
+<span class="sd">        &#39;lanczos&#39;</span>
+<span class="sd">            Lanczos windowed sinc resampling.</span>
+<span class="sd">        &#39;average&#39;</span>
+<span class="sd">            Average resampling, computes the weighted average of all</span>
+<span class="sd">            contributing pixels.</span>
+<span class="sd">        &#39;mode&#39;</span>
+<span class="sd">            Mode resampling, selects the value which appears most often.</span>
+<span class="sd">        &#39;max&#39;</span>
+<span class="sd">            Maximum resampling. (GDAL 2.0+)</span>
+<span class="sd">        &#39;min&#39;</span>
+<span class="sd">            Minimum resampling. (GDAL 2.0+)</span>
+<span class="sd">        &#39;med&#39;</span>
+<span class="sd">            Median resampling. (GDAL 2.0+)</span>
+<span class="sd">        &#39;q1&#39;</span>
+<span class="sd">            Q1, first quartile resampling. (GDAL 2.0+)</span>
+<span class="sd">        &#39;q3&#39;</span>
+<span class="sd">            Q3, third quartile resampling. (GDAL 2.0+)</span>
+<span class="sd">        &#39;sum&#39;</span>
+<span class="sd">            Sum, compute the weighted sum. (GDAL 3.1+)</span>
+<span class="sd">        &#39;rms&#39;</span>
+<span class="sd">            RMS, root mean square/quadratic mean. (GDAL 3.3+)</span>
+<span class="sd">    resolution : scalar, optional</span>
+<span class="sd">        Pixel resolution of the output grid, in units of the output CRS. Only</span>
+<span class="sd">        consulted when `dst_grid` is not provided. The default is to take the</span>
+<span class="sd">        resolution from the first raster in `rasters`.</span>
+<span class="sd">    dtype : numpy.dtype, str, optional</span>
+<span class="sd">        The dtype for the output raster. The default is to use</span>
+<span class="sd">        :py:func:`numpy.result_type` on the dtypes from the input rasters.</span>
+<span class="sd">    null_value : scalar or &quot;default&quot;, optional</span>
+<span class="sd">        The nodata/null value to use for the output raster. The default is to</span>
+<span class="sd">        take the null value from the first input raster that has one, falling</span>
+<span class="sd">        back to a default based on the output dtype. Pass the string</span>
+<span class="sd">        ``&quot;default&quot;`` to force the dtype-based default regardless of the</span>
+<span class="sd">        inputs&#39; null values.</span>
 
-<div class="viewcode-block" id="is_int"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.dtypes.is_int">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">is_int</span><span class="p">(</span><span class="n">value_or_dtype</span><span class="p">):</span>
-    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value_or_dtype</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">):</span>
-        <span class="k">return</span> <span class="n">value_or_dtype</span><span class="o">.</span><span class="n">kind</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;u&quot;</span><span class="p">,</span> <span class="s2">&quot;i&quot;</span><span class="p">)</span>
-    <span class="k">return</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value_or_dtype</span><span class="p">,</span> <span class="n">Integral</span><span class="p">)</span></div>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    Raster</span>
+<span class="sd">        The resulting multi-band raster.</span>
 
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    When `dst_grid` is not provided, the output CRS and resolution default to</span>
+<span class="sd">    those of the first raster in `rasters`. Reordering the input list can</span>
+<span class="sd">    therefore change the output grid; pass `dst_crs`, `resolution`, or</span>
+<span class="sd">    `dst_grid` explicitly when that dependency is undesirable.</span>
 
-<div class="viewcode-block" id="is_float"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.dtypes.is_float">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">is_float</span><span class="p">(</span><span class="n">value_or_dtype</span><span class="p">):</span>
-    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value_or_dtype</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">):</span>
-        <span class="k">return</span> <span class="n">value_or_dtype</span><span class="o">.</span><span class="n">kind</span> <span class="o">==</span> <span class="s2">&quot;f&quot;</span>
-    <span class="k">return</span> <span class="n">is_scalar</span><span class="p">(</span><span class="n">value_or_dtype</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">is_int</span><span class="p">(</span><span class="n">value_or_dtype</span><span class="p">)</span></div>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">rasters</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;No rasters provided&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">join</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;inner&quot;</span><span class="p">,</span> <span class="s2">&quot;outer&quot;</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;join must be one of &#39;inner&#39; or &#39;outer&#39;&quot;</span><span class="p">)</span>
+    <span class="n">resampling_method</span> <span class="o">=</span> <span class="n">resampling_method</span> <span class="ow">or</span> <span class="s2">&quot;nearest&quot;</span>
+    <span class="k">if</span> <span class="n">resampling_method</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">SUPPORTED_RESAMPLE_METHODS</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Invalid resampling method&quot;</span><span class="p">)</span>
+    <span class="n">nodata</span> <span class="o">=</span> <span class="n">null_value</span>
+    <span class="k">if</span> <span class="p">(</span>
+        <span class="n">nodata</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="ow">and</span> <span class="n">nodata</span> <span class="o">!=</span> <span class="s2">&quot;default&quot;</span>
+        <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">nodata</span><span class="p">,</span> <span class="n">numbers</span><span class="o">.</span><span class="n">Number</span><span class="p">)</span>
+    <span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s1">&#39;null_value must be a scalar, None, or &quot;default&quot;&#39;</span><span class="p">)</span>
 
+    <span class="k">if</span> <span class="n">dst_grid</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">dst_grid</span><span class="p">,</span> <span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">rts</span><span class="o">.</span><span class="n">Raster</span><span class="p">)):</span>
+            <span class="n">dst_grid</span> <span class="o">=</span> <span class="n">rts</span><span class="o">.</span><span class="n">get_raster</span><span class="p">(</span><span class="n">dst_grid</span><span class="p">)</span><span class="o">.</span><span class="n">geobox</span>
+        <span class="k">elif</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">dst_grid</span><span class="p">,</span> <span class="n">GeoBox</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Expected dst_grid to have type GeoBox. Got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">dst_grid</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="n">dst_crs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">parsed</span> <span class="o">=</span> <span class="n">rio</span><span class="o">.</span><span class="n">CRS</span><span class="o">.</span><span class="n">from_user_input</span><span class="p">(</span><span class="n">dst_crs</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">dst_grid</span><span class="o">.</span><span class="n">crs</span> <span class="o">!=</span> <span class="n">parsed</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="s2">&quot;dst_crs does not match dst_grid.crs: &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">parsed</span><span class="si">}</span><span class="s2"> vs </span><span class="si">{</span><span class="n">dst_grid</span><span class="o">.</span><span class="n">crs</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="p">)</span>
+        <span class="k">if</span> <span class="n">resolution</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;resolution cannot be specified together with dst_grid&quot;</span>
+            <span class="p">)</span>
 
-<div class="viewcode-block" id="is_bool"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.dtypes.is_bool">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">is_bool</span><span class="p">(</span><span class="n">value_or_dtype</span><span class="p">):</span>
-    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value_or_dtype</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">):</span>
-        <span class="k">return</span> <span class="n">value_or_dtype</span><span class="o">.</span><span class="n">kind</span> <span class="o">==</span> <span class="s2">&quot;b&quot;</span>
-    <span class="k">return</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value_or_dtype</span><span class="p">,</span> <span class="p">(</span><span class="nb">bool</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">bool_</span><span class="p">))</span></div>
+    <span class="n">src_rasters</span> <span class="o">=</span> <span class="p">[</span><span class="n">rts</span><span class="o">.</span><span class="n">get_raster</span><span class="p">(</span><span class="n">r</span><span class="p">)</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">rasters</span><span class="p">]</span>
+    <span class="n">src_grids</span> <span class="o">=</span> <span class="p">[</span><span class="n">r</span><span class="o">.</span><span class="n">geobox</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">src_rasters</span><span class="p">]</span>
+    <span class="n">src_grids_same</span> <span class="o">=</span> <span class="n">are_all_grids_same</span><span class="p">(</span><span class="n">src_grids</span><span class="p">)</span>
 
-
-<div class="viewcode-block" id="is_scalar"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.dtypes.is_scalar">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">is_scalar</span><span class="p">(</span><span class="n">value_or_dtype</span><span class="p">):</span>
-    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value_or_dtype</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">):</span>
-        <span class="k">return</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value_or_dtype</span><span class="p">,</span> <span class="n">Number</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">is_bool</span><span class="p">(</span>
-            <span class="n">value_or_dtype</span>
-        <span class="p">)</span>
-    <span class="k">return</span> <span class="n">is_int</span><span class="p">(</span><span class="n">value_or_dtype</span><span class="p">)</span> <span class="ow">or</span> <span class="n">is_float</span><span class="p">(</span><span class="n">value_or_dtype</span><span class="p">)</span></div>
-
-
-<div class="viewcode-block" id="safe_min_scalar_type"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.dtypes.safe_min_scalar_type">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">safe_min_scalar_type</span><span class="p">(</span><span class="n">value</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;wraps np.min_scalar_type but accounts for precision loss&quot;&quot;&quot;</span>
-    <span class="n">suggested_dtype</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">min_scalar_type</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
-
-    <span class="c1"># If it&#39;s a float, check for precision loss</span>
-    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">issubdtype</span><span class="p">(</span><span class="n">suggested_dtype</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">floating</span><span class="p">):</span>
-        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="ow">or</span> <span class="n">np</span><span class="o">.</span><span class="n">isinf</span><span class="p">(</span><span class="n">value</span><span class="p">):</span>
-            <span class="k">return</span> <span class="n">suggested_dtype</span>
-
-        <span class="k">for</span> <span class="n">dtype</span> <span class="ow">in</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float16</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]:</span>
-            <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span><span class="o">.</span><span class="n">itemsize</span> <span class="o">&lt;</span> <span class="n">suggested_dtype</span><span class="o">.</span><span class="n">itemsize</span><span class="p">:</span>
-                <span class="k">continue</span>
-
-            <span class="n">casted_value</span> <span class="o">=</span> <span class="n">dtype</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">value</span> <span class="o">==</span> <span class="nb">float</span><span class="p">(</span><span class="n">casted_value</span><span class="p">):</span>
-                <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="s2">&quot;float64&quot;</span><span class="p">)</span>
-
-    <span class="k">return</span> <span class="n">suggested_dtype</span></div>
-
-
-<div class="viewcode-block" id="get_common_dtype"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.dtypes.get_common_dtype">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">get_common_dtype</span><span class="p">(</span><span class="n">items</span><span class="p">):</span>
-    <span class="k">if</span> <span class="ow">not</span> <span class="n">items</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Cannot determine common dtype of an empty sequence&quot;</span><span class="p">)</span>
-
-    <span class="n">dtypes_to_promote</span> <span class="o">=</span> <span class="p">[]</span>
-    <span class="n">int_literals</span> <span class="o">=</span> <span class="p">[]</span>
-
-    <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">items</span><span class="p">:</span>
-        <span class="c1"># Pass explicit dtypes straight through</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">):</span>
-            <span class="n">dtypes_to_promote</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
-        <span class="c1"># Pool raw integers (excluding bools) for collective bounds checking</span>
-        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="nb">bool</span><span class="p">):</span>
-            <span class="n">int_literals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
-        <span class="c1"># Handle floats individually so they pass through your precision</span>
-        <span class="c1"># checks</span>
+    <span class="n">dtype</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">dtype</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">result_type</span><span class="p">(</span><span class="o">*</span><span class="p">[</span><span class="n">r</span><span class="o">.</span><span class="n">dtype</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">src_rasters</span><span class="p">])</span>
+    <span class="p">)</span>
+    <span class="k">if</span> <span class="n">nodata</span> <span class="o">==</span> <span class="s2">&quot;default&quot;</span><span class="p">:</span>
+        <span class="n">nodata</span> <span class="o">=</span> <span class="n">rts</span><span class="o">.</span><span class="n">masking</span><span class="o">.</span><span class="n">get_default_null_value</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">nodata</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">nodatas</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">src</span><span class="o">.</span><span class="n">null_value</span> <span class="k">for</span> <span class="n">src</span> <span class="ow">in</span> <span class="n">src_rasters</span> <span class="k">if</span> <span class="n">src</span><span class="o">.</span><span class="n">null_value</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="p">]</span>
+        <span class="k">if</span> <span class="n">nodatas</span><span class="p">:</span>
+            <span class="n">nodata</span> <span class="o">=</span> <span class="n">nodatas</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">dtypes_to_promote</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">safe_min_scalar_type</span><span class="p">(</span><span class="n">x</span><span class="p">))</span>
+            <span class="n">nodata</span> <span class="o">=</span> <span class="n">rts</span><span class="o">.</span><span class="n">masking</span><span class="o">.</span><span class="n">get_default_null_value</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span>
 
-    <span class="c1"># Find the absolute minimum dtype that fits the entire range of pooled</span>
-    <span class="c1"># integers</span>
-    <span class="k">if</span> <span class="n">int_literals</span><span class="p">:</span>
-        <span class="n">min_val</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">int_literals</span><span class="p">)</span>
-        <span class="n">max_val</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">int_literals</span><span class="p">)</span>
-        <span class="c1"># Ordered to match np.min_scalar_type&#39;s exact preference for unsigned</span>
-        <span class="c1"># types</span>
-        <span class="n">int_types</span> <span class="o">=</span> <span class="p">[</span><span class="n">U8</span><span class="p">,</span> <span class="n">I8</span><span class="p">,</span> <span class="n">U16</span><span class="p">,</span> <span class="n">I16</span><span class="p">,</span> <span class="n">U32</span><span class="p">,</span> <span class="n">I32</span><span class="p">,</span> <span class="n">U64</span><span class="p">,</span> <span class="n">I64</span><span class="p">]</span>
-        <span class="k">for</span> <span class="n">dt</span> <span class="ow">in</span> <span class="n">int_types</span><span class="p">:</span>
-            <span class="c1"># If we have negative numbers, immediately skip any unsigned types</span>
-            <span class="k">if</span> <span class="n">min_val</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">np</span><span class="o">.</span><span class="n">issubdtype</span><span class="p">(</span><span class="n">dt</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">unsignedinteger</span><span class="p">):</span>
-                <span class="k">continue</span>
+    <span class="c1"># Single-raster fast path: no output constraints means we can skip grid</span>
+    <span class="c1"># building, reprojection, and concatenation entirely.</span>
+    <span class="k">if</span> <span class="p">(</span>
+        <span class="nb">len</span><span class="p">(</span><span class="n">src_rasters</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span>
+        <span class="ow">and</span> <span class="n">dst_grid</span> <span class="ow">is</span> <span class="kc">None</span>
+        <span class="ow">and</span> <span class="n">dst_crs</span> <span class="ow">is</span> <span class="kc">None</span>
+        <span class="ow">and</span> <span class="n">resolution</span> <span class="ow">is</span> <span class="kc">None</span>
+    <span class="p">):</span>
+        <span class="k">return</span> <span class="n">_cast_if_needed</span><span class="p">(</span><span class="n">src_rasters</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">dtype</span><span class="p">,</span> <span class="n">nodata</span><span class="p">)</span>
 
-            <span class="n">info</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">iinfo</span><span class="p">(</span><span class="n">dt</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">info</span><span class="o">.</span><span class="n">min</span> <span class="o">&lt;=</span> <span class="n">min_val</span> <span class="ow">and</span> <span class="n">max_val</span> <span class="o">&lt;=</span> <span class="n">info</span><span class="o">.</span><span class="n">max</span><span class="p">:</span>
-                <span class="n">dtypes_to_promote</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="n">dt</span><span class="p">))</span>
-                <span class="k">break</span>
+    <span class="k">if</span> <span class="n">dst_grid</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">dst_crs</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">dst_crs</span> <span class="k">if</span> <span class="n">dst_crs</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">rio</span><span class="o">.</span><span class="n">CRS</span><span class="o">.</span><span class="n">from_user_input</span><span class="p">(</span><span class="n">dst_crs</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="n">src_res_matches</span> <span class="o">=</span> <span class="n">resolution</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">np</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span>
+            <span class="nb">abs</span><span class="p">(</span><span class="n">src_grids</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">resolution</span><span class="o">.</span><span class="n">x</span><span class="p">),</span> <span class="n">resolution</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="n">src_grids_same</span>
+            <span class="ow">and</span> <span class="p">(</span><span class="n">dst_crs</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">src_grids</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">crs</span> <span class="o">==</span> <span class="n">dst_crs</span><span class="p">)</span>
+            <span class="ow">and</span> <span class="n">src_res_matches</span>
+        <span class="p">):</span>
+            <span class="n">dst_grid</span> <span class="o">=</span> <span class="n">src_grids</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">how</span> <span class="o">=</span> <span class="s2">&quot;union&quot;</span> <span class="k">if</span> <span class="n">join</span> <span class="o">==</span> <span class="s2">&quot;outer&quot;</span> <span class="k">else</span> <span class="s2">&quot;intersection&quot;</span>
+            <span class="n">dst_grid</span> <span class="o">=</span> <span class="n">combine_grids</span><span class="p">(</span>
+                <span class="n">src_grids</span><span class="p">,</span>
+                <span class="n">how</span><span class="o">=</span><span class="n">how</span><span class="p">,</span>
+                <span class="n">dst_crs</span><span class="o">=</span><span class="n">dst_crs</span><span class="p">,</span>
+                <span class="n">resolution</span><span class="o">=</span><span class="n">resolution</span><span class="p">,</span>
+            <span class="p">)</span>
 
-    <span class="k">return</span> <span class="n">reduce</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">promote_types</span><span class="p">,</span> <span class="n">dtypes_to_promote</span><span class="p">)</span></div>
+    <span class="c1"># Fast path: all inputs already share the destination grid, so the</span>
+    <span class="c1"># per-raster reproject check (and potential reproject) is unnecessary.</span>
+    <span class="k">if</span> <span class="n">src_grids_same</span> <span class="ow">and</span> <span class="n">are_all_grids_same</span><span class="p">([</span><span class="n">src_grids</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">dst_grid</span><span class="p">]):</span>
+        <span class="n">src_rasters_in_dst</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">_cast_if_needed</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">dtype</span><span class="p">,</span> <span class="n">nodata</span><span class="p">)</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">src_rasters</span>
+        <span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">src_rasters_in_dst</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">_cast_if_needed</span><span class="p">(</span>
+                <span class="n">r</span>
+                <span class="k">if</span> <span class="n">are_all_grids_same</span><span class="p">([</span><span class="n">r</span><span class="p">,</span> <span class="n">dst_grid</span><span class="p">])</span>
+                <span class="k">else</span> <span class="n">r</span><span class="o">.</span><span class="n">reproject</span><span class="p">(</span><span class="n">dst_grid</span><span class="p">,</span> <span class="n">resample_method</span><span class="o">=</span><span class="n">resampling_method</span><span class="p">),</span>
+                <span class="n">dtype</span><span class="p">,</span>
+                <span class="n">nodata</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">src_rasters</span>
+        <span class="p">]</span>
+    <span class="c1"># Rechunk all of the reprojected inputs so they are chunk aligned. This</span>
+    <span class="c1"># greatly boosts the performance of da.concatenate.</span>
+    <span class="n">tmp</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">target_chunks_2d</span> <span class="o">=</span> <span class="n">da</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">dst_grid</span><span class="o">.</span><span class="n">shape</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span><span class="o">.</span><span class="n">chunks</span>
+    <span class="k">for</span> <span class="n">sr</span> <span class="ow">in</span> <span class="n">src_rasters_in_dst</span><span class="p">:</span>
+        <span class="n">target_chunks</span> <span class="o">=</span> <span class="p">((</span><span class="mi">1</span><span class="p">,)</span> <span class="o">*</span> <span class="n">sr</span><span class="o">.</span><span class="n">nbands</span><span class="p">,</span> <span class="o">*</span><span class="n">target_chunks_2d</span><span class="p">)</span>
+        <span class="n">tmp</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">sr</span><span class="o">.</span><span class="n">chunk</span><span class="p">(</span><span class="n">target_chunks</span><span class="p">))</span>
+    <span class="n">src_rasters_in_dst</span> <span class="o">=</span> <span class="n">tmp</span>
 
-
-<div class="viewcode-block" id="promote_dtype_to_float"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.dtypes.promote_dtype_to_float">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">promote_dtype_to_float</span><span class="p">(</span><span class="n">dtype</span><span class="p">):</span>
-    <span class="k">if</span> <span class="n">dtype</span><span class="o">.</span><span class="n">kind</span> <span class="o">==</span> <span class="s2">&quot;f&quot;</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">dtype</span>
-    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">can_cast</span><span class="p">(</span><span class="n">dtype</span><span class="p">,</span> <span class="n">F16</span><span class="p">):</span>
-        <span class="k">return</span> <span class="n">F16</span>
-    <span class="k">elif</span> <span class="n">np</span><span class="o">.</span><span class="n">can_cast</span><span class="p">(</span><span class="n">dtype</span><span class="p">,</span> <span class="n">F32</span><span class="p">):</span>
-        <span class="k">return</span> <span class="n">F32</span>
-    <span class="k">return</span> <span class="n">F64</span></div>
-
-
-<div class="viewcode-block" id="maybe_promote"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.dtypes.maybe_promote">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">maybe_promote</span><span class="p">(</span><span class="n">dtype</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Returns a dtype that can support missing values based on the input&quot;&quot;&quot;</span>
-    <span class="k">return</span> <span class="n">xr_maybe_promote</span><span class="p">(</span><span class="n">dtype</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span></div>
-
-
-<div class="viewcode-block" id="should_promote_to_fit"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.dtypes.should_promote_to_fit">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">should_promote_to_fit</span><span class="p">(</span><span class="n">dtype</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
-    <span class="k">return</span> <span class="n">is_float</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="ow">and</span> <span class="n">is_int</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span></div>
-
-
-<div class="viewcode-block" id="promote_data_dtype"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.dtypes.promote_data_dtype">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">promote_data_dtype</span><span class="p">(</span><span class="n">xrs</span><span class="p">):</span>
-    <span class="n">dtype</span> <span class="o">=</span> <span class="n">maybe_promote</span><span class="p">(</span><span class="n">xrs</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">dtype</span> <span class="o">==</span> <span class="n">xrs</span><span class="o">.</span><span class="n">dtype</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">xrs</span>
-    <span class="k">return</span> <span class="n">xrs</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span></div>
-
-
-<div class="viewcode-block" id="get_dtype_info"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.dtypes.get_dtype_info">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">get_dtype_info</span><span class="p">(</span><span class="n">dtype</span><span class="p">):</span>
-    <span class="n">dtype</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">is_bool</span><span class="p">(</span><span class="n">dtype</span><span class="p">):</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;No info for bool&quot;</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">iinfo</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span> <span class="k">if</span> <span class="n">is_int</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">finfo</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span></div>
-
-
-<div class="viewcode-block" id="get_dtype_min_max"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.dtypes.get_dtype_min_max">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">get_dtype_min_max</span><span class="p">(</span><span class="n">dtype</span><span class="p">):</span>
-    <span class="n">dtype</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">is_bool</span><span class="p">(</span><span class="n">dtype</span><span class="p">):</span>
-        <span class="k">return</span> <span class="p">(</span><span class="kc">False</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
-    <span class="n">info</span> <span class="o">=</span> <span class="n">get_dtype_info</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span>
-    <span class="c1"># iinfo does not return np.&lt;type&gt; values for min and max</span>
-    <span class="n">min_</span> <span class="o">=</span> <span class="n">dtype</span><span class="o">.</span><span class="n">type</span><span class="p">(</span><span class="n">info</span><span class="o">.</span><span class="n">min</span><span class="p">)</span>
-    <span class="n">max_</span> <span class="o">=</span> <span class="n">dtype</span><span class="o">.</span><span class="n">type</span><span class="p">(</span><span class="n">info</span><span class="o">.</span><span class="n">max</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">min_</span><span class="p">,</span> <span class="n">max_</span></div>
-
-
-<span class="n">INT_DTYPE_TO_FLOAT_DTYPE</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="n">U8</span><span class="p">:</span> <span class="n">F16</span><span class="p">,</span>
-    <span class="n">U16</span><span class="p">:</span> <span class="n">F32</span><span class="p">,</span>
-    <span class="n">U32</span><span class="p">:</span> <span class="n">F64</span><span class="p">,</span>
-    <span class="n">I8</span><span class="p">:</span> <span class="n">F16</span><span class="p">,</span>
-    <span class="n">I16</span><span class="p">:</span> <span class="n">F32</span><span class="p">,</span>
-    <span class="n">I32</span><span class="p">:</span> <span class="n">F64</span><span class="p">,</span>
-    <span class="n">F64</span><span class="p">:</span> <span class="n">F64</span><span class="p">,</span>
-<span class="p">}</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">da</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">r</span><span class="o">.</span><span class="n">data</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">src_rasters_in_dst</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">mask</span> <span class="o">=</span> <span class="n">da</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">r</span><span class="o">.</span><span class="n">mask</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">src_rasters_in_dst</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">y</span><span class="p">,</span> <span class="n">x</span> <span class="o">=</span> <span class="p">[</span><span class="n">c</span><span class="o">.</span><span class="n">values</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">dst_grid</span><span class="o">.</span><span class="n">coordinates</span><span class="o">.</span><span class="n">values</span><span class="p">()]</span>
+    <span class="k">return</span> <span class="n">rts</span><span class="o">.</span><span class="n">data_to_raster</span><span class="p">(</span>
+        <span class="n">data</span><span class="p">,</span> <span class="n">mask</span><span class="o">=</span><span class="n">mask</span><span class="p">,</span> <span class="n">x</span><span class="o">=</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="n">y</span><span class="p">,</span> <span class="n">crs</span><span class="o">=</span><span class="n">dst_grid</span><span class="o">.</span><span class="n">crs</span><span class="p">,</span> <span class="n">nv</span><span class="o">=</span><span class="n">nodata</span>
+    <span class="p">)</span></div>
 </pre></div>
 
                 </article>

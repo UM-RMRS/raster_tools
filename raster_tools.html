@@ -130,6 +130,7 @@
 <li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.open_dataset.html">raster_tools.open_dataset</a></li>
 <li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.band_concat.html">raster_tools.band_concat</a></li>
 <li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.mosaic.html">raster_tools.mosaic</a></li>
+<li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.stack_bands.html">raster_tools.stack_bands</a></li>
 <li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.constant_raster.html">raster_tools.constant_raster</a></li>
 <li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.empty_like.html">raster_tools.empty_like</a></li>
 <li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.full_like.html">raster_tools.full_like</a></li>
@@ -456,7 +457,7 @@ document.write(`
                 <ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#subpackages">Subpackages</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#submodules">Submodules</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#raster-tools-batch-module">raster_tools.batch module</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#module-raster_tools.batch">raster_tools.batch module</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#module-raster_tools.clipping">raster_tools.clipping module</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#module-raster_tools.creation">raster_tools.creation module</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#module-raster_tools.dask_utils">raster_tools.dask_utils module</a></li>
@@ -505,8 +506,13 @@ document.write(`
 <section id="submodules">
 <h2>Submodules<a class="headerlink" href="#submodules" title="Permalink to this headline">#</a></h2>
 </section>
-<section id="raster-tools-batch-module">
-<h2>raster_tools.batch module<a class="headerlink" href="#raster-tools-batch-module" title="Permalink to this headline">#</a></h2>
+<section id="module-raster_tools.batch">
+<span id="raster-tools-batch-module"></span><h2>raster_tools.batch module<a class="headerlink" href="#module-raster_tools.batch" title="Permalink to this headline">#</a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="raster_tools.batch.parse_batch_script">
+<span class="sig-prename descclassname"><span class="pre">raster_tools.batch.</span></span><span class="sig-name descname"><span class="pre">parse_batch_script</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/batch.html#parse_batch_script"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.batch.parse_batch_script" title="Permalink to this definition">#</a></dt>
+<dd></dd></dl>
+
 </section>
 <section id="module-raster_tools.clipping">
 <span id="raster-tools-clipping-module"></span><h2>raster_tools.clipping module<a class="headerlink" href="#module-raster_tools.clipping" title="Permalink to this headline">#</a></h2>
@@ -1167,6 +1173,10 @@ unique prod, median, mode, sum, unique, entropy, asm.</p></li>
 <dt class="sig sig-object py" id="raster_tools.general.band_concat">
 <span class="sig-prename descclassname"><span class="pre">raster_tools.general.</span></span><span class="sig-name descname"><span class="pre">band_concat</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">rasters</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/general.html#band_concat"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.general.band_concat" title="Permalink to this definition">#</a></dt>
 <dd><p>Join a sequence of rasters along the band dimension.</p>
+<div class="deprecated">
+<p><span class="versionmodified deprecated">Deprecated since version Use: </span><a class="reference internal" href="reference/generated/raster_tools.stack_bands.html#raster_tools.stack_bands" title="raster_tools.stack_bands"><code class="xref py py-func docutils literal notranslate"><span class="pre">raster_tools.stack_bands()</span></code></a> instead. <code class="docutils literal notranslate"><span class="pre">band_concat</span></code>
+will be removed in a future release.</p>
+</div>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><p><strong>rasters</strong> (<em>sequence of Rasters and/or paths</em>) – The rasters to concatenate. These can be a mix of Rasters and paths.
@@ -1580,7 +1590,7 @@ raster.</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="raster_tools.io.write_raster">
-<span class="sig-prename descclassname"><span class="pre">raster_tools.io.</span></span><span class="sig-name descname"><span class="pre">write_raster</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">xrs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">no_data_value</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">rio_gdal_kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/io.html#write_raster"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.io.write_raster" title="Permalink to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">raster_tools.io.</span></span><span class="sig-name descname"><span class="pre">write_raster</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">xrs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">path</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">driver</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tiled</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">blocksize</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">compress</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">compress_level</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">predictor</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bigtiff</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'if_safer'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">overviews</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">overview_resampling</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'average'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">overview_num_threads</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'all_cpus'</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">gdal_kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/io.html#write_raster"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.io.write_raster" title="Permalink to this definition">#</a></dt>
 <dd></dd></dl>
 
 </section>
@@ -1977,13 +1987,9 @@ order). Must be a 3-tuple.</p>
 <dt class="sig sig-object py" id="raster_tools.raster.Raster.eval">
 <span class="sig-name descname"><span class="pre">eval</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/raster.html#Raster.eval"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.raster.Raster.eval" title="Permalink to this definition">#</a></dt>
 <dd><p>Compute any applied operations and return the result as new Raster.</p>
-<p>Note that the unerlying sources will be loaded into memory for the
-computations and the result will be fixed in memory. The original
-Raster will be unaltered.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>This method has been replaced by <a class="reference internal" href="#raster_tools.raster.Raster.load" title="raster_tools.raster.Raster.load"><code class="xref py py-meth docutils literal notranslate"><span class="pre">load()</span></code></a> and will eventually
-be deprecated and then removed.</p>
+<div class="deprecated">
+<p><span class="versionmodified deprecated">Deprecated since version Use: </span><a class="reference internal" href="#raster_tools.raster.Raster.load" title="raster_tools.raster.Raster.load"><code class="xref py py-meth docutils literal notranslate"><span class="pre">load()</span></code></a> instead. <code class="docutils literal notranslate"><span class="pre">eval</span></code> will be removed in a future
+release.</p>
 </div>
 </dd></dl>
 
@@ -2418,15 +2424,44 @@ Default is 0.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="raster_tools.raster.Raster.save">
-<span class="sig-name descname"><span class="pre">save</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">no_data_value</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">gdal_kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/raster.html#Raster.save"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.raster.Raster.save" title="Permalink to this definition">#</a></dt>
+<span class="sig-name descname"><span class="pre">save</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">null_value</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">driver</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tiled</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">blocksize</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">compress</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">compress_level</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">predictor</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bigtiff</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'if_safer'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">overviews</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">overview_resampling</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'average'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">overview_num_threads</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'all_cpus'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">no_data_value</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">gdal_kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/raster.html#Raster.save"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.raster.Raster.save" title="Permalink to this definition">#</a></dt>
 <dd><p>Compute the final raster and save it to the provided location.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>path</strong> (<em>str</em>) – The target location to save the raster to.</p></li>
-<li><p><strong>no_data_value</strong> (<em>scalar</em><em>, </em><em>optional</em>) – A new null value to use when saving.</p></li>
-<li><p><strong>**gdal_kwargs</strong> (<em>kwargs</em><em>, </em><em>optional</em>) – Additional keyword arguments to to pass to rasterio and GDAL when
-writing the raster data.</p></li>
+<li><p><strong>null_value</strong> (<em>scalar</em><em>, </em><em>optional</em>) – A new null value to use when saving. Defaults to the raster’s
+current null value.</p></li>
+<li><p><strong>driver</strong> (<em>str</em><em>, </em><em>optional</em>) – The GDAL driver to use. If not given, the driver is inferred from
+the file extension.</p></li>
+<li><p><strong>tiled</strong> (<em>bool</em><em>, </em><em>optional</em>) – Whether to write tiled output. Default is True. Applies to drivers
+with a tiling concept (e.g. GTiff); silently ignored for others.</p></li>
+<li><p><strong>blocksize</strong> (<em>int</em><em> or </em><em>(</em><em>int</em><em>, </em><em>int</em><em>)</em><em>, </em><em>optional</em>) – Tile dimensions. An int means a square tile of that size; a tuple
+is <code class="docutils literal notranslate"><span class="pre">(height,</span> <span class="pre">width)</span></code>. Default lets the driver choose.</p></li>
+<li><p><strong>compress</strong> (<em>str</em><em> or </em><em>None</em><em>, </em><em>optional</em>) – Compression. One of <code class="docutils literal notranslate"><span class="pre">&quot;lzw&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;deflate&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;zstd&quot;</span></code>,
+<code class="docutils literal notranslate"><span class="pre">&quot;packbits&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;jpeg&quot;</span></code>, or <code class="docutils literal notranslate"><span class="pre">None</span></code> (default) to disable
+compression.</p></li>
+<li><p><strong>compress_level</strong> (<em>int</em><em>, </em><em>optional</em>) – Compression level. Meaning depends on the compressor (e.g. ZLEVEL
+for deflate, ZSTD_LEVEL for zstd, JPEG_QUALITY for jpeg). Has no
+effect with <code class="docutils literal notranslate"><span class="pre">&quot;lzw&quot;</span></code> or <code class="docutils literal notranslate"><span class="pre">&quot;packbits&quot;</span></code>.</p></li>
+<li><p><strong>predictor</strong> (<em>str</em><em>, </em><em>optional</em>) – Differencing predictor. <code class="docutils literal notranslate"><span class="pre">&quot;horizontal&quot;</span></code> for integer data,
+<code class="docutils literal notranslate"><span class="pre">&quot;float&quot;</span></code> for floating-point. Lossless compressors only.</p></li>
+<li><p><strong>bigtiff</strong> (<em>bool</em><em> or </em><em>str</em><em>, </em><em>optional</em>) – Force BigTIFF. <code class="docutils literal notranslate"><span class="pre">True</span></code>/<code class="docutils literal notranslate"><span class="pre">False</span></code> or one of <code class="docutils literal notranslate"><span class="pre">&quot;if_safer&quot;</span></code>
+(default), <code class="docutils literal notranslate"><span class="pre">&quot;if_needed&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;yes&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;no&quot;</span></code>. GTiff only.</p></li>
+<li><p><strong>overviews</strong> (<em>bool</em><em> or </em><em>list of int</em><em>, </em><em>optional</em>) – Build internal overviews after writing. <code class="docutils literal notranslate"><span class="pre">True</span></code> selects an
+automatic chain based on raster size; pass a list of decimation
+factors (e.g. <code class="docutils literal notranslate"><span class="pre">[2,</span> <span class="pre">4,</span> <span class="pre">8]</span></code>) for explicit control. Default does
+not build overviews.</p></li>
+<li><p><strong>overview_resampling</strong> (<em>str</em><em>, </em><em>optional</em>) – Resampling method used to build overviews. Default <code class="docutils literal notranslate"><span class="pre">&quot;average&quot;</span></code>.</p></li>
+<li><p><strong>overview_num_threads</strong> (<em>str</em><em> or </em><em>int</em><em>, </em><em>optional</em>) – Value passed as <code class="docutils literal notranslate"><span class="pre">GDAL_NUM_THREADS</span></code> while building overviews.
+Default <code class="docutils literal notranslate"><span class="pre">&quot;all_cpus&quot;</span></code>. Set to <code class="docutils literal notranslate"><span class="pre">None</span></code> to leave the env unset.</p></li>
+<li><p><strong>no_data_value</strong> (<em>scalar</em><em>, </em><em>optional</em>) – <div class="deprecated">
+<p><span class="versionmodified deprecated">Deprecated since version Use: </span><cite>null_value</cite> instead. <cite>no_data_value</cite> will be removed in
+a future release.</p>
+</div>
+</p></li>
+<li><p><strong>**gdal_kwargs</strong> (<em>kwargs</em><em>, </em><em>optional</em>) – Additional GDAL creation options forwarded to rasterio. Wins over
+the translated logical kwargs on collisions.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
@@ -3791,7 +3826,11 @@ Default is <code class="docutils literal notranslate"><span class="pre">False</s
 <dl class="py method">
 <dt class="sig sig-object py" id="raster_tools.vector.Vector.eval">
 <span class="sig-name descname"><span class="pre">eval</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/vector.html#Vector.eval"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.vector.Vector.eval" title="Permalink to this definition">#</a></dt>
-<dd><p>Computes the built-up chain of operations on the underlying data.</p>
+<dd><p>Compute the built-up chain of operations on the underlying data.</p>
+<div class="deprecated">
+<p><span class="versionmodified deprecated">Deprecated since version Use: </span><a class="reference internal" href="#raster_tools.vector.Vector.load" title="raster_tools.vector.Vector.load"><code class="xref py py-meth docutils literal notranslate"><span class="pre">load()</span></code></a> instead. <code class="docutils literal notranslate"><span class="pre">eval</span></code> will be removed in a future
+release.</p>
+</div>
 </dd></dl>
 
 <dl class="py property">
@@ -4534,13 +4573,9 @@ order). Must be a 3-tuple.</p>
 <dt class="sig sig-object py" id="raster_tools.Raster.eval">
 <span class="sig-name descname"><span class="pre">eval</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/raster.html#Raster.eval"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.Raster.eval" title="Permalink to this definition">#</a></dt>
 <dd><p>Compute any applied operations and return the result as new Raster.</p>
-<p>Note that the unerlying sources will be loaded into memory for the
-computations and the result will be fixed in memory. The original
-Raster will be unaltered.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>This method has been replaced by <a class="reference internal" href="reference/generated/raster_tools.Raster.load.html#raster_tools.Raster.load" title="raster_tools.Raster.load"><code class="xref py py-meth docutils literal notranslate"><span class="pre">load()</span></code></a> and will eventually
-be deprecated and then removed.</p>
+<div class="deprecated">
+<p><span class="versionmodified deprecated">Deprecated since version Use: </span><a class="reference internal" href="reference/generated/raster_tools.Raster.load.html#raster_tools.Raster.load" title="raster_tools.Raster.load"><code class="xref py py-meth docutils literal notranslate"><span class="pre">load()</span></code></a> instead. <code class="docutils literal notranslate"><span class="pre">eval</span></code> will be removed in a future
+release.</p>
 </div>
 </dd></dl>
 
@@ -4975,15 +5010,44 @@ Default is 0.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="raster_tools.Raster.save">
-<span class="sig-name descname"><span class="pre">save</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">no_data_value</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">gdal_kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/raster.html#Raster.save"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.Raster.save" title="Permalink to this definition">#</a></dt>
+<span class="sig-name descname"><span class="pre">save</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">null_value</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">driver</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tiled</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">blocksize</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">compress</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">compress_level</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">predictor</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bigtiff</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'if_safer'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">overviews</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">overview_resampling</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'average'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">overview_num_threads</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'all_cpus'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">no_data_value</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">gdal_kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/raster.html#Raster.save"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.Raster.save" title="Permalink to this definition">#</a></dt>
 <dd><p>Compute the final raster and save it to the provided location.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>path</strong> (<em>str</em>) – The target location to save the raster to.</p></li>
-<li><p><strong>no_data_value</strong> (<em>scalar</em><em>, </em><em>optional</em>) – A new null value to use when saving.</p></li>
-<li><p><strong>**gdal_kwargs</strong> (<em>kwargs</em><em>, </em><em>optional</em>) – Additional keyword arguments to to pass to rasterio and GDAL when
-writing the raster data.</p></li>
+<li><p><strong>null_value</strong> (<em>scalar</em><em>, </em><em>optional</em>) – A new null value to use when saving. Defaults to the raster’s
+current null value.</p></li>
+<li><p><strong>driver</strong> (<em>str</em><em>, </em><em>optional</em>) – The GDAL driver to use. If not given, the driver is inferred from
+the file extension.</p></li>
+<li><p><strong>tiled</strong> (<em>bool</em><em>, </em><em>optional</em>) – Whether to write tiled output. Default is True. Applies to drivers
+with a tiling concept (e.g. GTiff); silently ignored for others.</p></li>
+<li><p><strong>blocksize</strong> (<em>int</em><em> or </em><em>(</em><em>int</em><em>, </em><em>int</em><em>)</em><em>, </em><em>optional</em>) – Tile dimensions. An int means a square tile of that size; a tuple
+is <code class="docutils literal notranslate"><span class="pre">(height,</span> <span class="pre">width)</span></code>. Default lets the driver choose.</p></li>
+<li><p><strong>compress</strong> (<em>str</em><em> or </em><em>None</em><em>, </em><em>optional</em>) – Compression. One of <code class="docutils literal notranslate"><span class="pre">&quot;lzw&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;deflate&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;zstd&quot;</span></code>,
+<code class="docutils literal notranslate"><span class="pre">&quot;packbits&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;jpeg&quot;</span></code>, or <code class="docutils literal notranslate"><span class="pre">None</span></code> (default) to disable
+compression.</p></li>
+<li><p><strong>compress_level</strong> (<em>int</em><em>, </em><em>optional</em>) – Compression level. Meaning depends on the compressor (e.g. ZLEVEL
+for deflate, ZSTD_LEVEL for zstd, JPEG_QUALITY for jpeg). Has no
+effect with <code class="docutils literal notranslate"><span class="pre">&quot;lzw&quot;</span></code> or <code class="docutils literal notranslate"><span class="pre">&quot;packbits&quot;</span></code>.</p></li>
+<li><p><strong>predictor</strong> (<em>str</em><em>, </em><em>optional</em>) – Differencing predictor. <code class="docutils literal notranslate"><span class="pre">&quot;horizontal&quot;</span></code> for integer data,
+<code class="docutils literal notranslate"><span class="pre">&quot;float&quot;</span></code> for floating-point. Lossless compressors only.</p></li>
+<li><p><strong>bigtiff</strong> (<em>bool</em><em> or </em><em>str</em><em>, </em><em>optional</em>) – Force BigTIFF. <code class="docutils literal notranslate"><span class="pre">True</span></code>/<code class="docutils literal notranslate"><span class="pre">False</span></code> or one of <code class="docutils literal notranslate"><span class="pre">&quot;if_safer&quot;</span></code>
+(default), <code class="docutils literal notranslate"><span class="pre">&quot;if_needed&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;yes&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;no&quot;</span></code>. GTiff only.</p></li>
+<li><p><strong>overviews</strong> (<em>bool</em><em> or </em><em>list of int</em><em>, </em><em>optional</em>) – Build internal overviews after writing. <code class="docutils literal notranslate"><span class="pre">True</span></code> selects an
+automatic chain based on raster size; pass a list of decimation
+factors (e.g. <code class="docutils literal notranslate"><span class="pre">[2,</span> <span class="pre">4,</span> <span class="pre">8]</span></code>) for explicit control. Default does
+not build overviews.</p></li>
+<li><p><strong>overview_resampling</strong> (<em>str</em><em>, </em><em>optional</em>) – Resampling method used to build overviews. Default <code class="docutils literal notranslate"><span class="pre">&quot;average&quot;</span></code>.</p></li>
+<li><p><strong>overview_num_threads</strong> (<em>str</em><em> or </em><em>int</em><em>, </em><em>optional</em>) – Value passed as <code class="docutils literal notranslate"><span class="pre">GDAL_NUM_THREADS</span></code> while building overviews.
+Default <code class="docutils literal notranslate"><span class="pre">&quot;all_cpus&quot;</span></code>. Set to <code class="docutils literal notranslate"><span class="pre">None</span></code> to leave the env unset.</p></li>
+<li><p><strong>no_data_value</strong> (<em>scalar</em><em>, </em><em>optional</em>) – <div class="deprecated">
+<p><span class="versionmodified deprecated">Deprecated since version Use: </span><cite>null_value</cite> instead. <cite>no_data_value</cite> will be removed in
+a future release.</p>
+</div>
+</p></li>
+<li><p><strong>**gdal_kwargs</strong> (<em>kwargs</em><em>, </em><em>optional</em>) – Additional GDAL creation options forwarded to rasterio. Wins over
+the translated logical kwargs on collisions.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
@@ -5459,7 +5523,11 @@ Default is <code class="docutils literal notranslate"><span class="pre">False</s
 <dl class="py method">
 <dt class="sig sig-object py" id="raster_tools.Vector.eval">
 <span class="sig-name descname"><span class="pre">eval</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/vector.html#Vector.eval"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.Vector.eval" title="Permalink to this definition">#</a></dt>
-<dd><p>Computes the built-up chain of operations on the underlying data.</p>
+<dd><p>Compute the built-up chain of operations on the underlying data.</p>
+<div class="deprecated">
+<p><span class="versionmodified deprecated">Deprecated since version Use: </span><a class="reference internal" href="#raster_tools.Vector.load" title="raster_tools.Vector.load"><code class="xref py py-meth docutils literal notranslate"><span class="pre">load()</span></code></a> instead. <code class="docutils literal notranslate"><span class="pre">eval</span></code> will be removed in a future
+release.</p>
+</div>
 </dd></dl>
 
 <dl class="py property">
@@ -5761,6 +5829,10 @@ raster will be on the same grid as <cite>like</cite>.</p>
 <dt class="sig sig-object py" id="raster_tools.band_concat">
 <span class="sig-prename descclassname"><span class="pre">raster_tools.</span></span><span class="sig-name descname"><span class="pre">band_concat</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">rasters</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/general.html#band_concat"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.band_concat" title="Permalink to this definition">#</a></dt>
 <dd><p>Join a sequence of rasters along the band dimension.</p>
+<div class="deprecated">
+<p><span class="versionmodified deprecated">Deprecated since version Use: </span><a class="reference internal" href="reference/generated/raster_tools.stack_bands.html#raster_tools.stack_bands" title="raster_tools.stack_bands"><code class="xref py py-func docutils literal notranslate"><span class="pre">raster_tools.stack_bands()</span></code></a> instead. <code class="docutils literal notranslate"><span class="pre">band_concat</span></code>
+will be removed in a future release.</p>
+</div>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><p><strong>rasters</strong> (<em>sequence of Rasters and/or paths</em>) – The rasters to concatenate. These can be a mix of Rasters and paths.
@@ -6549,6 +6621,103 @@ be provided. Both can also be provided.</p></li>
 </dd></dl>
 
 <dl class="py function">
+<dt class="sig sig-object py" id="raster_tools.stack_bands">
+<span class="sig-prename descclassname"><span class="pre">raster_tools.</span></span><span class="sig-name descname"><span class="pre">stack_bands</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">rasters</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dst_crs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dst_grid</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">join</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'inner'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">resampling_method</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'nearest'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">resolution</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">null_value</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/_stack.html#stack_bands"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.stack_bands" title="Permalink to this definition">#</a></dt>
+<dd><p>Stack input rasters into a multi-band raster.</p>
+<p>All input bands are concatenated along the band axis onto a single
+destination grid. Inputs with differing grids, resolutions, or CRSs are
+reprojected onto the destination grid before stacking. The output has
+<code class="docutils literal notranslate"><span class="pre">sum(r.nbands</span> <span class="pre">for</span> <span class="pre">r</span> <span class="pre">in</span> <span class="pre">rasters)</span></code> bands.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>rasters</strong> (<em>list of raster_tools.Raster</em>) – A list-like object containing the rasters to be stacked. These can
+have differing grids, resolutions, and projections.</p></li>
+<li><p><strong>dst_crs</strong> (<em>CRS-like</em><em>, </em><em>str</em><em>, </em><em>int</em><em>, </em><em>optional</em>) – The destination CRS to use when building the destination grid. This
+can be anything that can be parsed by
+<code class="xref py py-meth docutils literal notranslate"><span class="pre">rasterio.CRS.from_user_input()</span></code>. Only consulted when
+<cite>dst_grid</cite> is not provided. The default is to take the CRS from the
+first raster in <cite>rasters</cite>.</p></li>
+<li><p><strong>dst_grid</strong> (<em>odc.geo.GeoBox</em><em>, </em><a class="reference internal" href="reference/generated/raster_tools.Raster.html#raster_tools.Raster" title="raster_tools.Raster"><em>raster_tools.Raster</em></a><em>, </em><em>str</em><em>, </em><em>optional</em>) – The definition for the destination grid to stack the <cite>rasters</cite> onto.
+This can be a <code class="xref py py-class docutils literal notranslate"><span class="pre">odc.geo.GeoBox</span></code>,
+<a class="reference internal" href="reference/generated/raster_tools.Raster.html#raster_tools.Raster" title="raster_tools.Raster"><code class="xref py py-class docutils literal notranslate"><span class="pre">raster_tools.Raster</span></code></a> object, or a path str. If the input
+is a raster object or path, this function does NOT write to the given
+raster, it instead uses the raster as a reference for the grid. The
+default is to build a grid from the inputs according to <cite>join</cite>, using
+the resolution from the first raster in <cite>rasters</cite>. Passing <cite>dst_grid</cite>
+together with <cite>dst_crs</cite> or <cite>resolution</cite> is an error.</p></li>
+<li><p><strong>join</strong> (<em>str</em><em>, </em><em>optional</em>) – <p>How to combine the input grids when building the destination grid.
+Only consulted when <cite>dst_grid</cite> is not provided. Valid options are:</p>
+<dl class="simple">
+<dt>’inner’</dt><dd><p>Use the intersection of the input grid bounds. Only pixels
+covered by every input appear in the output. This is the default.</p>
+</dd>
+<dt>’outer’</dt><dd><p>Use the union of the input grid bounds. Pixels not covered by a
+given input are filled with that band’s null value.</p>
+</dd>
+</dl>
+</p></li>
+<li><p><strong>resampling_method</strong> (<em>str</em><em>, </em><em>optional</em>) – <p>Resampling method to use when reprojecting input rasters to the
+destination grid. The default is nearest. Valid options are:</p>
+<dl class="simple">
+<dt>’nearest’</dt><dd><p>Nearest neighbor resampling. This is the default.</p>
+</dd>
+<dt>’bilinear’</dt><dd><p>Bilinear resampling.</p>
+</dd>
+<dt>’cubic’</dt><dd><p>Cubic resampling.</p>
+</dd>
+<dt>’cubic_spline’</dt><dd><p>Cubic spline resampling.</p>
+</dd>
+<dt>’lanczos’</dt><dd><p>Lanczos windowed sinc resampling.</p>
+</dd>
+<dt>’average’</dt><dd><p>Average resampling, computes the weighted average of all
+contributing pixels.</p>
+</dd>
+<dt>’mode’</dt><dd><p>Mode resampling, selects the value which appears most often.</p>
+</dd>
+<dt>’max’</dt><dd><p>Maximum resampling. (GDAL 2.0+)</p>
+</dd>
+<dt>’min’</dt><dd><p>Minimum resampling. (GDAL 2.0+)</p>
+</dd>
+<dt>’med’</dt><dd><p>Median resampling. (GDAL 2.0+)</p>
+</dd>
+<dt>’q1’</dt><dd><p>Q1, first quartile resampling. (GDAL 2.0+)</p>
+</dd>
+<dt>’q3’</dt><dd><p>Q3, third quartile resampling. (GDAL 2.0+)</p>
+</dd>
+<dt>’sum’</dt><dd><p>Sum, compute the weighted sum. (GDAL 3.1+)</p>
+</dd>
+<dt>’rms’</dt><dd><p>RMS, root mean square/quadratic mean. (GDAL 3.3+)</p>
+</dd>
+</dl>
+</p></li>
+<li><p><strong>resolution</strong> (<em>scalar</em><em>, </em><em>optional</em>) – Pixel resolution of the output grid, in units of the output CRS. Only
+consulted when <cite>dst_grid</cite> is not provided. The default is to take the
+resolution from the first raster in <cite>rasters</cite>.</p></li>
+<li><p><strong>dtype</strong> (<em>numpy.dtype</em><em>, </em><em>str</em><em>, </em><em>optional</em>) – The dtype for the output raster. The default is to use
+<code class="xref py py-func docutils literal notranslate"><span class="pre">numpy.result_type()</span></code> on the dtypes from the input rasters.</p></li>
+<li><p><strong>null_value</strong> (<em>scalar</em><em> or </em><em>&quot;default&quot;</em><em>, </em><em>optional</em>) – The nodata/null value to use for the output raster. The default is to
+take the null value from the first input raster that has one, falling
+back to a default based on the output dtype. Pass the string
+<code class="docutils literal notranslate"><span class="pre">&quot;default&quot;</span></code> to force the dtype-based default regardless of the
+inputs’ null values.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>The resulting multi-band raster.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="reference/generated/raster_tools.Raster.html#raster_tools.Raster" title="raster_tools.Raster">Raster</a></p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<p>When <cite>dst_grid</cite> is not provided, the output CRS and resolution default to
+those of the first raster in <cite>rasters</cite>. Reordering the input list can
+therefore change the output grid; pass <cite>dst_crs</cite>, <cite>resolution</cite>, or
+<cite>dst_grid</cite> explicitly when that dependency is undesirable.</p>
+</dd></dl>
+
+<dl class="py function">
 <dt class="sig sig-object py" id="raster_tools.zeros_like">
 <span class="sig-prename descclassname"><span class="pre">raster_tools.</span></span><span class="sig-name descname"><span class="pre">zeros_like</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">raster_template</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bands</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">copy_mask</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/creation.html#zeros_like"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.zeros_like" title="Permalink to this definition">#</a></dt>
 <dd><p>Create a Raster filled with zeros like a template raster.</p>
@@ -6625,7 +6794,7 @@ copied <cite>bands</cite> times.</p></li>
     <ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#subpackages">Subpackages</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#submodules">Submodules</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#raster-tools-batch-module">raster_tools.batch module</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#module-raster_tools.batch">raster_tools.batch module</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#module-raster_tools.clipping">raster_tools.clipping module</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#module-raster_tools.creation">raster_tools.creation module</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#module-raster_tools.dask_utils">raster_tools.dask_utils module</a></li>

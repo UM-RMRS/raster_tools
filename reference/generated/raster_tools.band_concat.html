@@ -130,6 +130,7 @@
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.open_dataset.html">raster_tools.open_dataset</a></li>
 <li class="toctree-l3 current active"><a class="current reference internal" href="#">raster_tools.band_concat</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.mosaic.html">raster_tools.mosaic</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.stack_bands.html">raster_tools.stack_bands</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.constant_raster.html">raster_tools.constant_raster</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.empty_like.html">raster_tools.empty_like</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.full_like.html">raster_tools.full_like</a></li>
@@ -462,6 +463,10 @@ document.write(`
 <dt class="sig sig-object py" id="raster_tools.band_concat">
 <span class="sig-prename descclassname"><span class="pre">raster_tools.</span></span><span class="sig-name descname"><span class="pre">band_concat</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">rasters</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/raster_tools/general.html#band_concat"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.band_concat" title="Permalink to this definition">#</a></dt>
 <dd><p>Join a sequence of rasters along the band dimension.</p>
+<div class="deprecated">
+<p><span class="versionmodified deprecated">Deprecated since version Use: </span><a class="reference internal" href="raster_tools.stack_bands.html#raster_tools.stack_bands" title="raster_tools.stack_bands"><code class="xref py py-func docutils literal notranslate"><span class="pre">raster_tools.stack_bands()</span></code></a> instead. <code class="docutils literal notranslate"><span class="pre">band_concat</span></code>
+will be removed in a future release.</p>
+</div>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><p><strong>rasters</strong> (<em>sequence of Rasters and/or paths</em>) – The rasters to concatenate. These can be a mix of Rasters and paths.

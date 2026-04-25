@@ -21,6 +21,7 @@ Combining Rasters
 
    band_concat
    mosaic
+   stack_bands
 
 Creating Rasters from a Template
 ================================

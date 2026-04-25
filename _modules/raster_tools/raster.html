@@ -127,6 +127,7 @@
 <li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.open_dataset.html">raster_tools.open_dataset</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.band_concat.html">raster_tools.band_concat</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.mosaic.html">raster_tools.mosaic</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.stack_bands.html">raster_tools.stack_bands</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.constant_raster.html">raster_tools.constant_raster</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.empty_like.html">raster_tools.empty_like</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.full_like.html">raster_tools.full_like</a></li>
@@ -2031,18 +2032,73 @@ document.write(`
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Close the underlying source&quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_ds</span><span class="o">.</span><span class="n">close</span><span class="p">()</span></div>
 
-<div class="viewcode-block" id="Raster.save"><a class="viewcode-back" href="../../reference/generated/raster_tools.Raster.save.html#raster_tools.raster.Raster.save">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">no_data_value</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">gdal_kwargs</span><span class="p">):</span>
+<div class="viewcode-block" id="Raster.save"><a class="viewcode-back" href="../../reference/generated/raster_tools.Raster.save.html#raster_tools.raster.Raster.save">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">path</span><span class="p">,</span>
+        <span class="n">null_value</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">driver</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">tiled</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">blocksize</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">compress</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">compress_level</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">predictor</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">bigtiff</span><span class="o">=</span><span class="s2">&quot;if_safer&quot;</span><span class="p">,</span>
+        <span class="n">overviews</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">overview_resampling</span><span class="o">=</span><span class="s2">&quot;average&quot;</span><span class="p">,</span>
+        <span class="n">overview_num_threads</span><span class="o">=</span><span class="s2">&quot;all_cpus&quot;</span><span class="p">,</span>
+        <span class="n">no_data_value</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">gdal_kwargs</span><span class="p">,</span>
+    <span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute the final raster and save it to the provided location.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        path : str</span>
 <span class="sd">            The target location to save the raster to.</span>
+<span class="sd">        null_value : scalar, optional</span>
+<span class="sd">            A new null value to use when saving. Defaults to the raster&#39;s</span>
+<span class="sd">            current null value.</span>
+<span class="sd">        driver : str, optional</span>
+<span class="sd">            The GDAL driver to use. If not given, the driver is inferred from</span>
+<span class="sd">            the file extension.</span>
+<span class="sd">        tiled : bool, optional</span>
+<span class="sd">            Whether to write tiled output. Default is True. Applies to drivers</span>
+<span class="sd">            with a tiling concept (e.g. GTiff); silently ignored for others.</span>
+<span class="sd">        blocksize : int or (int, int), optional</span>
+<span class="sd">            Tile dimensions. An int means a square tile of that size; a tuple</span>
+<span class="sd">            is ``(height, width)``. Default lets the driver choose.</span>
+<span class="sd">        compress : str or None, optional</span>
+<span class="sd">            Compression. One of ``&quot;lzw&quot;``, ``&quot;deflate&quot;``, ``&quot;zstd&quot;``,</span>
+<span class="sd">            ``&quot;packbits&quot;``, ``&quot;jpeg&quot;``, or ``None`` (default) to disable</span>
+<span class="sd">            compression.</span>
+<span class="sd">        compress_level : int, optional</span>
+<span class="sd">            Compression level. Meaning depends on the compressor (e.g. ZLEVEL</span>
+<span class="sd">            for deflate, ZSTD_LEVEL for zstd, JPEG_QUALITY for jpeg). Has no</span>
+<span class="sd">            effect with ``&quot;lzw&quot;`` or ``&quot;packbits&quot;``.</span>
+<span class="sd">        predictor : str, optional</span>
+<span class="sd">            Differencing predictor. ``&quot;horizontal&quot;`` for integer data,</span>
+<span class="sd">            ``&quot;float&quot;`` for floating-point. Lossless compressors only.</span>
+<span class="sd">        bigtiff : bool or str, optional</span>
+<span class="sd">            Force BigTIFF. ``True``/``False`` or one of ``&quot;if_safer&quot;``</span>
+<span class="sd">            (default), ``&quot;if_needed&quot;``, ``&quot;yes&quot;``, ``&quot;no&quot;``. GTiff only.</span>
+<span class="sd">        overviews : bool or list of int, optional</span>
+<span class="sd">            Build internal overviews after writing. ``True`` selects an</span>
+<span class="sd">            automatic chain based on raster size; pass a list of decimation</span>
+<span class="sd">            factors (e.g. ``[2, 4, 8]``) for explicit control. Default does</span>
+<span class="sd">            not build overviews.</span>
+<span class="sd">        overview_resampling : str, optional</span>
+<span class="sd">            Resampling method used to build overviews. Default ``&quot;average&quot;``.</span>
+<span class="sd">        overview_num_threads : str or int, optional</span>
+<span class="sd">            Value passed as ``GDAL_NUM_THREADS`` while building overviews.</span>
+<span class="sd">            Default ``&quot;all_cpus&quot;``. Set to ``None`` to leave the env unset.</span>
 <span class="sd">        no_data_value : scalar, optional</span>
-<span class="sd">            A new null value to use when saving.</span>
+<span class="sd">            .. deprecated::</span>
+<span class="sd">                Use `null_value` instead. `no_data_value` will be removed in</span>
+<span class="sd">                a future release.</span>
 <span class="sd">        **gdal_kwargs : kwargs, optional</span>
-<span class="sd">            Additional keyword arguments to to pass to rasterio and GDAL when</span>
-<span class="sd">            writing the raster data.</span>
+<span class="sd">            Additional GDAL creation options forwarded to rasterio. Wins over</span>
+<span class="sd">            the translated logical kwargs on collisions.</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
@@ -2051,9 +2107,21 @@ document.write(`
 
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># TODO: warn of overwrite</span>
-        <span class="n">rs</span> <span class="o">=</span> <span class="bp">self</span>
         <span class="k">if</span> <span class="n">no_data_value</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">rs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">set_null_value</span><span class="p">(</span><span class="n">no_data_value</span><span class="p">)</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                <span class="s2">&quot;&#39;no_data_value&#39; is deprecated and will be removed in a &quot;</span>
+                <span class="s2">&quot;future release. Use &#39;null_value&#39; instead.&quot;</span><span class="p">,</span>
+                <span class="ne">DeprecationWarning</span><span class="p">,</span>
+                <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="n">null_value</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                    <span class="s2">&quot;Cannot specify both &#39;null_value&#39; and &#39;no_data_value&#39;&quot;</span>
+                <span class="p">)</span>
+            <span class="n">null_value</span> <span class="o">=</span> <span class="n">no_data_value</span>
+        <span class="n">rs</span> <span class="o">=</span> <span class="bp">self</span>
+        <span class="k">if</span> <span class="n">null_value</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">rs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">set_null_value</span><span class="p">(</span><span class="n">null_value</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">rs</span><span class="o">.</span><span class="n">_masked</span> <span class="ow">and</span> <span class="n">is_bool</span><span class="p">(</span><span class="n">rs</span><span class="o">.</span><span class="n">dtype</span><span class="p">):</span>
             <span class="c1"># Cast to uint and burn in mask</span>
             <span class="n">rs</span> <span class="o">=</span> <span class="n">rs</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s2">&quot;uint8&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">set_null_value</span><span class="p">(</span>
@@ -2063,7 +2131,16 @@ document.write(`
         <span class="n">write_raster</span><span class="p">(</span>
             <span class="n">xrs</span><span class="p">,</span>
             <span class="n">path</span><span class="p">,</span>
-            <span class="n">rs</span><span class="o">.</span><span class="n">null_value</span> <span class="k">if</span> <span class="n">no_data_value</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">no_data_value</span><span class="p">,</span>
+            <span class="n">driver</span><span class="o">=</span><span class="n">driver</span><span class="p">,</span>
+            <span class="n">tiled</span><span class="o">=</span><span class="n">tiled</span><span class="p">,</span>
+            <span class="n">blocksize</span><span class="o">=</span><span class="n">blocksize</span><span class="p">,</span>
+            <span class="n">compress</span><span class="o">=</span><span class="n">compress</span><span class="p">,</span>
+            <span class="n">compress_level</span><span class="o">=</span><span class="n">compress_level</span><span class="p">,</span>
+            <span class="n">predictor</span><span class="o">=</span><span class="n">predictor</span><span class="p">,</span>
+            <span class="n">bigtiff</span><span class="o">=</span><span class="n">bigtiff</span><span class="p">,</span>
+            <span class="n">overviews</span><span class="o">=</span><span class="n">overviews</span><span class="p">,</span>
+            <span class="n">overview_resampling</span><span class="o">=</span><span class="n">overview_resampling</span><span class="p">,</span>
+            <span class="n">overview_num_threads</span><span class="o">=</span><span class="n">overview_num_threads</span><span class="p">,</span>
             <span class="o">**</span><span class="n">gdal_kwargs</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="k">return</span> <span class="n">Raster</span><span class="p">(</span><span class="n">path</span><span class="p">)</span></div>
@@ -2084,16 +2161,17 @@ document.write(`
 <div class="viewcode-block" id="Raster.eval"><a class="viewcode-back" href="../../reference/generated/raster_tools.Raster.eval.html#raster_tools.raster.Raster.eval">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">eval</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>  <span class="c1"># noqa: A003</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute any applied operations and return the result as new Raster.</span>
 
-<span class="sd">        Note that the unerlying sources will be loaded into memory for the</span>
-<span class="sd">        computations and the result will be fixed in memory. The original</span>
-<span class="sd">        Raster will be unaltered.</span>
-
-<span class="sd">        .. note::</span>
-<span class="sd">            This method has been replaced by :meth:`load` and will eventually</span>
-<span class="sd">            be deprecated and then removed.</span>
+<span class="sd">        .. deprecated::</span>
+<span class="sd">            Use :meth:`load` instead. ``eval`` will be removed in a future</span>
+<span class="sd">            release.</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="c1"># TODO: deprecate in favor of load</span>
+        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+            <span class="s2">&quot;&#39;Raster.eval&#39; is deprecated and will be removed in a future &quot;</span>
+            <span class="s2">&quot;release. Use &#39;Raster.load&#39; instead.&quot;</span><span class="p">,</span>
+            <span class="ne">DeprecationWarning</span><span class="p">,</span>
+            <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+        <span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">load</span><span class="p">()</span></div>
 
 <div class="viewcode-block" id="Raster.copy"><a class="viewcode-back" href="../../reference/generated/raster_tools.Raster.copy.html#raster_tools.raster.Raster.copy">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">copy</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>

@@ -127,6 +127,7 @@
 <li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.open_dataset.html">raster_tools.open_dataset</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.band_concat.html">raster_tools.band_concat</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.mosaic.html">raster_tools.mosaic</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.stack_bands.html">raster_tools.stack_bands</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.constant_raster.html">raster_tools.constant_raster</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.empty_like.html">raster_tools.empty_like</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.full_like.html">raster_tools.full_like</a></li>
@@ -408,6 +409,7 @@ document.write(`
   <h1>Source code for raster_tools.io</h1><div class="highlight"><pre>
 <span></span><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">urllib</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">dask</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
@@ -563,35 +565,266 @@ document.write(`
     <span class="k">return</span> <span class="n">xrs</span></div>
 
 
-<div class="viewcode-block" id="write_raster"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.io.write_raster">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">write_raster</span><span class="p">(</span><span class="n">xrs</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">no_data_value</span><span class="p">,</span> <span class="o">**</span><span class="n">rio_gdal_kwargs</span><span class="p">):</span>
-    <span class="n">ext</span> <span class="o">=</span> <span class="n">_get_extension</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
-    <span class="n">rio_is_bool</span> <span class="o">=</span> <span class="kc">False</span>
-    <span class="k">if</span> <span class="n">ext</span> <span class="ow">in</span> <span class="n">TIFF_EXTS</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">ext</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-        <span class="k">if</span> <span class="n">xrs</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">I64</span><span class="p">:</span>
-            <span class="c1"># GDAL, and thus rioxarray and rasterio, doesn&#39;t support I64 so</span>
-            <span class="c1"># cast up to float. This avoids to_raster throwing a TypeError.</span>
-            <span class="n">xrs</span> <span class="o">=</span> <span class="n">xrs</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">F64</span><span class="p">)</span>
-        <span class="k">elif</span> <span class="n">is_bool</span><span class="p">(</span><span class="n">xrs</span><span class="o">.</span><span class="n">dtype</span><span class="p">):</span>
-            <span class="c1"># GDAL doesn&#39;t support boolean dtype either so convert to uint8</span>
-            <span class="c1"># 0-1 encoding.</span>
-            <span class="n">rio_is_bool</span> <span class="o">=</span> <span class="kc">True</span>
-            <span class="n">xrs</span> <span class="o">=</span> <span class="n">xrs</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">U8</span><span class="p">)</span>
+<span class="n">_EXT_TO_DRIVER</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;.tif&quot;</span><span class="p">:</span> <span class="s2">&quot;GTiff&quot;</span><span class="p">,</span> <span class="s2">&quot;.tiff&quot;</span><span class="p">:</span> <span class="s2">&quot;GTiff&quot;</span><span class="p">}</span>
 
-    <span class="k">if</span> <span class="ow">not</span> <span class="n">ext</span> <span class="ow">or</span> <span class="n">ext</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">WRITE_NOT_IMPLEMENTED_EXTS</span><span class="p">:</span>
-        <span class="n">kwargs</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;lock&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span> <span class="s2">&quot;compute&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span> <span class="o">**</span><span class="n">rio_gdal_kwargs</span><span class="p">}</span>
-        <span class="k">if</span> <span class="s2">&quot;blockheight&quot;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
-            <span class="n">value</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;blockheight&quot;</span><span class="p">)</span>
-            <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;blockysize&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
-        <span class="k">if</span> <span class="s2">&quot;blockwidth&quot;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
-            <span class="n">value</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;blockwidth&quot;</span><span class="p">)</span>
-            <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;blockxsize&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
-        <span class="k">if</span> <span class="n">rio_is_bool</span><span class="p">:</span>
-            <span class="c1"># Store each entry using a single bit</span>
-            <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;nbits&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
-        <span class="n">xrs</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">to_raster</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+<span class="c1"># Drivers that build overviews as part of the write itself; the post-write</span>
+<span class="c1"># build_overviews pass is skipped for these.</span>
+<span class="n">_DRIVERS_WITH_INTERNAL_OVERVIEWS</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="s2">&quot;COG&quot;</span><span class="p">})</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_resolve_driver</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">driver</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">driver</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">driver</span>
+    <span class="k">return</span> <span class="n">_EXT_TO_DRIVER</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">_get_extension</span><span class="p">(</span><span class="n">path</span><span class="p">))</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_gtiff_translate</span><span class="p">(</span><span class="n">opts</span><span class="p">):</span>
+    <span class="n">out</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">tiled</span> <span class="o">=</span> <span class="n">opts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;tiled&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">tiled</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">out</span><span class="p">[</span><span class="s2">&quot;tiled&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="n">tiled</span><span class="p">)</span>
+    <span class="n">bs</span> <span class="o">=</span> <span class="n">opts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;blocksize&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">bs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">bs</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+            <span class="n">h</span> <span class="o">=</span> <span class="n">w</span> <span class="o">=</span> <span class="n">bs</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">h</span><span class="p">,</span> <span class="n">w</span> <span class="o">=</span> <span class="n">bs</span>
+        <span class="n">out</span><span class="p">[</span><span class="s2">&quot;blockxsize&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">w</span><span class="p">)</span>
+        <span class="n">out</span><span class="p">[</span><span class="s2">&quot;blockysize&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">h</span><span class="p">)</span>
+    <span class="n">compress</span> <span class="o">=</span> <span class="n">opts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;compress&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">compress</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">out</span><span class="p">[</span><span class="s2">&quot;compress&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;none&quot;</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="c1"># TODO: populate</span>
-        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div>
+        <span class="n">out</span><span class="p">[</span><span class="s2">&quot;compress&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">compress</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+    <span class="n">level</span> <span class="o">=</span> <span class="n">opts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;compress_level&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">level</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">c</span> <span class="o">=</span> <span class="n">out</span><span class="p">[</span><span class="s2">&quot;compress&quot;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">c</span> <span class="o">==</span> <span class="s2">&quot;deflate&quot;</span><span class="p">:</span>
+            <span class="n">out</span><span class="p">[</span><span class="s2">&quot;zlevel&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">level</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">c</span> <span class="o">==</span> <span class="s2">&quot;zstd&quot;</span><span class="p">:</span>
+            <span class="n">out</span><span class="p">[</span><span class="s2">&quot;zstd_level&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">level</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">c</span> <span class="o">==</span> <span class="s2">&quot;jpeg&quot;</span><span class="p">:</span>
+            <span class="n">out</span><span class="p">[</span><span class="s2">&quot;jpeg_quality&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">level</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;compress_level has no effect with compress=</span><span class="si">{</span><span class="n">compress</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">,</span>
+                <span class="n">stacklevel</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
+            <span class="p">)</span>
+    <span class="n">predictor</span> <span class="o">=</span> <span class="n">opts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;predictor&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">predictor</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">out</span><span class="p">[</span><span class="s2">&quot;compress&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;jpeg&quot;</span><span class="p">:</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                <span class="s2">&quot;predictor is not valid with compress=&#39;jpeg&#39;; ignoring&quot;</span><span class="p">,</span>
+                <span class="n">stacklevel</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">predictor</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+            <span class="c1"># Backward compat with rasterio-style integer predictor values.</span>
+            <span class="n">out</span><span class="p">[</span><span class="s2">&quot;predictor&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">predictor</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">mapping</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;horizontal&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;float&quot;</span><span class="p">:</span> <span class="mi">3</span><span class="p">}</span>
+            <span class="k">if</span> <span class="n">predictor</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">mapping</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="s2">&quot;predictor must be &#39;horizontal&#39; or &#39;float&#39;, got &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">predictor</span><span class="si">!r}</span><span class="s2">&quot;</span>
+                <span class="p">)</span>
+            <span class="n">out</span><span class="p">[</span><span class="s2">&quot;predictor&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">mapping</span><span class="p">[</span><span class="n">predictor</span><span class="p">]</span>
+    <span class="n">bigtiff</span> <span class="o">=</span> <span class="n">opts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;bigtiff&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">bigtiff</span><span class="p">,</span> <span class="nb">bool</span><span class="p">):</span>
+        <span class="n">out</span><span class="p">[</span><span class="s2">&quot;bigtiff&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;yes&quot;</span> <span class="k">if</span> <span class="n">bigtiff</span> <span class="k">else</span> <span class="s2">&quot;no&quot;</span>
+    <span class="k">elif</span> <span class="n">bigtiff</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">out</span><span class="p">[</span><span class="s2">&quot;bigtiff&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">bigtiff</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">out</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_cog_translate</span><span class="p">(</span><span class="n">opts</span><span class="p">):</span>
+    <span class="n">out</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="c1"># COG is always tiled; the tiled kwarg is intentionally ignored.</span>
+    <span class="n">bs</span> <span class="o">=</span> <span class="n">opts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;blocksize&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">bs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">bs</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+            <span class="n">size</span> <span class="o">=</span> <span class="n">bs</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">h</span><span class="p">,</span> <span class="n">w</span> <span class="o">=</span> <span class="n">bs</span>
+            <span class="k">if</span> <span class="n">h</span> <span class="o">!=</span> <span class="n">w</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;COG driver requires a square blocksize; got </span><span class="si">{</span><span class="n">bs</span><span class="si">!r}</span><span class="s2">&quot;</span>
+                <span class="p">)</span>
+            <span class="n">size</span> <span class="o">=</span> <span class="n">h</span>
+        <span class="n">out</span><span class="p">[</span><span class="s2">&quot;blocksize&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">size</span><span class="p">)</span>
+    <span class="n">compress</span> <span class="o">=</span> <span class="n">opts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;compress&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">compress</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">out</span><span class="p">[</span><span class="s2">&quot;compress&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;none&quot;</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">out</span><span class="p">[</span><span class="s2">&quot;compress&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">compress</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+    <span class="n">level</span> <span class="o">=</span> <span class="n">opts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;compress_level&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">level</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">c</span> <span class="o">=</span> <span class="n">out</span><span class="p">[</span><span class="s2">&quot;compress&quot;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">c</span> <span class="ow">in</span> <span class="p">(</span>
+            <span class="s2">&quot;deflate&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;zstd&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;lzw&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;lerc&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;lerc_deflate&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;lerc_zstd&quot;</span><span class="p">,</span>
+        <span class="p">):</span>
+            <span class="n">out</span><span class="p">[</span><span class="s2">&quot;level&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">level</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">c</span> <span class="o">==</span> <span class="s2">&quot;jpeg&quot;</span><span class="p">:</span>
+            <span class="n">out</span><span class="p">[</span><span class="s2">&quot;quality&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">level</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;compress_level has no effect with compress=</span><span class="si">{</span><span class="n">compress</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">,</span>
+                <span class="n">stacklevel</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
+            <span class="p">)</span>
+    <span class="n">predictor</span> <span class="o">=</span> <span class="n">opts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;predictor&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">predictor</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">out</span><span class="p">[</span><span class="s2">&quot;compress&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;jpeg&quot;</span><span class="p">:</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                <span class="s2">&quot;predictor is not valid with compress=&#39;jpeg&#39;; ignoring&quot;</span><span class="p">,</span>
+                <span class="n">stacklevel</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">predictor</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
+            <span class="c1"># Backward compat with rasterio-style integer predictor values.</span>
+            <span class="n">out</span><span class="p">[</span><span class="s2">&quot;predictor&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">predictor</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">mapping</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;horizontal&quot;</span><span class="p">:</span> <span class="s2">&quot;STANDARD&quot;</span><span class="p">,</span> <span class="s2">&quot;float&quot;</span><span class="p">:</span> <span class="s2">&quot;FLOATING_POINT&quot;</span><span class="p">}</span>
+            <span class="k">if</span> <span class="n">predictor</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">mapping</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="s2">&quot;predictor must be &#39;horizontal&#39; or &#39;float&#39;, got &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">predictor</span><span class="si">!r}</span><span class="s2">&quot;</span>
+                <span class="p">)</span>
+            <span class="n">out</span><span class="p">[</span><span class="s2">&quot;predictor&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">mapping</span><span class="p">[</span><span class="n">predictor</span><span class="p">]</span>
+    <span class="n">bigtiff</span> <span class="o">=</span> <span class="n">opts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;bigtiff&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">bigtiff</span><span class="p">,</span> <span class="nb">bool</span><span class="p">):</span>
+        <span class="n">out</span><span class="p">[</span><span class="s2">&quot;bigtiff&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;yes&quot;</span> <span class="k">if</span> <span class="n">bigtiff</span> <span class="k">else</span> <span class="s2">&quot;no&quot;</span>
+    <span class="k">elif</span> <span class="n">bigtiff</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">out</span><span class="p">[</span><span class="s2">&quot;bigtiff&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">bigtiff</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+    <span class="n">overviews</span> <span class="o">=</span> <span class="n">opts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;overviews&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">overviews</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">overviews</span> <span class="ow">is</span> <span class="kc">False</span><span class="p">:</span>
+        <span class="n">out</span><span class="p">[</span><span class="s2">&quot;overviews&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;none&quot;</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">overviews</span><span class="p">,</span> <span class="p">(</span><span class="nb">list</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)):</span>
+        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+            <span class="s2">&quot;COG driver builds overviews with auto-selected factors; &quot;</span>
+            <span class="s2">&quot;explicit overview list is ignored.&quot;</span><span class="p">,</span>
+            <span class="n">stacklevel</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">out</span><span class="p">[</span><span class="s2">&quot;overviews&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;auto&quot;</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">out</span><span class="p">[</span><span class="s2">&quot;overviews&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;auto&quot;</span>
+    <span class="n">overview_resampling</span> <span class="o">=</span> <span class="n">opts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;overview_resampling&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">overview_resampling</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">out</span><span class="p">[</span><span class="s2">&quot;overview_resampling&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">overview_resampling</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">out</span>
+
+
+<span class="n">_DRIVER_TRANSLATORS</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;GTiff&quot;</span><span class="p">:</span> <span class="n">_gtiff_translate</span><span class="p">,</span> <span class="s2">&quot;COG&quot;</span><span class="p">:</span> <span class="n">_cog_translate</span><span class="p">}</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_auto_overview_factors</span><span class="p">(</span><span class="n">height</span><span class="p">,</span> <span class="n">width</span><span class="p">,</span> <span class="n">min_size</span><span class="o">=</span><span class="mi">256</span><span class="p">):</span>
+    <span class="n">factors</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">f</span> <span class="o">=</span> <span class="mi">2</span>
+    <span class="k">while</span> <span class="nb">min</span><span class="p">(</span><span class="n">height</span><span class="p">,</span> <span class="n">width</span><span class="p">)</span> <span class="o">/</span> <span class="n">f</span> <span class="o">&gt;=</span> <span class="n">min_size</span><span class="p">:</span>
+        <span class="n">factors</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+        <span class="n">f</span> <span class="o">*=</span> <span class="mi">2</span>
+    <span class="k">return</span> <span class="n">factors</span>
+
+
+<div class="viewcode-block" id="write_raster"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.io.write_raster">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">write_raster</span><span class="p">(</span>
+    <span class="n">xrs</span><span class="p">,</span>
+    <span class="n">path</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">driver</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">tiled</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">blocksize</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">compress</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">compress_level</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">predictor</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">bigtiff</span><span class="o">=</span><span class="s2">&quot;if_safer&quot;</span><span class="p">,</span>
+    <span class="n">overviews</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">overview_resampling</span><span class="o">=</span><span class="s2">&quot;average&quot;</span><span class="p">,</span>
+    <span class="n">overview_num_threads</span><span class="o">=</span><span class="s2">&quot;all_cpus&quot;</span><span class="p">,</span>
+    <span class="o">**</span><span class="n">gdal_kwargs</span><span class="p">,</span>
+<span class="p">):</span>
+    <span class="n">ext</span> <span class="o">=</span> <span class="n">_get_extension</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">ext</span> <span class="ow">and</span> <span class="n">ext</span> <span class="ow">in</span> <span class="n">WRITE_NOT_IMPLEMENTED_EXTS</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Writing files with extension </span><span class="si">{</span><span class="n">ext</span><span class="si">!r}</span><span class="s2"> is not supported&quot;</span>
+        <span class="p">)</span>
+
+    <span class="n">rio_is_bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="k">if</span> <span class="n">xrs</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">I64</span><span class="p">:</span>
+        <span class="c1"># GDAL doesn&#39;t support I64; cast up to F64 so to_raster won&#39;t reject.</span>
+        <span class="n">xrs</span> <span class="o">=</span> <span class="n">xrs</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">F64</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">is_bool</span><span class="p">(</span><span class="n">xrs</span><span class="o">.</span><span class="n">dtype</span><span class="p">):</span>
+        <span class="c1"># GDAL doesn&#39;t support bool; encode as uint8.</span>
+        <span class="n">rio_is_bool</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="n">xrs</span> <span class="o">=</span> <span class="n">xrs</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">U8</span><span class="p">)</span>
+
+    <span class="n">resolved_driver</span> <span class="o">=</span> <span class="n">_resolve_driver</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">driver</span><span class="p">)</span>
+    <span class="n">translator</span> <span class="o">=</span> <span class="n">_DRIVER_TRANSLATORS</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">resolved_driver</span><span class="p">)</span>
+    <span class="n">creation_opts</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">if</span> <span class="n">translator</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">creation_opts</span> <span class="o">=</span> <span class="n">translator</span><span class="p">(</span>
+            <span class="p">{</span>
+                <span class="s2">&quot;tiled&quot;</span><span class="p">:</span> <span class="n">tiled</span><span class="p">,</span>
+                <span class="s2">&quot;blocksize&quot;</span><span class="p">:</span> <span class="n">blocksize</span><span class="p">,</span>
+                <span class="s2">&quot;compress&quot;</span><span class="p">:</span> <span class="n">compress</span><span class="p">,</span>
+                <span class="s2">&quot;compress_level&quot;</span><span class="p">:</span> <span class="n">compress_level</span><span class="p">,</span>
+                <span class="s2">&quot;predictor&quot;</span><span class="p">:</span> <span class="n">predictor</span><span class="p">,</span>
+                <span class="s2">&quot;bigtiff&quot;</span><span class="p">:</span> <span class="n">bigtiff</span><span class="p">,</span>
+                <span class="s2">&quot;overviews&quot;</span><span class="p">:</span> <span class="n">overviews</span><span class="p">,</span>
+                <span class="s2">&quot;overview_resampling&quot;</span><span class="p">:</span> <span class="n">overview_resampling</span><span class="p">,</span>
+            <span class="p">}</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">rio_is_bool</span> <span class="ow">and</span> <span class="n">resolved_driver</span> <span class="o">==</span> <span class="s2">&quot;GTiff&quot;</span><span class="p">:</span>
+            <span class="n">creation_opts</span><span class="p">[</span><span class="s2">&quot;nbits&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="c1"># Escape hatch wins on collisions.</span>
+    <span class="n">creation_opts</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">gdal_kwargs</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">resolved_driver</span> <span class="o">==</span> <span class="s2">&quot;COG&quot;</span><span class="p">:</span>
+        <span class="c1"># rioxarray streams dask chunks by reopening the file in &quot;r+&quot;, but</span>
+        <span class="c1"># COG forbids updates after creation (it would break the layout).</span>
+        <span class="c1"># Stage to a temporary GTiff, then translate to COG.</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">tempfile</span>
+
+        <span class="kn">from</span><span class="w"> </span><span class="nn">rasterio.shutil</span><span class="w"> </span><span class="kn">import</span> <span class="n">copy</span> <span class="k">as</span> <span class="n">rio_copy</span>
+
+        <span class="n">out_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">path</span><span class="p">))</span>
+        <span class="k">with</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">NamedTemporaryFile</span><span class="p">(</span>
+            <span class="n">suffix</span><span class="o">=</span><span class="s2">&quot;.tif&quot;</span><span class="p">,</span> <span class="nb">dir</span><span class="o">=</span><span class="n">out_dir</span><span class="p">,</span> <span class="n">delete</span><span class="o">=</span><span class="kc">False</span>
+        <span class="p">)</span> <span class="k">as</span> <span class="n">tmpf</span><span class="p">:</span>
+            <span class="n">tmp_path</span> <span class="o">=</span> <span class="n">tmpf</span><span class="o">.</span><span class="n">name</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">xrs</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">to_raster</span><span class="p">(</span><span class="n">tmp_path</span><span class="p">,</span> <span class="n">lock</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">compute</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">rio_copy</span><span class="p">(</span><span class="n">tmp_path</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">driver</span><span class="o">=</span><span class="s2">&quot;COG&quot;</span><span class="p">,</span> <span class="o">**</span><span class="n">creation_opts</span><span class="p">)</span>
+        <span class="k">finally</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">tmp_path</span><span class="p">):</span>
+                <span class="n">os</span><span class="o">.</span><span class="n">unlink</span><span class="p">(</span><span class="n">tmp_path</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">to_raster_kwargs</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;lock&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span> <span class="s2">&quot;compute&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span> <span class="o">**</span><span class="n">creation_opts</span><span class="p">}</span>
+        <span class="k">if</span> <span class="n">driver</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">to_raster_kwargs</span><span class="p">[</span><span class="s2">&quot;driver&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">driver</span>
+        <span class="n">xrs</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">to_raster</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="o">**</span><span class="n">to_raster_kwargs</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">overviews</span> <span class="ow">and</span> <span class="n">resolved_driver</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">_DRIVERS_WITH_INTERNAL_OVERVIEWS</span><span class="p">:</span>
+        <span class="n">factors</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">_auto_overview_factors</span><span class="p">(</span><span class="o">*</span><span class="n">xrs</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">:])</span>
+            <span class="k">if</span> <span class="n">overviews</span> <span class="ow">is</span> <span class="kc">True</span>
+            <span class="k">else</span> <span class="nb">list</span><span class="p">(</span><span class="n">overviews</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">factors</span><span class="p">:</span>
+            <span class="kn">from</span><span class="w"> </span><span class="nn">rasterio.enums</span><span class="w"> </span><span class="kn">import</span> <span class="n">Resampling</span>
+
+            <span class="n">resampling</span> <span class="o">=</span> <span class="n">Resampling</span><span class="p">[</span><span class="n">overview_resampling</span><span class="p">]</span>
+            <span class="n">env_kwargs</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="k">if</span> <span class="n">overview_num_threads</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">env_kwargs</span><span class="p">[</span><span class="s2">&quot;GDAL_NUM_THREADS&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span>
+                    <span class="n">overview_num_threads</span>
+                <span class="p">)</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span>
+            <span class="k">with</span> <span class="n">rio</span><span class="o">.</span><span class="n">Env</span><span class="p">(</span><span class="o">**</span><span class="n">env_kwargs</span><span class="p">),</span> <span class="n">rio</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="s2">&quot;r+&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">ds</span><span class="p">:</span>
+                <span class="n">ds</span><span class="o">.</span><span class="n">build_overviews</span><span class="p">(</span><span class="n">factors</span><span class="p">,</span> <span class="n">resampling</span><span class="p">)</span>
+                <span class="n">ds</span><span class="o">.</span><span class="n">update_tags</span><span class="p">(</span>
+                    <span class="n">ns</span><span class="o">=</span><span class="s2">&quot;rio_overview&quot;</span><span class="p">,</span> <span class="n">resampling</span><span class="o">=</span><span class="n">overview_resampling</span>
+                <span class="p">)</span></div>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_get_valid_variables</span><span class="p">(</span><span class="n">meta</span><span class="p">,</span> <span class="n">ignore_too_many_dims</span><span class="p">):</span>
