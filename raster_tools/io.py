@@ -1,5 +1,6 @@
 import os
 import urllib
+import warnings
 
 import dask
 import numpy as np
@@ -155,35 +156,266 @@ def open_raster_from_path_or_url(path):
     return xrs
 
 
-def write_raster(xrs, path, no_data_value, **rio_gdal_kwargs):
-    ext = _get_extension(path)
-    rio_is_bool = False
-    if ext in TIFF_EXTS or len(ext) == 0:
-        if xrs.dtype == I64:
-            # GDAL, and thus rioxarray and rasterio, doesn't support I64 so
-            # cast up to float. This avoids to_raster throwing a TypeError.
-            xrs = xrs.astype(F64)
-        elif is_bool(xrs.dtype):
-            # GDAL doesn't support boolean dtype either so convert to uint8
-            # 0-1 encoding.
-            rio_is_bool = True
-            xrs = xrs.astype(U8)
+_EXT_TO_DRIVER = {".tif": "GTiff", ".tiff": "GTiff"}
 
-    if not ext or ext not in WRITE_NOT_IMPLEMENTED_EXTS:
-        kwargs = {"lock": True, "compute": True, **rio_gdal_kwargs}
-        if "blockheight" in kwargs:
-            value = kwargs.pop("blockheight")
-            kwargs["blockysize"] = value
-        if "blockwidth" in kwargs:
-            value = kwargs.pop("blockwidth")
-            kwargs["blockxsize"] = value
-        if rio_is_bool:
-            # Store each entry using a single bit
-            kwargs["nbits"] = 1
-        xrs.rio.to_raster(path, **kwargs)
+# Drivers that build overviews as part of the write itself; the post-write
+# build_overviews pass is skipped for these.
+_DRIVERS_WITH_INTERNAL_OVERVIEWS = frozenset({"COG"})
+
+
+def _resolve_driver(path, driver):
+    if driver is not None:
+        return driver
+    return _EXT_TO_DRIVER.get(_get_extension(path))
+
+
+def _gtiff_translate(opts):
+    out = {}
+    tiled = opts.get("tiled")
+    if tiled is not None:
+        out["tiled"] = bool(tiled)
+    bs = opts.get("blocksize")
+    if bs is not None:
+        if isinstance(bs, int):
+            h = w = bs
+        else:
+            h, w = bs
+        out["blockxsize"] = int(w)
+        out["blockysize"] = int(h)
+    compress = opts.get("compress")
+    if compress is None:
+        out["compress"] = "none"
     else:
-        # TODO: populate
-        raise NotImplementedError()
+        out["compress"] = str(compress).lower()
+    level = opts.get("compress_level")
+    if level is not None:
+        c = out["compress"]
+        if c == "deflate":
+            out["zlevel"] = int(level)
+        elif c == "zstd":
+            out["zstd_level"] = int(level)
+        elif c == "jpeg":
+            out["jpeg_quality"] = int(level)
+        else:
+            warnings.warn(
+                f"compress_level has no effect with compress={compress!r}",
+                stacklevel=4,
+            )
+    predictor = opts.get("predictor")
+    if predictor is not None:
+        if out["compress"] == "jpeg":
+            warnings.warn(
+                "predictor is not valid with compress='jpeg'; ignoring",
+                stacklevel=4,
+            )
+        elif isinstance(predictor, int):
+            # Backward compat with rasterio-style integer predictor values.
+            out["predictor"] = predictor
+        else:
+            mapping = {"horizontal": 2, "float": 3}
+            if predictor not in mapping:
+                raise ValueError(
+                    "predictor must be 'horizontal' or 'float', got "
+                    f"{predictor!r}"
+                )
+            out["predictor"] = mapping[predictor]
+    bigtiff = opts.get("bigtiff")
+    if isinstance(bigtiff, bool):
+        out["bigtiff"] = "yes" if bigtiff else "no"
+    elif bigtiff is not None:
+        out["bigtiff"] = str(bigtiff).lower()
+    return out
+
+
+def _cog_translate(opts):
+    out = {}
+    # COG is always tiled; the tiled kwarg is intentionally ignored.
+    bs = opts.get("blocksize")
+    if bs is not None:
+        if isinstance(bs, int):
+            size = bs
+        else:
+            h, w = bs
+            if h != w:
+                raise ValueError(
+                    f"COG driver requires a square blocksize; got {bs!r}"
+                )
+            size = h
+        out["blocksize"] = int(size)
+    compress = opts.get("compress")
+    if compress is None:
+        out["compress"] = "none"
+    else:
+        out["compress"] = str(compress).lower()
+    level = opts.get("compress_level")
+    if level is not None:
+        c = out["compress"]
+        if c in (
+            "deflate",
+            "zstd",
+            "lzw",
+            "lerc",
+            "lerc_deflate",
+            "lerc_zstd",
+        ):
+            out["level"] = int(level)
+        elif c == "jpeg":
+            out["quality"] = int(level)
+        else:
+            warnings.warn(
+                f"compress_level has no effect with compress={compress!r}",
+                stacklevel=4,
+            )
+    predictor = opts.get("predictor")
+    if predictor is not None:
+        if out["compress"] == "jpeg":
+            warnings.warn(
+                "predictor is not valid with compress='jpeg'; ignoring",
+                stacklevel=4,
+            )
+        elif isinstance(predictor, int):
+            # Backward compat with rasterio-style integer predictor values.
+            out["predictor"] = predictor
+        else:
+            mapping = {"horizontal": "STANDARD", "float": "FLOATING_POINT"}
+            if predictor not in mapping:
+                raise ValueError(
+                    "predictor must be 'horizontal' or 'float', got "
+                    f"{predictor!r}"
+                )
+            out["predictor"] = mapping[predictor]
+    bigtiff = opts.get("bigtiff")
+    if isinstance(bigtiff, bool):
+        out["bigtiff"] = "yes" if bigtiff else "no"
+    elif bigtiff is not None:
+        out["bigtiff"] = str(bigtiff).lower()
+    overviews = opts.get("overviews")
+    if overviews is None or overviews is False:
+        out["overviews"] = "none"
+    elif isinstance(overviews, (list, tuple)):
+        warnings.warn(
+            "COG driver builds overviews with auto-selected factors; "
+            "explicit overview list is ignored.",
+            stacklevel=4,
+        )
+        out["overviews"] = "auto"
+    else:
+        out["overviews"] = "auto"
+    overview_resampling = opts.get("overview_resampling")
+    if overview_resampling is not None:
+        out["overview_resampling"] = str(overview_resampling).lower()
+    return out
+
+
+_DRIVER_TRANSLATORS = {"GTiff": _gtiff_translate, "COG": _cog_translate}
+
+
+def _auto_overview_factors(height, width, min_size=256):
+    factors = []
+    f = 2
+    while min(height, width) / f >= min_size:
+        factors.append(f)
+        f *= 2
+    return factors
+
+
+def write_raster(
+    xrs,
+    path,
+    *,
+    driver=None,
+    tiled=True,
+    blocksize=None,
+    compress=None,
+    compress_level=None,
+    predictor=None,
+    bigtiff="if_safer",
+    overviews=None,
+    overview_resampling="average",
+    overview_num_threads="all_cpus",
+    **gdal_kwargs,
+):
+    ext = _get_extension(path)
+    if ext and ext in WRITE_NOT_IMPLEMENTED_EXTS:
+        raise NotImplementedError(
+            f"Writing files with extension {ext!r} is not supported"
+        )
+
+    rio_is_bool = False
+    if xrs.dtype == I64:
+        # GDAL doesn't support I64; cast up to F64 so to_raster won't reject.
+        xrs = xrs.astype(F64)
+    elif is_bool(xrs.dtype):
+        # GDAL doesn't support bool; encode as uint8.
+        rio_is_bool = True
+        xrs = xrs.astype(U8)
+
+    resolved_driver = _resolve_driver(path, driver)
+    translator = _DRIVER_TRANSLATORS.get(resolved_driver)
+    creation_opts = {}
+    if translator is not None:
+        creation_opts = translator(
+            {
+                "tiled": tiled,
+                "blocksize": blocksize,
+                "compress": compress,
+                "compress_level": compress_level,
+                "predictor": predictor,
+                "bigtiff": bigtiff,
+                "overviews": overviews,
+                "overview_resampling": overview_resampling,
+            }
+        )
+        if rio_is_bool and resolved_driver == "GTiff":
+            creation_opts["nbits"] = 1
+    # Escape hatch wins on collisions.
+    creation_opts.update(gdal_kwargs)
+
+    if resolved_driver == "COG":
+        # rioxarray streams dask chunks by reopening the file in "r+", but
+        # COG forbids updates after creation (it would break the layout).
+        # Stage to a temporary GTiff, then translate to COG.
+        import tempfile
+
+        from rasterio.shutil import copy as rio_copy
+
+        out_dir = os.path.dirname(os.path.abspath(path))
+        with tempfile.NamedTemporaryFile(
+            suffix=".tif", dir=out_dir, delete=False
+        ) as tmpf:
+            tmp_path = tmpf.name
+        try:
+            xrs.rio.to_raster(tmp_path, lock=True, compute=True)
+            rio_copy(tmp_path, path, driver="COG", **creation_opts)
+        finally:
+            if os.path.exists(tmp_path):
+                os.unlink(tmp_path)
+    else:
+        to_raster_kwargs = {"lock": True, "compute": True, **creation_opts}
+        if driver is not None:
+            to_raster_kwargs["driver"] = driver
+        xrs.rio.to_raster(path, **to_raster_kwargs)
+
+    if overviews and resolved_driver not in _DRIVERS_WITH_INTERNAL_OVERVIEWS:
+        factors = (
+            _auto_overview_factors(*xrs.shape[-2:])
+            if overviews is True
+            else list(overviews)
+        )
+        if factors:
+            from rasterio.enums import Resampling
+
+            resampling = Resampling[overview_resampling]
+            env_kwargs = {}
+            if overview_num_threads is not None:
+                env_kwargs["GDAL_NUM_THREADS"] = str(
+                    overview_num_threads
+                ).upper()
+            with rio.Env(**env_kwargs), rio.open(path, "r+") as ds:
+                ds.build_overviews(factors, resampling)
+                ds.update_tags(
+                    ns="rio_overview", resampling=overview_resampling
+                )
 
 
 def _get_valid_variables(meta, ignore_too_many_dims):

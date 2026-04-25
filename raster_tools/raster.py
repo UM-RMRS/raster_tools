@@ -1623,18 +1623,73 @@ class Raster(_RasterBase):
         """Close the underlying source"""
         self._ds.close()
 
-    def save(self, path, no_data_value=None, **gdal_kwargs):
+    def save(
+        self,
+        path,
+        null_value=None,
+        *,
+        driver=None,
+        tiled=True,
+        blocksize=None,
+        compress=None,
+        compress_level=None,
+        predictor=None,
+        bigtiff="if_safer",
+        overviews=None,
+        overview_resampling="average",
+        overview_num_threads="all_cpus",
+        no_data_value=None,
+        **gdal_kwargs,
+    ):
         """Compute the final raster and save it to the provided location.
 
         Parameters
         ----------
         path : str
             The target location to save the raster to.
+        null_value : scalar, optional
+            A new null value to use when saving. Defaults to the raster's
+            current null value.
+        driver : str, optional
+            The GDAL driver to use. If not given, the driver is inferred from
+            the file extension.
+        tiled : bool, optional
+            Whether to write tiled output. Default is True. Applies to drivers
+            with a tiling concept (e.g. GTiff); silently ignored for others.
+        blocksize : int or (int, int), optional
+            Tile dimensions. An int means a square tile of that size; a tuple
+            is ``(height, width)``. Default lets the driver choose.
+        compress : str or None, optional
+            Compression. One of ``"lzw"``, ``"deflate"``, ``"zstd"``,
+            ``"packbits"``, ``"jpeg"``, or ``None`` (default) to disable
+            compression.
+        compress_level : int, optional
+            Compression level. Meaning depends on the compressor (e.g. ZLEVEL
+            for deflate, ZSTD_LEVEL for zstd, JPEG_QUALITY for jpeg). Has no
+            effect with ``"lzw"`` or ``"packbits"``.
+        predictor : str, optional
+            Differencing predictor. ``"horizontal"`` for integer data,
+            ``"float"`` for floating-point. Lossless compressors only.
+        bigtiff : bool or str, optional
+            Force BigTIFF. ``True``/``False`` or one of ``"if_safer"``
+            (default), ``"if_needed"``, ``"yes"``, ``"no"``. GTiff only.
+        overviews : bool or list of int, optional
+            Build internal overviews after writing. ``True`` selects an
+            automatic chain based on raster size; pass a list of decimation
+            factors (e.g. ``[2, 4, 8]``) for explicit control. Default does
+            not build overviews.
+        overview_resampling : str, optional
+            Resampling method used to build overviews. Default ``"average"``.
+        overview_num_threads : str or int, optional
+            Value passed as ``GDAL_NUM_THREADS`` while building overviews.
+            Default ``"all_cpus"``. Set to ``None`` to leave the env unset.
         no_data_value : scalar, optional
-            A new null value to use when saving.
+            .. deprecated::
+                Use `null_value` instead. `no_data_value` will be removed in
+                a future release.
         **gdal_kwargs : kwargs, optional
-            Additional keyword arguments to to pass to rasterio and GDAL when
-            writing the raster data.
+            Additional GDAL creation options forwarded to rasterio. Wins over
+            the translated logical kwargs on collisions.
 
         Returns
         -------
@@ -1643,9 +1698,21 @@ class Raster(_RasterBase):
 
         """
         # TODO: warn of overwrite
-        rs = self
         if no_data_value is not None:
-            rs = self.set_null_value(no_data_value)
+            warnings.warn(
+                "'no_data_value' is deprecated and will be removed in a "
+                "future release. Use 'null_value' instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            if null_value is not None:
+                raise TypeError(
+                    "Cannot specify both 'null_value' and 'no_data_value'"
+                )
+            null_value = no_data_value
+        rs = self
+        if null_value is not None:
+            rs = self.set_null_value(null_value)
         if rs._masked and is_bool(rs.dtype):
             # Cast to uint and burn in mask
             rs = rs.astype("uint8").set_null_value(
@@ -1655,7 +1722,16 @@ class Raster(_RasterBase):
         write_raster(
             xrs,
             path,
-            rs.null_value if no_data_value is None else no_data_value,
+            driver=driver,
+            tiled=tiled,
+            blocksize=blocksize,
+            compress=compress,
+            compress_level=compress_level,
+            predictor=predictor,
+            bigtiff=bigtiff,
+            overviews=overviews,
+            overview_resampling=overview_resampling,
+            overview_num_threads=overview_num_threads,
             **gdal_kwargs,
         )
         return Raster(path)
