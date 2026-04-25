@@ -507,25 +507,25 @@ def test_focal_output_type():
     assert rs_masked.dtype.kind == "i"
     res = focal.focal(rs_masked, "mode", 3)
     assert_valid_raster(res)
-    res = res.eval()
+    res = res.load()
     assert res.dtype.kind == "f"
     res = focal.focal(rs_masked, "unique", 3)
     assert_valid_raster(res)
-    res = res.eval()
+    res = res.load()
     assert res.dtype.kind == "f"
     res = focal.focal(rs_masked, "mean", 3)
     assert_valid_raster(res)
-    res = res.eval()
+    res = res.load()
     assert res.dtype.kind == "f"
 
     # Unmasked
     assert not rsi._masked
     assert rsi.dtype.kind == "i"
-    res = focal.focal(rsi, "mode", 3).eval()
+    res = focal.focal(rsi, "mode", 3).load()
     assert res.dtype.kind == "i"
-    res = focal.focal(rsi, "unique", 3).eval()
+    res = focal.focal(rsi, "unique", 3).load()
     assert res.dtype.kind == "u"
-    res = focal.focal(rsi, "mean", 3).eval()
+    res = focal.focal(rsi, "mean", 3).load()
     assert res.dtype.kind == "f"
 
 
@@ -633,8 +633,8 @@ def test_correlate_output_type():
 
     assert rs._masked
     assert rs.dtype.kind == "i"
-    res = focal.correlate(rs, np.ones((3, 3), dtype=int)).eval()
+    res = focal.correlate(rs, np.ones((3, 3), dtype=int)).load()
     assert res.dtype == rs.dtype
 
-    res = focal.correlate(rs, np.ones((3, 3), dtype=float)).eval()
+    res = focal.correlate(rs, np.ones((3, 3), dtype=float)).load()
     assert res.dtype.kind == "f"

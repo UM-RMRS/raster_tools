@@ -1653,7 +1653,7 @@ def test_astype(rs, dtype):
     result = rs.astype(dtype)
     assert_valid_raster(result)
     assert result.dtype == dtype
-    assert result.eval().dtype == dtype
+    assert result.load().dtype == dtype
     assert result.crs == rs.crs
     assert result.null_value == reconcile_nullvalue_with_dtype(
         rs.null_value, dtype
@@ -1938,6 +1938,13 @@ def test_to_null_mask():
     assert np.allclose(nmask, truth)
 
 
+def test_eval_emits_deprecation_warning():
+    rs = testdata.raster.dem_small
+    with pytest.warns(DeprecationWarning, match="Raster.eval"):
+        rs.eval()
+
+
+@pytest.mark.filterwarnings("ignore:'Raster.eval' is deprecated")
 @pytest.mark.parametrize("method", ["eval", "load"])
 def test_eval_and_load(method):
     rs = testdata.raster.dem_small

@@ -50,7 +50,7 @@ def assert_creation_basics(result, template, nbands, dtype):
 
 
 def assert_mask_copied(result, template, nbands, dtype, copy_mask):
-    result.eval()
+    result.load()
     if copy_mask and template._masked:
         if nbands == template.nbands:
             mask_truth = template.mask.compute()

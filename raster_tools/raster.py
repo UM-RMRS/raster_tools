@@ -1752,16 +1752,17 @@ class Raster(_RasterBase):
     def eval(self):  # noqa: A003
         """Compute any applied operations and return the result as new Raster.
 
-        Note that the unerlying sources will be loaded into memory for the
-        computations and the result will be fixed in memory. The original
-        Raster will be unaltered.
-
-        .. note::
-            This method has been replaced by :meth:`load` and will eventually
-            be deprecated and then removed.
+        .. deprecated::
+            Use :meth:`load` instead. ``eval`` will be removed in a future
+            release.
 
         """
-        # TODO: deprecate in favor of load
+        warnings.warn(
+            "'Raster.eval' is deprecated and will be removed in a future "
+            "release. Use 'Raster.load' instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         return self.load()
 
     def copy(self):

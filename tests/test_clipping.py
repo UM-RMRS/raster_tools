@@ -22,7 +22,7 @@ class TestClipping(TestCase):
         result = clipping._clip(self.pods, self.dem)
         assert_valid_raster(result)
         self.assertTrue(result.dtype == self.dem.dtype)
-        self.assertTrue(result.eval().dtype == self.dem.dtype)
+        self.assertTrue(result.load().dtype == self.dem.dtype)
 
     def test_clip(self):
         res = clipping.clip(self.v10, self.dem)

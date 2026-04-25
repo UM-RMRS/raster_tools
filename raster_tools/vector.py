@@ -1,5 +1,6 @@
 import os
 import sys
+import warnings
 
 import dask
 import dask.dataframe as dd
@@ -482,8 +483,19 @@ class Vector:
         return Vector(self._geo.copy())
 
     def eval(self):  # noqa: A003
-        """Computes the built-up chain of operations on the underlying data."""
-        # TODO: deprecate in favor of load
+        """Compute the built-up chain of operations on the underlying data.
+
+        .. deprecated::
+            Use :meth:`load` instead. ``eval`` will be removed in a future
+            release.
+
+        """
+        warnings.warn(
+            "'Vector.eval' is deprecated and will be removed in a future "
+            "release. Use 'Vector.load' instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         return self.load()
 
     def load(self):

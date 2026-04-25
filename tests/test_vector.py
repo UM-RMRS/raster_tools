@@ -186,12 +186,18 @@ class TestLazyByDefault(unittest.TestCase):
 
 
 class TestEval(unittest.TestCase):
-    def test_eval(self):
+    def test_load(self):
         v = open_vectors("tests/data/vector/Zones.gdb", 0)
         self.assertTrue(dask.is_dask_collection(v.data))
-        ve = v.eval()
+        vl = v.load()
+        self.assertTrue(dask.is_dask_collection(vl.data))
+        self.assertTrue(vl.data.npartitions == 1)
+
+    def test_eval_deprecated(self):
+        v = open_vectors("tests/data/vector/Zones.gdb", 0)
+        with self.assertWarns(DeprecationWarning):
+            ve = v.eval()
         self.assertTrue(dask.is_dask_collection(ve.data))
-        self.assertTrue(ve.data.npartitions == 1)
 
 
 class TestConversions(unittest.TestCase):
