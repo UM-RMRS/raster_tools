@@ -1,8 +1,12 @@
+import os
+
 import numpy as np
 import pytest
 import rasterio
+from affine import Affine
 
 import raster_tools as rts
+from raster_tools._mosaic import mosaic
 from raster_tools.batch import _batch_parse_save, _BatchScripParserState
 from raster_tools.io import _auto_overview_factors, write_raster
 from tests.utils import make_raster
@@ -373,3 +377,258 @@ def test_batch_save_uses_keyword_args(tmp_path):
         assert ds.profile["blockxsize"] == 16
         assert ds.profile["blockysize"] == 16
         assert ds.nodata == -1
+
+
+# --- save_chunks ============================================================
+
+
+def _multiband_raster():
+    return make_raster("arange", dtype="float32", shape=(3, 12, 12)).chunk(
+        (1, 4, 4)
+    )
+
+
+def _singleband_raster():
+    return make_raster("arange", dtype="float32", shape=(1, 12, 12)).chunk(
+        (1, 4, 4)
+    )
+
+
+def test_save_chunks_default_multiband(tmp_path):
+    src = _multiband_raster()
+    out = src.save_chunks(str(tmp_path / "tile"))
+
+    assert out.shape == (3, 3)
+    src_np = src.to_numpy()
+    chunk_size = 4
+    for r, c in np.ndindex(*out.shape):
+        tile = out[r, c]
+        assert isinstance(tile, rts.Raster)
+        assert tile.nbands == 3
+        ys = slice(r * chunk_size, (r + 1) * chunk_size)
+        xs = slice(c * chunk_size, (c + 1) * chunk_size)
+        assert np.array_equal(tile.to_numpy(), src_np[:, ys, xs])
+
+
+def test_save_chunks_single_band(tmp_path):
+    src = _singleband_raster()
+    out = src.save_chunks(str(tmp_path / "tile"))
+
+    assert out.shape == (3, 3)
+    for tile in out.ravel():
+        assert isinstance(tile, rts.Raster)
+        assert tile.nbands == 1
+
+
+def test_save_chunks_per_band(tmp_path):
+    src = _multiband_raster()
+    out = src.save_chunks(str(tmp_path / "tile"), per_band=True)
+
+    assert out.shape == (3, 3, 3)
+    src_np = src.to_numpy()
+    chunk_size = 4
+    for b, r, c in np.ndindex(*out.shape):
+        tile = out[b, r, c]
+        assert isinstance(tile, rts.Raster)
+        assert tile.nbands == 1
+        ys = slice(r * chunk_size, (r + 1) * chunk_size)
+        xs = slice(c * chunk_size, (c + 1) * chunk_size)
+        assert np.array_equal(tile.to_numpy()[0], src_np[b, ys, xs])
+
+
+def test_save_chunks_filenames_zero_padded(tmp_path):
+    src = _singleband_raster()
+    src.save_chunks(str(tmp_path / "tile"))
+    files = sorted(p.name for p in tmp_path.glob("*.tif"))
+    # 3 row chunks and 3 col chunks -> single-digit indices, no padding.
+    assert files[0] == "tile_0_0.tif"
+    assert files[-1] == "tile_2_2.tif"
+
+
+def test_save_chunks_filenames_padded_for_large_grid(tmp_path):
+    # 12 row chunks forces 2-digit zero-padding so files sort correctly.
+    src = make_raster("arange", dtype="float32", shape=(1, 144, 12)).chunk(
+        (1, 12, 12)
+    )
+    src.save_chunks(str(tmp_path / "tile"))
+    files = sorted(p.name for p in tmp_path.glob("*.tif"))
+    assert files[0] == "tile_00_0.tif"
+    assert files[-1] == "tile_11_0.tif"
+
+
+def test_save_chunks_creates_parent_dirs(tmp_path):
+    src = _singleband_raster()
+    src.save_chunks(str(tmp_path / "nested" / "deep" / "tile"))
+    assert (tmp_path / "nested" / "deep").is_dir()
+    assert len(list((tmp_path / "nested" / "deep").glob("*.tif"))) == 9
+
+
+def test_save_chunks_pathlike_prefix_accepted(tmp_path):
+    src = _singleband_raster()
+    out = src.save_chunks(tmp_path / "tile")
+    assert out.shape == (3, 3)
+    assert (tmp_path / "tile_0_0.tif").is_file()
+
+
+@pytest.mark.parametrize("ext", [".tiff", "tiff"])
+def test_save_chunks_custom_ext(tmp_path, ext):
+    # Verify the leading-dot is optional and the requested extension lands
+    # on every file.
+    src = _singleband_raster()
+    src.save_chunks(str(tmp_path / "tile"), ext=ext)
+    files = sorted(p.name for p in tmp_path.iterdir())
+    assert all(f.endswith(".tiff") for f in files)
+
+
+def test_save_chunks_ext_default_picks_tif_without_driver(tmp_path):
+    src = _singleband_raster()
+    src.save_chunks(str(tmp_path / "tile"))
+    files = sorted(p.name for p in tmp_path.iterdir())
+    assert all(f.endswith(".tif") for f in files)
+
+
+@pytest.mark.parametrize(
+    "driver,expected_ext",
+    [("GTiff", ".tif"), ("COG", ".tif"), ("HFA", ".img")],
+)
+def test_save_chunks_ext_auto_from_driver(tmp_path, driver, expected_ext):
+    src = make_raster("arange", dtype="float32", shape=(1, 256, 256)).chunk(
+        (1, 128, 128)
+    )
+    src.save_chunks(str(tmp_path / "tile"), save_kwargs={"driver": driver})
+    # Some drivers (e.g. HFA) write sidecar files like .aux.xml; only
+    # check the primary data files.
+    primary = [
+        p.name for p in tmp_path.iterdir() if p.name.endswith(expected_ext)
+    ]
+    assert len(primary) == 4
+
+
+def test_save_chunks_empty_ext_means_no_extension(tmp_path):
+    src = _singleband_raster()
+    # ext="" requires an explicit driver since GDAL can't infer from the
+    # missing extension.
+    src.save_chunks(
+        str(tmp_path / "tile"), ext="", save_kwargs={"driver": "GTiff"}
+    )
+    files = sorted(p.name for p in tmp_path.iterdir())
+    # No trailing dot, no extension at all.
+    assert files[0] == "tile_0_0"
+    assert "." not in files[0]
+
+
+def test_save_chunks_ext_and_driver_compose(tmp_path):
+    # ext controls the filename; save_kwargs={"driver": "COG"} controls
+    # the writer. Both are orthogonal -- the explicit driver wins regardless
+    # of extension (handy because .cog isn't in GDAL's extension table).
+    src = make_raster("arange", dtype="float32", shape=(1, 256, 256)).chunk(
+        (1, 128, 128)
+    )
+    src.save_chunks(
+        str(tmp_path / "tile"), ext=".cog", save_kwargs={"driver": "COG"}
+    )
+    files = sorted(p.name for p in tmp_path.iterdir())
+    assert all(f.endswith(".cog") for f in files)
+    with rasterio.open(tmp_path / files[0]) as ds:
+        # COG always writes tiled files.
+        assert ds.profile["tiled"] is True
+
+
+def test_save_chunks_rejects_path_in_save_kwargs(tmp_path):
+    src = _singleband_raster()
+    with pytest.raises(TypeError, match="do not include 'path'"):
+        src.save_chunks(
+            str(tmp_path / "tile"), save_kwargs={"path": "elsewhere.tif"}
+        )
+
+
+def test_save_chunks_no_data_value_warns_once(tmp_path):
+    src = _multiband_raster()
+    with pytest.warns(DeprecationWarning, match="no_data_value") as record:
+        src.save_chunks(
+            str(tmp_path / "tile"),
+            save_kwargs={"no_data_value": -9999.0},
+        )
+    # The deprecation should fire once at the top of save_chunks rather than
+    # once per tile (9 tiles otherwise).
+    assert sum("no_data_value" in str(w.message) for w in record) == 1
+    one = next(tmp_path.glob("*.tif"))
+    with rasterio.open(one) as ds:
+        assert ds.nodata == -9999.0
+
+
+def test_save_chunks_save_kwargs_forwarded(tmp_path):
+    src = make_raster("arange", dtype="float32", shape=(1, 64, 64)).chunk(
+        (1, 32, 32)
+    )
+    src.save_chunks(
+        str(tmp_path / "tile"),
+        save_kwargs={"compress": "lzw", "blocksize": 16},
+    )
+    one = next(tmp_path.glob("*.tif"))
+    with rasterio.open(one) as ds:
+        assert ds.profile["compress"] == "lzw"
+        assert ds.profile["blockxsize"] == 16
+        assert ds.profile["blockysize"] == 16
+
+
+def test_save_chunks_affine_per_tile(tmp_path):
+    src = _multiband_raster()
+    out = src.save_chunks(str(tmp_path / "tile"))
+
+    chunk_size = 4
+    for r, c in np.ndindex(*out.shape):
+        expected = src.affine * Affine.translation(
+            c * chunk_size, r * chunk_size
+        )
+        assert out[r, c].affine == expected
+
+
+def test_save_chunks_null_value_preserved(tmp_path):
+    src = make_raster(
+        "arange",
+        dtype="float32",
+        shape=(1, 12, 12),
+        null_pattern=np.s_[:, :2, :2],
+    ).chunk((1, 4, 4))
+    out = src.save_chunks(str(tmp_path / "tile"))
+    for tile in out.ravel():
+        assert tile.null_value == src.null_value
+
+
+def test_save_chunks_return_shape_and_files_exist(tmp_path):
+    src = _multiband_raster()
+    out = src.save_chunks(str(tmp_path / "tile"))
+    assert isinstance(out, np.ndarray)
+    assert out.dtype == object
+    assert out.shape == (3, 3)
+    files = list(tmp_path.glob("*.tif"))
+    assert len(files) == 9
+    for f in files:
+        assert f.is_file() and os.path.getsize(f) > 0
+
+
+def test_save_chunks_mosaic_round_trip(tmp_path):
+    # End-to-end: split a raster into chunk files, then mosaic them back
+    # together and verify pixel-equality with the original.
+    src = _multiband_raster()
+    tiles = src.save_chunks(str(tmp_path / "tile"))
+    rebuilt = mosaic(list(tiles.ravel()), dst_grid=src)
+    assert rebuilt.shape == src.shape
+    assert rebuilt.crs == src.crs
+    assert rebuilt.affine == src.affine
+    assert np.array_equal(rebuilt.to_numpy(), src.to_numpy())
+
+
+def test_save_chunks_mosaic_round_trip_per_band(tmp_path):
+    src = _multiband_raster()
+    tiles = src.save_chunks(str(tmp_path / "tile"), per_band=True)
+    # Mosaic per-band single-band tiles spatially, then stack the per-band
+    # results back into a multi-band raster.
+    rebuilt_bands = [
+        mosaic(list(tiles[b].ravel()), dst_grid=src.get_bands(b + 1))
+        for b in range(src.nbands)
+    ]
+    rebuilt = rts.stack_bands(rebuilt_bands)
+    assert rebuilt.shape == src.shape
+    assert np.array_equal(rebuilt.to_numpy(), src.to_numpy())
