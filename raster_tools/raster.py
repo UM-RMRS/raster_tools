@@ -139,6 +139,25 @@ class _ReductionsMixin:
         return method
 
 
+# Drivers without an entry in rasterio.drivers.raster_driver_extensions
+# (e.g. COG, which writes a TIFF subset) need explicit fallbacks here.
+_DRIVER_EXT_FALLBACKS = {"COG": ".tif"}
+
+
+def _ext_for_driver(driver):
+    """Pick a file extension for the given GDAL driver, defaulting to .tif."""
+    if driver is None:
+        return ".tif"
+    if driver in _DRIVER_EXT_FALLBACKS:
+        return _DRIVER_EXT_FALLBACKS[driver]
+    from rasterio.drivers import raster_driver_extensions
+
+    for ext, drv in raster_driver_extensions().items():
+        if drv == driver:
+            return "." + ext
+    return ".tif"
+
+
 def _normalize_ufunc_other(other, this):
     if other is None or isinstance(other, numbers.Number):
         return other
@@ -1735,6 +1754,109 @@ class Raster(_RasterBase):
             **gdal_kwargs,
         )
         return Raster(path)
+
+    def save_chunks(
+        self, prefix, *, per_band=False, ext=None, save_kwargs=None
+    ):
+        """Save each dask chunk to a separate raster file.
+
+        Useful for tile-based downstream pipelines where each chunk needs
+        to live as its own file on disk.
+
+        Filenames are built as ``<prefix>_<row>_<col><ext>`` (or
+        ``<prefix>_b<band>_<row>_<col><ext>`` when ``per_band=True``),
+        with row/col/band indices zero-padded to the width of the largest
+        index so files sort lexicographically.
+
+        Parameters
+        ----------
+        prefix : str or os.PathLike
+            Prefix used for every output file. May include directories
+            (e.g. ``"tiles/dem"``); missing directories are created.
+        per_band : bool, optional
+            If False (default), write one multi-band file per spatial chunk
+            -- the returned array has shape
+            ``(n_row_chunks, n_col_chunks)``. If True, write one
+            single-band file per ``(band, row, col)`` leaf -- the returned
+            array has shape ``(nbands, n_row_chunks, n_col_chunks)``.
+        ext : str, optional
+            File extension applied to every output. The leading dot is
+            optional. The default (``None``) picks an extension based on
+            the driver (``"driver"`` in `save_kwargs`), falling back to
+            ``".tif"`` when no driver is given. Pass ``""`` for no
+            extension.
+        save_kwargs : dict, optional
+            Forwarded verbatim to :meth:`Raster.save` for each chunk. Use
+            this to set compression, blocksize, overviews, etc.
+
+        Returns
+        -------
+        chunks : numpy.ndarray of Raster
+            Object-dtype array of :class:`Raster` instances pointing at the
+            written files (mirrors :meth:`Raster.save`'s return type).
+
+        Notes
+        -----
+        Per-file creation options (compress, blocksize, predictor, ...) and
+        overviews are applied to each tile individually. For typical dask
+        auto-chunked rasters (chunks of several thousand pixels per side),
+        per-tile overviews are sensible. For very small chunks the
+        auto-overview chain will be empty and no pyramids will be written.
+
+        """
+        save_kwargs = dict(save_kwargs) if save_kwargs else {}
+        if "path" in save_kwargs:
+            raise TypeError(
+                "save_chunks supplies the per-tile path; do not include "
+                "'path' in save_kwargs"
+            )
+        if save_kwargs.get("no_data_value") is not None:
+            warnings.warn(
+                "'no_data_value' is deprecated; use 'null_value' in "
+                "save_kwargs instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            if save_kwargs.get("null_value") is None:
+                save_kwargs["null_value"] = save_kwargs["no_data_value"]
+            save_kwargs.pop("no_data_value")
+        prefix = os.fspath(prefix)
+        if ext is None:
+            ext = _ext_for_driver(save_kwargs.get("driver"))
+        if ext and not ext.startswith("."):
+            ext = "." + ext
+
+        chunk_rasters = self.get_chunk_rasters()
+        nbands, ny, nx = chunk_rasters.shape
+
+        rw = max(1, len(str(ny - 1)))
+        cw = max(1, len(str(nx - 1)))
+        bw = max(1, len(str(nbands - 1)))
+
+        parent = os.path.dirname(prefix)
+        if parent:
+            os.makedirs(parent, exist_ok=True)
+
+        if per_band:
+            out = np.empty((nbands, ny, nx), dtype=object)
+            for b, r, c in np.ndindex(nbands, ny, nx):
+                path = f"{prefix}_b{b:0{bw}d}_{r:0{rw}d}_{c:0{cw}d}{ext}"
+                out[b, r, c] = chunk_rasters[b, r, c].save(path, **save_kwargs)
+            return out
+
+        from raster_tools._stack import stack_bands
+
+        out = np.empty((ny, nx), dtype=object)
+        for r, c in np.ndindex(ny, nx):
+            path = f"{prefix}_{r:0{rw}d}_{c:0{cw}d}{ext}"
+            tile_chunks = chunk_rasters[:, r, c]
+            tile = (
+                tile_chunks[0]
+                if nbands == 1
+                else stack_bands(list(tile_chunks))
+            )
+            out[r, c] = tile.save(path, **save_kwargs)
+        return out
 
     def load(self):
         """Compute delayed operations and load the result into memory.
