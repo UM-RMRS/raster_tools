@@ -1755,9 +1755,7 @@ class Raster(_RasterBase):
         )
         return Raster(path)
 
-    def save_chunks(
-        self, prefix, *, per_band=False, ext=None, save_kwargs=None
-    ):
+    def save_chunks(self, prefix, *, per_band=False, ext=None, **save_kwargs):
         """Save each dask chunk to a separate raster file.
 
         Useful for tile-based downstream pipelines where each chunk needs
@@ -1782,10 +1780,9 @@ class Raster(_RasterBase):
         ext : str, optional
             File extension applied to every output. The leading dot is
             optional. The default (``None``) picks an extension based on
-            the driver (``"driver"`` in `save_kwargs`), falling back to
-            ``".tif"`` when no driver is given. Pass ``""`` for no
-            extension.
-        save_kwargs : dict, optional
+            the driver (``"driver"`` keyword), falling back to ``".tif"``
+            when no driver is given. Pass ``""`` for no extension.
+        **save_kwargs
             Forwarded verbatim to :meth:`Raster.save` for each chunk. Use
             this to set compression, blocksize, overviews, etc.
 
@@ -1804,16 +1801,14 @@ class Raster(_RasterBase):
         auto-overview chain will be empty and no pyramids will be written.
 
         """
-        save_kwargs = dict(save_kwargs) if save_kwargs else {}
         if "path" in save_kwargs:
             raise TypeError(
-                "save_chunks supplies the per-tile path; do not include "
-                "'path' in save_kwargs"
+                "save_chunks supplies the per-tile path; do not pass "
+                "'path' as a keyword argument"
             )
         if save_kwargs.get("no_data_value") is not None:
             warnings.warn(
-                "'no_data_value' is deprecated; use 'null_value' in "
-                "save_kwargs instead.",
+                "'no_data_value' is deprecated; use 'null_value' instead.",
                 DeprecationWarning,
                 stacklevel=2,
             )

@@ -495,7 +495,7 @@ def test_save_chunks_ext_auto_from_driver(tmp_path, driver, expected_ext):
     src = make_raster("arange", dtype="float32", shape=(1, 256, 256)).chunk(
         (1, 128, 128)
     )
-    src.save_chunks(str(tmp_path / "tile"), save_kwargs={"driver": driver})
+    src.save_chunks(str(tmp_path / "tile"), driver=driver)
     # Some drivers (e.g. HFA) write sidecar files like .aux.xml; only
     # check the primary data files.
     primary = [
@@ -508,9 +508,7 @@ def test_save_chunks_empty_ext_means_no_extension(tmp_path):
     src = _singleband_raster()
     # ext="" requires an explicit driver since GDAL can't infer from the
     # missing extension.
-    src.save_chunks(
-        str(tmp_path / "tile"), ext="", save_kwargs={"driver": "GTiff"}
-    )
+    src.save_chunks(str(tmp_path / "tile"), ext="", driver="GTiff")
     files = sorted(p.name for p in tmp_path.iterdir())
     # No trailing dot, no extension at all.
     assert files[0] == "tile_0_0"
@@ -518,15 +516,13 @@ def test_save_chunks_empty_ext_means_no_extension(tmp_path):
 
 
 def test_save_chunks_ext_and_driver_compose(tmp_path):
-    # ext controls the filename; save_kwargs={"driver": "COG"} controls
-    # the writer. Both are orthogonal -- the explicit driver wins regardless
-    # of extension (handy because .cog isn't in GDAL's extension table).
+    # ext controls the filename; driver="COG" controls the writer. Both
+    # are orthogonal -- the explicit driver wins regardless of extension
+    # (handy because .cog isn't in GDAL's extension table).
     src = make_raster("arange", dtype="float32", shape=(1, 256, 256)).chunk(
         (1, 128, 128)
     )
-    src.save_chunks(
-        str(tmp_path / "tile"), ext=".cog", save_kwargs={"driver": "COG"}
-    )
+    src.save_chunks(str(tmp_path / "tile"), ext=".cog", driver="COG")
     files = sorted(p.name for p in tmp_path.iterdir())
     assert all(f.endswith(".cog") for f in files)
     with rasterio.open(tmp_path / files[0]) as ds:
@@ -536,19 +532,14 @@ def test_save_chunks_ext_and_driver_compose(tmp_path):
 
 def test_save_chunks_rejects_path_in_save_kwargs(tmp_path):
     src = _singleband_raster()
-    with pytest.raises(TypeError, match="do not include 'path'"):
-        src.save_chunks(
-            str(tmp_path / "tile"), save_kwargs={"path": "elsewhere.tif"}
-        )
+    with pytest.raises(TypeError, match="do not pass 'path'"):
+        src.save_chunks(str(tmp_path / "tile"), path="elsewhere.tif")
 
 
 def test_save_chunks_no_data_value_warns_once(tmp_path):
     src = _multiband_raster()
     with pytest.warns(DeprecationWarning, match="no_data_value") as record:
-        src.save_chunks(
-            str(tmp_path / "tile"),
-            save_kwargs={"no_data_value": -9999.0},
-        )
+        src.save_chunks(str(tmp_path / "tile"), no_data_value=-9999.0)
     # The deprecation should fire once at the top of save_chunks rather than
     # once per tile (9 tiles otherwise).
     assert sum("no_data_value" in str(w.message) for w in record) == 1
@@ -561,10 +552,7 @@ def test_save_chunks_save_kwargs_forwarded(tmp_path):
     src = make_raster("arange", dtype="float32", shape=(1, 64, 64)).chunk(
         (1, 32, 32)
     )
-    src.save_chunks(
-        str(tmp_path / "tile"),
-        save_kwargs={"compress": "lzw", "blocksize": 16},
-    )
+    src.save_chunks(str(tmp_path / "tile"), compress="lzw", blocksize=16)
     one = next(tmp_path.glob("*.tif"))
     with rasterio.open(one) as ds:
         assert ds.profile["compress"] == "lzw"
