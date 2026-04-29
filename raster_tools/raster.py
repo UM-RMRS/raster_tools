@@ -2390,6 +2390,36 @@ class Raster(_RasterBase):
             ds = ds.rio.write_crs(self.crs)
         return Raster(ds, _fast_path=True)
 
+    def pad(self, target, *, fill_values=None):
+        """Pad the raster's grid out to cover the given extent.
+
+        The source raster's grid (resolution and origin) is preserved;
+        only new cells are added on the edges.
+
+        Parameters
+        ----------
+        target : tuple, Raster, or odc.geo.geobox.GeoBox
+            The extent to pad to. Accepts a ``(minx, miny, maxx, maxy)``
+            bounds tuple, another ``Raster`` (its ``.bounds`` is used),
+            or a ``GeoBox`` (its bounding box is used). The
+            resolution/origin of a Raster/GeoBox target are ignored.
+        fill_values : None, scalar, or list of scalars, optional
+            Value(s) used to fill newly added cells. ``None`` (default)
+            uses the raster's null value (one is chosen and assigned if
+            unset) and marks new cells as null. A scalar fills all new
+            cells; if it equals the null value, new cells are marked
+            null. A list of length ``nbands`` provides per-band fills.
+
+        Returns
+        -------
+        Raster
+            A new lazy Raster covering at least the requested extent.
+
+        """
+        from raster_tools._padding import pad
+
+        return pad(self, target, fill_values=fill_values)
+
     def reproject(
         self, crs_or_geobox=None, resample_method="nearest", resolution=None
     ):
