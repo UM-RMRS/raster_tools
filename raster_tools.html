@@ -2223,6 +2223,35 @@ an output variable produced by the <cite>model</cite>.</p>
 </dd></dl>
 
 <dl class="py method">
+<dt class="sig sig-object py" id="raster_tools.raster.Raster.pad">
+<span class="sig-name descname"><span class="pre">pad</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">target</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fill_values</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/raster.html#Raster.pad"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.raster.Raster.pad" title="Permalink to this definition">#</a></dt>
+<dd><p>Pad the raster’s grid out to cover the given extent.</p>
+<p>The source raster’s grid (resolution and origin) is preserved;
+only new cells are added on the edges.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>target</strong> (<em>tuple</em><em>, </em><a class="reference internal" href="#raster_tools.raster.Raster" title="raster_tools.raster.Raster"><em>Raster</em></a><em>, or </em><em>odc.geo.geobox.GeoBox</em>) – The extent to pad to. Accepts a <code class="docutils literal notranslate"><span class="pre">(minx,</span> <span class="pre">miny,</span> <span class="pre">maxx,</span> <span class="pre">maxy)</span></code>
+bounds tuple, another <code class="docutils literal notranslate"><span class="pre">Raster</span></code> (its <code class="docutils literal notranslate"><span class="pre">.bounds</span></code> is used),
+or a <code class="docutils literal notranslate"><span class="pre">GeoBox</span></code> (its bounding box is used). The
+resolution/origin of a Raster/GeoBox target are ignored.</p></li>
+<li><p><strong>fill_values</strong> (<em>None</em><em>, </em><em>scalar</em><em>, or </em><em>list of scalars</em><em>, </em><em>optional</em>) – Value(s) used to fill newly added cells. <code class="docutils literal notranslate"><span class="pre">None</span></code> (default)
+uses the raster’s null value (one is chosen and assigned if
+unset) and marks new cells as null. A scalar fills all new
+cells; if it equals the null value, new cells are marked
+null. A list of length <code class="docutils literal notranslate"><span class="pre">nbands</span></code> provides per-band fills.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>A new lazy Raster covering at least the requested extent.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="#raster_tools.raster.Raster" title="raster_tools.raster.Raster">Raster</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
 <dt class="sig sig-object py" id="raster_tools.raster.Raster.plot">
 <span class="sig-name descname"><span class="pre">plot</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/raster.html#Raster.plot"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.raster.Raster.plot" title="Permalink to this definition">#</a></dt>
 <dd><p>Plot the raster. Args and kwargs are passed to xarray’s plot function.</p>
@@ -2471,6 +2500,51 @@ the translated logical kwargs on collisions.</p></li>
 <dd class="field-odd"><p><a class="reference internal" href="#raster_tools.raster.Raster" title="raster_tools.raster.Raster">Raster</a></p>
 </dd>
 </dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="raster_tools.raster.Raster.save_chunks">
+<span class="sig-name descname"><span class="pre">save_chunks</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">prefix</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">per_band</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ext</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save_kwargs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/raster.html#Raster.save_chunks"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.raster.Raster.save_chunks" title="Permalink to this definition">#</a></dt>
+<dd><p>Save each dask chunk to a separate raster file.</p>
+<p>Useful for tile-based downstream pipelines where each chunk needs
+to live as its own file on disk.</p>
+<p>Filenames are built as <code class="docutils literal notranslate"><span class="pre">&lt;prefix&gt;_&lt;row&gt;_&lt;col&gt;&lt;ext&gt;</span></code> (or
+<code class="docutils literal notranslate"><span class="pre">&lt;prefix&gt;_b&lt;band&gt;_&lt;row&gt;_&lt;col&gt;&lt;ext&gt;</span></code> when <code class="docutils literal notranslate"><span class="pre">per_band=True</span></code>),
+with row/col/band indices zero-padded to the width of the largest
+index so files sort lexicographically.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>prefix</strong> (<em>str</em><em> or </em><em>os.PathLike</em>) – Prefix used for every output file. May include directories
+(e.g. <code class="docutils literal notranslate"><span class="pre">&quot;tiles/dem&quot;</span></code>); missing directories are created.</p></li>
+<li><p><strong>per_band</strong> (<em>bool</em><em>, </em><em>optional</em>) – If False (default), write one multi-band file per spatial chunk
+– the returned array has shape
+<code class="docutils literal notranslate"><span class="pre">(n_row_chunks,</span> <span class="pre">n_col_chunks)</span></code>. If True, write one
+single-band file per <code class="docutils literal notranslate"><span class="pre">(band,</span> <span class="pre">row,</span> <span class="pre">col)</span></code> leaf – the returned
+array has shape <code class="docutils literal notranslate"><span class="pre">(nbands,</span> <span class="pre">n_row_chunks,</span> <span class="pre">n_col_chunks)</span></code>.</p></li>
+<li><p><strong>ext</strong> (<em>str</em><em>, </em><em>optional</em>) – File extension applied to every output. The leading dot is
+optional. The default (<code class="docutils literal notranslate"><span class="pre">None</span></code>) picks an extension based on
+the driver (<code class="docutils literal notranslate"><span class="pre">&quot;driver&quot;</span></code> in <cite>save_kwargs</cite>), falling back to
+<code class="docutils literal notranslate"><span class="pre">&quot;.tif&quot;</span></code> when no driver is given. Pass <code class="docutils literal notranslate"><span class="pre">&quot;&quot;</span></code> for no
+extension.</p></li>
+<li><p><strong>save_kwargs</strong> (<em>dict</em><em>, </em><em>optional</em>) – Forwarded verbatim to <a class="reference internal" href="#raster_tools.raster.Raster.save" title="raster_tools.raster.Raster.save"><code class="xref py py-meth docutils literal notranslate"><span class="pre">Raster.save()</span></code></a> for each chunk. Use
+this to set compression, blocksize, overviews, etc.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>chunks</strong> – Object-dtype array of <a class="reference internal" href="#raster_tools.raster.Raster" title="raster_tools.raster.Raster"><code class="xref py py-class docutils literal notranslate"><span class="pre">Raster</span></code></a> instances pointing at the
+written files (mirrors <a class="reference internal" href="#raster_tools.raster.Raster.save" title="raster_tools.raster.Raster.save"><code class="xref py py-meth docutils literal notranslate"><span class="pre">Raster.save()</span></code></a>’s return type).</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>numpy.ndarray of Raster</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<p>Per-file creation options (compress, blocksize, predictor, …) and
+overviews are applied to each tile individually. For typical dask
+auto-chunked rasters (chunks of several thousand pixels per side),
+per-tile overviews are sensible. For very small chunks the
+auto-overview chain will be empty and no pyramids will be written.</p>
 </dd></dl>
 
 <dl class="py method">
@@ -4809,6 +4883,35 @@ an output variable produced by the <cite>model</cite>.</p>
 </dd></dl>
 
 <dl class="py method">
+<dt class="sig sig-object py" id="raster_tools.Raster.pad">
+<span class="sig-name descname"><span class="pre">pad</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">target</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fill_values</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/raster.html#Raster.pad"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.Raster.pad" title="Permalink to this definition">#</a></dt>
+<dd><p>Pad the raster’s grid out to cover the given extent.</p>
+<p>The source raster’s grid (resolution and origin) is preserved;
+only new cells are added on the edges.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>target</strong> (<em>tuple</em><em>, </em><a class="reference internal" href="reference/generated/raster_tools.Raster.html#raster_tools.Raster" title="raster_tools.Raster"><em>Raster</em></a><em>, or </em><em>odc.geo.geobox.GeoBox</em>) – The extent to pad to. Accepts a <code class="docutils literal notranslate"><span class="pre">(minx,</span> <span class="pre">miny,</span> <span class="pre">maxx,</span> <span class="pre">maxy)</span></code>
+bounds tuple, another <code class="docutils literal notranslate"><span class="pre">Raster</span></code> (its <code class="docutils literal notranslate"><span class="pre">.bounds</span></code> is used),
+or a <code class="docutils literal notranslate"><span class="pre">GeoBox</span></code> (its bounding box is used). The
+resolution/origin of a Raster/GeoBox target are ignored.</p></li>
+<li><p><strong>fill_values</strong> (<em>None</em><em>, </em><em>scalar</em><em>, or </em><em>list of scalars</em><em>, </em><em>optional</em>) – Value(s) used to fill newly added cells. <code class="docutils literal notranslate"><span class="pre">None</span></code> (default)
+uses the raster’s null value (one is chosen and assigned if
+unset) and marks new cells as null. A scalar fills all new
+cells; if it equals the null value, new cells are marked
+null. A list of length <code class="docutils literal notranslate"><span class="pre">nbands</span></code> provides per-band fills.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>A new lazy Raster covering at least the requested extent.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="reference/generated/raster_tools.Raster.html#raster_tools.Raster" title="raster_tools.Raster">Raster</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
 <dt class="sig sig-object py" id="raster_tools.Raster.plot">
 <span class="sig-name descname"><span class="pre">plot</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/raster.html#Raster.plot"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.Raster.plot" title="Permalink to this definition">#</a></dt>
 <dd><p>Plot the raster. Args and kwargs are passed to xarray’s plot function.</p>
@@ -5057,6 +5160,51 @@ the translated logical kwargs on collisions.</p></li>
 <dd class="field-odd"><p><a class="reference internal" href="reference/generated/raster_tools.Raster.html#raster_tools.Raster" title="raster_tools.Raster">Raster</a></p>
 </dd>
 </dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="raster_tools.Raster.save_chunks">
+<span class="sig-name descname"><span class="pre">save_chunks</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">prefix</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">per_band</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ext</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save_kwargs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/raster.html#Raster.save_chunks"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.Raster.save_chunks" title="Permalink to this definition">#</a></dt>
+<dd><p>Save each dask chunk to a separate raster file.</p>
+<p>Useful for tile-based downstream pipelines where each chunk needs
+to live as its own file on disk.</p>
+<p>Filenames are built as <code class="docutils literal notranslate"><span class="pre">&lt;prefix&gt;_&lt;row&gt;_&lt;col&gt;&lt;ext&gt;</span></code> (or
+<code class="docutils literal notranslate"><span class="pre">&lt;prefix&gt;_b&lt;band&gt;_&lt;row&gt;_&lt;col&gt;&lt;ext&gt;</span></code> when <code class="docutils literal notranslate"><span class="pre">per_band=True</span></code>),
+with row/col/band indices zero-padded to the width of the largest
+index so files sort lexicographically.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>prefix</strong> (<em>str</em><em> or </em><em>os.PathLike</em>) – Prefix used for every output file. May include directories
+(e.g. <code class="docutils literal notranslate"><span class="pre">&quot;tiles/dem&quot;</span></code>); missing directories are created.</p></li>
+<li><p><strong>per_band</strong> (<em>bool</em><em>, </em><em>optional</em>) – If False (default), write one multi-band file per spatial chunk
+– the returned array has shape
+<code class="docutils literal notranslate"><span class="pre">(n_row_chunks,</span> <span class="pre">n_col_chunks)</span></code>. If True, write one
+single-band file per <code class="docutils literal notranslate"><span class="pre">(band,</span> <span class="pre">row,</span> <span class="pre">col)</span></code> leaf – the returned
+array has shape <code class="docutils literal notranslate"><span class="pre">(nbands,</span> <span class="pre">n_row_chunks,</span> <span class="pre">n_col_chunks)</span></code>.</p></li>
+<li><p><strong>ext</strong> (<em>str</em><em>, </em><em>optional</em>) – File extension applied to every output. The leading dot is
+optional. The default (<code class="docutils literal notranslate"><span class="pre">None</span></code>) picks an extension based on
+the driver (<code class="docutils literal notranslate"><span class="pre">&quot;driver&quot;</span></code> in <cite>save_kwargs</cite>), falling back to
+<code class="docutils literal notranslate"><span class="pre">&quot;.tif&quot;</span></code> when no driver is given. Pass <code class="docutils literal notranslate"><span class="pre">&quot;&quot;</span></code> for no
+extension.</p></li>
+<li><p><strong>save_kwargs</strong> (<em>dict</em><em>, </em><em>optional</em>) – Forwarded verbatim to <a class="reference internal" href="reference/generated/raster_tools.Raster.save.html#raster_tools.Raster.save" title="raster_tools.Raster.save"><code class="xref py py-meth docutils literal notranslate"><span class="pre">Raster.save()</span></code></a> for each chunk. Use
+this to set compression, blocksize, overviews, etc.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>chunks</strong> – Object-dtype array of <a class="reference internal" href="reference/generated/raster_tools.Raster.html#raster_tools.Raster" title="raster_tools.Raster"><code class="xref py py-class docutils literal notranslate"><span class="pre">Raster</span></code></a> instances pointing at the
+written files (mirrors <a class="reference internal" href="reference/generated/raster_tools.Raster.save.html#raster_tools.Raster.save" title="raster_tools.Raster.save"><code class="xref py py-meth docutils literal notranslate"><span class="pre">Raster.save()</span></code></a>’s return type).</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>numpy.ndarray of Raster</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<p>Per-file creation options (compress, blocksize, predictor, …) and
+overviews are applied to each tile individually. For typical dask
+auto-chunked rasters (chunks of several thousand pixels per side),
+per-tile overviews are sensible. For very small chunks the
+auto-overview chain will be empty and no pyramids will be written.</p>
 </dd></dl>
 
 <dl class="py method">
@@ -6435,6 +6583,51 @@ is returned. Otherwise, a list of Vector objects is returned.</p>
 </dd>
 <dt class="field-odd">Return type</dt>
 <dd class="field-odd"><p><a class="reference internal" href="reference/generated/raster_tools.Vector.html#raster_tools.Vector" title="raster_tools.Vector">Vector</a>, list of Vector</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="raster_tools.pad">
+<span class="sig-prename descclassname"><span class="pre">raster_tools.</span></span><span class="sig-name descname"><span class="pre">pad</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">raster</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fill_values</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/_padding.html#pad"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.pad" title="Permalink to this definition">#</a></dt>
+<dd><p>Pad a raster’s grid out to cover the given extent.</p>
+<p>The source raster’s grid (resolution and origin) is preserved; only
+new cells are added on the edges. If the requested extent is already
+inside the raster, the result is unchanged in shape.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>raster</strong> (<em>str</em><em>, </em><a class="reference internal" href="reference/generated/raster_tools.Raster.html#raster_tools.Raster" title="raster_tools.Raster"><em>Raster</em></a>) – The raster to pad.</p></li>
+<li><p><strong>target</strong> (<em>tuple</em><em>, </em><a class="reference internal" href="reference/generated/raster_tools.Raster.html#raster_tools.Raster" title="raster_tools.Raster"><em>Raster</em></a><em>, or </em><em>odc.geo.geobox.GeoBox</em>) – <p>The extent to pad to. Accepts:</p>
+<ul>
+<li><p>a <code class="docutils literal notranslate"><span class="pre">(minx,</span> <span class="pre">miny,</span> <span class="pre">maxx,</span> <span class="pre">maxy)</span></code> tuple in the raster’s CRS
+(pixel-edge semantics, matching <code class="docutils literal notranslate"><span class="pre">Raster.bounds</span></code>)</p></li>
+<li><p>a <code class="docutils literal notranslate"><span class="pre">Raster</span></code> – its <code class="docutils literal notranslate"><span class="pre">.bounds</span></code> is used; its resolution and
+origin are ignored</p></li>
+<li><p>a <code class="docutils literal notranslate"><span class="pre">GeoBox</span></code> – its bounding box is used</p></li>
+</ul>
+</p></li>
+<li><p><strong>fill_values</strong> (<em>None</em><em>, </em><em>scalar</em><em>, or </em><em>list of scalars</em><em>, </em><em>optional</em>) – <p>Value(s) used to fill newly added cells.</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">None</span></code> (default): use the raster’s null value, and mark the
+new cells as null. If the raster has no null value, a
+dtype-appropriate sentinel is chosen and assigned to the
+result.</p></li>
+<li><p>scalar: fill all new cells across all bands with this value.
+If the value equals the raster’s null value, behave as
+<code class="docutils literal notranslate"><span class="pre">None</span></code> for that case.</p></li>
+<li><p>list/tuple of length <code class="docutils literal notranslate"><span class="pre">nbands</span></code>: per-band fill. Per-band
+values that equal the raster’s null value cause those bands’
+new cells to be marked null.</p></li>
+</ul>
+</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>A new lazy Raster covering at least the requested extent.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="reference/generated/raster_tools.Raster.html#raster_tools.Raster" title="raster_tools.Raster">Raster</a></p>
 </dd>
 </dl>
 </dd></dl>

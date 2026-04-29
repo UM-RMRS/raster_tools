@@ -33,6 +33,7 @@
       ~Raster.mean
       ~Raster.min
       ~Raster.model_predict
+      ~Raster.pad
       ~Raster.plot
       ~Raster.prod
       ~Raster.reclassify
@@ -41,6 +42,7 @@
       ~Raster.reproject
       ~Raster.round
       ~Raster.save
+      ~Raster.save_chunks
       ~Raster.set_crs
       ~Raster.set_null
       ~Raster.set_null_value

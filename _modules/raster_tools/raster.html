@@ -548,6 +548,25 @@ document.write(`
         <span class="k">return</span> <span class="n">method</span>
 
 
+<span class="c1"># Drivers without an entry in rasterio.drivers.raster_driver_extensions</span>
+<span class="c1"># (e.g. COG, which writes a TIFF subset) need explicit fallbacks here.</span>
+<span class="n">_DRIVER_EXT_FALLBACKS</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;COG&quot;</span><span class="p">:</span> <span class="s2">&quot;.tif&quot;</span><span class="p">}</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_ext_for_driver</span><span class="p">(</span><span class="n">driver</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Pick a file extension for the given GDAL driver, defaulting to .tif.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">driver</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s2">&quot;.tif&quot;</span>
+    <span class="k">if</span> <span class="n">driver</span> <span class="ow">in</span> <span class="n">_DRIVER_EXT_FALLBACKS</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">_DRIVER_EXT_FALLBACKS</span><span class="p">[</span><span class="n">driver</span><span class="p">]</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">rasterio.drivers</span><span class="w"> </span><span class="kn">import</span> <span class="n">raster_driver_extensions</span>
+
+    <span class="k">for</span> <span class="n">ext</span><span class="p">,</span> <span class="n">drv</span> <span class="ow">in</span> <span class="n">raster_driver_extensions</span><span class="p">()</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">if</span> <span class="n">drv</span> <span class="o">==</span> <span class="n">driver</span><span class="p">:</span>
+            <span class="k">return</span> <span class="s2">&quot;.&quot;</span> <span class="o">+</span> <span class="n">ext</span>
+    <span class="k">return</span> <span class="s2">&quot;.tif&quot;</span>
+
+
 <span class="k">def</span><span class="w"> </span><span class="nf">_normalize_ufunc_other</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">this</span><span class="p">):</span>
     <span class="k">if</span> <span class="n">other</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">numbers</span><span class="o">.</span><span class="n">Number</span><span class="p">):</span>
         <span class="k">return</span> <span class="n">other</span>
@@ -2145,6 +2164,109 @@ document.write(`
         <span class="p">)</span>
         <span class="k">return</span> <span class="n">Raster</span><span class="p">(</span><span class="n">path</span><span class="p">)</span></div>
 
+<div class="viewcode-block" id="Raster.save_chunks"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.Raster.save_chunks">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">save_chunks</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">prefix</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">per_band</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">ext</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">save_kwargs</span><span class="o">=</span><span class="kc">None</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Save each dask chunk to a separate raster file.</span>
+
+<span class="sd">        Useful for tile-based downstream pipelines where each chunk needs</span>
+<span class="sd">        to live as its own file on disk.</span>
+
+<span class="sd">        Filenames are built as ``&lt;prefix&gt;_&lt;row&gt;_&lt;col&gt;&lt;ext&gt;`` (or</span>
+<span class="sd">        ``&lt;prefix&gt;_b&lt;band&gt;_&lt;row&gt;_&lt;col&gt;&lt;ext&gt;`` when ``per_band=True``),</span>
+<span class="sd">        with row/col/band indices zero-padded to the width of the largest</span>
+<span class="sd">        index so files sort lexicographically.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        prefix : str or os.PathLike</span>
+<span class="sd">            Prefix used for every output file. May include directories</span>
+<span class="sd">            (e.g. ``&quot;tiles/dem&quot;``); missing directories are created.</span>
+<span class="sd">        per_band : bool, optional</span>
+<span class="sd">            If False (default), write one multi-band file per spatial chunk</span>
+<span class="sd">            -- the returned array has shape</span>
+<span class="sd">            ``(n_row_chunks, n_col_chunks)``. If True, write one</span>
+<span class="sd">            single-band file per ``(band, row, col)`` leaf -- the returned</span>
+<span class="sd">            array has shape ``(nbands, n_row_chunks, n_col_chunks)``.</span>
+<span class="sd">        ext : str, optional</span>
+<span class="sd">            File extension applied to every output. The leading dot is</span>
+<span class="sd">            optional. The default (``None``) picks an extension based on</span>
+<span class="sd">            the driver (``&quot;driver&quot;`` in `save_kwargs`), falling back to</span>
+<span class="sd">            ``&quot;.tif&quot;`` when no driver is given. Pass ``&quot;&quot;`` for no</span>
+<span class="sd">            extension.</span>
+<span class="sd">        save_kwargs : dict, optional</span>
+<span class="sd">            Forwarded verbatim to :meth:`Raster.save` for each chunk. Use</span>
+<span class="sd">            this to set compression, blocksize, overviews, etc.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        chunks : numpy.ndarray of Raster</span>
+<span class="sd">            Object-dtype array of :class:`Raster` instances pointing at the</span>
+<span class="sd">            written files (mirrors :meth:`Raster.save`&#39;s return type).</span>
+
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        Per-file creation options (compress, blocksize, predictor, ...) and</span>
+<span class="sd">        overviews are applied to each tile individually. For typical dask</span>
+<span class="sd">        auto-chunked rasters (chunks of several thousand pixels per side),</span>
+<span class="sd">        per-tile overviews are sensible. For very small chunks the</span>
+<span class="sd">        auto-overview chain will be empty and no pyramids will be written.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">save_kwargs</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">save_kwargs</span><span class="p">)</span> <span class="k">if</span> <span class="n">save_kwargs</span> <span class="k">else</span> <span class="p">{}</span>
+        <span class="k">if</span> <span class="s2">&quot;path&quot;</span> <span class="ow">in</span> <span class="n">save_kwargs</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                <span class="s2">&quot;save_chunks supplies the per-tile path; do not include &quot;</span>
+                <span class="s2">&quot;&#39;path&#39; in save_kwargs&quot;</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="n">save_kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;no_data_value&quot;</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                <span class="s2">&quot;&#39;no_data_value&#39; is deprecated; use &#39;null_value&#39; in &quot;</span>
+                <span class="s2">&quot;save_kwargs instead.&quot;</span><span class="p">,</span>
+                <span class="ne">DeprecationWarning</span><span class="p">,</span>
+                <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="n">save_kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;null_value&quot;</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">save_kwargs</span><span class="p">[</span><span class="s2">&quot;null_value&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">save_kwargs</span><span class="p">[</span><span class="s2">&quot;no_data_value&quot;</span><span class="p">]</span>
+            <span class="n">save_kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;no_data_value&quot;</span><span class="p">)</span>
+        <span class="n">prefix</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">fspath</span><span class="p">(</span><span class="n">prefix</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">ext</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">ext</span> <span class="o">=</span> <span class="n">_ext_for_driver</span><span class="p">(</span><span class="n">save_kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;driver&quot;</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">ext</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">ext</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">):</span>
+            <span class="n">ext</span> <span class="o">=</span> <span class="s2">&quot;.&quot;</span> <span class="o">+</span> <span class="n">ext</span>
+
+        <span class="n">chunk_rasters</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_chunk_rasters</span><span class="p">()</span>
+        <span class="n">nbands</span><span class="p">,</span> <span class="n">ny</span><span class="p">,</span> <span class="n">nx</span> <span class="o">=</span> <span class="n">chunk_rasters</span><span class="o">.</span><span class="n">shape</span>
+
+        <span class="n">rw</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">ny</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)))</span>
+        <span class="n">cw</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">nx</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)))</span>
+        <span class="n">bw</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">nbands</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)))</span>
+
+        <span class="n">parent</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">prefix</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">parent</span><span class="p">:</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">parent</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">per_band</span><span class="p">:</span>
+            <span class="n">out</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="n">nbands</span><span class="p">,</span> <span class="n">ny</span><span class="p">,</span> <span class="n">nx</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">object</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">b</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">ndindex</span><span class="p">(</span><span class="n">nbands</span><span class="p">,</span> <span class="n">ny</span><span class="p">,</span> <span class="n">nx</span><span class="p">):</span>
+                <span class="n">path</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">prefix</span><span class="si">}</span><span class="s2">_b</span><span class="si">{</span><span class="n">b</span><span class="si">:</span><span class="s2">0</span><span class="si">{</span><span class="n">bw</span><span class="si">}</span><span class="s2">d</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">r</span><span class="si">:</span><span class="s2">0</span><span class="si">{</span><span class="n">rw</span><span class="si">}</span><span class="s2">d</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">c</span><span class="si">:</span><span class="s2">0</span><span class="si">{</span><span class="n">cw</span><span class="si">}</span><span class="s2">d</span><span class="si">}{</span><span class="n">ext</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="n">out</span><span class="p">[</span><span class="n">b</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">c</span><span class="p">]</span> <span class="o">=</span> <span class="n">chunk_rasters</span><span class="p">[</span><span class="n">b</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">c</span><span class="p">]</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="o">**</span><span class="n">save_kwargs</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">out</span>
+
+        <span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools._stack</span><span class="w"> </span><span class="kn">import</span> <span class="n">stack_bands</span>
+
+        <span class="n">out</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="n">ny</span><span class="p">,</span> <span class="n">nx</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">object</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">r</span><span class="p">,</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">ndindex</span><span class="p">(</span><span class="n">ny</span><span class="p">,</span> <span class="n">nx</span><span class="p">):</span>
+            <span class="n">path</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">prefix</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">r</span><span class="si">:</span><span class="s2">0</span><span class="si">{</span><span class="n">rw</span><span class="si">}</span><span class="s2">d</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">c</span><span class="si">:</span><span class="s2">0</span><span class="si">{</span><span class="n">cw</span><span class="si">}</span><span class="s2">d</span><span class="si">}{</span><span class="n">ext</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="n">tile_chunks</span> <span class="o">=</span> <span class="n">chunk_rasters</span><span class="p">[:,</span> <span class="n">r</span><span class="p">,</span> <span class="n">c</span><span class="p">]</span>
+            <span class="n">tile</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">tile_chunks</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="k">if</span> <span class="n">nbands</span> <span class="o">==</span> <span class="mi">1</span>
+                <span class="k">else</span> <span class="n">stack_bands</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">tile_chunks</span><span class="p">))</span>
+            <span class="p">)</span>
+            <span class="n">out</span><span class="p">[</span><span class="n">r</span><span class="p">,</span> <span class="n">c</span><span class="p">]</span> <span class="o">=</span> <span class="n">tile</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="o">**</span><span class="n">save_kwargs</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">out</span></div>
+
 <div class="viewcode-block" id="Raster.load"><a class="viewcode-back" href="../../reference/generated/raster_tools.Raster.load.html#raster_tools.raster.Raster.load">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute delayed operations and load the result into memory.</span>
 
@@ -2676,6 +2798,36 @@ document.write(`
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">crs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">ds</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_crs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">crs</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">Raster</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="n">_fast_path</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Raster.pad"><a class="viewcode-back" href="../../raster_tools.html#raster_tools.raster.Raster.pad">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">pad</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">target</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">fill_values</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Pad the raster&#39;s grid out to cover the given extent.</span>
+
+<span class="sd">        The source raster&#39;s grid (resolution and origin) is preserved;</span>
+<span class="sd">        only new cells are added on the edges.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        target : tuple, Raster, or odc.geo.geobox.GeoBox</span>
+<span class="sd">            The extent to pad to. Accepts a ``(minx, miny, maxx, maxy)``</span>
+<span class="sd">            bounds tuple, another ``Raster`` (its ``.bounds`` is used),</span>
+<span class="sd">            or a ``GeoBox`` (its bounding box is used). The</span>
+<span class="sd">            resolution/origin of a Raster/GeoBox target are ignored.</span>
+<span class="sd">        fill_values : None, scalar, or list of scalars, optional</span>
+<span class="sd">            Value(s) used to fill newly added cells. ``None`` (default)</span>
+<span class="sd">            uses the raster&#39;s null value (one is chosen and assigned if</span>
+<span class="sd">            unset) and marks new cells as null. A scalar fills all new</span>
+<span class="sd">            cells; if it equals the null value, new cells are marked</span>
+<span class="sd">            null. A list of length ``nbands`` provides per-band fills.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        Raster</span>
+<span class="sd">            A new lazy Raster covering at least the requested extent.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools._padding</span><span class="w"> </span><span class="kn">import</span> <span class="n">pad</span>
+
+        <span class="k">return</span> <span class="n">pad</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">target</span><span class="p">,</span> <span class="n">fill_values</span><span class="o">=</span><span class="n">fill_values</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="Raster.reproject"><a class="viewcode-back" href="../../reference/generated/raster_tools.Raster.reproject.html#raster_tools.raster.Raster.reproject">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">reproject</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">crs_or_geobox</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">resample_method</span><span class="o">=</span><span class="s2">&quot;nearest&quot;</span><span class="p">,</span> <span class="n">resolution</span><span class="o">=</span><span class="kc">None</span>
