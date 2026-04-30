@@ -19,6 +19,7 @@ from odc.geo.geobox import GeoBox
 from shapely.geometry import box
 
 from raster_tools._compat import NUMPY_GE_2, NUMPY_GE_2_2, PY_VER_310_PLUS
+from raster_tools._grids import build_x_coord, build_y_coord
 from raster_tools.dask_utils import (
     chunks_to_array_locations,
     dask_nanmax,
@@ -752,8 +753,8 @@ def data_to_xr_raster(data, x=None, y=None, affine=None, crs=None, nv=None):
         if (y.size, x.size) != data.shape[1:]:
             raise ValueError("x and y do not match data shape")
     else:
-        x = _build_x_coord(affine, data.shape)
-        y = _build_y_coord(affine, data.shape)
+        x = build_x_coord(affine, data.shape)
+        y = build_y_coord(affine, data.shape)
     # The band dimension needs to start at 1 to match raster conventions
     band = np.arange(data.shape[0]) + 1
     xdata = xr.DataArray(
@@ -3050,32 +3051,6 @@ def _shapes_delayed(chunk, mask, neighbors, transform, band, crs):
     )
 
 
-def _build_x_coord(affine, shape_3d):
-    nx = shape_3d[2]
-    # Cell size for x dim
-    a = affine.a
-    tmatrix = np.array(affine).reshape((3, 3))
-    xc = (tmatrix @ np.array([np.arange(nx), np.zeros(nx), np.ones(nx)]))[0]
-    xc += a / 2
-    # Copy to trim off excess base array
-    return xc.copy()
-
-
-def _build_y_coord(affine, shape_3d):
-    ny = shape_3d[1]
-    # Cell size for y dim (should be < 0)
-    e = affine.e
-    tmatrix = np.array(affine).reshape((3, 3))
-    yc = (tmatrix @ np.array([np.zeros(ny), np.arange(ny), np.ones(ny)]))[1]
-    yc += e / 2
-    # Copy to trim off excess base array
-    return yc.copy()
-
-
-def _build_coords(affine, shape):
-    return _build_x_coord(affine, shape), _build_y_coord(affine, shape)
-
-
 class GeoChunk:
     """Object representing a geo-located chunk.
 
@@ -3113,11 +3088,11 @@ class GeoChunk:
 
     @property
     def x(self):
-        return _build_x_coord(self.affine, self.shape)
+        return build_x_coord(self.affine, self.shape)
 
     @property
     def y(self):
-        return _build_y_coord(self.affine, self.shape)
+        return build_y_coord(self.affine, self.shape)
 
     @property
     def band(self):

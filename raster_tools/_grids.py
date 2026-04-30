@@ -4,6 +4,27 @@ import numpy as np
 import shapely
 from odc.geo.geobox import GeoBox
 
+
+def build_coords(affine, shape_3d):
+    """Build (x, y) 1D coordinate arrays from an affine and 3D shape.
+
+    The affine must be axis-aligned (no shear/rotation).
+    """
+    ny, nx = shape_3d[1], shape_3d[2]
+    y, x = (
+        c.values for c in GeoBox((ny, nx), affine, None).coordinates.values()
+    )
+    return x, y
+
+
+def build_x_coord(affine, shape_3d):
+    return build_coords(affine, shape_3d)[0]
+
+
+def build_y_coord(affine, shape_3d):
+    return build_coords(affine, shape_3d)[1]
+
+
 # Tolerance for geobox comparisons, as a fraction of pixel size. Some
 # published products carry sub-pixel FP noise (observed up to ~1e-4 in CRS
 # units) in what are otherwise shared grids; strict odc-geo equality would
