@@ -45,6 +45,14 @@ Remapping Rasters
    reclassify
    remap_range
 
+Padding Rasters
+===============
+
+.. autosummary::
+   :toctree: generated/
+
+   pad
+
 Vectors
 =======
 

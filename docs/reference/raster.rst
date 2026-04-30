@@ -156,6 +156,14 @@ Warping
 
    Raster.reproject
 
+Padding
+-------
+
+.. autosummary::
+   :toctree: generated/
+
+   Raster.pad
+
 
 Raster IO
 ---------
