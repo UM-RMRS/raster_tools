@@ -1,11 +1,17 @@
+import warnings
 from collections.abc import Sequence
 
 import dask.array as da
 import numpy as np
+from odc.geo.geobox import GeoBox
 
 from raster_tools.dtypes import is_int, is_scalar
 from raster_tools.masking import get_default_null_value
-from raster_tools.raster import data_to_raster_like, get_raster
+from raster_tools.raster import (
+    data_to_raster,
+    data_to_raster_like,
+    get_raster,
+)
 
 __all__ = [
     "constant_raster",
@@ -30,6 +36,52 @@ _VALID_RANDOM_DISTRIBUTIONS = frozenset(
         "weibull",
     )
 )
+
+_MISSING = object()
+
+
+def _coalesce_template(template, raster_template):
+    if raster_template is not None:
+        if template is not None:
+            raise TypeError(
+                "Pass `template` only; `raster_template` is deprecated"
+            )
+        warnings.warn(
+            "`raster_template` is deprecated; use `template`",
+            DeprecationWarning,
+            stacklevel=3,
+        )
+        return raster_template
+    if template is None:
+        raise TypeError("A template is required")
+    return template
+
+
+def _resolve_template(template):
+    """Normalize a template to grid info.
+
+    Returns
+    -------
+    rst : Raster or None
+        The resolved Raster, or None if `template` is a GeoBox.
+    yx_shape : tuple of int
+        The (ny, nx) shape from the template.
+    yx_chunks : tuple or None
+        The (y, x) chunks from the template Raster, or None for a GeoBox.
+    affine : affine.Affine or None
+        The affine transform (only set for the GeoBox path).
+    crs : CRS or None
+        The CRS (only set for the GeoBox path).
+    """
+    if isinstance(template, GeoBox):
+        return None, tuple(template.shape), None, template.affine, template.crs
+    rst = get_raster(template, strict=False)
+    return rst, rst.shape[1:], rst.data.chunks[1:], None, None
+
+
+def _check_copy_mask(rst, copy_mask):
+    if rst is None and copy_mask:
+        raise ValueError("copy_mask requires a Raster template, not a GeoBox")
 
 
 def _get_bands(bands):
@@ -56,6 +108,16 @@ def _get_dtype(dtype):
     return dtype
 
 
+def _get_shape_and_chunks(yx_shape, yx_chunks, bands):
+    shape = (bands,) + yx_shape
+    if yx_chunks is not None:
+        chunks = ((1,) * bands,) + yx_chunks
+    else:
+        # GeoBox path: chunksize 1 in band dim, dask picks spatial chunks
+        chunks = (1, "auto", "auto")
+    return shape, chunks
+
+
 def _copy_mask(template, out_bands):
     if out_bands == template.nbands:
         return template.mask.copy()
@@ -64,30 +126,30 @@ def _copy_mask(template, out_bands):
     return mask
 
 
-def _build_result(template, data, nbands, copy_mask, copy_nv):
-    if template._masked and copy_mask:
-        mask = _copy_mask(template, nbands)
-        nv = (
-            template.null_value
-            if copy_nv
-            else get_default_null_value(data.dtype)
-        )
+def _build_result(
+    rst, data, nbands, copy_mask, copy_nv, affine=None, crs=None
+):
+    if rst is None:
+        return data_to_raster(data, affine=affine, crs=crs)
+    if rst._masked and copy_mask:
+        mask = _copy_mask(rst, nbands)
+        nv = rst.null_value if copy_nv else get_default_null_value(data.dtype)
         burn_mask = True
     else:
         mask = None
         nv = None
         burn_mask = False
-    return data_to_raster_like(
-        data, template, mask=mask, nv=nv, burn=burn_mask
-    )
+    return data_to_raster_like(data, rst, mask=mask, nv=nv, burn=burn_mask)
 
 
 def random_raster(
-    raster_template,
+    template=None,
     distribution="normal",
     bands=1,
     params=(1, 0.5),
     copy_mask=False,
+    *,
+    raster_template=None,
 ):
     """Creates a Raster of random values based on the desired distribution.
 
@@ -96,8 +158,10 @@ def random_raster(
 
     Parameters
     ----------
-    raster_template : Raster, str
-        A template raster used to define rows, columns, crs, resolution, etc.
+    template : Raster, str, or odc.geo.geobox.GeoBox
+        Template defining rows, columns, crs, resolution, etc. A path string
+        is loaded as a Raster. A ``GeoBox`` supplies only the grid; in that
+        case ``copy_mask`` is invalid and no mask/null value is propagated.
     distribution : str, optional
         Random distribution type. Default is `'normal'`. See `params` parameter
         below for passing additional distribution  parameters. Valid values
@@ -125,8 +189,8 @@ def random_raster(
         ``(1, 0.5)``.
     copy_mask : bool
         If `True`, the template raster's mask is copied to the result raster.
-        If `bands` differs from `raster_template`, the first band's mask is
-        copied `bands` times.
+        If `bands` differs from the template, the first band's mask is copied
+        `bands` times. Only valid when `template` is a Raster.
 
     Returns
     -------
@@ -134,7 +198,9 @@ def random_raster(
         The resulting raster of random values pulled from the distribution.
 
     """
-    raster_template = get_raster(raster_template, strict=False)
+    template = _coalesce_template(template, raster_template)
+    rst, yx_shape, yx_chunks, affine, crs = _resolve_template(template)
+    _check_copy_mask(rst, copy_mask)
     bands = _get_bands(bands)
     if not isinstance(params, Sequence):
         try:
@@ -146,8 +212,7 @@ def random_raster(
     else:
         params = list(params)
 
-    shape = (bands,) + raster_template.shape[1:]
-    chunks = ((1,) * bands,) + raster_template.data.chunks[1:]
+    shape, chunks = _get_shape_and_chunks(yx_shape, yx_chunks, bands)
 
     dist = distribution.lower()
     if dist not in _VALID_RANDOM_DISTRIBUTIONS:
@@ -181,24 +246,35 @@ def random_raster(
         ndata = da.random.random(size=shape, chunks=chunks)
     # TODO: add more distributions
 
-    return _build_result(raster_template, ndata, bands, copy_mask, False)
+    return _build_result(
+        rst, ndata, bands, copy_mask, False, affine=affine, crs=crs
+    )
 
 
-def empty_like(raster_template, bands=1, dtype=None, copy_mask=False):
-    """Create a Raster filled with uninitialized data like a template raster.
+def empty_like(
+    template=None,
+    bands=1,
+    dtype=None,
+    copy_mask=False,
+    *,
+    raster_template=None,
+):
+    """Create a Raster filled with uninitialized data like a template.
 
     Parameters
     ----------
-    raster_template : Raster, str
-        Template raster used to define rows, columns, crs, resolution, etc
+    template : Raster, str, or odc.geo.geobox.GeoBox
+        Template defining rows, columns, crs, resolution, etc. A path string
+        is loaded as a Raster. A ``GeoBox`` supplies only the grid; in that
+        case ``copy_mask`` is invalid and no mask/null value is propagated.
     bands : int, optional
         Number of bands desired for output. Default is 1.
     dtype : data-type, optional
         Overrides the result dtype.
     copy_mask : bool
         If `True`, the template raster's mask is copied to the result raster.
-        If `bands` differs from `raster_template`, the first band's mask is
-        copied `bands` times.
+        If `bands` differs from the template, the first band's mask is
+        copied `bands` times. Only valid when `template` is a Raster.
 
     Returns
     -------
@@ -206,24 +282,39 @@ def empty_like(raster_template, bands=1, dtype=None, copy_mask=False):
         The resulting raster of uninitialized data.
 
     """
-    rst = get_raster(raster_template, strict=False)
+    template = _coalesce_template(template, raster_template)
+    rst, yx_shape, yx_chunks, affine, crs = _resolve_template(template)
+    _check_copy_mask(rst, copy_mask)
     bands = _get_bands(bands)
     dtype = _get_dtype(dtype)
 
-    shape = (bands,) + rst.shape[1:]
-    chunks = ((1,) * bands,) + rst.data.chunks[1:]
+    shape, chunks = _get_shape_and_chunks(yx_shape, yx_chunks, bands)
     ndata = da.empty(shape, chunks=chunks, dtype=dtype)
-    copy_null = dtype is None or np.dtype(dtype) == rst.dtype
-    return _build_result(rst, ndata, bands, copy_mask, copy_null)
+    copy_null = rst is not None and (
+        dtype is None or np.dtype(dtype) == rst.dtype
+    )
+    return _build_result(
+        rst, ndata, bands, copy_mask, copy_null, affine=affine, crs=crs
+    )
 
 
-def full_like(raster_template, value, bands=1, dtype=None, copy_mask=False):
-    """Create a Raster filled with a constant value like a template raster.
+def full_like(
+    template=None,
+    value=_MISSING,
+    bands=1,
+    dtype=None,
+    copy_mask=False,
+    *,
+    raster_template=None,
+):
+    """Create a Raster filled with a constant value like a template.
 
     Parameters
     ----------
-    raster_template : Raster, str
-        Template raster used to define rows, columns, crs, resolution, etc
+    template : Raster, str, or odc.geo.geobox.GeoBox
+        Template defining rows, columns, crs, resolution, etc. A path string
+        is loaded as a Raster. A ``GeoBox`` supplies only the grid; in that
+        case ``copy_mask`` is invalid and no mask/null value is propagated.
     value : scalar
         Value to fill result with.
     bands : int, optional
@@ -232,8 +323,8 @@ def full_like(raster_template, value, bands=1, dtype=None, copy_mask=False):
         Overrides the result dtype.
     copy_mask : bool
         If `True`, the template raster's mask is copied to the result raster.
-        If `bands` differs from `raster_template`, the first band's mask is
-        copied `bands` times.
+        If `bands` differs from the template, the first band's mask is
+        copied `bands` times. Only valid when `template` is a Raster.
 
     Returns
     -------
@@ -241,7 +332,11 @@ def full_like(raster_template, value, bands=1, dtype=None, copy_mask=False):
         The resulting raster of constant values.
 
     """
-    rst = get_raster(raster_template, strict=False)
+    template = _coalesce_template(template, raster_template)
+    if value is _MISSING:
+        raise TypeError("full_like() missing required argument: 'value'")
+    rst, yx_shape, yx_chunks, affine, crs = _resolve_template(template)
+    _check_copy_mask(rst, copy_mask)
     bands = _get_bands(bands)
     if not is_scalar(value):
         try:
@@ -252,28 +347,39 @@ def full_like(raster_template, value, bands=1, dtype=None, copy_mask=False):
             ) from None
     dtype = _get_dtype(dtype)
 
-    shape = (bands,) + rst.shape[1:]
-    chunks = ((1,) * bands,) + rst.data.chunks[1:]
+    shape, chunks = _get_shape_and_chunks(yx_shape, yx_chunks, bands)
     ndata = da.full(shape, value, chunks=chunks, dtype=dtype)
     if ndata.npartitions == 1:
         # https://github.com/dask/dask/issues/11531
         # Adding false preserves the dtype
         ndata += False
-    copy_null = dtype is None or np.dtype(dtype) == rst.dtype
-    return _build_result(rst, ndata, bands, copy_mask, copy_null)
+    copy_null = rst is not None and (
+        dtype is None or np.dtype(dtype) == rst.dtype
+    )
+    return _build_result(
+        rst, ndata, bands, copy_mask, copy_null, affine=affine, crs=crs
+    )
 
 
 def constant_raster(
-    raster_template, value=1, bands=1, dtype=None, copy_mask=False
+    template=None,
+    value=1,
+    bands=1,
+    dtype=None,
+    copy_mask=False,
+    *,
+    raster_template=None,
 ):
-    """Create a Raster filled with a constant value like a template raster.
+    """Create a Raster filled with a constant value like a template.
 
     This is a convenience function that wraps :func:`full_like`.
 
     Parameters
     ----------
-    raster_template : Raster, str
-        Template raster used to define rows, columns, crs, resolution, etc
+    template : Raster, str, or odc.geo.geobox.GeoBox
+        Template defining rows, columns, crs, resolution, etc. A path string
+        is loaded as a Raster. A ``GeoBox`` supplies only the grid; in that
+        case ``copy_mask`` is invalid and no mask/null value is propagated.
     value : scalar, optional
         Value to fill result with. Default is 1.
     bands : int, optional
@@ -282,8 +388,8 @@ def constant_raster(
         Overrides the result dtype.
     copy_mask : bool
         If `True`, the template raster's mask is copied to the result raster.
-        If `bands` differs from `raster_template`, the first band's mask is
-        copied `bands` times.
+        If `bands` differs from the template, the first band's mask is
+        copied `bands` times. Only valid when `template` is a Raster.
 
     Returns
     -------
@@ -292,52 +398,80 @@ def constant_raster(
 
     """
     return full_like(
-        raster_template, value, bands=bands, dtype=dtype, copy_mask=copy_mask
+        template,
+        value,
+        bands=bands,
+        dtype=dtype,
+        copy_mask=copy_mask,
+        raster_template=raster_template,
     )
 
 
-def zeros_like(raster_template, bands=1, dtype=None, copy_mask=False):
-    """Create a Raster filled with zeros like a template raster.
+def zeros_like(
+    template=None,
+    bands=1,
+    dtype=None,
+    copy_mask=False,
+    *,
+    raster_template=None,
+):
+    """Create a Raster filled with zeros like a template.
 
     Parameters
     ----------
-    raster_template : Raster, str
-        Template raster used to define rows, columns, crs, resolution, etc
+    template : Raster, str, or odc.geo.geobox.GeoBox
+        Template defining rows, columns, crs, resolution, etc. A path string
+        is loaded as a Raster. A ``GeoBox`` supplies only the grid; in that
+        case ``copy_mask`` is invalid and no mask/null value is propagated.
     bands : int, optional
         Number of bands desired for output. Default is 1.
     dtype : data-type, optional
         Overrides the result dtype.
     copy_mask : bool
         If `True`, the template raster's mask is copied to the result raster.
-        If `bands` differs from `raster_template`, the first band's mask is
-        copied `bands` times.
+        If `bands` differs from the template, the first band's mask is
+        copied `bands` times. Only valid when `template` is a Raster.
 
     Returns
     -------
     Raster
-        The resulting raster of zreos.
+        The resulting raster of zeros.
 
     """
     return full_like(
-        raster_template, 0, bands=bands, dtype=dtype, copy_mask=copy_mask
+        template,
+        0,
+        bands=bands,
+        dtype=dtype,
+        copy_mask=copy_mask,
+        raster_template=raster_template,
     )
 
 
-def ones_like(raster_template, bands=1, dtype=None, copy_mask=False):
-    """Create a Raster filled with ones like a template raster.
+def ones_like(
+    template=None,
+    bands=1,
+    dtype=None,
+    copy_mask=False,
+    *,
+    raster_template=None,
+):
+    """Create a Raster filled with ones like a template.
 
     Parameters
     ----------
-    raster_template : Raster, str
-        Template raster used to define rows, columns, crs, resolution, etc
+    template : Raster, str, or odc.geo.geobox.GeoBox
+        Template defining rows, columns, crs, resolution, etc. A path string
+        is loaded as a Raster. A ``GeoBox`` supplies only the grid; in that
+        case ``copy_mask`` is invalid and no mask/null value is propagated.
     bands : int, optional
         Number of bands desired for output. Default is 1.
     dtype : data-type, optional
         Overrides the result dtype.
     copy_mask : bool
         If `True`, the template raster's mask is copied to the result raster.
-        If `bands` differs from `raster_template`, the first band's mask is
-        copied `bands` times.
+        If `bands` differs from the template, the first band's mask is
+        copied `bands` times. Only valid when `template` is a Raster.
 
     Returns
     -------
@@ -346,5 +480,10 @@ def ones_like(raster_template, bands=1, dtype=None, copy_mask=False):
 
     """
     return full_like(
-        raster_template, 1, bands=bands, dtype=dtype, copy_mask=copy_mask
+        template,
+        1,
+        bands=bands,
+        dtype=dtype,
+        copy_mask=copy_mask,
+        raster_template=raster_template,
     )
