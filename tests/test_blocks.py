@@ -10,7 +10,12 @@ import numpy as np
 import pytest
 from affine import Affine
 
-from raster_tools.blocks import GeoBlockInfo, geo_block_infos_as_dask
+from raster_tools.blocks import (
+    GeoBlockInfo,
+    geo_block_infos_as_dask,
+    map_blocks,
+)
+from raster_tools.masking import get_default_null_value
 from tests import testdata
 
 
@@ -300,3 +305,149 @@ def test_raster_geo_block_infos_property():
     arr = raster.geo_block_infos
     assert isinstance(arr, da.Array)
     assert arr.numblocks == raster.data.numblocks
+
+
+# ---------------------------------------------------------------------------
+# map_blocks
+# ---------------------------------------------------------------------------
+
+
+def test_map_blocks_identity():
+    r = testdata.raster.dem_small
+    out = map_blocks(lambda x: x.copy(), r)
+    assert out.crs == r.crs
+    assert out.affine == r.affine
+    assert out.dtype == r.dtype
+    assert out.null_value == r.null_value
+    np.testing.assert_array_equal(out.data.compute(), r.data.compute())
+    np.testing.assert_array_equal(out.mask.compute(), r.mask.compute())
+
+
+def test_map_blocks_arithmetic():
+    r = testdata.raster.dem_small
+    out = map_blocks(lambda x: x * 2, r)
+    np.testing.assert_array_equal(out.data.compute(), r.data.compute() * 2)
+    assert out.crs == r.crs
+    assert out.affine == r.affine
+
+
+def test_map_blocks_two_input_add():
+    r1 = testdata.raster.dem_small
+    r2 = testdata.raster.dem_small
+    out = map_blocks(lambda a, b: a + b, r1, r2)
+    np.testing.assert_array_equal(
+        out.data.compute(), r1.data.compute() + r2.data.compute()
+    )
+    assert out.crs == r1.crs
+    assert out.affine == r1.affine
+
+
+def test_map_blocks_three_input_kwargs():
+    r1 = testdata.raster.dem_small
+    r2 = testdata.raster.dem_small
+    r3 = testdata.raster.dem_small
+
+    def weighted(a, b, c, w):
+        return w * a + (1 - w) * (b + c)
+
+    out = map_blocks(weighted, r1, r2, r3, w=0.5)
+    a = r1.data.compute()
+    expected = 0.5 * a + 0.5 * (a + a)
+    np.testing.assert_array_equal(out.data.compute(), expected)
+
+
+def test_map_blocks_dtype_change():
+    r = testdata.raster.dem_small
+    out = map_blocks(
+        lambda x: x.astype(np.int32),
+        r,
+        dtype=np.int32,
+        null_value="default",
+    )
+    assert out.dtype == np.int32
+    np.testing.assert_array_equal(
+        out.data.compute(), r.data.compute().astype(np.int32)
+    )
+
+
+def test_map_blocks_null_value_scalar_override():
+    r = testdata.raster.dem_small
+    out = map_blocks(lambda x: x.copy(), r, null_value=0.0)
+    assert out.null_value == 0.0
+
+
+def test_map_blocks_null_value_default_with_dtype_change():
+    r = testdata.raster.dem_small
+    out = map_blocks(
+        lambda x: x.astype(np.int32),
+        r,
+        dtype=np.int32,
+        null_value="default",
+    )
+    assert out.dtype == np.int32
+    assert out.null_value == get_default_null_value(np.dtype(np.int32))
+
+
+def test_map_blocks_null_value_invalid_string():
+    r = testdata.raster.dem_small
+    with pytest.raises(ValueError):
+        map_blocks(lambda x: x.copy(), r, null_value="auto")
+
+
+def test_map_blocks_pass_mask_single_input():
+    r = testdata.raster.dem_clipped_small  # has masked cells
+    sentinel = np.float32(-1.0)
+
+    def fill_nulls(data, mask):
+        assert data.shape == mask.shape
+        return np.where(mask, sentinel, data)
+
+    out = map_blocks(fill_nulls, r, pass_mask=True)
+    data_in = r.data.compute()
+    mask_in = r.mask.compute()
+    expected = np.where(mask_in, sentinel, data_in)
+    np.testing.assert_array_equal(out.data.compute(), expected)
+
+
+def test_map_blocks_pass_mask_two_input_ordering():
+    r1 = testdata.raster.dem_small
+    r2 = testdata.raster.dem_small
+
+    def check(d1, d2, m1, m2):
+        # Order check: d1/d2 are float data, m1/m2 are bool masks.
+        assert d1.dtype == r1.dtype and d2.dtype == r2.dtype
+        assert m1.dtype == np.bool_ and m2.dtype == np.bool_
+        # Same shapes across all four block args.
+        assert d1.shape == d2.shape == m1.shape == m2.shape
+        return d1 + d2 + m1.astype(d1.dtype) + m2.astype(d2.dtype)
+
+    out = map_blocks(check, r1, r2, pass_mask=True)
+    d1 = r1.data.compute()
+    d2 = r2.data.compute()
+    m1 = r1.mask.compute()
+    m2 = r2.mask.compute()
+    expected = d1 + d2 + m1.astype(d1.dtype) + m2.astype(d2.dtype)
+    np.testing.assert_array_equal(out.data.compute(), expected)
+
+
+def test_map_blocks_empty_rasters_raises():
+    with pytest.raises(ValueError, match="at least one"):
+        map_blocks(lambda x: x)
+
+
+def test_map_blocks_shape_mismatch_raises():
+    r1 = testdata.raster.dem_small  # 100x100
+    r2 = testdata.raster.dem  # different shape (full DEM)
+    assert r1.shape != r2.shape
+    with pytest.raises(ValueError, match="raster 1 shape"):
+        map_blocks(lambda a, b: a + b, r1, r2)
+
+
+def test_map_blocks_preserves_first_input_grid():
+    r1 = testdata.raster.dem_small
+    r2 = testdata.raster.dem_small.set_null_value(99.0)
+    assert r2.null_value != r1.null_value
+    out = map_blocks(lambda a, b: a + b, r1, r2)
+    assert out.crs == r1.crs
+    assert out.affine == r1.affine
+    assert out.null_value == r1.null_value

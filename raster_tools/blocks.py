@@ -1,15 +1,19 @@
-"""Geo-aware block descriptors for use with dask map_blocks/map_overlap.
+"""Block-mapping primitives for Rasters.
 
-This module provides :class:`GeoBlockInfo`, the geo-aware analog of dask's
+Provides :func:`map_blocks` as a thin wrapper over
+:func:`dask.array.map_blocks` that accepts one or more :class:`Raster`
+inputs and returns a :class:`Raster`. Future additions include
+``map_overlap`` and the geo-aware ``geo_map_blocks`` / ``geo_map_overlap``
+counterparts.
+
+Also defines :class:`GeoBlockInfo`, the geo-aware analog of dask's
 ``block_info`` dict: a per-block metadata object carrying the block's
 :class:`~odc.geo.geobox.GeoBox`, its band/row/col slices into the parent
 array, and helpers for padding/shifting the block window and reconstructing
-an :class:`xarray.DataArray` for the block's data.
-
-The future ``geo_map_blocks`` / ``geo_map_overlap`` wrappers are designed to
-build on this primitive: each user callback receives a coordinated
-``DataArray`` (with band/y/x coords, CRS, nodata) instead of a raw NumPy
-block.
+an :class:`xarray.DataArray` for the block's data. The future
+``geo_map_blocks`` / ``geo_map_overlap`` wrappers will build on this
+primitive: each user callback receives a coordinated ``DataArray`` (with
+band/y/x coords, CRS, nodata) instead of a raw NumPy block.
 """
 
 import dask.array as da
@@ -20,8 +24,10 @@ from odc.geo.geobox import GeoBox
 
 from raster_tools.dask_utils import chunks_to_array_locations
 from raster_tools.dtypes import is_int
+from raster_tools.masking import get_default_null_value
+from raster_tools.raster import data_to_raster_like, get_raster
 
-__all__ = ["GeoBlockInfo", "geo_block_infos_as_dask"]
+__all__ = ["GeoBlockInfo", "geo_block_infos_as_dask", "map_blocks"]
 
 
 class GeoBlockInfo:
@@ -280,3 +286,87 @@ def geo_block_infos_as_dask(raster):
     with the data blocks.
     """
     return da.from_array(geo_block_infos(raster), chunks=1)
+
+
+def _resolve_null_value(null_value, ref_null_value, out_dtype):
+    if null_value is None:
+        return ref_null_value
+    if isinstance(null_value, str):
+        if null_value != "default":
+            raise ValueError(
+                f"null_value string must be 'default', got {null_value!r}"
+            )
+        return get_default_null_value(out_dtype)
+    return null_value
+
+
+def map_blocks(
+    func,
+    *rasters,
+    pass_mask=False,
+    dtype=None,
+    null_value=None,
+    **kwargs,
+):
+    """Apply ``func`` block-wise across one or more aligned rasters.
+
+    Thin wrapper over :func:`dask.array.map_blocks`. Each call to ``func``
+    receives one block from each input raster, in the same order. The
+    output :class:`~raster_tools.Raster` adopts its CRS, affine, x/y
+    coords, and mask from the first input. v1 is shape-preserving: the
+    user function must return a NumPy array of the same shape as a
+    single input data block.
+
+    Parameters
+    ----------
+    func : callable
+        Per-block function. Receives
+        ``(data1, ..., dataN, [mask1, ..., maskN,] **kwargs)`` and must
+        return a NumPy array of the same shape as ``data1``.
+    *rasters : Raster or str
+        One or more aligned input rasters. Path strings are accepted.
+        All inputs must share the same 3D shape.
+    pass_mask : bool, optional
+        If ``True``, each input's boolean mask block is also passed to
+        ``func`` after the data blocks. Default ``False``.
+    dtype : dtype-like, optional
+        Output dtype. Defaults to the first input's dtype. Forwarded to
+        :func:`dask.array.map_blocks`.
+    null_value : scalar or str, optional
+        Output null value. ``None`` (default) inherits from the first
+        input. A scalar is used as-is. The string ``"default"`` selects
+        a dtype-appropriate default via
+        :func:`raster_tools.masking.get_default_null_value` -- handy when
+        ``dtype`` changes and the input's null value isn't representable.
+    **kwargs
+        Extra keyword arguments forwarded per-block to ``func``.
+
+    Returns
+    -------
+    Raster
+        A new lazy Raster on the first input's grid, carrying its mask.
+
+    Notes
+    -----
+    Cross-input CRS or affine mismatches are not validated; the caller
+    is responsible. The output's mask is the first input's mask --
+    writing a new mask via ``func`` is not supported in v1.
+    """
+    if not rasters:
+        raise ValueError("map_blocks requires at least one raster")
+    rasters = [get_raster(r) for r in rasters]
+    ref = rasters[0]
+    for i, r in enumerate(rasters[1:], 1):
+        if r.shape != ref.shape:
+            raise ValueError(
+                f"raster {i} shape {r.shape} does not match raster 0 "
+                f"shape {ref.shape}"
+            )
+    out_dtype = np.dtype(dtype) if dtype is not None else ref.dtype
+    out_nv = _resolve_null_value(null_value, ref.null_value, out_dtype)
+
+    inputs = [r.data for r in rasters]
+    if pass_mask:
+        inputs.extend(r.mask for r in rasters)
+    out_data = da.map_blocks(func, *inputs, dtype=out_dtype, **kwargs)
+    return data_to_raster_like(out_data, ref, nv=out_nv)
