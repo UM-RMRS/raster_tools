@@ -361,6 +361,13 @@ def map_blocks(
     Cross-input CRS or affine mismatches are not validated; the caller
     is responsible. The output's mask is the first input's mask --
     writing a new mask via ``func`` is not supported in v1.
+
+    Per-input null values are not passed to ``func``: prefer the mask
+    blocks (``pass_mask=True``) over comparing data values to a null
+    sentinel, since float / NaN equality is unreliable. If you really
+    need the null value(s) inside ``func``, capture them via
+    ``**kwargs`` at the call site, e.g.
+    ``map_blocks(f, r1, r2, nvs=(r1.null_value, r2.null_value))``.
     """
     if not rasters:
         raise ValueError("map_blocks requires at least one raster")
@@ -567,6 +574,13 @@ def map_overlap(
     Asymmetric per-side depths are only supported with no padding
     (``boundary=None`` or ``"none"``). Combining asymmetric depth with
     a non-``"none"`` boundary will produce a dask error.
+
+    Per-input null values are not passed to ``func``: prefer the mask
+    blocks (``pass_mask=True``) over comparing data values to a null
+    sentinel, since float / NaN equality is unreliable. If you really
+    need the null value(s) inside ``func``, capture them via
+    ``**kwargs`` at the call site, e.g.
+    ``map_overlap(f, r1, r2, depth=1, nvs=(r1.null_value, r2.null_value))``.
     """
     if not rasters:
         raise ValueError("map_overlap requires at least one raster")
