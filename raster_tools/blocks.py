@@ -1,9 +1,9 @@
 """Block-mapping primitives for Rasters.
 
-Provides :func:`map_blocks` as a thin wrapper over
-:func:`dask.array.map_blocks` that accepts one or more :class:`Raster`
-inputs and returns a :class:`Raster`. Future additions include
-``map_overlap`` and the geo-aware ``geo_map_blocks`` / ``geo_map_overlap``
+Provides :func:`map_blocks` and :func:`map_overlap` as thin wrappers over
+the corresponding ``dask.array`` functions. Both accept one or more
+:class:`Raster` inputs and return a :class:`Raster`. Future additions
+include the geo-aware ``geo_map_blocks`` / ``geo_map_overlap``
 counterparts.
 
 Also defines :class:`GeoBlockInfo`, the geo-aware analog of dask's
@@ -26,8 +26,14 @@ from raster_tools.dask_utils import chunks_to_array_locations
 from raster_tools.dtypes import is_int
 from raster_tools.masking import get_default_null_value
 from raster_tools.raster import data_to_raster_like, get_raster
+from raster_tools.utils import nan_equal
 
-__all__ = ["GeoBlockInfo", "geo_block_infos_as_dask", "map_blocks"]
+__all__ = [
+    "GeoBlockInfo",
+    "geo_block_infos_as_dask",
+    "map_blocks",
+    "map_overlap",
+]
 
 
 class GeoBlockInfo:
@@ -374,4 +380,232 @@ def map_blocks(
     else:
         inputs = [r.data for r in rasters]
     out_data = da.map_blocks(func, *inputs, dtype=out_dtype, **kwargs)
+    return data_to_raster_like(out_data, ref, nv=out_nv)
+
+
+_NAMED_BOUNDARIES = frozenset({"reflect", "periodic", "nearest", "none"})
+# Case-insensitive aliases for "fill outside cells with the raster's
+# null value." Matched after .lower()-ing the input string.
+_NULL_BOUNDARIES = frozenset({"null", "null_value", "nodata"})
+
+
+def _normalize_depth_axis(value):
+    if is_int(value):
+        if value < 0:
+            raise ValueError(f"depth must be non-negative, got {value}")
+        return value
+    if isinstance(value, tuple) and len(value) == 2:
+        left, right = value
+        if not (is_int(left) and is_int(right)):
+            raise TypeError(
+                f"asymmetric depth tuple must be ints, got {value!r}"
+            )
+        if left < 0 or right < 0:
+            raise ValueError(f"depth must be non-negative, got {value!r}")
+        return value
+    raise TypeError(
+        f"depth value must be an int or 2-tuple of ints, got {value!r}"
+    )
+
+
+def _normalize_depth(depth):
+    """Normalize ``depth`` into a per-axis dict.
+
+    Always returns a dict with all three axes (band/y/x) populated,
+    keyed by axis index. Band axis is forced to 0.
+    """
+    if isinstance(depth, dict):
+        out = {0: 0, 1: 0, 2: 0}
+        for axis, value in depth.items():
+            if axis not in (0, 1, 2):
+                raise ValueError(
+                    f"depth axis must be 0, 1, or 2; got {axis!r}"
+                )
+            out[axis] = _normalize_depth_axis(value)
+        if out[0] != 0:
+            raise ValueError("non-zero band-axis (0) depth is not supported")
+        return out
+    if is_int(depth):
+        norm = _normalize_depth_axis(depth)
+        return {0: 0, 1: norm, 2: norm}
+    if isinstance(depth, tuple) and len(depth) == 2:
+        dy, dx = depth
+        return {
+            0: 0,
+            1: _normalize_depth_axis(dy),
+            2: _normalize_depth_axis(dx),
+        }
+    raise TypeError(f"depth must be an int, 2-tuple, or dict; got {depth!r}")
+
+
+def _resolve_boundary(boundary, raster):
+    """Return ``(data_boundary, mask_boundary)`` for one raster.
+
+    See the table in :func:`map_overlap`.
+    """
+    if boundary is None:
+        return None, None
+    if isinstance(boundary, str):
+        # "null" / "null_value" / "nodata" / "NoData" / "NODATA" all
+        # match here -- compare case-insensitively.
+        if boundary.lower() in _NULL_BOUNDARIES:
+            nv = raster.null_value
+            if nv is None:
+                nv = get_default_null_value(raster.dtype)
+            return nv, True
+        if boundary in _NAMED_BOUNDARIES:
+            # 'none' -> dask treats as no padding for both arrays.
+            # 'reflect'/'periodic'/'nearest' -> mask is padded the
+            # same way so reflected/wrapped/copied data and mask stay
+            # in sync.
+            return boundary, boundary
+        raise ValueError(
+            f"unrecognized boundary string {boundary!r}; expected one "
+            f"of {sorted(_NULL_BOUNDARIES | _NAMED_BOUNDARIES)} or "
+            "None / a numeric scalar"
+        )
+    # Numeric scalar.
+    nv = raster.null_value
+    if nv is not None and nan_equal(boundary, nv):
+        return boundary, True
+    return boundary, False
+
+
+def map_overlap(
+    func,
+    *rasters,
+    depth,
+    boundary=None,
+    pass_mask=False,
+    dtype=None,
+    null_value=None,
+    trim=True,
+    **kwargs,
+):
+    """Apply ``func`` block-wise with overlap across one or more rasters.
+
+    Thin wrapper over :func:`dask.array.overlap.map_overlap`. Each call
+    to ``func`` receives one block from each input raster, in the same
+    order, with ``depth`` extra cells of overlap on each side. With
+    ``trim=True`` (default) dask trims the overlap from the result; the
+    user function returns same-shape (overlap-included) blocks and
+    doesn't need to trim itself.
+
+    Parameters
+    ----------
+    func : callable
+        Per-block function. With ``pass_mask=False`` (default) it
+        receives ``(data1, ..., dataN, **kwargs)``. With
+        ``pass_mask=True`` each input's mask block is interleaved
+        immediately after its data block:
+        ``(data1, mask1, data2, mask2, ..., dataN, maskN, **kwargs)``.
+        Each block already includes the overlap region. Must return a
+        NumPy array of the same shape as the (overlap-included) data
+        block.
+    *rasters : Raster or str
+        One or more aligned input rasters. Path strings are accepted.
+        All inputs must share the same 3D shape.
+    depth : int, tuple of int, or dict
+        Number of overlap cells per spatial axis. ``int`` applies to
+        both ``y`` and ``x`` (band axis fixed at 0).
+        ``(dy, dx)`` sets per-spatial-axis depth.
+        ``dict`` maps axis index to depth (or to a ``(top, bottom)`` /
+        ``(left, right)`` tuple for asymmetric depths). Asymmetric
+        depths require ``boundary=None`` or ``boundary="none"`` per
+        dask's restriction.
+    boundary : optional
+        How to fill cells outside the array's edges. Choices:
+
+        - ``None`` (default): no padding (matches dask).
+        - ``"null"`` / ``"null_value"`` / ``"nodata"`` (case-insensitive,
+          so ``"NODATA"`` / ``"NoData"`` also work): fill with the
+          input raster's null value (or
+          :func:`get_default_null_value(dtype) <
+          raster_tools.masking.get_default_null_value>` if unset). The
+          corresponding mask cells are set to ``True``.
+        - a numeric scalar: fill with that value. If the value matches
+          the raster's null value, mask cells are set to ``True``;
+          otherwise they're set to ``False``.
+        - ``"reflect"`` / ``"periodic"`` / ``"nearest"``: dask's
+          standard padding modes. The mask is padded the same way so
+          reflected/wrapped/copied data and mask stay in sync at the
+          source cell.
+        - ``"none"``: explicit no-padding (same as ``None``).
+
+        For multi-input, each raster's null value is consulted
+        independently.
+
+        The boundary -> mask rule only affects what the user's function
+        sees in the mask block during the call when ``pass_mask=True``.
+        The output Raster's mask is the first input's mask carried
+        through (padded cells trimmed off before the user sees them).
+    pass_mask : bool, optional
+        If ``True``, each input's boolean mask block is passed to
+        ``func`` immediately after its data block (interleaved).
+        Default ``False``.
+    dtype : dtype-like, optional
+        Output dtype. Defaults to the first input's dtype.
+    null_value : scalar or str, optional
+        Output null value. ``None`` (default) inherits from the first
+        input. A scalar is used as-is. The string ``"default"`` selects
+        a dtype-appropriate default via
+        :func:`raster_tools.masking.get_default_null_value`.
+    trim : bool, optional
+        If ``True`` (default), dask trims ``depth`` cells from each
+        block after applying ``func``. Set ``False`` if ``func``
+        already trims (or if you want the un-trimmed result).
+    **kwargs
+        Extra keyword arguments forwarded per-block to ``func``.
+
+    Returns
+    -------
+    Raster
+        A new lazy Raster on the first input's grid, carrying its mask.
+
+    Notes
+    -----
+    Asymmetric per-side depths are only supported with no padding
+    (``boundary=None`` or ``"none"``). Combining asymmetric depth with
+    a non-``"none"`` boundary will produce a dask error.
+    """
+    if not rasters:
+        raise ValueError("map_overlap requires at least one raster")
+    rasters = [get_raster(r) for r in rasters]
+    ref = rasters[0]
+    for i, r in enumerate(rasters[1:], 1):
+        if r.shape != ref.shape:
+            raise ValueError(
+                f"raster {i} shape {r.shape} does not match raster 0 "
+                f"shape {ref.shape}"
+            )
+    out_dtype = np.dtype(dtype) if dtype is not None else ref.dtype
+    out_nv = _resolve_null_value(null_value, ref.null_value, out_dtype)
+
+    depth_dict = _normalize_depth(depth)
+    # TODO: pre-validate (asymmetric depth + non-'none' boundary) with
+    # a friendlier error than dask's.
+    # TODO: support an explicit (data_boundary, mask_boundary) tuple
+    # form for users who want manual control.
+    # TODO: support per-axis dict boundaries (advanced form).
+
+    if pass_mask:
+        inputs = [arr for r in rasters for arr in (r.data, r.mask)]
+        boundaries = []
+        for r in rasters:
+            data_b, mask_b = _resolve_boundary(boundary, r)
+            boundaries.extend([data_b, mask_b])
+    else:
+        inputs = [r.data for r in rasters]
+        boundaries = [_resolve_boundary(boundary, r)[0] for r in rasters]
+    depths = [depth_dict] * len(inputs)
+
+    out_data = da.overlap.map_overlap(
+        func,
+        *inputs,
+        depth=depths,
+        boundary=boundaries,
+        trim=trim,
+        dtype=out_dtype,
+        **kwargs,
+    )
     return data_to_raster_like(out_data, ref, nv=out_nv)

@@ -14,6 +14,7 @@ from raster_tools.blocks import (
     GeoBlockInfo,
     geo_block_infos_as_dask,
     map_blocks,
+    map_overlap,
 )
 from raster_tools.masking import get_default_null_value
 from tests import testdata
@@ -453,3 +454,370 @@ def test_map_blocks_preserves_first_input_grid():
     assert out.crs == r1.crs
     assert out.affine == r1.affine
     assert out.null_value == r1.null_value
+
+
+# ---------------------------------------------------------------------------
+# map_overlap
+# ---------------------------------------------------------------------------
+
+
+def _np_3x3_mean_reflect(arr_2d):
+    """Reference: per-pixel 3x3 mean with reflect padding.
+
+    Note: dask's ``boundary='reflect'`` corresponds to NumPy's
+    ``mode='symmetric'`` (edge cell repeated), not ``mode='reflect'``
+    (edge not repeated).
+    """
+    pad = np.pad(arr_2d, 1, mode="symmetric")
+    out = np.zeros_like(arr_2d, dtype=np.float32)
+    for dy in range(3):
+        for dx in range(3):
+            out += pad[dy : dy + arr_2d.shape[0], dx : dx + arr_2d.shape[1]]
+    return out / 9.0
+
+
+def _block_3x3_mean(block):
+    # block is (1, ny, nx) including 1-cell overlap on each spatial side.
+    # Must return same-shape block; dask trims the rim afterward.
+    pad = block[0]
+    out = np.zeros_like(pad, dtype=np.float32)
+    inner_h = pad.shape[0] - 2
+    inner_w = pad.shape[1] - 2
+    if inner_h > 0 and inner_w > 0:
+        s = np.zeros((inner_h, inner_w), dtype=np.float32)
+        for dy in range(3):
+            for dx in range(3):
+                s += pad[dy : dy + inner_h, dx : dx + inner_w]
+        out[1:-1, 1:-1] = s / 9.0
+    return out[None]
+
+
+def _block_3x3_sum(block):
+    pad = block[0]
+    out = np.zeros_like(pad, dtype=np.float32)
+    inner_h = pad.shape[0] - 2
+    inner_w = pad.shape[1] - 2
+    if inner_h > 0 and inner_w > 0:
+        s = np.zeros((inner_h, inner_w), dtype=np.float32)
+        for dy in range(3):
+            for dx in range(3):
+                s += pad[dy : dy + inner_h, dx : dx + inner_w]
+        out[1:-1, 1:-1] = s
+    return out[None]
+
+
+def _real_blocks(samples):
+    """Filter out dask's zero-size meta-call blocks."""
+    return [s for s in samples if all(d > 0 for d in s[0].shape)]
+
+
+def test_map_overlap_identity_depth_zero():
+    r = testdata.raster.dem_small
+    out = map_overlap(lambda b: b, r, depth=0)
+    np.testing.assert_array_equal(out.data.compute(), r.data.compute())
+    assert out.crs == r.crs
+    assert out.affine == r.affine
+    assert out.dtype == r.dtype
+
+
+def test_map_overlap_3x3_mean_reflect():
+    r = testdata.raster.dem_small.chunk((1, 50, 50))
+    # The user function: assume dask provides a (1, ny+2, nx+2) block with
+    # reflect padding on edges; trim=True -> dask trims our 1-cell rim back
+    # off after we return a same-shape block.
+    out = map_overlap(
+        _block_3x3_mean, r, depth=1, boundary="reflect", dtype=np.float32
+    )
+    expected = _np_3x3_mean_reflect(r.data.compute()[0])[None]
+    np.testing.assert_allclose(out.data.compute(), expected, rtol=1e-5)
+
+
+def test_map_overlap_per_axis_depth_tuple():
+    r = testdata.raster.dem_small
+    out = map_overlap(lambda b: b, r, depth=(2, 1), boundary="reflect")
+    # trim=True preserves shape regardless of depth
+    assert out.shape == r.shape
+
+
+def test_map_overlap_scalar_numeric_boundary():
+    r = testdata.raster.dem_small.chunk((1, 50, 50))
+    out = map_overlap(_block_3x3_sum, r, depth=1, boundary=0, dtype=np.float32)
+    arr = r.data.compute()[0]
+    pad = np.pad(arr, 1, mode="constant", constant_values=0)
+    ref = np.zeros_like(arr, dtype=np.float32)
+    for dy in range(3):
+        for dx in range(3):
+            ref += pad[dy : dy + arr.shape[0], dx : dx + arr.shape[1]]
+    np.testing.assert_allclose(out.data.compute()[0], ref, rtol=1e-5)
+
+
+def test_map_overlap_boundary_null_with_set_null_value():
+    r = testdata.raster.dem_small.set_null_value(-1.0).chunk((1, 50, 50))
+    captured = {}
+
+    def grab(d, m):
+        # When this is called on a block, d/m include the overlap rim.
+        # On an edge chunk the boundary-side rim is filled with the
+        # null value in data and True in mask.
+        captured.setdefault("samples", []).append((d.copy(), m.copy()))
+        return d
+
+    map_overlap(
+        grab, r, depth=1, boundary="null", pass_mask=True
+    ).data.compute()
+    samples = _real_blocks(captured["samples"])
+    # With 50x50 chunks of a 100x100 array and depth=1, the array has
+    # 2x2 = 4 chunks, each grown to 52x52 (rim from neighbor or from
+    # the boundary fill). The chunk at (0,0) has its top row and left
+    # column filled with -1.0 and mask True.
+    assert any(
+        (d[0, 0, :] == -1.0).all() and m[0, 0, :].all() for d, m in samples
+    )
+    assert any(
+        (d[0, :, 0] == -1.0).all() and m[0, :, 0].all() for d, m in samples
+    )
+
+
+def test_map_overlap_boundary_null_uses_default_when_unset():
+    # When the input raster has no null_value, the "null" boundary
+    # falls back to get_default_null_value(dtype) for the data fill.
+    # Verify by inspecting the actual padded values via pass_mask.
+    import raster_tools as rts_
+
+    r = rts_.data_to_raster(
+        testdata.raster.dem_small.data,
+        x=testdata.raster.dem_small.x,
+        y=testdata.raster.dem_small.y,
+        crs=testdata.raster.dem_small.crs,
+    ).chunk((1, 50, 50))
+    assert r.null_value is None
+    expected_fill = get_default_null_value(np.dtype(r.dtype))
+
+    captured = {}
+
+    def grab(d, m):
+        captured.setdefault("samples", []).append((d.copy(), m.copy()))
+        return d
+
+    map_overlap(
+        grab, r, depth=1, boundary="null", pass_mask=True
+    ).data.compute()
+    samples = _real_blocks(captured["samples"])
+    # Expect at least one edge sample whose boundary rim is the
+    # default null value in data and True in mask.
+    assert any(
+        (d[0, 0, :] == expected_fill).all() and m[0, 0, :].all()
+        for d, m in samples
+    )
+
+
+def test_map_overlap_boundary_null_value_alias():
+    r = testdata.raster.dem_small.set_null_value(-1.0)
+    out1 = map_overlap(lambda b: b, r, depth=1, boundary="null")
+    out2 = map_overlap(lambda b: b, r, depth=1, boundary="null_value")
+    np.testing.assert_array_equal(out1.data.compute(), out2.data.compute())
+
+
+@pytest.mark.parametrize("alias", ["nodata", "NODATA", "NoData"])
+def test_map_overlap_boundary_nodata_aliases(alias):
+    r = testdata.raster.dem_small.set_null_value(-1.0)
+    out_null = map_overlap(lambda b: b, r, depth=1, boundary="null")
+    out_alias = map_overlap(lambda b: b, r, depth=1, boundary=alias)
+    np.testing.assert_array_equal(
+        out_null.data.compute(), out_alias.data.compute()
+    )
+
+
+def test_map_overlap_scalar_matching_null_value_acts_like_null():
+    r = testdata.raster.dem_small.set_null_value(-1.0).chunk((1, 50, 50))
+    captured_null = {}
+    captured_scalar = {}
+
+    def grab_into(target):
+        def _grab(d, m):
+            target.setdefault("samples", []).append((d.copy(), m.copy()))
+            return d
+
+        return _grab
+
+    map_overlap(
+        grab_into(captured_null),
+        r,
+        depth=1,
+        boundary="null",
+        pass_mask=True,
+    ).data.compute()
+    map_overlap(
+        grab_into(captured_scalar),
+        r,
+        depth=1,
+        boundary=-1.0,
+        pass_mask=True,
+    ).data.compute()
+    null_samples = _real_blocks(captured_null["samples"])
+    scalar_samples = _real_blocks(captured_scalar["samples"])
+    # Both runs should have at least one edge sample with True mask
+    # rim along the boundary side.
+    assert any(m[0, 0, :].all() for d, m in null_samples)
+    assert any(m[0, 0, :].all() for d, m in scalar_samples)
+
+
+def test_map_overlap_scalar_zero_when_null_is_not_zero():
+    r = testdata.raster.dem_small.set_null_value(-1.0).chunk((1, 50, 50))
+    captured = {}
+
+    def grab(d, m):
+        captured.setdefault("samples", []).append((d.copy(), m.copy()))
+        return d
+
+    map_overlap(grab, r, depth=1, boundary=0, pass_mask=True).data.compute()
+    samples = _real_blocks(captured["samples"])
+    # boundary=0 pads both array edges. The corner-edge chunk has a
+    # boundary-rim filled with 0 in data and False in mask (because
+    # 0 != null_value of -1).
+    saw_false_rim = any(
+        (d[0, 0, :] == 0).all() and not m[0, 0, :].any() for d, m in samples
+    )
+    assert saw_false_rim
+
+
+def test_map_overlap_multi_input_different_null_values():
+    r1 = testdata.raster.dem_small.set_null_value(-1.0).chunk((1, 50, 50))
+    r2 = testdata.raster.dem_small.set_null_value(-2.0).chunk((1, 50, 50))
+    captured = []
+
+    def grab(d1, m1, d2, m2):
+        if all(s > 0 for s in d1.shape):
+            captured.append((d1.copy(), m1.copy(), d2.copy(), m2.copy()))
+        return d1 + d2
+
+    map_overlap(
+        grab,
+        r1,
+        r2,
+        depth=1,
+        boundary="null",
+        pass_mask=True,
+    ).data.compute()
+    # On each edge sample, each input's boundary-rim cells are filled
+    # with its OWN null_value (not the other's).
+    found = any(
+        (d1[0, 0, :] == -1.0).all()
+        and m1[0, 0, :].all()
+        and (d2[0, 0, :] == -2.0).all()
+        and m2[0, 0, :].all()
+        for d1, m1, d2, m2 in captured
+    )
+    assert found
+
+
+def test_map_overlap_two_input_add():
+    r1 = testdata.raster.dem_small
+    r2 = testdata.raster.dem_small
+    out = map_overlap(lambda a, b: a + b, r1, r2, depth=1, boundary="reflect")
+    np.testing.assert_allclose(
+        out.data.compute(), r1.data.compute() + r2.data.compute()
+    )
+
+
+def test_map_overlap_pass_mask_single_input():
+    r = testdata.raster.dem_small.chunk((1, 50, 50))
+
+    def f(d, m):
+        assert d.shape == m.shape
+        return d + m.astype(d.dtype)
+
+    out = map_overlap(f, r, depth=1, boundary="reflect", pass_mask=True)
+    np.testing.assert_allclose(
+        out.data.compute(),
+        r.data.compute() + r.mask.compute().astype(r.dtype),
+    )
+
+
+def test_map_overlap_pass_mask_two_input_interleaved():
+    r1 = testdata.raster.dem_small.chunk((1, 50, 50))
+    r2 = testdata.raster.dem_small.chunk((1, 50, 50))
+
+    def f(d1, m1, d2, m2):
+        assert d1.dtype == r1.dtype and d2.dtype == r2.dtype
+        assert m1.dtype == np.bool_ and m2.dtype == np.bool_
+        assert d1.shape == d2.shape == m1.shape == m2.shape
+        return d1 + d2
+
+    out = map_overlap(f, r1, r2, depth=1, boundary="reflect", pass_mask=True)
+    np.testing.assert_allclose(
+        out.data.compute(), r1.data.compute() + r2.data.compute()
+    )
+
+
+def test_map_overlap_dtype_change():
+    r = testdata.raster.dem_small.chunk((1, 50, 50))
+    out = map_overlap(
+        lambda b: b.astype(np.int32),
+        r,
+        depth=1,
+        boundary="reflect",
+        dtype=np.int32,
+        null_value="default",
+    )
+    assert out.dtype == np.int32
+    assert out.null_value == get_default_null_value(np.dtype(np.int32))
+
+
+def test_map_overlap_null_value_scalar_override():
+    r = testdata.raster.dem_small
+    out = map_overlap(lambda b: b, r, depth=0, null_value=42.0)
+    assert out.null_value == 42.0
+
+
+def test_map_overlap_empty_rasters_raises():
+    with pytest.raises(ValueError, match="at least one"):
+        map_overlap(lambda b: b, depth=0)
+
+
+def test_map_overlap_shape_mismatch_raises():
+    r1 = testdata.raster.dem_small  # 100x100
+    r2 = testdata.raster.dem  # full DEM
+    with pytest.raises(ValueError, match="raster 1 shape"):
+        map_overlap(lambda a, b: a + b, r1, r2, depth=0)
+
+
+def test_map_overlap_band_axis_depth_raises():
+    r = testdata.raster.dem_small
+    with pytest.raises(ValueError, match="band-axis"):
+        map_overlap(lambda b: b, r, depth={0: 1, 1: 0, 2: 0})
+
+
+def test_map_overlap_negative_depth_raises():
+    r = testdata.raster.dem_small
+    with pytest.raises(ValueError, match="non-negative"):
+        map_overlap(lambda b: b, r, depth=-1)
+    with pytest.raises(ValueError, match="non-negative"):
+        map_overlap(lambda b: b, r, depth=(2, -1))
+
+
+def test_map_overlap_unrecognized_boundary_raises():
+    r = testdata.raster.dem_small
+    with pytest.raises(ValueError, match="unrecognized boundary"):
+        map_overlap(lambda b: b, r, depth=1, boundary="bogus")
+
+
+def test_map_overlap_asymmetric_depth_with_reflect_propagates_dask_error():
+    # TODO: pre-validate this combo with a friendlier error.
+    r = testdata.raster.dem_small.chunk((1, 50, 50))
+    with pytest.raises(NotImplementedError, match="[Aa]symmetric"):
+        map_overlap(
+            lambda b: b,
+            r,
+            depth={1: (2, 1), 2: 0},
+            boundary="reflect",
+        ).data.compute()
+
+
+def test_map_overlap_trim_false_grows_output():
+    r = testdata.raster.dem_small.chunk((1, 50, 50))
+    out = map_overlap(lambda b: b, r, depth=1, boundary="reflect", trim=False)
+    # dask's metadata still reports the trimmed shape; the actual
+    # untrimmed data only appears after compute.
+    # 2 chunks of 50 along each spatial axis, each grown by 2 -> 52*2 = 104
+    assert out.data.compute().shape == (1, 104, 104)
