@@ -6,6 +6,7 @@ import pandas as pd
 import shapely
 import xarray as xr
 
+from raster_tools.blocks import geo_block_infos
 from raster_tools.dtypes import F32, I8, is_bool, is_scalar, is_str
 from raster_tools.raster import data_to_raster_like, get_raster
 from raster_tools.rasterize import _rio_mask
@@ -329,10 +330,12 @@ def length(features, like_rast, radius, weighting_field=None):
     chunks = da.overlap.overlap(
         like_rast.data, depths, allow_rechunk=False, boundary=0
     ).chunks
-    # chunksize of 1 so each geochunk is mapped to the corresponding chunk
-    dask_overlapped_geochunks = like_rast.geochunks.map(
-        lambda gc: gc.pad(ydepth, xdepth)
-    ).to_dask()
+    # chunksize of 1 so each block_info is mapped to the corresponding chunk
+    block_infos = geo_block_infos(like_rast)
+    padded = np.empty(block_infos.shape, dtype=object)
+    for idx in np.ndindex(block_infos.shape):
+        padded[idx] = block_infos[idx].pad(ydepth, xdepth)
+    dask_overlapped_geochunks = da.from_array(padded, chunks=1)
 
     rasters = []
     for part in gdf.partitions:

@@ -29,6 +29,7 @@ from shapely.geometry import box
 import raster_tools.raster
 from raster_tools import Raster, stack_bands
 from raster_tools._compat import NUMPY_GE_2, NUMPY_GE_2_2
+from raster_tools.blocks import GeoBlockInfo, geo_block_infos_as_dask
 from raster_tools.dtypes import (
     DTYPE_INPUT_TO_DTYPE,
     F16,
@@ -52,7 +53,6 @@ from raster_tools.masking import (
     reconcile_nullvalue_with_dtype,
 )
 from raster_tools.raster import (
-    GeoChunk,
     RasterQuadrantsResult,
     data_to_raster,
     rowcol_to_xy,
@@ -2618,271 +2618,292 @@ def test_to_polygons_and_back_to_raster(neighbors):
     assert np.allclose(raster, new_rast)
 
 
-def test_geochunk_creation():
+def _make_block_info(
+    raster,
+    *,
+    geobox=None,
+    band_slice=None,
+    row_slice=None,
+    col_slice=None,
+    chunk_location=(0, 0, 0),
+):
+    return GeoBlockInfo(
+        geobox if geobox is not None else raster.geobox,
+        band_slice if band_slice is not None else slice(0, 1),
+        row_slice if row_slice is not None else slice(0, 100),
+        col_slice if col_slice is not None else slice(0, 100),
+        chunk_location,
+        raster.affine,
+        raster.shape,
+    )
+
+
+def test_geoblockinfo_creation():
     raster = testdata.raster.dem_small.chunk((1, 50, 50))
     chunk_raster = raster.get_chunk_rasters().ravel()[1]
     geobox = chunk_raster.geobox
-    gc = GeoChunk(
-        chunk_raster.shape,
+    gbi = GeoBlockInfo(
         geobox,
+        slice(0, 1),
+        slice(0, 50),
+        slice(50, 100),
+        (0, 0, 1),
         raster.affine,
         raster.shape,
-        [(0, 1), (50, 100), (50, 100)],
-        (0, 0, 1),
     )
-    assert gc.shape == chunk_raster.shape
-    assert gc.geobox == chunk_raster.geobox
-    assert gc.parent_affine == raster.affine
-    assert gc.parent_shape == raster.shape
-    assert gc.affine == chunk_raster.affine
-    assert gc.crs == raster.crs
-    assert gc.array_location == [(0, 1), (50, 100), (50, 100)]
-    assert gc.chunk_location == (0, 0, 1)
-    assert np.allclose(gc.x, chunk_raster.x)
-    assert np.allclose(gc.y, chunk_raster.y)
+    assert gbi.shape == chunk_raster.shape
+    assert gbi.geobox == chunk_raster.geobox
+    assert gbi.parent_affine == raster.affine
+    assert gbi.parent_shape == raster.shape
+    assert gbi.affine == chunk_raster.affine
+    assert gbi.crs == raster.crs
+    assert gbi.bbox == chunk_raster.geobox.extent.geom
+    assert gbi.band_slice == slice(0, 1)
+    assert gbi.row_slice == slice(0, 50)
+    assert gbi.col_slice == slice(50, 100)
+    assert gbi.chunk_location == (0, 0, 1)
+    assert np.array_equal(gbi.band, np.arange(0, 1))
+    assert np.allclose(gbi.x, chunk_raster.x)
+    assert np.allclose(gbi.y, chunk_raster.y)
+
+
+def test_geoblockinfo_to_dataarray():
+    raster = testdata.raster.dem_small
+    gbi = _make_block_info(raster)
+    data = np.arange(np.prod(gbi.shape), dtype=np.float32).reshape(gbi.shape)
+    da_only = gbi.to_dataarray(data, nodata=-9999.0)
+    assert da_only.dims == ("band", "y", "x")
+    assert np.array_equal(da_only.values, data)
+    assert np.array_equal(da_only.coords["x"].values, gbi.x)
+    assert np.array_equal(da_only.coords["y"].values, gbi.y)
+    assert np.array_equal(da_only.coords["band"].values, gbi.band)
+    assert da_only.rio.crs == raster.crs
+    assert da_only.rio.nodata == -9999.0
+
+    mask = np.zeros(gbi.shape, dtype=bool)
+    mask[..., 0, 0] = True
+    da2, ma2 = gbi.to_dataarray(data, mask=mask, nodata=-9999.0)
+    assert ma2.dims == ("band", "y", "x")
+    assert np.array_equal(ma2.values, mask)
+    assert ma2.rio.crs == raster.crs
+
+
+def test_geoblockinfo_to_dataarray_shape_mismatch():
+    raster = testdata.raster.dem_small
+    gbi = _make_block_info(raster)
+    bad = np.zeros((1, 50, 50), dtype=np.float32)
+    with pytest.raises(ValueError):
+        gbi.to_dataarray(bad)
+    good = np.zeros(gbi.shape, dtype=np.float32)
+    bad_mask = np.zeros((1, 50, 50), dtype=bool)
+    with pytest.raises(ValueError):
+        gbi.to_dataarray(good, mask=bad_mask)
 
 
 @pytest.mark.parametrize(
-    "args,expected_shape,expected_affine,expected_location",
+    "method,args,expected_shape,expected_affine,expected_row,expected_col",
     [
+        # pad_y
         (
-            (0, 0, 0),
-            (1, 100, 100),
-            testdata.raster.dem_small.affine,
-            [(0, 1), (0, 100), (0, 100)],
-        ),
-        (
-            (1, 0, 0),
+            "pad_y",
+            (1, 0),
             (1, 101, 100),
             testdata.raster.dem_small.affine * Affine.translation(0, -1),
-            [(0, 1), (-1, 100), (0, 100)],
+            slice(-1, 100),
+            slice(0, 100),
         ),
         (
-            (1, 0, 1),
-            (1, 100, 101),
-            testdata.raster.dem_small.affine * Affine.translation(-1, 0),
-            [(0, 1), (0, 100), (-1, 100)],
-        ),
-        (
-            (-1, 0, 0),
+            "pad_y",
+            (-1, 0),
             (1, 99, 100),
             testdata.raster.dem_small.affine * Affine.translation(0, 1),
-            [(0, 1), (1, 100), (0, 100)],
+            slice(1, 100),
+            slice(0, 100),
         ),
         (
-            (0, -1, 0),
-            (1, 99, 100),
-            testdata.raster.dem_small.affine,
-            [(0, 1), (0, 99), (0, 100)],
-        ),
-        (
-            (1, 1, 0),
+            "pad_y",
+            (1, 1),
             (1, 102, 100),
             testdata.raster.dem_small.affine * Affine.translation(0, -1),
-            [(0, 1), (-1, 101), (0, 100)],
+            slice(-1, 101),
+            slice(0, 100),
+        ),
+        # pad_x
+        (
+            "pad_x",
+            (1, 0),
+            (1, 100, 101),
+            testdata.raster.dem_small.affine * Affine.translation(-1, 0),
+            slice(0, 100),
+            slice(-1, 100),
         ),
         (
-            (1, 2, 1),
+            "pad_x",
+            (1, 2),
             (1, 100, 103),
             testdata.raster.dem_small.affine * Affine.translation(-1, 0),
-            [(0, 1), (0, 100), (-1, 102)],
+            slice(0, 100),
+            slice(-1, 102),
         ),
     ],
 )
-def test_geochunk_resize_dim(
-    args, expected_shape, expected_affine, expected_location
+def test_geoblockinfo_pad_axes(
+    method, args, expected_shape, expected_affine, expected_row, expected_col
 ):
     raster = testdata.raster.dem_small
-    geobox = raster.geobox
-    loc = [(0, 1), (0, 100), (0, 100)]
-    gc = GeoChunk(
-        raster.shape,
-        geobox,
-        raster.affine,
-        raster.shape,
-        loc,
-        (0, 0, 0),
-    )
-    left, right, dim = args
-
-    new_gc = gc.resize_dim(*args)
-    assert new_gc.shape == expected_shape
-    assert new_gc.affine == expected_affine
-    assert new_gc.parent_affine == raster.affine
-    assert new_gc.parent_shape == raster.shape
-    assert new_gc.crs == raster.crs
-    assert new_gc.array_location == expected_location
-    assert new_gc.chunk_location == gc.chunk_location
+    gbi = _make_block_info(raster)
+    new = getattr(gbi, method)(*args)
+    assert new.shape == expected_shape
+    assert new.affine == expected_affine
+    assert new.parent_affine == raster.affine
+    assert new.parent_shape == raster.shape
+    assert new.crs == raster.crs
+    assert new.row_slice == expected_row
+    assert new.col_slice == expected_col
+    assert new.chunk_location == gbi.chunk_location
 
 
 @pytest.mark.parametrize(
-    "args,expected_shape,expected_affine,expected_location",
+    "args,expected_shape,expected_affine,expected_row,expected_col",
     [
         (
             (0, 0),
             (1, 100, 100),
             testdata.raster.dem_small.affine,
-            [(0, 1), (0, 100), (0, 100)],
+            slice(0, 100),
+            slice(0, 100),
         ),
         (
             (1, None),
             (1, 102, 102),
             testdata.raster.dem_small.affine * Affine.translation(-1, -1),
-            [(0, 1), (-1, 101), (-1, 101)],
+            slice(-1, 101),
+            slice(-1, 101),
         ),
         (
             (1, 2),
             (1, 102, 104),
             testdata.raster.dem_small.affine * Affine.translation(-2, -1),
-            [(0, 1), (-1, 101), (-2, 102)],
+            slice(-1, 101),
+            slice(-2, 102),
         ),
         (
-            (0, 2),
-            (1, 100, 104),
-            testdata.raster.dem_small.affine * Affine.translation(-2, 0),
-            [(0, 1), (0, 100), (-2, 102)],
-        ),
-    ],
-)
-def test_geochunk_pad(
-    args, expected_shape, expected_affine, expected_location
-):
-    raster = testdata.raster.dem_small
-    geobox = raster.geobox
-    loc = [(0, 1), (0, 100), (0, 100)]
-    gc = GeoChunk(
-        raster.shape,
-        geobox,
-        raster.affine,
-        raster.shape,
-        loc,
-        (0, 0, 0),
-    )
-
-    new_gc = gc.pad(*args)
-    assert new_gc.shape == expected_shape
-    assert new_gc.affine == expected_affine
-    assert new_gc.parent_affine == raster.affine
-    assert new_gc.crs == raster.crs
-    assert new_gc.array_location == expected_location
-    assert new_gc.chunk_location == gc.chunk_location
-
-
-@pytest.mark.parametrize(
-    "args,expected_shape,expected_affine,expected_location",
-    [
-        (
-            (0, 0),
-            (1, 100, 100),
-            testdata.raster.dem_small.affine,
-            [(0, 1), (0, 100), (0, 100)],
-        ),
-        (
-            (1, None),
+            (-1, None),
             (1, 98, 98),
             testdata.raster.dem_small.affine * Affine.translation(1, 1),
-            [(0, 1), (1, 99), (1, 99)],
-        ),
-        (
-            (1, 2),
-            (1, 98, 96),
-            testdata.raster.dem_small.affine * Affine.translation(2, 1),
-            [(0, 1), (1, 99), (2, 98)],
-        ),
-        (
-            (0, 2),
-            (1, 100, 96),
-            testdata.raster.dem_small.affine * Affine.translation(2, 0),
-            [(0, 1), (0, 100), (2, 98)],
+            slice(1, 99),
+            slice(1, 99),
         ),
     ],
 )
-def test_geochunk_trim(
-    args, expected_shape, expected_affine, expected_location
+def test_geoblockinfo_pad_symmetric(
+    args, expected_shape, expected_affine, expected_row, expected_col
 ):
     raster = testdata.raster.dem_small
-    geobox = raster.geobox
-    loc = [(0, 1), (0, 100), (0, 100)]
-    gc = GeoChunk(
-        raster.shape,
-        geobox,
-        raster.affine,
-        raster.shape,
-        loc,
-        (0, 0, 0),
-    )
-
-    new_gc = gc.trim(*args)
-    assert new_gc.shape == expected_shape
-    assert new_gc.affine == expected_affine
-    assert new_gc.parent_affine == raster.affine
-    assert new_gc.crs == raster.crs
-    assert new_gc.array_location == expected_location
-    assert new_gc.chunk_location == gc.chunk_location
+    gbi = _make_block_info(raster)
+    new = gbi.pad(*args)
+    assert new.shape == expected_shape
+    assert new.affine == expected_affine
+    assert new.parent_affine == raster.affine
+    assert new.crs == raster.crs
+    assert new.row_slice == expected_row
+    assert new.col_slice == expected_col
+    assert new.chunk_location == gbi.chunk_location
 
 
 @pytest.mark.parametrize(
-    "args,expected_shape,expected_affine,expected_location",
+    "method,args,expected_affine,expected_row,expected_col",
     [
         (
-            (0, 0),
-            (1, 100, 100),
-            testdata.raster.dem_small.affine,
-            [(0, 1), (0, 100), (0, 100)],
+            "shift_y",
+            (1,),
+            testdata.raster.dem_small.affine * Affine.translation(0, 1),
+            slice(1, 101),
+            slice(0, 100),
         ),
         (
-            (1, None),
-            (1, 100, 100),
-            testdata.raster.dem_small.affine * Affine.translation(1, 1),
-            [(0, 1), (1, 101), (1, 101)],
-        ),
-        (
-            (1, 2),
-            (1, 100, 100),
-            testdata.raster.dem_small.affine * Affine.translation(2, 1),
-            [(0, 1), (1, 101), (2, 102)],
-        ),
-        (
-            (0, 2),
-            (1, 100, 100),
+            "shift_x",
+            (2,),
             testdata.raster.dem_small.affine * Affine.translation(2, 0),
-            [(0, 1), (0, 100), (2, 102)],
+            slice(0, 100),
+            slice(2, 102),
         ),
     ],
 )
-def test_geochunk_shift(
-    args, expected_shape, expected_affine, expected_location
+def test_geoblockinfo_shift_axes(
+    method, args, expected_affine, expected_row, expected_col
 ):
     raster = testdata.raster.dem_small
-    geobox = raster.geobox
-    loc = [(0, 1), (0, 100), (0, 100)]
-    gc = GeoChunk(
-        raster.shape,
-        geobox,
-        raster.affine,
-        raster.shape,
-        loc,
-        (0, 0, 0),
-    )
-
-    new_gc = gc.shift(*args)
-    assert new_gc.shape == expected_shape
-    assert new_gc.affine == expected_affine
-    assert new_gc.parent_affine == raster.affine
-    assert new_gc.crs == raster.crs
-    assert new_gc.array_location == expected_location
-    assert new_gc.chunk_location == gc.chunk_location
+    gbi = _make_block_info(raster)
+    new = getattr(gbi, method)(*args)
+    # shifts preserve overall shape
+    assert new.shape == (1, 100, 100)
+    assert new.affine == expected_affine
+    assert new.row_slice == expected_row
+    assert new.col_slice == expected_col
 
 
-def test_geochunkarray_to_dask_chunksize_1():
+@pytest.mark.parametrize(
+    "args,expected_affine,expected_row,expected_col",
+    [
+        (
+            (0, 0),
+            testdata.raster.dem_small.affine,
+            slice(0, 100),
+            slice(0, 100),
+        ),
+        (
+            (1, None),
+            testdata.raster.dem_small.affine * Affine.translation(1, 1),
+            slice(1, 101),
+            slice(1, 101),
+        ),
+        (
+            (1, 2),
+            testdata.raster.dem_small.affine * Affine.translation(2, 1),
+            slice(1, 101),
+            slice(2, 102),
+        ),
+    ],
+)
+def test_geoblockinfo_shift_symmetric(
+    args, expected_affine, expected_row, expected_col
+):
+    raster = testdata.raster.dem_small
+    gbi = _make_block_info(raster)
+    new = gbi.shift(*args)
+    assert new.shape == (1, 100, 100)
+    assert new.affine == expected_affine
+    assert new.row_slice == expected_row
+    assert new.col_slice == expected_col
+
+
+def test_geoblockinfo_pad_rejects_non_int():
+    raster = testdata.raster.dem_small
+    gbi = _make_block_info(raster)
+    with pytest.raises(TypeError):
+        gbi.pad_y(1.5, 0)
+
+
+def test_geo_block_infos_as_dask():
     raster = testdata.raster.dem_small.chunk((1, 50, 50))
-    gc_arr = raster.geochunks
-    gc_arr_dask = gc_arr.to_dask()
-    assert isinstance(gc_arr_dask, da.Array)
-    assert gc_arr_dask.chunksize == (1, 1, 1)
-    assert gc_arr_dask.numblocks == (1, 2, 2)
-    # Make sure that a numpy array is produced.
-    assert isinstance(gc_arr_dask.compute(), np.ndarray)
+    arr = geo_block_infos_as_dask(raster)
+    assert isinstance(arr, da.Array)
+    assert arr.chunksize == (1, 1, 1)
+    assert arr.numblocks == (1, 2, 2)
+    computed = arr.compute()
+    assert isinstance(computed, np.ndarray)
+    assert computed.shape == (1, 2, 2)
+    for gbi in computed.ravel():
+        assert isinstance(gbi, GeoBlockInfo)
+        assert gbi.shape == (1, 50, 50)
+
+
+def test_raster_geo_block_infos_property():
+    raster = testdata.raster.dem_small.chunk((1, 50, 50))
+    arr = raster.geo_block_infos
+    assert isinstance(arr, da.Array)
+    assert arr.numblocks == raster.data.numblocks
 
 
 if __name__ == "__main__":
