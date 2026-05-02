@@ -320,15 +320,19 @@ def map_blocks(
     Parameters
     ----------
     func : callable
-        Per-block function. Receives
-        ``(data1, ..., dataN, [mask1, ..., maskN,] **kwargs)`` and must
-        return a NumPy array of the same shape as ``data1``.
+        Per-block function. With ``pass_mask=False`` (default) it
+        receives ``(data1, ..., dataN, **kwargs)``. With
+        ``pass_mask=True`` each input's mask block is interleaved
+        immediately after its data block:
+        ``(data1, mask1, data2, mask2, ..., dataN, maskN, **kwargs)``.
+        Must return a NumPy array of the same shape as ``data1``.
     *rasters : Raster or str
         One or more aligned input rasters. Path strings are accepted.
         All inputs must share the same 3D shape.
     pass_mask : bool, optional
-        If ``True``, each input's boolean mask block is also passed to
-        ``func`` after the data blocks. Default ``False``.
+        If ``True``, each input's boolean mask block is passed to
+        ``func`` immediately after its data block (interleaved). Default
+        ``False``.
     dtype : dtype-like, optional
         Output dtype. Defaults to the first input's dtype. Forwarded to
         :func:`dask.array.map_blocks`.
@@ -365,8 +369,9 @@ def map_blocks(
     out_dtype = np.dtype(dtype) if dtype is not None else ref.dtype
     out_nv = _resolve_null_value(null_value, ref.null_value, out_dtype)
 
-    inputs = [r.data for r in rasters]
     if pass_mask:
-        inputs.extend(r.mask for r in rasters)
+        inputs = [arr for r in rasters for arr in (r.data, r.mask)]
+    else:
+        inputs = [r.data for r in rasters]
     out_data = da.map_blocks(func, *inputs, dtype=out_dtype, **kwargs)
     return data_to_raster_like(out_data, ref, nv=out_nv)

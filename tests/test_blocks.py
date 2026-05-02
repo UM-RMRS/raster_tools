@@ -413,8 +413,10 @@ def test_map_blocks_pass_mask_two_input_ordering():
     r1 = testdata.raster.dem_small
     r2 = testdata.raster.dem_small
 
-    def check(d1, d2, m1, m2):
-        # Order check: d1/d2 are float data, m1/m2 are bool masks.
+    def check(d1, m1, d2, m2):
+        # Order check: data/mask interleaved per input. d1/d2 are float
+        # data, m1/m2 are bool masks. Adjacent positions belong to the
+        # same raster.
         assert d1.dtype == r1.dtype and d2.dtype == r2.dtype
         assert m1.dtype == np.bool_ and m2.dtype == np.bool_
         # Same shapes across all four block args.
