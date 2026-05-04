@@ -1,10 +1,10 @@
 """Block-mapping primitives for Rasters.
 
 Provides :func:`map_blocks` and :func:`map_overlap` as thin wrappers over
-the corresponding ``dask.array`` functions. Both accept one or more
-:class:`Raster` inputs and return a :class:`Raster`. Future additions
-include the geo-aware ``geo_map_blocks`` / ``geo_map_overlap``
-counterparts.
+the corresponding ``dask.array`` functions, plus :func:`geo_map_blocks`
+which hands each user callback coordinated :class:`xarray.DataArray`
+blocks (with band/y/x coords, CRS, nodata) instead of raw NumPy blocks.
+A geo-aware ``geo_map_overlap`` is the planned next step.
 
 Also defines :class:`GeoBlockInfo`, the geo-aware analog of dask's
 ``block_info`` dict: a per-block metadata object carrying the block's
@@ -31,6 +31,7 @@ from raster_tools.utils import nan_equal
 __all__ = [
     "GeoBlockInfo",
     "geo_block_infos_as_dask",
+    "geo_map_blocks",
     "map_blocks",
     "map_overlap",
 ]
@@ -622,4 +623,135 @@ def map_overlap(
         dtype=out_dtype,
         **kwargs,
     )
+    return data_to_raster_like(out_data, ref, nv=out_nv)
+
+
+def _validate_aligned_rasters(rasters, fname):
+    if not rasters:
+        raise ValueError(f"{fname} requires at least one raster")
+    rasters = [get_raster(r) for r in rasters]
+    ref = rasters[0]
+    for i, r in enumerate(rasters[1:], 1):
+        if r.shape != ref.shape:
+            raise ValueError(
+                f"raster {i} shape {r.shape} does not match raster 0 "
+                f"shape {ref.shape}"
+            )
+    return rasters, ref
+
+
+def geo_map_blocks(
+    func,
+    *rasters,
+    pass_mask=False,
+    dtype=None,
+    null_value=None,
+    **kwargs,
+):
+    """Apply ``func`` block-wise across one or more aligned rasters,
+    handing it coordinated :class:`xarray.DataArray` blocks.
+
+    Same shape and contract as :func:`map_blocks`, but each raster's
+    data block is wrapped in a coordinated ``xr.DataArray`` (with
+    ``band`` / ``y`` / ``x`` coords from the block's geobox, the
+    raster's CRS, and the raster's null value attached as ``nodata``)
+    via :meth:`GeoBlockInfo.to_dataarray` before being passed to
+    ``func``. Useful when the per-block function wants to operate in
+    xarray-land (rio accessors, xr.where, etc.) without having to
+    rebuild coordinates itself.
+
+    Parameters
+    ----------
+    func : callable
+        Per-block function. With ``pass_mask=False`` (default) it
+        receives ``(xda1, ..., xdaN, geo_block_info=gbi, **kwargs)``.
+        With ``pass_mask=True`` each input's mask DataArray is
+        interleaved immediately after its data DataArray:
+        ``(xda1, xma1, xda2, xma2, ..., xdaN, xmaN,
+        geo_block_info=gbi, **kwargs)``. May return either an
+        ``xr.DataArray`` (its ``.values`` are extracted) or a NumPy
+        array of the same shape as a single data block.
+    *rasters : Raster or str
+        One or more aligned input rasters. Path strings are accepted.
+        All inputs must share the same 3D shape.
+    pass_mask : bool, optional
+        If ``True``, each input's boolean mask DataArray is passed to
+        ``func`` immediately after its data DataArray (interleaved).
+        Default ``False``.
+    dtype : dtype-like, optional
+        Output dtype. Defaults to the first input's dtype.
+    null_value : scalar or str, optional
+        Output null value. ``None`` (default) inherits from the first
+        input. A scalar is used as-is. The string ``"default"`` selects
+        a dtype-appropriate default via
+        :func:`raster_tools.masking.get_default_null_value`.
+    **kwargs
+        Extra keyword arguments forwarded per-block to ``func``.
+
+    Returns
+    -------
+    Raster
+        A new lazy Raster on the first input's grid, carrying its mask.
+
+    Notes
+    -----
+    The per-block :class:`GeoBlockInfo` is always passed to ``func`` as
+    the keyword argument ``geo_block_info``. Functions that don't need
+    it can either accept and ignore it, or absorb it via ``**kwargs``.
+    Use it when you need the parent-array context the DataArray
+    doesn't carry: ``parent_affine``, ``parent_shape``,
+    ``chunk_location``, or the per-axis ``band_slice`` / ``row_slice``
+    / ``col_slice``.
+
+    Coords / CRS / nodata on a returned DataArray are not validated
+    against the input -- they're discarded; the output Raster's grid
+    comes from ``rasters[0]``.
+
+    Cross-input CRS or affine mismatches are not validated; the caller
+    is responsible. The output's mask is the first input's mask.
+    """
+    rasters, ref = _validate_aligned_rasters(rasters, "geo_map_blocks")
+    out_dtype = np.dtype(dtype) if dtype is not None else ref.dtype
+    out_nv = _resolve_null_value(null_value, ref.null_value, out_dtype)
+
+    nvs = [r.null_value for r in rasters]
+    n = len(rasters)
+    # Pre-build per-chunk GeoBlockInfos and look them up by chunk-location
+    # via dask's standard `block_info` injection. Avoids passing the GBI
+    # object array as a side-input dask array (which would have a chunk
+    # shape mismatch with the data inputs and break dask's shape
+    # inference).
+    gbi_lookup = geo_block_infos(ref)
+
+    def _wrapper(*block_args, block_info=None, **inner_kwargs):
+        # block_info is None during dask's meta-inference call; just
+        # echo back an empty same-dtype block to inform dask of the
+        # output dtype.
+        if block_info is None:
+            return np.empty(block_args[0].shape, dtype=out_dtype)
+        chunk_loc = block_info[0]["chunk-location"]
+        gbi = gbi_lookup[chunk_loc]
+        if pass_mask:
+            das = []
+            for i in range(n):
+                d = block_args[2 * i]
+                m = block_args[2 * i + 1]
+                xd, xm = gbi.to_dataarray(d, mask=m, nodata=nvs[i])
+                das.extend([xd, xm])
+        else:
+            das = [
+                gbi.to_dataarray(block_args[i], nodata=nvs[i])
+                for i in range(n)
+            ]
+        result = func(*das, geo_block_info=gbi, **inner_kwargs)
+        if hasattr(result, "values"):
+            return np.asarray(result.values)
+        return np.asarray(result)
+
+    inputs = []
+    for r in rasters:
+        inputs.append(r.data)
+        if pass_mask:
+            inputs.append(r.mask)
+    out_data = da.map_blocks(_wrapper, *inputs, dtype=out_dtype, **kwargs)
     return data_to_raster_like(out_data, ref, nv=out_nv)

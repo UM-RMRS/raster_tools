@@ -8,11 +8,13 @@ import raster_tools as rts  # noqa: F401
 import dask.array as da
 import numpy as np
 import pytest
+import xarray as xr
 from affine import Affine
 
 from raster_tools.blocks import (
     GeoBlockInfo,
     geo_block_infos_as_dask,
+    geo_map_blocks,
     map_blocks,
     map_overlap,
 )
@@ -821,3 +823,175 @@ def test_map_overlap_trim_false_grows_output():
     # untrimmed data only appears after compute.
     # 2 chunks of 50 along each spatial axis, each grown by 2 -> 52*2 = 104
     assert out.data.compute().shape == (1, 104, 104)
+
+
+# ---------------------------------------------------------------------------
+# geo_map_blocks
+# ---------------------------------------------------------------------------
+
+
+def test_geo_map_blocks_identity():
+    r = testdata.raster.dem_small.chunk((1, 50, 50))
+
+    def f(xda, **kw):
+        return xda
+
+    out = geo_map_blocks(f, r)
+    np.testing.assert_array_equal(out.data.compute(), r.data.compute())
+    assert out.crs == r.crs
+    assert out.affine == r.affine
+    assert out.dtype == r.dtype
+    assert out.null_value == r.null_value
+
+
+def test_geo_map_blocks_func_sees_coords_crs_nodata():
+    r = testdata.raster.dem_small.chunk((1, 50, 50))
+
+    def f(xda, geo_block_info=None, **kw):
+        assert isinstance(xda, xr.DataArray)
+        assert xda.dims == ("band", "y", "x")
+        assert xda.rio.crs == r.crs
+        assert xda.rio.nodata == r.null_value
+        # Coords must match this block's geobox.
+        assert isinstance(geo_block_info, GeoBlockInfo)
+        np.testing.assert_array_equal(xda.coords["x"].values, geo_block_info.x)
+        np.testing.assert_array_equal(xda.coords["y"].values, geo_block_info.y)
+        return xda
+
+    geo_map_blocks(f, r).data.compute()
+
+
+def test_geo_map_blocks_returns_dataarray():
+    r = testdata.raster.dem_small.chunk((1, 50, 50))
+
+    def f(xda, **kw):
+        return xda * 2
+
+    out = geo_map_blocks(f, r)
+    np.testing.assert_allclose(out.data.compute(), r.data.compute() * 2)
+
+
+def test_geo_map_blocks_returns_ndarray():
+    r = testdata.raster.dem_small.chunk((1, 50, 50))
+
+    def f(xda, **kw):
+        return xda.values * 3
+
+    out = geo_map_blocks(f, r)
+    np.testing.assert_allclose(out.data.compute(), r.data.compute() * 3)
+
+
+def test_geo_map_blocks_geo_block_info_kwarg_present():
+    r = testdata.raster.dem_small.chunk((1, 50, 50))
+    seen = []
+
+    def f(xda, geo_block_info=None, **kw):
+        seen.append(geo_block_info.chunk_location)
+        return xda
+
+    geo_map_blocks(f, r).data.compute()
+    # 2x2 spatial chunks -> 4 unique chunk locations.
+    assert sorted(set(seen)) == [
+        (0, 0, 0),
+        (0, 0, 1),
+        (0, 1, 0),
+        (0, 1, 1),
+    ]
+
+
+def test_geo_map_blocks_two_input_add():
+    r = testdata.raster.dem_small.chunk((1, 50, 50))
+
+    def f(a, b, **kw):
+        return a + b
+
+    out = geo_map_blocks(f, r, r)
+    np.testing.assert_allclose(out.data.compute(), r.data.compute() * 2)
+
+
+def test_geo_map_blocks_kwargs_forwarded():
+    r = testdata.raster.dem_small.chunk((1, 50, 50))
+
+    def f(xda, *, factor, **kw):
+        return xda * factor
+
+    out = geo_map_blocks(f, r, factor=4)
+    np.testing.assert_allclose(out.data.compute(), r.data.compute() * 4)
+
+
+def test_geo_map_blocks_pass_mask_single_input():
+    r = testdata.raster.dem_small.chunk((1, 50, 50))
+
+    def f(xda, xma, **kw):
+        assert isinstance(xda, xr.DataArray)
+        assert isinstance(xma, xr.DataArray)
+        assert xma.dtype == bool
+        # Coords aligned between data and mask DataArrays.
+        np.testing.assert_array_equal(
+            xda.coords["x"].values, xma.coords["x"].values
+        )
+        return xda + xma.astype(xda.dtype)
+
+    out = geo_map_blocks(f, r, pass_mask=True)
+    np.testing.assert_allclose(
+        out.data.compute(),
+        r.data.compute() + r.mask.compute().astype(r.dtype),
+    )
+
+
+def test_geo_map_blocks_pass_mask_two_input_interleaved():
+    r1 = testdata.raster.dem_small.chunk((1, 50, 50))
+    r2 = testdata.raster.dem_small.chunk((1, 50, 50))
+
+    def f(xda1, xma1, xda2, xma2, **kw):
+        assert xda1.dtype == r1.dtype and xda2.dtype == r2.dtype
+        assert xma1.dtype == bool and xma2.dtype == bool
+        return xda1 + xda2
+
+    out = geo_map_blocks(f, r1, r2, pass_mask=True)
+    np.testing.assert_allclose(
+        out.data.compute(), r1.data.compute() + r2.data.compute()
+    )
+
+
+def test_geo_map_blocks_dtype_change():
+    r = testdata.raster.dem_small.chunk((1, 50, 50))
+
+    def f(xda, **kw):
+        return xda.astype(np.int32)
+
+    out = geo_map_blocks(f, r, dtype=np.int32, null_value="default")
+    assert out.dtype == np.int32
+    assert out.null_value == get_default_null_value(np.dtype(np.int32))
+
+
+def test_geo_map_blocks_null_value_scalar_override():
+    r = testdata.raster.dem_small
+
+    def f(xda, **kw):
+        return xda
+
+    out = geo_map_blocks(f, r, null_value=42.0)
+    assert out.null_value == 42.0
+
+
+def test_geo_map_blocks_empty_rasters_raises():
+    with pytest.raises(ValueError, match="at least one"):
+        geo_map_blocks(lambda xda, **kw: xda)
+
+
+def test_geo_map_blocks_shape_mismatch_raises():
+    r1 = testdata.raster.dem_small
+    r2 = testdata.raster.dem
+    with pytest.raises(ValueError, match="raster 1 shape"):
+        geo_map_blocks(lambda a, b, **kw: a + b, r1, r2)
+
+
+def test_geo_map_blocks_preserves_first_input_grid():
+    r1 = testdata.raster.dem_small
+    r2 = testdata.raster.dem_small.set_null_value(99.0)
+    assert r2.null_value != r1.null_value
+    out = geo_map_blocks(lambda a, b, **kw: a + b, r1, r2)
+    assert out.crs == r1.crs
+    assert out.affine == r1.affine
+    assert out.null_value == r1.null_value
