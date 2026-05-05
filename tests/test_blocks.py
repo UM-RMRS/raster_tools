@@ -995,3 +995,55 @@ def test_geo_map_blocks_preserves_first_input_grid():
     assert out.crs == r1.crs
     assert out.affine == r1.affine
     assert out.null_value == r1.null_value
+
+
+def test_geo_map_blocks_different_crs_raises():
+    import raster_tools as rts_
+
+    r1 = testdata.raster.dem_small
+    # Same shape and coords as r1 but a different CRS.
+    r2 = rts_.data_to_raster(r1.data, x=r1.x, y=r1.y, crs="EPSG:4326")
+    assert r1.shape == r2.shape
+    assert r1.crs != r2.crs
+    with pytest.raises(ValueError, match="same grid"):
+        geo_map_blocks(lambda a, b, **kw: a + b, r1, r2)
+
+
+def test_geo_map_blocks_different_affine_raises():
+    import raster_tools as rts_
+
+    r1 = testdata.raster.dem_small
+    # Same shape and CRS but coords shifted by a full pixel: a
+    # different affine.
+    pixel = abs(r1.affine.a)
+    shifted_x = r1.x + pixel
+    r2 = rts_.data_to_raster(r1.data, x=shifted_x, y=r1.y, crs=r1.crs)
+    assert r1.shape == r2.shape
+    assert r1.crs == r2.crs
+    assert r1.affine != r2.affine
+    with pytest.raises(ValueError, match="same grid"):
+        geo_map_blocks(lambda a, b, **kw: a + b, r1, r2)
+
+
+def test_geo_map_blocks_aligned_succeeds_regression():
+    # Trivial alignment: two copies of the same raster succeed.
+    r = testdata.raster.dem_small
+    out = geo_map_blocks(lambda a, b, **kw: a + b, r, r)
+    np.testing.assert_allclose(out.data.compute(), r.data.compute() * 2)
+
+
+def test_geo_map_blocks_sub_pixel_fp_noise_tolerated():
+    import raster_tools as rts_
+    from raster_tools._grids import GRID_PIXEL_TOLERANCE
+
+    r1 = testdata.raster.dem_small
+    # Perturb the x coords by well under one pixel of FP noise. The
+    # grids_close tolerance should let this through.
+    pixel = abs(r1.affine.a)
+    noise = pixel * GRID_PIXEL_TOLERANCE * 0.1
+    perturbed_x = r1.x + noise
+    r2 = rts_.data_to_raster(r1.data, x=perturbed_x, y=r1.y, crs=r1.crs)
+    # Sanity: affines aren't bit-equal but are within tolerance.
+    assert r1.affine != r2.affine
+    out = geo_map_blocks(lambda a, b, **kw: a + b, r1, r2)
+    np.testing.assert_allclose(out.data.compute(), r1.data.compute() * 2)

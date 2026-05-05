@@ -22,6 +22,7 @@ import xarray as xr
 from affine import Affine
 from odc.geo.geobox import GeoBox
 
+from raster_tools._grids import are_all_grids_same
 from raster_tools.dask_utils import chunks_to_array_locations
 from raster_tools.dtypes import is_int
 from raster_tools.masking import get_default_null_value
@@ -335,7 +336,12 @@ def map_blocks(
         Must return a NumPy array of the same shape as ``data1``.
     *rasters : Raster or str
         One or more aligned input rasters. Path strings are accepted.
-        All inputs must share the same 3D shape.
+        Only the 3D shape is validated; CRS, affine, and chunk
+        alignment are *not* checked (mirroring ``gdal_calc.py``'s
+        default behavior). The caller is responsible for aligning
+        inputs -- typically via ``r2.reproject(r1.geobox)``. For a
+        geo-aware variant that strictly requires matching grids, see
+        :func:`geo_map_blocks`.
     pass_mask : bool, optional
         If ``True``, each input's boolean mask block is passed to
         ``func`` immediately after its data block (interleaved). Default
@@ -369,6 +375,13 @@ def map_blocks(
     need the null value(s) inside ``func``, capture them via
     ``**kwargs`` at the call site, e.g.
     ``map_blocks(f, r1, r2, nvs=(r1.null_value, r2.null_value))``.
+
+    See Also
+    --------
+    geo_map_blocks : Geo-aware variant that requires matching grids
+        and hands ``func`` coordinated ``xr.DataArray`` blocks.
+    raster_tools.Raster.reproject : Per-input alignment to a target
+        grid; pass ``r1.geobox`` to align ``r2`` to ``r1``.
     """
     if not rasters:
         raise ValueError("map_blocks requires at least one raster")
@@ -512,7 +525,12 @@ def map_overlap(
         block.
     *rasters : Raster or str
         One or more aligned input rasters. Path strings are accepted.
-        All inputs must share the same 3D shape.
+        Only the 3D shape is validated; CRS, affine, and chunk
+        alignment are *not* checked. The caller is responsible for
+        aligning inputs -- typically via ``r2.reproject(r1.geobox)``.
+        For a geo-aware variant that strictly requires matching grids,
+        see :func:`geo_map_blocks` (and the planned
+        ``geo_map_overlap``).
     depth : int, tuple of int, or dict
         Number of overlap cells per spatial axis. ``int`` applies to
         both ``y`` and ``x`` (band axis fixed at 0).
@@ -672,8 +690,11 @@ def geo_map_blocks(
         ``xr.DataArray`` (its ``.values`` are extracted) or a NumPy
         array of the same shape as a single data block.
     *rasters : Raster or str
-        One or more aligned input rasters. Path strings are accepted.
-        All inputs must share the same 3D shape.
+        One or more input rasters. Path strings are accepted. All
+        inputs must be on the same grid (CRS, affine, shape) within
+        the established sub-pixel tolerance; mismatched inputs raise
+        ``ValueError``. Use ``r2.reproject(r1.geobox)`` to align
+        inputs first if needed.
     pass_mask : bool, optional
         If ``True``, each input's boolean mask DataArray is passed to
         ``func`` immediately after its data DataArray (interleaved).
@@ -707,10 +728,23 @@ def geo_map_blocks(
     against the input -- they're discarded; the output Raster's grid
     comes from ``rasters[0]``.
 
-    Cross-input CRS or affine mismatches are not validated; the caller
-    is responsible. The output's mask is the first input's mask.
+    The output's mask is the first input's mask -- writing a new mask
+    via ``func`` is not supported in v1.
+
+    See Also
+    --------
+    map_blocks : Non-geo variant; permissive (shape-only check).
+    raster_tools.Raster.reproject : Per-input alignment to a target
+        grid; pass ``r1.geobox`` to align ``r2`` to ``r1``.
     """
     rasters, ref = _validate_aligned_rasters(rasters, "geo_map_blocks")
+    if not are_all_grids_same([r.geobox for r in rasters]):
+        raise ValueError(
+            "geo_map_blocks requires all input rasters to be on the "
+            "same grid (CRS, affine, shape). Use "
+            "Raster.reproject(crs_or_geobox=...) to align inputs "
+            "first, e.g. r2.reproject(r1.geobox)."
+        )
     out_dtype = np.dtype(dtype) if dtype is not None else ref.dtype
     out_nv = _resolve_null_value(null_value, ref.null_value, out_dtype)
 
