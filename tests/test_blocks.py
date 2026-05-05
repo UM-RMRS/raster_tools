@@ -1344,3 +1344,32 @@ def test_geo_map_overlap_different_affine_raises():
 def test_geo_map_overlap_empty_rasters_raises():
     with pytest.raises(ValueError, match="at least one"):
         geo_map_overlap(_identity_or_meta, depth=1, boundary="reflect")
+
+
+def test_geo_map_overlap_rechunks_when_chunks_smaller_than_depth():
+    # Input chunks (10) are smaller than depth (20). The wrapper
+    # should pre-rechunk so the in-wrapper GeoBlockInfo lookup keys
+    # match the per-call chunk-location after dask's overlap call.
+    r = testdata.raster.dem_small.chunk((1, 10, 10))
+    assert all(c < 20 for c in r.data.chunks[1])
+
+    out = geo_map_overlap(_identity_or_meta, r, depth=20, boundary="reflect")
+    np.testing.assert_array_equal(out.data.compute(), r.data.compute())
+    # Verify the rechunk actually happened: spatial chunks are now
+    # >= depth.
+    assert all(c >= 20 for c in out.data.chunks[1])
+
+
+def test_geo_map_overlap_rechunk_with_pass_mask():
+    # The mask should be rechunked alongside the data so pass_mask
+    # callbacks see matching shapes.
+    r = testdata.raster.dem_small.chunk((1, 10, 10))
+
+    def f(xda, xma, **kw):
+        if not all(s > 0 for s in xda.shape):
+            return xda
+        assert xda.shape == xma.shape
+        return xda + xma.astype(xda.dtype)
+
+    out = geo_map_overlap(f, r, depth=20, boundary="reflect", pass_mask=True)
+    np.testing.assert_allclose(out.data.compute(), r.data.compute())

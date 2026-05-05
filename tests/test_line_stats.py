@@ -285,7 +285,11 @@ def test_length(geoms, like, radius, truth, weight):
 
 
 def test_length_with_radius_larger_than_chunk():
-    # Rechunk so that right most chunk's width is less than the radius
+    # Rechunk so that right most chunk's width is less than the radius.
+    # The rechunk-to-fit-depth dance happens inside geo_map_overlap on
+    # a copy now, so the result lands back on the user's declared
+    # chunking (here (90, 10)) -- the user shouldn't have to know that
+    # internal rechunking happened.
     like = make_raster(
         "arange", shape=(1, 100, 100), chunksize=(1, 100, 90), crs="5070"
     )
@@ -297,7 +301,6 @@ def test_length_with_radius_larger_than_chunk():
     expected = Raster(np.zeros((100, 100))).set_crs("5070")
 
     result = line_stats.length(Vector(geoms), like, 20)
-    # Make sure actual chunk sizes match declared chunk sizes
     assert_valid_raster(result)
     assert np.allclose(result, expected)
-    assert result.data.chunks == ((1,), (100,), (80, 20))
+    assert result.data.chunks == ((1,), (100,), (90, 10))

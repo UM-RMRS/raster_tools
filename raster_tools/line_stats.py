@@ -238,10 +238,6 @@ def _length_chunk(xda, *, gdf, radius, field=None, geo_block_info=None):
     return np.expand_dims(length_grid, axis=0)
 
 
-def _check_if_dask_needs_rechunk(chunks, depth):
-    return any(c < depth for c in chunks)
-
-
 def length(features, like_rast, radius, weighting_field=None):
     """
     Calculate a raster where each cell is the net length of all features within
@@ -304,30 +300,6 @@ def length(features, like_rast, radius, weighting_field=None):
     gdf = features.to_crs(like_rast.crs).data
 
     xdepth, ydepth = np.ceil(radius / np.abs(like_rast.resolution)).astype(int)
-    # geo_map_overlap precomputes a per-chunk GeoBlockInfo lookup keyed
-    # by the input's chunk-location. If dask auto-rechunks under
-    # da.overlap.map_overlap (because a chunk is smaller than the depth
-    # on that axis), the per-call chunk-location refers to the
-    # rechunked grid and won't match the lookup. Pre-rechunk here to
-    # avoid that.
-    if any(
-        _check_if_dask_needs_rechunk(chunks, depth)
-        for chunks, depth in zip(
-            like_rast.data.chunks[1:], (ydepth, xdepth), strict=True
-        )
-    ):
-        like_rast = like_rast.copy()
-        grid_ds = like_rast._ds
-        grid_data = like_rast.data
-        new_chunks = tuple(
-            da.overlap.ensure_minimum_chunksize(depth, c)
-            for depth, c in zip(
-                (0, ydepth, xdepth), grid_data.chunks, strict=True
-            )
-        )
-        grid_ds.raster.data = grid_ds.raster.data.rechunk(new_chunks)
-        grid_ds.mask.data = grid_ds.mask.data.rechunk(new_chunks)
-        like_rast._ds = grid_ds
 
     partials = []
     for part in gdf.partitions:

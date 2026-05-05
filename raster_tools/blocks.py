@@ -460,6 +460,40 @@ def _normalize_depth(depth):
     raise TypeError(f"depth must be an int, 2-tuple, or dict; got {depth!r}")
 
 
+def _ensure_chunks_for_overlap(rasters, depth_dict):
+    """Rechunk inputs so each spatial chunk is at least ``depth`` wide.
+
+    ``geo_map_overlap`` builds a per-chunk :class:`GeoBlockInfo` lookup
+    from the input's pre-call chunking and keys it by
+    ``block_info[0]['chunk-location']``. If dask auto-rechunks under
+    ``da.overlap.map_overlap`` (because some chunk is smaller than the
+    depth on that axis), the in-wrapper chunk-location refers to the
+    rechunked grid and won't match the lookup. Pre-rechunking here
+    keeps both in sync.
+    """
+
+    def _depth_for_axis(axis):
+        d = depth_dict.get(axis, 0)
+        # Asymmetric (top, bottom) -> use the larger side as the
+        # minimum-chunk requirement (safe over-grow).
+        return max(d) if isinstance(d, tuple) else d
+
+    ref = rasters[0]
+    yx_chunks = ref.data.chunks[1:]
+    new_yx = tuple(
+        da.overlap.ensure_minimum_chunksize(d, c) if d else c
+        for d, c in zip(
+            (_depth_for_axis(1), _depth_for_axis(2)),
+            yx_chunks,
+            strict=True,
+        )
+    )
+    if new_yx == yx_chunks:
+        return rasters
+    new_chunks_3d = (ref.data.chunks[0], *new_yx)
+    return [r.chunk(new_chunks_3d) for r in rasters]
+
+
 def _resolve_boundary(boundary, raster):
     """Return ``(data_boundary, mask_boundary)`` for one raster.
 
@@ -944,6 +978,8 @@ def geo_map_overlap(
         )
 
     depth_dict = _normalize_depth(depth)
+    rasters = _ensure_chunks_for_overlap(rasters, depth_dict)
+    ref = rasters[0]  # rechunk may have changed ref's chunking
     nvs = [r.null_value for r in rasters]
     n = len(rasters)
     gbi_lookup = geo_block_infos(ref)
