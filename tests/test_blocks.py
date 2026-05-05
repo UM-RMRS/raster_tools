@@ -15,6 +15,7 @@ from raster_tools.blocks import (
     GeoBlockInfo,
     geo_block_infos_as_dask,
     geo_map_blocks,
+    geo_map_overlap,
     map_blocks,
     map_overlap,
 )
@@ -1136,3 +1137,228 @@ def test_map_blocks_null_value_default_uses_inferred_dtype():
     out = map_blocks(lambda a, b: a + b, r1, r2, null_value="default")
     assert out.dtype == np.float32
     assert out.null_value == get_default_null_value(np.dtype(np.float32))
+
+
+# ---------------------------------------------------------------------------
+# geo_map_overlap
+# ---------------------------------------------------------------------------
+
+
+def _identity_or_meta(xda, geo_block_info=None, **kw):
+    """Identity that tolerates dask's 0-shape meta call."""
+    return xda
+
+
+def test_geo_map_overlap_identity_depth_zero():
+    r = testdata.raster.dem_small.chunk((1, 50, 50))
+    out = geo_map_overlap(_identity_or_meta, r, depth=0)
+    np.testing.assert_array_equal(out.data.compute(), r.data.compute())
+    assert out.crs == r.crs
+    assert out.affine == r.affine
+    assert out.dtype == r.dtype
+
+
+def test_geo_map_overlap_3x3_mean_reflect():
+    r = testdata.raster.dem_small.chunk((1, 50, 50))
+
+    def block_3x3_mean(xda, **kw):
+        if not all(s > 0 for s in xda.shape):
+            return xda  # meta call
+        pad = xda.values[0]
+        out = np.zeros_like(pad, dtype=np.float32)
+        ih = pad.shape[0] - 2
+        iw = pad.shape[1] - 2
+        if ih > 0 and iw > 0:
+            s = np.zeros((ih, iw), dtype=np.float32)
+            for dy in range(3):
+                for dx in range(3):
+                    s += pad[dy : dy + ih, dx : dx + iw]
+            out[1:-1, 1:-1] = s / 9.0
+        return out[None]
+
+    out = geo_map_overlap(
+        block_3x3_mean, r, depth=1, boundary="reflect", dtype=np.float32
+    )
+    arr = r.data.compute()[0]
+    pad = np.pad(arr, 1, mode="symmetric")
+    expected = np.zeros_like(arr, dtype=np.float32)
+    for dy in range(3):
+        for dx in range(3):
+            expected += pad[dy : dy + arr.shape[0], dx : dx + arr.shape[1]]
+    expected /= 9.0
+    np.testing.assert_allclose(out.data.compute()[0], expected, rtol=1e-5)
+
+
+def test_geo_map_overlap_coords_reflect_overlap():
+    """The DataArray's coords cover the overlapped extent, not just
+    the chunk's original extent."""
+    r = testdata.raster.dem_small.chunk((1, 50, 50))
+    seen = []
+
+    def f(xda, geo_block_info=None, **kw):
+        if geo_block_info is not None and all(s > 0 for s in xda.shape):
+            seen.append(
+                (
+                    xda.shape,
+                    geo_block_info.shape,
+                    xda.coords["x"].values[0],
+                    xda.coords["x"].values[-1],
+                )
+            )
+        return xda
+
+    geo_map_overlap(f, r, depth=1, boundary="reflect").data.compute()
+    # All chunks under boundary='reflect' get padded by 1 on each side
+    # in both spatial axes -> 52x52.
+    for xda_shape, gbi_shape, _x_first, _x_last in seen:
+        assert xda_shape == gbi_shape == (1, 52, 52)
+
+
+def test_geo_map_overlap_geo_block_info_shape_matches_block():
+    r = testdata.raster.dem_small.chunk((1, 50, 50))
+
+    def f(xda, geo_block_info=None, **kw):
+        if geo_block_info is not None and all(s > 0 for s in xda.shape):
+            assert geo_block_info.shape == xda.shape
+            # row_slice / col_slice may have negative starts at edges.
+            assert isinstance(geo_block_info.row_slice, slice)
+            assert isinstance(geo_block_info.col_slice, slice)
+        return xda
+
+    geo_map_overlap(f, r, depth=1, boundary="reflect").data.compute()
+
+
+def test_geo_map_overlap_boundary_null_with_pass_mask():
+    r = testdata.raster.dem_small.set_null_value(-1.0).chunk((1, 50, 50))
+    captured = []
+
+    def grab(xda, xma, geo_block_info=None, **kw):
+        if all(s > 0 for s in xda.shape):
+            captured.append((xda.values.copy(), xma.values.copy()))
+        return xda
+
+    geo_map_overlap(
+        grab, r, depth=1, boundary="null", pass_mask=True
+    ).data.compute()
+    # On the (0, 0) corner chunk: top row and left column of the
+    # padded block are null fill (-1.0) and mask True.
+    found_top = any(
+        (d[0, 0, :] == -1.0).all() and m[0, 0, :].all() for d, m in captured
+    )
+    found_left = any(
+        (d[0, :, 0] == -1.0).all() and m[0, :, 0].all() for d, m in captured
+    )
+    assert found_top and found_left
+
+
+def test_geo_map_overlap_two_input_add():
+    r1 = testdata.raster.dem_small.chunk((1, 50, 50))
+    r2 = testdata.raster.dem_small.chunk((1, 50, 50))
+    out = geo_map_overlap(
+        lambda a, b, **kw: a + b,
+        r1,
+        r2,
+        depth=1,
+        boundary="reflect",
+    )
+    np.testing.assert_allclose(
+        out.data.compute(), r1.data.compute() + r2.data.compute()
+    )
+
+
+def test_geo_map_overlap_pass_mask_two_input_interleaved():
+    r1 = testdata.raster.dem_small.chunk((1, 50, 50))
+    r2 = testdata.raster.dem_small.chunk((1, 50, 50))
+
+    def f(xda1, xma1, xda2, xma2, **kw):
+        if not all(s > 0 for s in xda1.shape):
+            return xda1
+        assert xda1.dtype == r1.dtype and xda2.dtype == r2.dtype
+        assert xma1.dtype == bool and xma2.dtype == bool
+        assert xda1.shape == xma1.shape == xda2.shape == xma2.shape
+        return xda1 + xda2
+
+    out = geo_map_overlap(
+        f, r1, r2, depth=1, boundary="reflect", pass_mask=True
+    )
+    np.testing.assert_allclose(
+        out.data.compute(), r1.data.compute() + r2.data.compute()
+    )
+
+
+def test_geo_map_overlap_dtype_inferred_for_mixed_inputs():
+    r1 = testdata.raster.dem_small  # float32
+    r2 = _int16_copy(r1)
+    out = geo_map_overlap(
+        lambda a, b, **kw: a + b,
+        r1,
+        r2,
+        depth=1,
+        boundary="reflect",
+        null_value="default",
+    )
+    assert out.dtype == np.float32
+
+
+def test_geo_map_overlap_dtype_inferred_from_in_func_cast():
+    r = testdata.raster.dem_small  # float32
+    out = geo_map_overlap(
+        lambda xda, **kw: xda.astype(np.int32),
+        r,
+        depth=1,
+        boundary="reflect",
+        null_value="default",
+    )
+    assert out.dtype == np.int32
+
+
+def test_geo_map_overlap_null_value_default_uses_inferred_dtype():
+    r1 = testdata.raster.dem_small  # float32
+    r2 = _int16_copy(r1)
+    out = geo_map_overlap(
+        lambda a, b, **kw: a + b,
+        r1,
+        r2,
+        depth=1,
+        boundary="reflect",
+        null_value="default",
+    )
+    assert out.dtype == np.float32
+    assert out.null_value == get_default_null_value(np.dtype(np.float32))
+
+
+def test_geo_map_overlap_different_crs_raises():
+    import raster_tools as rts_
+
+    r1 = testdata.raster.dem_small
+    r2 = rts_.data_to_raster(r1.data, x=r1.x, y=r1.y, crs="EPSG:4326")
+    with pytest.raises(ValueError, match="same grid"):
+        geo_map_overlap(
+            lambda a, b, **kw: a + b, r1, r2, depth=1, boundary="reflect"
+        )
+
+
+def test_geo_map_overlap_different_affine_raises():
+    import raster_tools as rts_
+
+    r1 = testdata.raster.dem_small
+    pixel = abs(r1.affine.a)
+    r2 = rts_.data_to_raster(r1.data, x=r1.x + pixel, y=r1.y, crs=r1.crs)
+    with pytest.raises(ValueError, match="same grid"):
+        geo_map_overlap(
+            lambda a, b, **kw: a + b, r1, r2, depth=1, boundary="reflect"
+        )
+
+
+def test_geo_map_overlap_empty_rasters_raises():
+    with pytest.raises(ValueError, match="at least one"):
+        geo_map_overlap(_identity_or_meta, depth=1, boundary="reflect")
+
+
+def test_geo_map_overlap_trim_false_grows_output():
+    r = testdata.raster.dem_small.chunk((1, 50, 50))
+    out = geo_map_overlap(
+        _identity_or_meta, r, depth=1, boundary="reflect", trim=False
+    )
+    # 2 chunks of 50 along each spatial axis, each grown by 2 -> 52*2 = 104.
+    assert out.data.compute().shape == (1, 104, 104)
