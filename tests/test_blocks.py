@@ -817,15 +817,6 @@ def test_map_overlap_asymmetric_depth_with_reflect_propagates_dask_error():
         ).data.compute()
 
 
-def test_map_overlap_trim_false_grows_output():
-    r = testdata.raster.dem_small.chunk((1, 50, 50))
-    out = map_overlap(lambda b: b, r, depth=1, boundary="reflect", trim=False)
-    # dask's metadata still reports the trimmed shape; the actual
-    # untrimmed data only appears after compute.
-    # 2 chunks of 50 along each spatial axis, each grown by 2 -> 52*2 = 104
-    assert out.data.compute().shape == (1, 104, 104)
-
-
 # ---------------------------------------------------------------------------
 # geo_map_blocks
 # ---------------------------------------------------------------------------
@@ -1353,12 +1344,3 @@ def test_geo_map_overlap_different_affine_raises():
 def test_geo_map_overlap_empty_rasters_raises():
     with pytest.raises(ValueError, match="at least one"):
         geo_map_overlap(_identity_or_meta, depth=1, boundary="reflect")
-
-
-def test_geo_map_overlap_trim_false_grows_output():
-    r = testdata.raster.dem_small.chunk((1, 50, 50))
-    out = geo_map_overlap(
-        _identity_or_meta, r, depth=1, boundary="reflect", trim=False
-    )
-    # 2 chunks of 50 along each spatial axis, each grown by 2 -> 52*2 = 104.
-    assert out.data.compute().shape == (1, 104, 104)

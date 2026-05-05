@@ -501,17 +501,17 @@ def map_overlap(
     pass_mask=False,
     dtype=None,
     null_value=None,
-    trim=True,
     **kwargs,
 ):
     """Apply ``func`` block-wise with overlap across one or more rasters.
 
     Thin wrapper over :func:`dask.array.overlap.map_overlap`. Each call
     to ``func`` receives one block from each input raster, in the same
-    order, with ``depth`` extra cells of overlap on each side. With
-    ``trim=True`` (default) dask trims the overlap from the result; the
-    user function returns same-shape (overlap-included) blocks and
-    doesn't need to trim itself.
+    order, with ``depth`` extra cells of overlap on each side. dask
+    trims the overlap from the result before it's wrapped back into a
+    Raster on the input's grid, so the user function returns
+    same-shape (overlap-included) blocks and doesn't need to trim
+    itself.
 
     Parameters
     ----------
@@ -580,10 +580,6 @@ def map_overlap(
         input. A scalar is used as-is. The string ``"default"`` selects
         a dtype-appropriate default via
         :func:`raster_tools.masking.get_default_null_value`.
-    trim : bool, optional
-        If ``True`` (default), dask trims ``depth`` cells from each
-        block after applying ``func``. Set ``False`` if ``func``
-        already trims (or if you want the un-trimmed result).
     **kwargs
         Extra keyword arguments forwarded per-block to ``func``.
 
@@ -594,6 +590,11 @@ def map_overlap(
 
     Notes
     -----
+    The wrapper always trims overlap before returning so the result
+    matches the input grid. If you need un-trimmed output, call
+    :func:`dask.array.overlap.map_overlap` directly on
+    ``raster.data``.
+
     Asymmetric per-side depths are only supported with no padding
     (``boundary=None`` or ``"none"``). Combining asymmetric depth with
     a non-``"none"`` boundary will produce a dask error.
@@ -638,7 +639,6 @@ def map_overlap(
         *inputs,
         depth=depths,
         boundary=boundaries,
-        trim=trim,
         dtype=dtype,
         **kwargs,
     )
@@ -834,7 +834,6 @@ def geo_map_overlap(
     pass_mask=False,
     dtype=None,
     null_value=None,
-    trim=True,
     **kwargs,
 ):
     """Apply ``func`` block-wise with overlap, handing it coordinated
@@ -842,10 +841,10 @@ def geo_map_overlap(
 
     Same shape and contract as :func:`geo_map_blocks` but adds the
     overlap machinery from :func:`map_overlap` (``depth``,
-    ``boundary``, ``trim``, the data/mask boundary correspondence
-    rule). Each ``xr.DataArray`` block includes the overlap region,
-    and its coords reflect the overlapped extent (top-left corner
-    shifted outward by the per-side pad).
+    ``boundary``, the data/mask boundary correspondence rule). Each
+    ``xr.DataArray`` block includes the overlap region, and its
+    coords reflect the overlapped extent (top-left corner shifted
+    outward by the per-side pad).
 
     Parameters
     ----------
@@ -856,10 +855,11 @@ def geo_map_overlap(
         interleaved immediately after its data DataArray:
         ``(xda1, xma1, xda2, xma2, ..., xdaN, xmaN,
         geo_block_info=gbi, **kwargs)``. Each block already includes
-        the overlap region; ``trim=True`` (default) removes it after
-        the function returns. May return either an ``xr.DataArray``
-        (its ``.values`` are extracted) or a NumPy array of the same
-        shape as a single (overlap-included) data block.
+        the overlap region; the wrapper trims it after the function
+        returns so the result lands on the input's grid. May return
+        either an ``xr.DataArray`` (its ``.values`` are extracted) or
+        a NumPy array of the same shape as a single
+        (overlap-included) data block.
     *rasters : Raster or str
         One or more input rasters. Path strings are accepted. All
         inputs must be on the same grid (CRS, affine, shape) within
@@ -886,9 +886,6 @@ def geo_map_overlap(
         input. A scalar is used as-is. The string ``"default"`` selects
         a dtype-appropriate default via
         :func:`raster_tools.masking.get_default_null_value`.
-    trim : bool, optional
-        If ``True`` (default), dask trims ``depth`` cells from each
-        block after applying ``func``.
     **kwargs
         Extra keyword arguments forwarded per-block to ``func``.
 
@@ -899,6 +896,11 @@ def geo_map_overlap(
 
     Notes
     -----
+    The wrapper always trims overlap before returning so the result
+    matches the input grid. If you need un-trimmed output, call
+    :func:`dask.array.overlap.map_overlap` directly on
+    ``raster.data``.
+
     The per-block :class:`GeoBlockInfo` is always passed to ``func`` as
     ``geo_block_info`` and reflects the **overlapped** extent: its
     ``shape`` matches the data block (including overlap), ``geobox``
@@ -1025,7 +1027,6 @@ def geo_map_overlap(
         *inputs,
         depth=depths,
         boundary=boundaries,
-        trim=trim,
         dtype=dtype,
         **kwargs,
     )
