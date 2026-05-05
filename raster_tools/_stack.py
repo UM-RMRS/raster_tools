@@ -10,7 +10,7 @@ from raster_tools._grids import are_all_grids_same, combine_grids
 from raster_tools.utils import null_values_equal
 from raster_tools.warp import SUPPORTED_RESAMPLE_METHODS
 
-__all__ = ["stack_bands"]
+__all__ = ["split_bands", "stack_bands"]
 
 
 def _cast_if_needed(raster, dtype, nodata):
@@ -244,3 +244,31 @@ def stack_bands(
     return rts.data_to_raster(
         data, mask=mask, x=x, y=y, crs=dst_grid.crs, nv=nodata
     )
+
+
+def split_bands(raster):
+    """Split a multi-band raster into a list of single-band rasters.
+
+    The inverse of :func:`stack_bands` for a single input. The returned
+    rasters preserve the source CRS, grid, dtype, and per-band null mask.
+    The list has length ``raster.nbands`` and bands appear in their
+    original order. Each output raster has its band coordinate reset to 1.
+
+    Parameters
+    ----------
+    raster : raster_tools.Raster
+        The raster to split. A single-band input returns a one-element
+        list.
+
+    Returns
+    -------
+    list of raster_tools.Raster
+
+    See Also
+    --------
+    stack_bands : Inverse operation.
+
+    """
+    if not isinstance(raster, rts.Raster):
+        raise TypeError("raster must be a Raster")
+    return [raster.get_bands(b) for b in range(1, raster.nbands + 1)]

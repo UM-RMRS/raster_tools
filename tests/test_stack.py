@@ -8,7 +8,7 @@ import raster_tools as rts  # noqa: F401
 import numpy as np
 import pytest
 
-from raster_tools._stack import stack_bands
+from raster_tools._stack import split_bands, stack_bands
 from raster_tools.masking import get_default_null_value
 from tests import testdata
 from tests.utils import assert_rasters_equal, assert_valid_raster, make_raster
@@ -477,3 +477,93 @@ def test_differing_input_chunks_rechunked_for_concat():
     y_chunks, x_chunks = result.data.chunks[1], result.data.chunks[2]
     assert sum(y_chunks) == 6
     assert sum(x_chunks) == 6
+
+
+# -- split_bands -------------------------------------------------------------
+
+
+def test_split_bands_single_band():
+    y = np.arange(3)[::-1]
+    x = np.arange(3)
+    r = _raster(np.ones((3, 3), dtype=int), y, x)
+    parts = split_bands(r)
+    assert isinstance(parts, list)
+    assert len(parts) == 1
+    assert_valid_raster(parts[0])
+    assert parts[0].nbands == 1
+    assert_rasters_equal(parts[0], r, check_chunks=False)
+
+
+def test_split_bands_multi_band():
+    y = np.arange(3)[::-1]
+    x = np.arange(3)
+    data = np.stack(
+        [
+            np.full((3, 3), 1, dtype=int),
+            np.full((3, 3), 2, dtype=int),
+            np.full((3, 3), 3, dtype=int),
+        ]
+    )
+    r = _raster(data, y, x)
+    parts = split_bands(r)
+    assert len(parts) == 3
+    for i, p in enumerate(parts, start=1):
+        assert_valid_raster(p)
+        assert p.nbands == 1
+        assert int(p._ds.band.values[0]) == 1
+        assert (p.to_numpy()[0] == i).all()
+        assert p.crs == r.crs
+        assert p.dtype == r.dtype
+
+
+def test_split_bands_preserves_null_mask():
+    y = np.arange(3)[::-1]
+    x = np.arange(3)
+    data = np.stack(
+        [
+            np.array([[1, 2, 3], [4, 5, 6], [o, 8, 9]]),
+            np.array([[o, 2, 3], [4, 5, 6], [7, 8, 9]]),
+        ]
+    )
+    r = _raster(data, y, x)
+    parts = split_bands(r)
+    assert parts[0].mask.compute()[0, 2, 0]
+    assert not parts[0].mask.compute()[0, 0, 0]
+    assert parts[1].mask.compute()[0, 0, 0]
+    assert not parts[1].mask.compute()[0, 2, 0]
+
+
+def test_split_bands_round_trip():
+    y = np.arange(3)[::-1]
+    x = np.arange(3)
+    data = np.stack(
+        [
+            np.full((3, 3), 1, dtype=int),
+            np.full((3, 3), 2, dtype=int),
+            np.full((3, 3), 3, dtype=int),
+        ]
+    )
+    r = _raster(data, y, x)
+    rebuilt = stack_bands(split_bands(r))
+    assert_rasters_equal(rebuilt, r, check_chunks=False)
+
+
+def test_split_bands_rejects_non_raster():
+    with pytest.raises(TypeError):
+        split_bands(np.zeros((2, 3, 3)))
+
+
+def test_raster_split_bands_method():
+    y = np.arange(3)[::-1]
+    x = np.arange(3)
+    data = np.stack(
+        [
+            np.full((3, 3), 1, dtype=int),
+            np.full((3, 3), 2, dtype=int),
+        ]
+    )
+    r = _raster(data, y, x)
+    parts = r.split_bands()
+    assert len(parts) == 2
+    assert (parts[0].to_numpy()[0] == 1).all()
+    assert (parts[1].to_numpy()[0] == 2).all()

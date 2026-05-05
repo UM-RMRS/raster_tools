@@ -2002,6 +2002,20 @@ class Raster(_RasterBase):
         ds["band"] = np.arange(len(bands)) + 1
         return Raster(ds, _fast_path=True)
 
+    def split_bands(self):
+        """Split this raster into a list of single-band rasters.
+
+        See :func:`raster_tools.split_bands` for details.
+
+        Returns
+        -------
+        list of Raster
+
+        """
+        from raster_tools._stack import split_bands
+
+        return split_bands(self)
+
     def set_crs(self, crs):
         """Set the CRS for the underlying data.
 
