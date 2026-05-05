@@ -347,8 +347,10 @@ def map_blocks(
         ``func`` immediately after its data block (interleaved). Default
         ``False``.
     dtype : dtype-like, optional
-        Output dtype. Defaults to the first input's dtype. Forwarded to
-        :func:`dask.array.map_blocks`.
+        Output dtype. When ``None`` (default), dask infers the dtype
+        by calling ``func`` on tiny meta samples (matches NumPy
+        promotion for the typical elementwise case, and reflects any
+        in-func cast such as ``.astype``).
     null_value : scalar or str, optional
         Output null value. ``None`` (default) inherits from the first
         input. A scalar is used as-is. The string ``"default"`` selects
@@ -393,14 +395,12 @@ def map_blocks(
                 f"raster {i} shape {r.shape} does not match raster 0 "
                 f"shape {ref.shape}"
             )
-    out_dtype = np.dtype(dtype) if dtype is not None else ref.dtype
-    out_nv = _resolve_null_value(null_value, ref.null_value, out_dtype)
-
     if pass_mask:
         inputs = [arr for r in rasters for arr in (r.data, r.mask)]
     else:
         inputs = [r.data for r in rasters]
-    out_data = da.map_blocks(func, *inputs, dtype=out_dtype, **kwargs)
+    out_data = da.map_blocks(func, *inputs, dtype=dtype, **kwargs)
+    out_nv = _resolve_null_value(null_value, ref.null_value, out_data.dtype)
     return data_to_raster_like(out_data, ref, nv=out_nv)
 
 
@@ -570,7 +570,10 @@ def map_overlap(
         ``func`` immediately after its data block (interleaved).
         Default ``False``.
     dtype : dtype-like, optional
-        Output dtype. Defaults to the first input's dtype.
+        Output dtype. When ``None`` (default), dask infers the dtype
+        by calling ``func`` on tiny meta samples (matches NumPy
+        promotion for the typical elementwise case, and reflects any
+        in-func cast such as ``.astype``).
     null_value : scalar or str, optional
         Output null value. ``None`` (default) inherits from the first
         input. A scalar is used as-is. The string ``"default"`` selects
@@ -611,9 +614,6 @@ def map_overlap(
                 f"raster {i} shape {r.shape} does not match raster 0 "
                 f"shape {ref.shape}"
             )
-    out_dtype = np.dtype(dtype) if dtype is not None else ref.dtype
-    out_nv = _resolve_null_value(null_value, ref.null_value, out_dtype)
-
     depth_dict = _normalize_depth(depth)
     # TODO: pre-validate (asymmetric depth + non-'none' boundary) with
     # a friendlier error than dask's.
@@ -638,9 +638,10 @@ def map_overlap(
         depth=depths,
         boundary=boundaries,
         trim=trim,
-        dtype=out_dtype,
+        dtype=dtype,
         **kwargs,
     )
+    out_nv = _resolve_null_value(null_value, ref.null_value, out_data.dtype)
     return data_to_raster_like(out_data, ref, nv=out_nv)
 
 
@@ -700,7 +701,10 @@ def geo_map_blocks(
         ``func`` immediately after its data DataArray (interleaved).
         Default ``False``.
     dtype : dtype-like, optional
-        Output dtype. Defaults to the first input's dtype.
+        Output dtype. When ``None`` (default), dask infers the dtype
+        by calling ``func`` on tiny meta samples (matches NumPy
+        promotion for the typical elementwise case, and reflects any
+        in-func cast such as ``.astype``).
     null_value : scalar or str, optional
         Output null value. ``None`` (default) inherits from the first
         input. A scalar is used as-is. The string ``"default"`` selects
@@ -731,6 +735,11 @@ def geo_map_blocks(
     The output's mask is the first input's mask -- writing a new mask
     via ``func`` is not supported in v1.
 
+    During dask's dtype-inference meta call, ``func`` is invoked once
+    with 0-shape DataArrays (no coords) and ``geo_block_info=None``.
+    Most NumPy / xarray ops handle this fine; if your function can't,
+    pass ``dtype=`` explicitly to skip inference.
+
     See Also
     --------
     map_blocks : Non-geo variant; permissive (shape-only check).
@@ -745,9 +754,6 @@ def geo_map_blocks(
             "Raster.reproject(crs_or_geobox=...) to align inputs "
             "first, e.g. r2.reproject(r1.geobox)."
         )
-    out_dtype = np.dtype(dtype) if dtype is not None else ref.dtype
-    out_nv = _resolve_null_value(null_value, ref.null_value, out_dtype)
-
     nvs = [r.null_value for r in rasters]
     n = len(rasters)
     # Pre-build per-chunk GeoBlockInfos and look them up by chunk-location
@@ -757,12 +763,39 @@ def geo_map_blocks(
     # inference).
     gbi_lookup = geo_block_infos(ref)
 
+    def _meta_dataarray(arr):
+        # Build a placeholder DataArray for dask's meta-inference call.
+        # `arr` may have any shape (often (1, 0, 0)); construct coords
+        # matching each axis length so xarray's validation passes.
+        nb, ny, nx = arr.shape
+        return xr.DataArray(
+            arr,
+            dims=("band", "y", "x"),
+            coords={
+                "band": np.arange(nb, dtype="int64"),
+                "y": np.zeros(ny, dtype="float64"),
+                "x": np.zeros(nx, dtype="float64"),
+            },
+        )
+
     def _wrapper(*block_args, block_info=None, **inner_kwargs):
-        # block_info is None during dask's meta-inference call; just
-        # echo back an empty same-dtype block to inform dask of the
-        # output dtype.
+        # block_info is None during dask's meta-inference call. Run
+        # the user's func on empty DataArrays so dask can read the
+        # actual output dtype (mirrors dask.map_blocks's standard
+        # inference).
         if block_info is None:
-            return np.empty(block_args[0].shape, dtype=out_dtype)
+            if pass_mask:
+                das = []
+                for i in range(n):
+                    d = block_args[2 * i]
+                    m = block_args[2 * i + 1]
+                    das.extend([_meta_dataarray(d), _meta_dataarray(m)])
+            else:
+                das = [_meta_dataarray(block_args[i]) for i in range(n)]
+            result = func(*das, geo_block_info=None, **inner_kwargs)
+            if hasattr(result, "values"):
+                return np.asarray(result.values)
+            return np.asarray(result)
         chunk_loc = block_info[0]["chunk-location"]
         gbi = gbi_lookup[chunk_loc]
         if pass_mask:
@@ -787,5 +820,6 @@ def geo_map_blocks(
         inputs.append(r.data)
         if pass_mask:
             inputs.append(r.mask)
-    out_data = da.map_blocks(_wrapper, *inputs, dtype=out_dtype, **kwargs)
+    out_data = da.map_blocks(_wrapper, *inputs, dtype=dtype, **kwargs)
+    out_nv = _resolve_null_value(null_value, ref.null_value, out_data.dtype)
     return data_to_raster_like(out_data, ref, nv=out_nv)

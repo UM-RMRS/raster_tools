@@ -848,11 +848,13 @@ def test_geo_map_blocks_func_sees_coords_crs_nodata():
     r = testdata.raster.dem_small.chunk((1, 50, 50))
 
     def f(xda, geo_block_info=None, **kw):
+        # Skip dask's dtype-inference meta call (geo_block_info is None).
+        if geo_block_info is None:
+            return xda
         assert isinstance(xda, xr.DataArray)
         assert xda.dims == ("band", "y", "x")
         assert xda.rio.crs == r.crs
         assert xda.rio.nodata == r.null_value
-        # Coords must match this block's geobox.
         assert isinstance(geo_block_info, GeoBlockInfo)
         np.testing.assert_array_equal(xda.coords["x"].values, geo_block_info.x)
         np.testing.assert_array_equal(xda.coords["y"].values, geo_block_info.y)
@@ -886,7 +888,10 @@ def test_geo_map_blocks_geo_block_info_kwarg_present():
     seen = []
 
     def f(xda, geo_block_info=None, **kw):
-        seen.append(geo_block_info.chunk_location)
+        # geo_block_info is None during dask's meta inference; only
+        # collect chunk locations from the real per-chunk calls.
+        if geo_block_info is not None:
+            seen.append(geo_block_info.chunk_location)
         return xda
 
     geo_map_blocks(f, r).data.compute()
@@ -1047,3 +1052,87 @@ def test_geo_map_blocks_sub_pixel_fp_noise_tolerated():
     assert r1.affine != r2.affine
     out = geo_map_blocks(lambda a, b, **kw: a + b, r1, r2)
     np.testing.assert_allclose(out.data.compute(), r1.data.compute() * 2)
+
+
+# ---------------------------------------------------------------------------
+# dtype inference (mirror dask)
+# ---------------------------------------------------------------------------
+
+
+def _int16_copy(r):
+    """Return a copy of `r` cast to int16, on the same grid."""
+    import raster_tools as rts_
+
+    return rts_.data_to_raster(
+        r.data.astype(np.int16), x=r.x, y=r.y, crs=r.crs
+    )
+
+
+def test_map_blocks_dtype_inferred_for_mixed_inputs():
+    r1 = testdata.raster.dem_small  # float32
+    r2 = _int16_copy(r1)
+    out = map_blocks(lambda a, b: a + b, r1, r2, null_value="default")
+    # NumPy promotion: float32 + int16 -> float32. dask infers it.
+    assert out.dtype == np.float32
+
+
+def test_map_blocks_dtype_inferred_from_in_func_cast():
+    r = testdata.raster.dem_small  # float32
+    out = map_blocks(lambda x: x.astype(np.int32), r, null_value="default")
+    # If we used np.result_type on inputs we'd get float32.
+    # Inferring via the actual function call yields int32.
+    assert out.dtype == np.int32
+
+
+def test_map_blocks_explicit_dtype_overrides_inference():
+    r = _int16_copy(testdata.raster.dem_small)  # int16
+    out = map_blocks(
+        lambda x: x.astype(np.float64),
+        r,
+        dtype=np.float64,
+        null_value="default",
+    )
+    assert out.dtype == np.float64
+
+
+def test_map_overlap_dtype_inferred_for_mixed_inputs():
+    r1 = testdata.raster.dem_small  # float32
+    r2 = _int16_copy(r1)
+    out = map_overlap(
+        lambda a, b: a + b,
+        r1,
+        r2,
+        depth=1,
+        boundary="reflect",
+        null_value="default",
+    )
+    assert out.dtype == np.float32
+
+
+def test_geo_map_blocks_dtype_inferred_for_mixed_inputs():
+    r1 = testdata.raster.dem_small  # float32
+    r2 = _int16_copy(r1)
+    out = geo_map_blocks(
+        lambda a, b, **kw: a + b, r1, r2, null_value="default"
+    )
+    assert out.dtype == np.float32
+
+
+def test_geo_map_blocks_dtype_inferred_from_in_func_cast():
+    r = testdata.raster.dem_small  # float32
+    out = geo_map_blocks(
+        lambda xda, **kw: xda.astype(np.int32),
+        r,
+        null_value="default",
+    )
+    assert out.dtype == np.int32
+
+
+def test_map_blocks_null_value_default_uses_inferred_dtype():
+    # When dtype is inferred to float32 (the promoted result), the
+    # "default" null should be the float32 default, NOT int16's.
+    r1 = testdata.raster.dem_small  # float32
+    r2 = _int16_copy(r1)
+    out = map_blocks(lambda a, b: a + b, r1, r2, null_value="default")
+    assert out.dtype == np.float32
+    assert out.null_value == get_default_null_value(np.dtype(np.float32))
