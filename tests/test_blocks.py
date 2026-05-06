@@ -596,7 +596,13 @@ def test_map_blocks_kwargs_only_func_gets_no_injection():
 
 
 @pytest.mark.parametrize(
-    "name", ["input_masks", "input_null_values", "block_info"]
+    "name",
+    [
+        "input_masks",
+        "input_null_values",
+        "block_info",
+        "out_null_value",
+    ],
 )
 def test_map_blocks_reserved_name_collision_raises(name):
     r = make_raster(shape=(1, 100, 100), dtype=np.float32)
@@ -604,10 +610,82 @@ def test_map_blocks_reserved_name_collision_raises(name):
         map_blocks(lambda d, **kw: d, r, **{name: "anything"})
 
 
+def test_map_blocks_out_null_value_inherits_for_single_input():
+    # Single input + dtype unchanged -> out_null_value matches the
+    # input's null_value (the inherit-on-single-input rule).
+    # NOTE: when dtype is None the meta call sees a typed-zero
+    # placeholder, so `seen` may include 0.0 in addition to the
+    # resolved value. Check for membership rather than uniformity.
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32, null=-1.0)
+    seen = []
+
+    def f(d, *, out_null_value):
+        seen.append(out_null_value)
+        return d
+
+    map_blocks(f, r).data.compute()
+    assert -1.0 in seen
+
+
+def test_map_blocks_out_null_value_dtype_default_when_dtype_changes():
+    # Explicit dtype skips the meta call: every entry in `seen` is
+    # the resolved value.
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32, null=-1.0)
+    seen = []
+
+    def f(d, *, out_null_value):
+        seen.append(out_null_value)
+        return d.astype(np.int32)
+
+    map_blocks(f, r, dtype=np.int32).data.compute()
+    expected = get_default_null_value(np.dtype(np.int32))
+    assert seen and all(v == expected for v in seen)
+
+
+def test_map_blocks_out_null_value_dtype_default_inferred():
+    # No explicit dtype -- the wrapper runs apply_infer_dtype to
+    # resolve out_null_value upfront. Real per-chunk calls see the
+    # resolved value; the meta call sees the placeholder.
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32, null=-1.0)
+    seen = []
+
+    def f(d, *, out_null_value):
+        seen.append(out_null_value)
+        return d.astype(np.int32)
+
+    map_blocks(f, r).data.compute()
+    expected = get_default_null_value(np.dtype(np.int32))
+    assert expected in seen
+
+
+def test_map_blocks_out_null_value_scalar_override():
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32, null=-1.0)
+    seen = []
+
+    def f(d, *, out_null_value):
+        seen.append(out_null_value)
+        return d
+
+    map_blocks(f, r, null_value=42.0).data.compute()
+    assert 42.0 in seen
+
+
+def test_map_blocks_no_injection_when_func_does_not_name_out_null_value():
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32)
+
+    def f(d, **kw):
+        assert "out_null_value" not in kw
+        return d
+
+    map_blocks(f, r).data.compute()
+
+
 def test_map_blocks_mask_round_trip():
-    # User opts in to input_masks; writes the resolved null_value at
-    # the originally-masked cells; verify those land in the output mask.
-    # Pass null_value explicitly so it matches what func writes.
+    # User opts in to input_masks AND out_null_value; writes the
+    # resolved null at the masked cells; verify those land in the
+    # output mask. No explicit null_value is needed -- the
+    # single-input-dtype-match inherit rule resolves out_null_value
+    # to the input's -1.0.
     r = make_raster(
         shape=(1, 100, 100),
         dtype=np.float32,
@@ -615,11 +693,11 @@ def test_map_blocks_mask_round_trip():
         null_pattern=np.s_[:, :10, :10],
     )
 
-    def fill_nulls(d, *, input_masks):
+    def fill_nulls(d, *, input_masks, out_null_value):
         (m,) = input_masks
-        return np.where(m, np.float32(-1.0), d)
+        return np.where(m, out_null_value, d)
 
-    out = map_blocks(fill_nulls, r, null_value=-1.0)
+    out = map_blocks(fill_nulls, r)
     np.testing.assert_array_equal(out.mask.compute(), r.mask.compute())
 
 
