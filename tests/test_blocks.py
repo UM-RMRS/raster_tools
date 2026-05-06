@@ -21,7 +21,13 @@ from raster_tools.blocks import (
     map_overlap,
 )
 from raster_tools.masking import get_default_null_value
-from tests import testdata
+from tests.utils import make_raster
+
+# Module-level reference affine for the parametrize decorators
+# (Affine is immutable; it's safe to cache across tests. The
+# project's "fresh fixture per test" rule applies to Raster objects,
+# which we still build inside each test body.)
+_BLOCKS_AFFINE = make_raster(shape=(1, 100, 100), dtype=np.float32).affine
 
 
 def _make_block_info(
@@ -45,7 +51,9 @@ def _make_block_info(
 
 
 def test_geoblockinfo_creation():
-    raster = testdata.raster.dem_small.chunk((1, 50, 50))
+    raster = make_raster(
+        shape=(1, 100, 100), dtype=np.float32, chunksize=(1, 50, 50)
+    )
     chunk_raster = raster.get_chunk_rasters().ravel()[1]
     geobox = chunk_raster.geobox
     gbi = GeoBlockInfo(
@@ -74,7 +82,7 @@ def test_geoblockinfo_creation():
 
 
 def test_geoblockinfo_to_dataarray():
-    raster = testdata.raster.dem_small
+    raster = make_raster(shape=(1, 100, 100), dtype=np.float32)
     gbi = _make_block_info(raster)
     data = np.arange(np.prod(gbi.shape), dtype=np.float32).reshape(gbi.shape)
     da_only = gbi.to_dataarray(data, nodata=-9999.0)
@@ -95,7 +103,7 @@ def test_geoblockinfo_to_dataarray():
 
 
 def test_geoblockinfo_to_dataarray_shape_mismatch():
-    raster = testdata.raster.dem_small
+    raster = make_raster(shape=(1, 100, 100), dtype=np.float32)
     gbi = _make_block_info(raster)
     bad = np.zeros((1, 50, 50), dtype=np.float32)
     with pytest.raises(ValueError):
@@ -114,7 +122,7 @@ def test_geoblockinfo_to_dataarray_shape_mismatch():
             "pad_y",
             (1, 0),
             (1, 101, 100),
-            testdata.raster.dem_small.affine * Affine.translation(0, -1),
+            _BLOCKS_AFFINE * Affine.translation(0, -1),
             slice(-1, 100),
             slice(0, 100),
         ),
@@ -122,7 +130,7 @@ def test_geoblockinfo_to_dataarray_shape_mismatch():
             "pad_y",
             (-1, 0),
             (1, 99, 100),
-            testdata.raster.dem_small.affine * Affine.translation(0, 1),
+            _BLOCKS_AFFINE * Affine.translation(0, 1),
             slice(1, 100),
             slice(0, 100),
         ),
@@ -130,7 +138,7 @@ def test_geoblockinfo_to_dataarray_shape_mismatch():
             "pad_y",
             (1, 1),
             (1, 102, 100),
-            testdata.raster.dem_small.affine * Affine.translation(0, -1),
+            _BLOCKS_AFFINE * Affine.translation(0, -1),
             slice(-1, 101),
             slice(0, 100),
         ),
@@ -139,7 +147,7 @@ def test_geoblockinfo_to_dataarray_shape_mismatch():
             "pad_x",
             (1, 0),
             (1, 100, 101),
-            testdata.raster.dem_small.affine * Affine.translation(-1, 0),
+            _BLOCKS_AFFINE * Affine.translation(-1, 0),
             slice(0, 100),
             slice(-1, 100),
         ),
@@ -147,7 +155,7 @@ def test_geoblockinfo_to_dataarray_shape_mismatch():
             "pad_x",
             (1, 2),
             (1, 100, 103),
-            testdata.raster.dem_small.affine * Affine.translation(-1, 0),
+            _BLOCKS_AFFINE * Affine.translation(-1, 0),
             slice(0, 100),
             slice(-1, 102),
         ),
@@ -156,7 +164,7 @@ def test_geoblockinfo_to_dataarray_shape_mismatch():
 def test_geoblockinfo_pad_axes(
     method, args, expected_shape, expected_affine, expected_row, expected_col
 ):
-    raster = testdata.raster.dem_small
+    raster = make_raster(shape=(1, 100, 100), dtype=np.float32)
     gbi = _make_block_info(raster)
     new = getattr(gbi, method)(*args)
     assert new.shape == expected_shape
@@ -175,28 +183,28 @@ def test_geoblockinfo_pad_axes(
         (
             (0, 0),
             (1, 100, 100),
-            testdata.raster.dem_small.affine,
+            _BLOCKS_AFFINE,
             slice(0, 100),
             slice(0, 100),
         ),
         (
             (1, None),
             (1, 102, 102),
-            testdata.raster.dem_small.affine * Affine.translation(-1, -1),
+            _BLOCKS_AFFINE * Affine.translation(-1, -1),
             slice(-1, 101),
             slice(-1, 101),
         ),
         (
             (1, 2),
             (1, 102, 104),
-            testdata.raster.dem_small.affine * Affine.translation(-2, -1),
+            _BLOCKS_AFFINE * Affine.translation(-2, -1),
             slice(-1, 101),
             slice(-2, 102),
         ),
         (
             (-1, None),
             (1, 98, 98),
-            testdata.raster.dem_small.affine * Affine.translation(1, 1),
+            _BLOCKS_AFFINE * Affine.translation(1, 1),
             slice(1, 99),
             slice(1, 99),
         ),
@@ -205,7 +213,7 @@ def test_geoblockinfo_pad_axes(
 def test_geoblockinfo_pad_symmetric(
     args, expected_shape, expected_affine, expected_row, expected_col
 ):
-    raster = testdata.raster.dem_small
+    raster = make_raster(shape=(1, 100, 100), dtype=np.float32)
     gbi = _make_block_info(raster)
     new = gbi.pad(*args)
     assert new.shape == expected_shape
@@ -223,14 +231,14 @@ def test_geoblockinfo_pad_symmetric(
         (
             "shift_y",
             (1,),
-            testdata.raster.dem_small.affine * Affine.translation(0, 1),
+            _BLOCKS_AFFINE * Affine.translation(0, 1),
             slice(1, 101),
             slice(0, 100),
         ),
         (
             "shift_x",
             (2,),
-            testdata.raster.dem_small.affine * Affine.translation(2, 0),
+            _BLOCKS_AFFINE * Affine.translation(2, 0),
             slice(0, 100),
             slice(2, 102),
         ),
@@ -239,7 +247,7 @@ def test_geoblockinfo_pad_symmetric(
 def test_geoblockinfo_shift_axes(
     method, args, expected_affine, expected_row, expected_col
 ):
-    raster = testdata.raster.dem_small
+    raster = make_raster(shape=(1, 100, 100), dtype=np.float32)
     gbi = _make_block_info(raster)
     new = getattr(gbi, method)(*args)
     # shifts preserve overall shape
@@ -254,19 +262,19 @@ def test_geoblockinfo_shift_axes(
     [
         (
             (0, 0),
-            testdata.raster.dem_small.affine,
+            _BLOCKS_AFFINE,
             slice(0, 100),
             slice(0, 100),
         ),
         (
             (1, None),
-            testdata.raster.dem_small.affine * Affine.translation(1, 1),
+            _BLOCKS_AFFINE * Affine.translation(1, 1),
             slice(1, 101),
             slice(1, 101),
         ),
         (
             (1, 2),
-            testdata.raster.dem_small.affine * Affine.translation(2, 1),
+            _BLOCKS_AFFINE * Affine.translation(2, 1),
             slice(1, 101),
             slice(2, 102),
         ),
@@ -275,7 +283,7 @@ def test_geoblockinfo_shift_axes(
 def test_geoblockinfo_shift_symmetric(
     args, expected_affine, expected_row, expected_col
 ):
-    raster = testdata.raster.dem_small
+    raster = make_raster(shape=(1, 100, 100), dtype=np.float32)
     gbi = _make_block_info(raster)
     new = gbi.shift(*args)
     assert new.shape == (1, 100, 100)
@@ -285,14 +293,16 @@ def test_geoblockinfo_shift_symmetric(
 
 
 def test_geoblockinfo_pad_rejects_non_int():
-    raster = testdata.raster.dem_small
+    raster = make_raster(shape=(1, 100, 100), dtype=np.float32)
     gbi = _make_block_info(raster)
     with pytest.raises(TypeError):
         gbi.pad_y(1.5, 0)
 
 
 def test_geo_block_infos_as_dask():
-    raster = testdata.raster.dem_small.chunk((1, 50, 50))
+    raster = make_raster(
+        shape=(1, 100, 100), dtype=np.float32, chunksize=(1, 50, 50)
+    )
     arr = geo_block_infos_as_dask(raster)
     assert isinstance(arr, da.Array)
     assert arr.chunksize == (1, 1, 1)
@@ -306,7 +316,9 @@ def test_geo_block_infos_as_dask():
 
 
 def test_raster_geo_block_infos_property():
-    raster = testdata.raster.dem_small.chunk((1, 50, 50))
+    raster = make_raster(
+        shape=(1, 100, 100), dtype=np.float32, chunksize=(1, 50, 50)
+    )
     arr = raster.geo_block_infos
     assert isinstance(arr, da.Array)
     assert arr.numblocks == raster.data.numblocks
@@ -318,7 +330,7 @@ def test_raster_geo_block_infos_property():
 
 
 def test_map_blocks_identity():
-    r = testdata.raster.dem_small
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32)
     # Single input with unchanged dtype: null_value inherits from r.
     out = map_blocks(lambda x: x.copy(), r)
     assert out.crs == r.crs
@@ -330,7 +342,7 @@ def test_map_blocks_identity():
 
 
 def test_map_blocks_arithmetic():
-    r = testdata.raster.dem_small
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32)
     out = map_blocks(lambda x: x * 2, r)
     np.testing.assert_array_equal(out.data.compute(), r.data.compute() * 2)
     assert out.crs == r.crs
@@ -338,8 +350,8 @@ def test_map_blocks_arithmetic():
 
 
 def test_map_blocks_two_input_add():
-    r1 = testdata.raster.dem_small
-    r2 = testdata.raster.dem_small
+    r1 = make_raster(shape=(1, 100, 100), dtype=np.float32)
+    r2 = make_raster(shape=(1, 100, 100), dtype=np.float32)
     out = map_blocks(lambda a, b: a + b, r1, r2)
     np.testing.assert_array_equal(
         out.data.compute(), r1.data.compute() + r2.data.compute()
@@ -349,9 +361,9 @@ def test_map_blocks_two_input_add():
 
 
 def test_map_blocks_three_input_kwargs():
-    r1 = testdata.raster.dem_small
-    r2 = testdata.raster.dem_small
-    r3 = testdata.raster.dem_small
+    r1 = make_raster(shape=(1, 100, 100), dtype=np.float32)
+    r2 = make_raster(shape=(1, 100, 100), dtype=np.float32)
+    r3 = make_raster(shape=(1, 100, 100), dtype=np.float32)
 
     def weighted(a, b, c, w):
         return w * a + (1 - w) * (b + c)
@@ -363,7 +375,7 @@ def test_map_blocks_three_input_kwargs():
 
 
 def test_map_blocks_dtype_change():
-    r = testdata.raster.dem_small
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32)
     # null_value=None now picks the dtype-default automatically.
     out = map_blocks(lambda x: x.astype(np.int32), r, dtype=np.int32)
     assert out.dtype == np.int32
@@ -373,7 +385,7 @@ def test_map_blocks_dtype_change():
 
 
 def test_map_blocks_null_value_scalar_override():
-    r = testdata.raster.dem_small
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32)
     out = map_blocks(lambda x: x.copy(), r, null_value=0.0)
     assert out.null_value == 0.0
 
@@ -381,7 +393,7 @@ def test_map_blocks_null_value_scalar_override():
 def test_map_blocks_null_value_none_is_dtype_default_when_dtype_changes():
     # Single input but the dtype changes -> the input's null value
     # may not be representable, so fall back to the dtype default.
-    r = testdata.raster.dem_small
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32)
     out = map_blocks(lambda x: x.astype(np.int32), r, dtype=np.int32)
     assert out.dtype == np.int32
     assert out.null_value == get_default_null_value(np.dtype(np.int32))
@@ -390,7 +402,7 @@ def test_map_blocks_null_value_none_is_dtype_default_when_dtype_changes():
 def test_map_blocks_null_value_inherits_for_single_input_unchanged_dtype():
     # Single input with unchanged dtype -> output inherits the input's
     # null value (preserves the sentinel for identity-like ops).
-    r = testdata.raster.dem_small.set_null_value(-1.0)
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32, null=-1.0)
     out = map_blocks(lambda x: x * 2, r)
     assert out.dtype == r.dtype
     assert out.null_value == r.null_value
@@ -400,7 +412,7 @@ def test_map_blocks_null_value_inherits_when_explicit_dtype_matches_input():
     # The inherit-on-single-input rule fires when the output dtype
     # ends up matching the input's, whether dask inferred it or the
     # user specified it explicitly via dtype=.
-    r = testdata.raster.dem_small.set_null_value(-1.0)
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32, null=-1.0)
     out = map_blocks(lambda x: x.astype(r.dtype), r, dtype=r.dtype)
     assert out.dtype == r.dtype
     assert out.null_value == r.null_value
@@ -409,7 +421,7 @@ def test_map_blocks_null_value_inherits_when_explicit_dtype_matches_input():
 def test_map_blocks_explicit_null_value_overrides_inherit_rule():
     # Even when the inherit rule would fire (single input, unchanged
     # dtype), an explicit null_value scalar wins.
-    r = testdata.raster.dem_small.set_null_value(-1.0)
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32, null=-1.0)
     out = map_blocks(lambda x: x * 2, r, null_value=42.0)
     assert out.null_value == 42.0
 
@@ -418,22 +430,27 @@ def test_map_blocks_null_value_none_uses_default_for_multi_input():
     # Multi-input with no explicit null_value -> use dtype default,
     # not "first input's null" (the inherit-on-single-input rule does
     # not extend to multiple inputs).
-    r1 = testdata.raster.dem_small.set_null_value(-1.0)
-    r2 = testdata.raster.dem_small.set_null_value(-2.0)
+    r1 = make_raster(shape=(1, 100, 100), dtype=np.float32, null=-1.0)
+    r2 = make_raster(shape=(1, 100, 100), dtype=np.float32, null=-2.0)
     out = map_blocks(lambda a, b: a + b, r1, r2)
     assert out.null_value == get_default_null_value(np.dtype(out.dtype))
     assert out.null_value not in (-1.0, -2.0)
 
 
 def test_map_blocks_null_value_invalid_string():
-    r = testdata.raster.dem_small
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32)
     with pytest.raises(ValueError):
         map_blocks(lambda x: x.copy(), r, null_value="auto")
 
 
 def test_map_blocks_input_masks_single_input():
     # User opts in to mask injection by naming `input_masks` in func.
-    r = testdata.raster.dem_clipped_small  # has masked cells
+    r = make_raster(
+        shape=(1, 100, 100),
+        dtype=np.float32,
+        null=True,
+        null_pattern=np.s_[:, :10, :10],
+    )  # has masked cells
     sentinel = np.float32(-1.0)
 
     def fill_nulls(data, *, input_masks):
@@ -451,8 +468,8 @@ def test_map_blocks_input_masks_single_input():
 def test_map_blocks_input_masks_two_input_ordering():
     # input_masks is a tuple parallel to *input_data: input_masks[i] is
     # the mask block for input i.
-    r1 = testdata.raster.dem_small
-    r2 = testdata.raster.dem_small
+    r1 = make_raster(shape=(1, 100, 100), dtype=np.float32)
+    r2 = make_raster(shape=(1, 100, 100), dtype=np.float32)
 
     def check(d1, d2, *, input_masks):
         m1, m2 = input_masks
@@ -473,7 +490,7 @@ def test_map_blocks_input_masks_two_input_ordering():
 def test_map_blocks_plain_func_gets_no_injection():
     # No special params named -> none of the reserved injection
     # kwargs should appear in **kwargs.
-    r = testdata.raster.dem_small
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32)
 
     seen = []
 
@@ -490,8 +507,8 @@ def test_map_blocks_plain_func_gets_no_injection():
 
 def test_map_blocks_input_null_values_injected():
     # input_null_values is a tuple parallel to inputs.
-    r1 = testdata.raster.dem_small.set_null_value(-1.0)
-    r2 = testdata.raster.dem_small.set_null_value(-2.0)
+    r1 = make_raster(shape=(1, 100, 100), dtype=np.float32, null=-1.0)
+    r2 = make_raster(shape=(1, 100, 100), dtype=np.float32, null=-2.0)
 
     seen = []
 
@@ -506,7 +523,9 @@ def test_map_blocks_input_null_values_injected():
 
 
 def test_map_blocks_block_info_injected():
-    r = testdata.raster.dem_small.chunk((1, 50, 50))
+    r = make_raster(
+        shape=(1, 100, 100), dtype=np.float32, chunksize=(1, 50, 50)
+    )
 
     seen = []
 
@@ -526,8 +545,12 @@ def test_map_blocks_block_info_injected():
 
 
 def test_map_blocks_multiple_specials_simultaneously():
-    r1 = testdata.raster.dem_small.set_null_value(-1.0).chunk((1, 50, 50))
-    r2 = testdata.raster.dem_small.set_null_value(-2.0).chunk((1, 50, 50))
+    r1 = make_raster(
+        shape=(1, 100, 100), dtype=np.float32, null=-1.0, chunksize=(1, 50, 50)
+    )
+    r2 = make_raster(
+        shape=(1, 100, 100), dtype=np.float32, null=-2.0, chunksize=(1, 50, 50)
+    )
 
     seen = []
 
@@ -557,7 +580,7 @@ def test_map_blocks_multiple_specials_simultaneously():
 def test_map_blocks_kwargs_only_func_gets_no_injection():
     # A function whose only kwargs absorber is **kwargs (no explicit
     # named params) does not trigger introspection-based injection.
-    r = testdata.raster.dem_small
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32)
 
     seen = []
 
@@ -576,7 +599,7 @@ def test_map_blocks_kwargs_only_func_gets_no_injection():
     "name", ["input_masks", "input_null_values", "block_info"]
 )
 def test_map_blocks_reserved_name_collision_raises(name):
-    r = testdata.raster.dem_small
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32)
     with pytest.raises(ValueError, match="reserved"):
         map_blocks(lambda d, **kw: d, r, **{name: "anything"})
 
@@ -585,7 +608,12 @@ def test_map_blocks_mask_round_trip():
     # User opts in to input_masks; writes the resolved null_value at
     # the originally-masked cells; verify those land in the output mask.
     # Pass null_value explicitly so it matches what func writes.
-    r = testdata.raster.dem_clipped_small.set_null_value(-1.0)
+    r = make_raster(
+        shape=(1, 100, 100),
+        dtype=np.float32,
+        null=-1.0,
+        null_pattern=np.s_[:, :10, :10],
+    )
 
     def fill_nulls(d, *, input_masks):
         (m,) = input_masks
@@ -596,19 +624,19 @@ def test_map_blocks_mask_round_trip():
 
 
 def test_infer_output_dtype_identity():
-    r = testdata.raster.dem_small
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32)
     assert infer_output_dtype(lambda x: x, r) == np.float32
 
 
 def test_infer_output_dtype_in_func_cast():
-    r = testdata.raster.dem_small  # float32
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32)  # float32
     assert infer_output_dtype(lambda x: x.astype(np.int32), r) == np.int32
 
 
 def test_infer_output_dtype_multi_input_promotion():
     import raster_tools as rts_
 
-    r1 = testdata.raster.dem_small  # float32
+    r1 = make_raster(shape=(1, 100, 100), dtype=np.float32)  # float32
     r2 = rts_.data_to_raster(
         r1.data.astype(np.int16), x=r1.x, y=r1.y, crs=r1.crs
     )
@@ -617,7 +645,7 @@ def test_infer_output_dtype_multi_input_promotion():
 
 
 def test_infer_output_dtype_matches_map_blocks_dtype():
-    r = testdata.raster.dem_small
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32)
 
     def f(x):
         return x.astype(np.int64)
@@ -630,7 +658,7 @@ def test_infer_output_dtype_matches_map_blocks_dtype():
 def test_infer_output_dtype_with_introspection_kwargs():
     # The wrapper injects input_masks etc. for inference too. Verify
     # the dtype is the func's actual return dtype.
-    r = testdata.raster.dem_small
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32)
 
     def f(x, *, input_masks):
         # Returns the same dtype as input regardless of mask.
@@ -645,7 +673,7 @@ def test_infer_output_dtype_empty_raises():
 
 
 def test_infer_output_dtype_reserved_kwarg_collision_raises():
-    r = testdata.raster.dem_small
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32)
     with pytest.raises(ValueError, match="reserved"):
         infer_output_dtype(lambda d, **kw: d, r, input_masks="anything")
 
@@ -656,16 +684,16 @@ def test_map_blocks_empty_rasters_raises():
 
 
 def test_map_blocks_shape_mismatch_raises():
-    r1 = testdata.raster.dem_small  # 100x100
-    r2 = testdata.raster.dem  # different shape (full DEM)
+    r1 = make_raster(shape=(1, 100, 100), dtype=np.float32)  # 100x100
+    r2 = make_raster(shape=(1, 50, 50), dtype=np.float32)  # different shape
     assert r1.shape != r2.shape
     with pytest.raises(ValueError, match="raster 1 shape"):
         map_blocks(lambda a, b: a + b, r1, r2)
 
 
 def test_map_blocks_preserves_first_input_grid():
-    r1 = testdata.raster.dem_small
-    r2 = testdata.raster.dem_small.set_null_value(99.0)
+    r1 = make_raster(shape=(1, 100, 100), dtype=np.float32, null=-1.0)
+    r2 = make_raster(shape=(1, 100, 100), dtype=np.float32, null=99.0)
     assert r2.null_value != r1.null_value
     out = map_blocks(lambda a, b: a + b, r1, r2, null_value=r1.null_value)
     assert out.crs == r1.crs
@@ -729,7 +757,7 @@ def _real_blocks(samples):
 
 
 def test_map_overlap_identity_depth_zero():
-    r = testdata.raster.dem_small
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32)
     out = map_overlap(lambda b: b, r, depth=0)
     np.testing.assert_array_equal(out.data.compute(), r.data.compute())
     assert out.crs == r.crs
@@ -738,7 +766,9 @@ def test_map_overlap_identity_depth_zero():
 
 
 def test_map_overlap_3x3_mean_reflect():
-    r = testdata.raster.dem_small.chunk((1, 50, 50))
+    r = make_raster(
+        shape=(1, 100, 100), dtype=np.float32, chunksize=(1, 50, 50)
+    )
     # The user function: assume dask provides a (1, ny+2, nx+2) block with
     # reflect padding on edges; trim=True -> dask trims our 1-cell rim back
     # off after we return a same-shape block.
@@ -750,14 +780,16 @@ def test_map_overlap_3x3_mean_reflect():
 
 
 def test_map_overlap_per_axis_depth_tuple():
-    r = testdata.raster.dem_small
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32)
     out = map_overlap(lambda b: b, r, depth=(2, 1), boundary="reflect")
     # trim=True preserves shape regardless of depth
     assert out.shape == r.shape
 
 
 def test_map_overlap_scalar_numeric_boundary():
-    r = testdata.raster.dem_small.chunk((1, 50, 50))
+    r = make_raster(
+        shape=(1, 100, 100), dtype=np.float32, chunksize=(1, 50, 50)
+    )
     out = map_overlap(_block_3x3_sum, r, depth=1, boundary=0, dtype=np.float32)
     arr = r.data.compute()[0]
     pad = np.pad(arr, 1, mode="constant", constant_values=0)
@@ -769,7 +801,9 @@ def test_map_overlap_scalar_numeric_boundary():
 
 
 def test_map_overlap_boundary_null_with_set_null_value():
-    r = testdata.raster.dem_small.set_null_value(-1.0).chunk((1, 50, 50))
+    r = make_raster(
+        shape=(1, 100, 100), dtype=np.float32, null=-1.0, chunksize=(1, 50, 50)
+    )
     captured = {}
 
     def grab(d, m):
@@ -802,10 +836,10 @@ def test_map_overlap_boundary_null_uses_default_when_unset():
     import raster_tools as rts_
 
     r = rts_.data_to_raster(
-        testdata.raster.dem_small.data,
-        x=testdata.raster.dem_small.x,
-        y=testdata.raster.dem_small.y,
-        crs=testdata.raster.dem_small.crs,
+        make_raster(shape=(1, 100, 100), dtype=np.float32).data,
+        x=make_raster(shape=(1, 100, 100), dtype=np.float32).x,
+        y=make_raster(shape=(1, 100, 100), dtype=np.float32).y,
+        crs=make_raster(shape=(1, 100, 100), dtype=np.float32).crs,
     ).chunk((1, 50, 50))
     assert r.null_value is None
     expected_fill = get_default_null_value(np.dtype(r.dtype))
@@ -829,7 +863,7 @@ def test_map_overlap_boundary_null_uses_default_when_unset():
 
 
 def test_map_overlap_boundary_null_value_alias():
-    r = testdata.raster.dem_small.set_null_value(-1.0)
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32, null=-1.0)
     out1 = map_overlap(lambda b: b, r, depth=1, boundary="null")
     out2 = map_overlap(lambda b: b, r, depth=1, boundary="null_value")
     np.testing.assert_array_equal(out1.data.compute(), out2.data.compute())
@@ -837,7 +871,7 @@ def test_map_overlap_boundary_null_value_alias():
 
 @pytest.mark.parametrize("alias", ["nodata", "NODATA", "NoData"])
 def test_map_overlap_boundary_nodata_aliases(alias):
-    r = testdata.raster.dem_small.set_null_value(-1.0)
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32, null=-1.0)
     out_null = map_overlap(lambda b: b, r, depth=1, boundary="null")
     out_alias = map_overlap(lambda b: b, r, depth=1, boundary=alias)
     np.testing.assert_array_equal(
@@ -846,7 +880,9 @@ def test_map_overlap_boundary_nodata_aliases(alias):
 
 
 def test_map_overlap_scalar_matching_null_value_acts_like_null():
-    r = testdata.raster.dem_small.set_null_value(-1.0).chunk((1, 50, 50))
+    r = make_raster(
+        shape=(1, 100, 100), dtype=np.float32, null=-1.0, chunksize=(1, 50, 50)
+    )
     captured_null = {}
     captured_scalar = {}
 
@@ -880,7 +916,9 @@ def test_map_overlap_scalar_matching_null_value_acts_like_null():
 
 
 def test_map_overlap_scalar_zero_when_null_is_not_zero():
-    r = testdata.raster.dem_small.set_null_value(-1.0).chunk((1, 50, 50))
+    r = make_raster(
+        shape=(1, 100, 100), dtype=np.float32, null=-1.0, chunksize=(1, 50, 50)
+    )
     captured = {}
 
     def grab(d, m):
@@ -899,8 +937,12 @@ def test_map_overlap_scalar_zero_when_null_is_not_zero():
 
 
 def test_map_overlap_multi_input_different_null_values():
-    r1 = testdata.raster.dem_small.set_null_value(-1.0).chunk((1, 50, 50))
-    r2 = testdata.raster.dem_small.set_null_value(-2.0).chunk((1, 50, 50))
+    r1 = make_raster(
+        shape=(1, 100, 100), dtype=np.float32, null=-1.0, chunksize=(1, 50, 50)
+    )
+    r2 = make_raster(
+        shape=(1, 100, 100), dtype=np.float32, null=-2.0, chunksize=(1, 50, 50)
+    )
     captured = []
 
     def grab(d1, m1, d2, m2):
@@ -929,8 +971,8 @@ def test_map_overlap_multi_input_different_null_values():
 
 
 def test_map_overlap_two_input_add():
-    r1 = testdata.raster.dem_small
-    r2 = testdata.raster.dem_small
+    r1 = make_raster(shape=(1, 100, 100), dtype=np.float32)
+    r2 = make_raster(shape=(1, 100, 100), dtype=np.float32)
     out = map_overlap(lambda a, b: a + b, r1, r2, depth=1, boundary="reflect")
     np.testing.assert_allclose(
         out.data.compute(), r1.data.compute() + r2.data.compute()
@@ -938,7 +980,9 @@ def test_map_overlap_two_input_add():
 
 
 def test_map_overlap_pass_mask_single_input():
-    r = testdata.raster.dem_small.chunk((1, 50, 50))
+    r = make_raster(
+        shape=(1, 100, 100), dtype=np.float32, chunksize=(1, 50, 50)
+    )
 
     def f(d, m):
         assert d.shape == m.shape
@@ -952,8 +996,12 @@ def test_map_overlap_pass_mask_single_input():
 
 
 def test_map_overlap_pass_mask_two_input_interleaved():
-    r1 = testdata.raster.dem_small.chunk((1, 50, 50))
-    r2 = testdata.raster.dem_small.chunk((1, 50, 50))
+    r1 = make_raster(
+        shape=(1, 100, 100), dtype=np.float32, chunksize=(1, 50, 50)
+    )
+    r2 = make_raster(
+        shape=(1, 100, 100), dtype=np.float32, chunksize=(1, 50, 50)
+    )
 
     def f(d1, m1, d2, m2):
         assert d1.dtype == r1.dtype and d2.dtype == r2.dtype
@@ -968,7 +1016,9 @@ def test_map_overlap_pass_mask_two_input_interleaved():
 
 
 def test_map_overlap_dtype_change():
-    r = testdata.raster.dem_small.chunk((1, 50, 50))
+    r = make_raster(
+        shape=(1, 100, 100), dtype=np.float32, chunksize=(1, 50, 50)
+    )
     out = map_overlap(
         lambda b: b.astype(np.int32),
         r,
@@ -982,7 +1032,7 @@ def test_map_overlap_dtype_change():
 
 
 def test_map_overlap_null_value_scalar_override():
-    r = testdata.raster.dem_small
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32)
     out = map_overlap(lambda b: b, r, depth=0, null_value=42.0)
     assert out.null_value == 42.0
 
@@ -993,20 +1043,20 @@ def test_map_overlap_empty_rasters_raises():
 
 
 def test_map_overlap_shape_mismatch_raises():
-    r1 = testdata.raster.dem_small  # 100x100
-    r2 = testdata.raster.dem  # full DEM
+    r1 = make_raster(shape=(1, 100, 100), dtype=np.float32)  # 100x100
+    r2 = make_raster(shape=(1, 50, 50), dtype=np.float32)  # different shape
     with pytest.raises(ValueError, match="raster 1 shape"):
         map_overlap(lambda a, b: a + b, r1, r2, depth=0)
 
 
 def test_map_overlap_band_axis_depth_raises():
-    r = testdata.raster.dem_small
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32)
     with pytest.raises(ValueError, match="band-axis"):
         map_overlap(lambda b: b, r, depth={0: 1, 1: 0, 2: 0})
 
 
 def test_map_overlap_negative_depth_raises():
-    r = testdata.raster.dem_small
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32)
     with pytest.raises(ValueError, match="non-negative"):
         map_overlap(lambda b: b, r, depth=-1)
     with pytest.raises(ValueError, match="non-negative"):
@@ -1014,14 +1064,16 @@ def test_map_overlap_negative_depth_raises():
 
 
 def test_map_overlap_unrecognized_boundary_raises():
-    r = testdata.raster.dem_small
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32)
     with pytest.raises(ValueError, match="unrecognized boundary"):
         map_overlap(lambda b: b, r, depth=1, boundary="bogus")
 
 
 def test_map_overlap_asymmetric_depth_with_reflect_propagates_dask_error():
     # TODO: pre-validate this combo with a friendlier error.
-    r = testdata.raster.dem_small.chunk((1, 50, 50))
+    r = make_raster(
+        shape=(1, 100, 100), dtype=np.float32, chunksize=(1, 50, 50)
+    )
     with pytest.raises(NotImplementedError, match="[Aa]symmetric"):
         map_overlap(
             lambda b: b,
@@ -1037,7 +1089,9 @@ def test_map_overlap_asymmetric_depth_with_reflect_propagates_dask_error():
 
 
 def test_geo_map_blocks_identity():
-    r = testdata.raster.dem_small.chunk((1, 50, 50))
+    r = make_raster(
+        shape=(1, 100, 100), dtype=np.float32, chunksize=(1, 50, 50)
+    )
 
     def f(xda, **kw):
         return xda
@@ -1051,7 +1105,9 @@ def test_geo_map_blocks_identity():
 
 
 def test_geo_map_blocks_func_sees_coords_crs_nodata():
-    r = testdata.raster.dem_small.chunk((1, 50, 50))
+    r = make_raster(
+        shape=(1, 100, 100), dtype=np.float32, chunksize=(1, 50, 50)
+    )
 
     def f(xda, geo_block_info=None, **kw):
         # Skip dask's dtype-inference meta call (geo_block_info is None).
@@ -1073,7 +1129,7 @@ def test_geo_map_blocks_nodata_visible_in_meta_call():
     # The DataArray passed to the user's func during dask's dtype-
     # inference meta call should carry the same nodata as the real
     # per-block call.
-    r = testdata.raster.dem_small.set_null_value(-1.0)
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32, null=-1.0)
     seen_meta = []
     seen_real = []
 
@@ -1089,7 +1145,9 @@ def test_geo_map_blocks_nodata_visible_in_meta_call():
 
 
 def test_geo_map_blocks_returns_dataarray():
-    r = testdata.raster.dem_small.chunk((1, 50, 50))
+    r = make_raster(
+        shape=(1, 100, 100), dtype=np.float32, chunksize=(1, 50, 50)
+    )
 
     def f(xda, **kw):
         return xda * 2
@@ -1099,7 +1157,9 @@ def test_geo_map_blocks_returns_dataarray():
 
 
 def test_geo_map_blocks_returns_ndarray():
-    r = testdata.raster.dem_small.chunk((1, 50, 50))
+    r = make_raster(
+        shape=(1, 100, 100), dtype=np.float32, chunksize=(1, 50, 50)
+    )
 
     def f(xda, **kw):
         return xda.values * 3
@@ -1109,7 +1169,9 @@ def test_geo_map_blocks_returns_ndarray():
 
 
 def test_geo_map_blocks_geo_block_info_kwarg_present():
-    r = testdata.raster.dem_small.chunk((1, 50, 50))
+    r = make_raster(
+        shape=(1, 100, 100), dtype=np.float32, chunksize=(1, 50, 50)
+    )
     seen = []
 
     def f(xda, geo_block_info=None, **kw):
@@ -1130,7 +1192,9 @@ def test_geo_map_blocks_geo_block_info_kwarg_present():
 
 
 def test_geo_map_blocks_two_input_add():
-    r = testdata.raster.dem_small.chunk((1, 50, 50))
+    r = make_raster(
+        shape=(1, 100, 100), dtype=np.float32, chunksize=(1, 50, 50)
+    )
 
     def f(a, b, **kw):
         return a + b
@@ -1140,7 +1204,9 @@ def test_geo_map_blocks_two_input_add():
 
 
 def test_geo_map_blocks_kwargs_forwarded():
-    r = testdata.raster.dem_small.chunk((1, 50, 50))
+    r = make_raster(
+        shape=(1, 100, 100), dtype=np.float32, chunksize=(1, 50, 50)
+    )
 
     def f(xda, *, factor, **kw):
         return xda * factor
@@ -1150,7 +1216,9 @@ def test_geo_map_blocks_kwargs_forwarded():
 
 
 def test_geo_map_blocks_pass_mask_single_input():
-    r = testdata.raster.dem_small.chunk((1, 50, 50))
+    r = make_raster(
+        shape=(1, 100, 100), dtype=np.float32, chunksize=(1, 50, 50)
+    )
 
     def f(xda, xma, **kw):
         assert isinstance(xda, xr.DataArray)
@@ -1170,8 +1238,12 @@ def test_geo_map_blocks_pass_mask_single_input():
 
 
 def test_geo_map_blocks_pass_mask_two_input_interleaved():
-    r1 = testdata.raster.dem_small.chunk((1, 50, 50))
-    r2 = testdata.raster.dem_small.chunk((1, 50, 50))
+    r1 = make_raster(
+        shape=(1, 100, 100), dtype=np.float32, chunksize=(1, 50, 50)
+    )
+    r2 = make_raster(
+        shape=(1, 100, 100), dtype=np.float32, chunksize=(1, 50, 50)
+    )
 
     def f(xda1, xma1, xda2, xma2, **kw):
         assert xda1.dtype == r1.dtype and xda2.dtype == r2.dtype
@@ -1185,7 +1257,9 @@ def test_geo_map_blocks_pass_mask_two_input_interleaved():
 
 
 def test_geo_map_blocks_dtype_change():
-    r = testdata.raster.dem_small.chunk((1, 50, 50))
+    r = make_raster(
+        shape=(1, 100, 100), dtype=np.float32, chunksize=(1, 50, 50)
+    )
 
     def f(xda, **kw):
         return xda.astype(np.int32)
@@ -1196,7 +1270,7 @@ def test_geo_map_blocks_dtype_change():
 
 
 def test_geo_map_blocks_null_value_scalar_override():
-    r = testdata.raster.dem_small
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32)
 
     def f(xda, **kw):
         return xda
@@ -1211,15 +1285,15 @@ def test_geo_map_blocks_empty_rasters_raises():
 
 
 def test_geo_map_blocks_shape_mismatch_raises():
-    r1 = testdata.raster.dem_small
-    r2 = testdata.raster.dem
+    r1 = make_raster(shape=(1, 100, 100), dtype=np.float32)
+    r2 = make_raster(shape=(1, 50, 50), dtype=np.float32)
     with pytest.raises(ValueError, match="raster 1 shape"):
         geo_map_blocks(lambda a, b, **kw: a + b, r1, r2)
 
 
 def test_geo_map_blocks_preserves_first_input_grid():
-    r1 = testdata.raster.dem_small
-    r2 = testdata.raster.dem_small.set_null_value(99.0)
+    r1 = make_raster(shape=(1, 100, 100), dtype=np.float32)
+    r2 = make_raster(shape=(1, 100, 100), dtype=np.float32, null=99.0)
     assert r2.null_value != r1.null_value
     out = geo_map_blocks(lambda a, b, **kw: a + b, r1, r2)
     assert out.crs == r1.crs
@@ -1230,7 +1304,7 @@ def test_geo_map_blocks_preserves_first_input_grid():
 def test_geo_map_blocks_different_crs_raises():
     import raster_tools as rts_
 
-    r1 = testdata.raster.dem_small
+    r1 = make_raster(shape=(1, 100, 100), dtype=np.float32)
     # Same shape and coords as r1 but a different CRS.
     r2 = rts_.data_to_raster(r1.data, x=r1.x, y=r1.y, crs="EPSG:4326")
     assert r1.shape == r2.shape
@@ -1242,7 +1316,7 @@ def test_geo_map_blocks_different_crs_raises():
 def test_geo_map_blocks_different_affine_raises():
     import raster_tools as rts_
 
-    r1 = testdata.raster.dem_small
+    r1 = make_raster(shape=(1, 100, 100), dtype=np.float32)
     # Same shape and CRS but coords shifted by a full pixel: a
     # different affine.
     pixel = abs(r1.affine.a)
@@ -1257,7 +1331,7 @@ def test_geo_map_blocks_different_affine_raises():
 
 def test_geo_map_blocks_aligned_succeeds_regression():
     # Trivial alignment: two copies of the same raster succeed.
-    r = testdata.raster.dem_small
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32)
     out = geo_map_blocks(lambda a, b, **kw: a + b, r, r)
     np.testing.assert_allclose(out.data.compute(), r.data.compute() * 2)
 
@@ -1266,7 +1340,7 @@ def test_geo_map_blocks_sub_pixel_fp_noise_tolerated():
     import raster_tools as rts_
     from raster_tools._grids import GRID_PIXEL_TOLERANCE
 
-    r1 = testdata.raster.dem_small
+    r1 = make_raster(shape=(1, 100, 100), dtype=np.float32)
     # Perturb the x coords by well under one pixel of FP noise. The
     # grids_close tolerance should let this through.
     pixel = abs(r1.affine.a)
@@ -1284,25 +1358,16 @@ def test_geo_map_blocks_sub_pixel_fp_noise_tolerated():
 # ---------------------------------------------------------------------------
 
 
-def _int16_copy(r):
-    """Return a copy of `r` cast to int16, on the same grid."""
-    import raster_tools as rts_
-
-    return rts_.data_to_raster(
-        r.data.astype(np.int16), x=r.x, y=r.y, crs=r.crs
-    )
-
-
 def test_map_blocks_dtype_inferred_for_mixed_inputs():
-    r1 = testdata.raster.dem_small  # float32
-    r2 = _int16_copy(r1)
+    r1 = make_raster(shape=(1, 100, 100), dtype=np.float32)  # float32
+    r2 = make_raster(shape=(1, 100, 100), dtype=np.int16)
     out = map_blocks(lambda a, b: a + b, r1, r2)
     # NumPy promotion: float32 + int16 -> float32. dask infers it.
     assert out.dtype == np.float32
 
 
 def test_map_blocks_dtype_inferred_from_in_func_cast():
-    r = testdata.raster.dem_small  # float32
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32)  # float32
     out = map_blocks(lambda x: x.astype(np.int32), r)
     # If we used np.result_type on inputs we'd get float32.
     # Inferring via the actual function call yields int32.
@@ -1310,7 +1375,7 @@ def test_map_blocks_dtype_inferred_from_in_func_cast():
 
 
 def test_map_blocks_explicit_dtype_overrides_inference():
-    r = _int16_copy(testdata.raster.dem_small)  # int16
+    r = make_raster(shape=(1, 100, 100), dtype=np.int16)
     out = map_blocks(
         lambda x: x.astype(np.float64),
         r,
@@ -1320,8 +1385,8 @@ def test_map_blocks_explicit_dtype_overrides_inference():
 
 
 def test_map_overlap_dtype_inferred_for_mixed_inputs():
-    r1 = testdata.raster.dem_small  # float32
-    r2 = _int16_copy(r1)
+    r1 = make_raster(shape=(1, 100, 100), dtype=np.float32)  # float32
+    r2 = make_raster(shape=(1, 100, 100), dtype=np.int16)
     out = map_overlap(
         lambda a, b: a + b,
         r1,
@@ -1334,8 +1399,8 @@ def test_map_overlap_dtype_inferred_for_mixed_inputs():
 
 
 def test_geo_map_blocks_dtype_inferred_for_mixed_inputs():
-    r1 = testdata.raster.dem_small  # float32
-    r2 = _int16_copy(r1)
+    r1 = make_raster(shape=(1, 100, 100), dtype=np.float32)  # float32
+    r2 = make_raster(shape=(1, 100, 100), dtype=np.int16)
     out = geo_map_blocks(
         lambda a, b, **kw: a + b, r1, r2, null_value="default"
     )
@@ -1343,7 +1408,7 @@ def test_geo_map_blocks_dtype_inferred_for_mixed_inputs():
 
 
 def test_geo_map_blocks_dtype_inferred_from_in_func_cast():
-    r = testdata.raster.dem_small  # float32
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32)  # float32
     out = geo_map_blocks(
         lambda xda, **kw: xda.astype(np.int32),
         r,
@@ -1355,8 +1420,8 @@ def test_geo_map_blocks_dtype_inferred_from_in_func_cast():
 def test_map_blocks_null_value_uses_inferred_dtype():
     # When dtype is inferred to float32 (the promoted result), the
     # default null is the float32 default, NOT int16's.
-    r1 = testdata.raster.dem_small  # float32
-    r2 = _int16_copy(r1)
+    r1 = make_raster(shape=(1, 100, 100), dtype=np.float32)  # float32
+    r2 = make_raster(shape=(1, 100, 100), dtype=np.int16)
     out = map_blocks(lambda a, b: a + b, r1, r2)
     assert out.dtype == np.float32
     assert out.null_value == get_default_null_value(np.dtype(np.float32))
@@ -1373,7 +1438,9 @@ def _identity_or_meta(xda, geo_block_info=None, **kw):
 
 
 def test_geo_map_overlap_identity_depth_zero():
-    r = testdata.raster.dem_small.chunk((1, 50, 50))
+    r = make_raster(
+        shape=(1, 100, 100), dtype=np.float32, chunksize=(1, 50, 50)
+    )
     out = geo_map_overlap(_identity_or_meta, r, depth=0)
     np.testing.assert_array_equal(out.data.compute(), r.data.compute())
     assert out.crs == r.crs
@@ -1382,7 +1449,9 @@ def test_geo_map_overlap_identity_depth_zero():
 
 
 def test_geo_map_overlap_3x3_mean_reflect():
-    r = testdata.raster.dem_small.chunk((1, 50, 50))
+    r = make_raster(
+        shape=(1, 100, 100), dtype=np.float32, chunksize=(1, 50, 50)
+    )
 
     def block_3x3_mean(xda, **kw):
         if not all(s > 0 for s in xda.shape):
@@ -1415,7 +1484,9 @@ def test_geo_map_overlap_3x3_mean_reflect():
 def test_geo_map_overlap_coords_reflect_overlap():
     """The DataArray's coords cover the overlapped extent, not just
     the chunk's original extent."""
-    r = testdata.raster.dem_small.chunk((1, 50, 50))
+    r = make_raster(
+        shape=(1, 100, 100), dtype=np.float32, chunksize=(1, 50, 50)
+    )
     seen = []
 
     def f(xda, geo_block_info=None, **kw):
@@ -1438,7 +1509,9 @@ def test_geo_map_overlap_coords_reflect_overlap():
 
 
 def test_geo_map_overlap_geo_block_info_shape_matches_block():
-    r = testdata.raster.dem_small.chunk((1, 50, 50))
+    r = make_raster(
+        shape=(1, 100, 100), dtype=np.float32, chunksize=(1, 50, 50)
+    )
 
     def f(xda, geo_block_info=None, **kw):
         if geo_block_info is not None and all(s > 0 for s in xda.shape):
@@ -1452,7 +1525,7 @@ def test_geo_map_overlap_geo_block_info_shape_matches_block():
 
 
 def test_geo_map_overlap_nodata_visible_in_meta_call():
-    r = testdata.raster.dem_small.set_null_value(-1.0)
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32, null=-1.0)
     seen_meta = []
     seen_real = []
 
@@ -1468,7 +1541,9 @@ def test_geo_map_overlap_nodata_visible_in_meta_call():
 
 
 def test_geo_map_overlap_boundary_null_with_pass_mask():
-    r = testdata.raster.dem_small.set_null_value(-1.0).chunk((1, 50, 50))
+    r = make_raster(
+        shape=(1, 100, 100), dtype=np.float32, null=-1.0, chunksize=(1, 50, 50)
+    )
     captured = []
 
     def grab(xda, xma, geo_block_info=None, **kw):
@@ -1491,8 +1566,12 @@ def test_geo_map_overlap_boundary_null_with_pass_mask():
 
 
 def test_geo_map_overlap_two_input_add():
-    r1 = testdata.raster.dem_small.chunk((1, 50, 50))
-    r2 = testdata.raster.dem_small.chunk((1, 50, 50))
+    r1 = make_raster(
+        shape=(1, 100, 100), dtype=np.float32, chunksize=(1, 50, 50)
+    )
+    r2 = make_raster(
+        shape=(1, 100, 100), dtype=np.float32, chunksize=(1, 50, 50)
+    )
     out = geo_map_overlap(
         lambda a, b, **kw: a + b,
         r1,
@@ -1506,8 +1585,12 @@ def test_geo_map_overlap_two_input_add():
 
 
 def test_geo_map_overlap_pass_mask_two_input_interleaved():
-    r1 = testdata.raster.dem_small.chunk((1, 50, 50))
-    r2 = testdata.raster.dem_small.chunk((1, 50, 50))
+    r1 = make_raster(
+        shape=(1, 100, 100), dtype=np.float32, chunksize=(1, 50, 50)
+    )
+    r2 = make_raster(
+        shape=(1, 100, 100), dtype=np.float32, chunksize=(1, 50, 50)
+    )
 
     def f(xda1, xma1, xda2, xma2, **kw):
         if not all(s > 0 for s in xda1.shape):
@@ -1526,8 +1609,8 @@ def test_geo_map_overlap_pass_mask_two_input_interleaved():
 
 
 def test_geo_map_overlap_dtype_inferred_for_mixed_inputs():
-    r1 = testdata.raster.dem_small  # float32
-    r2 = _int16_copy(r1)
+    r1 = make_raster(shape=(1, 100, 100), dtype=np.float32)  # float32
+    r2 = make_raster(shape=(1, 100, 100), dtype=np.int16)
     out = geo_map_overlap(
         lambda a, b, **kw: a + b,
         r1,
@@ -1540,7 +1623,7 @@ def test_geo_map_overlap_dtype_inferred_for_mixed_inputs():
 
 
 def test_geo_map_overlap_dtype_inferred_from_in_func_cast():
-    r = testdata.raster.dem_small  # float32
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32)  # float32
     out = geo_map_overlap(
         lambda xda, **kw: xda.astype(np.int32),
         r,
@@ -1552,8 +1635,8 @@ def test_geo_map_overlap_dtype_inferred_from_in_func_cast():
 
 
 def test_geo_map_overlap_null_value_default_uses_inferred_dtype():
-    r1 = testdata.raster.dem_small  # float32
-    r2 = _int16_copy(r1)
+    r1 = make_raster(shape=(1, 100, 100), dtype=np.float32)  # float32
+    r2 = make_raster(shape=(1, 100, 100), dtype=np.int16)
     out = geo_map_overlap(
         lambda a, b, **kw: a + b,
         r1,
@@ -1569,7 +1652,7 @@ def test_geo_map_overlap_null_value_default_uses_inferred_dtype():
 def test_geo_map_overlap_different_crs_raises():
     import raster_tools as rts_
 
-    r1 = testdata.raster.dem_small
+    r1 = make_raster(shape=(1, 100, 100), dtype=np.float32)
     r2 = rts_.data_to_raster(r1.data, x=r1.x, y=r1.y, crs="EPSG:4326")
     with pytest.raises(ValueError, match="same grid"):
         geo_map_overlap(
@@ -1580,7 +1663,7 @@ def test_geo_map_overlap_different_crs_raises():
 def test_geo_map_overlap_different_affine_raises():
     import raster_tools as rts_
 
-    r1 = testdata.raster.dem_small
+    r1 = make_raster(shape=(1, 100, 100), dtype=np.float32)
     pixel = abs(r1.affine.a)
     r2 = rts_.data_to_raster(r1.data, x=r1.x + pixel, y=r1.y, crs=r1.crs)
     with pytest.raises(ValueError, match="same grid"):
@@ -1598,7 +1681,7 @@ def test_geo_map_overlap_rechunks_when_chunks_smaller_than_depth():
     # Input chunks (10) are smaller than depth (20). The wrapper
     # should pre-rechunk so the in-wrapper GeoBlockInfo lookup keys
     # match the per-call chunk-location after dask's overlap call.
-    r = testdata.raster.dem_small.chunk((1, 10, 10))
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32).chunk((1, 10, 10))
     assert all(c < 20 for c in r.data.chunks[1])
 
     out = geo_map_overlap(_identity_or_meta, r, depth=20, boundary="reflect")
@@ -1611,7 +1694,7 @@ def test_geo_map_overlap_rechunks_when_chunks_smaller_than_depth():
 def test_geo_map_overlap_rechunk_with_pass_mask():
     # The mask should be rechunked alongside the data so pass_mask
     # callbacks see matching shapes.
-    r = testdata.raster.dem_small.chunk((1, 10, 10))
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32).chunk((1, 10, 10))
 
     def f(xda, xma, **kw):
         if not all(s > 0 for s in xda.shape):
