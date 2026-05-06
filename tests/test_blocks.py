@@ -16,6 +16,7 @@ from raster_tools.blocks import (
     geo_block_infos_as_dask,
     geo_map_blocks,
     geo_map_overlap,
+    infer_output_dtype,
     map_blocks,
     map_overlap,
 )
@@ -318,6 +319,7 @@ def test_raster_geo_block_infos_property():
 
 def test_map_blocks_identity():
     r = testdata.raster.dem_small
+    # Single input with unchanged dtype: null_value inherits from r.
     out = map_blocks(lambda x: x.copy(), r)
     assert out.crs == r.crs
     assert out.affine == r.affine
@@ -362,12 +364,8 @@ def test_map_blocks_three_input_kwargs():
 
 def test_map_blocks_dtype_change():
     r = testdata.raster.dem_small
-    out = map_blocks(
-        lambda x: x.astype(np.int32),
-        r,
-        dtype=np.int32,
-        null_value="default",
-    )
+    # null_value=None now picks the dtype-default automatically.
+    out = map_blocks(lambda x: x.astype(np.int32), r, dtype=np.int32)
     assert out.dtype == np.int32
     np.testing.assert_array_equal(
         out.data.compute(), r.data.compute().astype(np.int32)
@@ -380,16 +378,51 @@ def test_map_blocks_null_value_scalar_override():
     assert out.null_value == 0.0
 
 
-def test_map_blocks_null_value_default_with_dtype_change():
+def test_map_blocks_null_value_none_is_dtype_default_when_dtype_changes():
+    # Single input but the dtype changes -> the input's null value
+    # may not be representable, so fall back to the dtype default.
     r = testdata.raster.dem_small
-    out = map_blocks(
-        lambda x: x.astype(np.int32),
-        r,
-        dtype=np.int32,
-        null_value="default",
-    )
+    out = map_blocks(lambda x: x.astype(np.int32), r, dtype=np.int32)
     assert out.dtype == np.int32
     assert out.null_value == get_default_null_value(np.dtype(np.int32))
+
+
+def test_map_blocks_null_value_inherits_for_single_input_unchanged_dtype():
+    # Single input with unchanged dtype -> output inherits the input's
+    # null value (preserves the sentinel for identity-like ops).
+    r = testdata.raster.dem_small.set_null_value(-1.0)
+    out = map_blocks(lambda x: x * 2, r)
+    assert out.dtype == r.dtype
+    assert out.null_value == r.null_value
+
+
+def test_map_blocks_null_value_inherits_when_explicit_dtype_matches_input():
+    # The inherit-on-single-input rule fires when the output dtype
+    # ends up matching the input's, whether dask inferred it or the
+    # user specified it explicitly via dtype=.
+    r = testdata.raster.dem_small.set_null_value(-1.0)
+    out = map_blocks(lambda x: x.astype(r.dtype), r, dtype=r.dtype)
+    assert out.dtype == r.dtype
+    assert out.null_value == r.null_value
+
+
+def test_map_blocks_explicit_null_value_overrides_inherit_rule():
+    # Even when the inherit rule would fire (single input, unchanged
+    # dtype), an explicit null_value scalar wins.
+    r = testdata.raster.dem_small.set_null_value(-1.0)
+    out = map_blocks(lambda x: x * 2, r, null_value=42.0)
+    assert out.null_value == 42.0
+
+
+def test_map_blocks_null_value_none_uses_default_for_multi_input():
+    # Multi-input with no explicit null_value -> use dtype default,
+    # not "first input's null" (the inherit-on-single-input rule does
+    # not extend to multiple inputs).
+    r1 = testdata.raster.dem_small.set_null_value(-1.0)
+    r2 = testdata.raster.dem_small.set_null_value(-2.0)
+    out = map_blocks(lambda a, b: a + b, r1, r2)
+    assert out.null_value == get_default_null_value(np.dtype(out.dtype))
+    assert out.null_value not in (-1.0, -2.0)
 
 
 def test_map_blocks_null_value_invalid_string():
@@ -551,14 +584,70 @@ def test_map_blocks_reserved_name_collision_raises(name):
 def test_map_blocks_mask_round_trip():
     # User opts in to input_masks; writes the resolved null_value at
     # the originally-masked cells; verify those land in the output mask.
+    # Pass null_value explicitly so it matches what func writes.
     r = testdata.raster.dem_clipped_small.set_null_value(-1.0)
 
     def fill_nulls(d, *, input_masks):
         (m,) = input_masks
         return np.where(m, np.float32(-1.0), d)
 
-    out = map_blocks(fill_nulls, r)
+    out = map_blocks(fill_nulls, r, null_value=-1.0)
     np.testing.assert_array_equal(out.mask.compute(), r.mask.compute())
+
+
+def test_infer_output_dtype_identity():
+    r = testdata.raster.dem_small
+    assert infer_output_dtype(lambda x: x, r) == np.float32
+
+
+def test_infer_output_dtype_in_func_cast():
+    r = testdata.raster.dem_small  # float32
+    assert infer_output_dtype(lambda x: x.astype(np.int32), r) == np.int32
+
+
+def test_infer_output_dtype_multi_input_promotion():
+    import raster_tools as rts_
+
+    r1 = testdata.raster.dem_small  # float32
+    r2 = rts_.data_to_raster(
+        r1.data.astype(np.int16), x=r1.x, y=r1.y, crs=r1.crs
+    )
+    # NumPy promotion of float32 + int16 -> float32.
+    assert infer_output_dtype(lambda a, b: a + b, r1, r2) == np.float32
+
+
+def test_infer_output_dtype_matches_map_blocks_dtype():
+    r = testdata.raster.dem_small
+
+    def f(x):
+        return x.astype(np.int64)
+
+    inferred = infer_output_dtype(f, r)
+    out = map_blocks(f, r)
+    assert inferred == out.dtype == np.int64
+
+
+def test_infer_output_dtype_with_introspection_kwargs():
+    # The wrapper injects input_masks etc. for inference too. Verify
+    # the dtype is the func's actual return dtype.
+    r = testdata.raster.dem_small
+
+    def f(x, *, input_masks):
+        # Returns the same dtype as input regardless of mask.
+        return x
+
+    assert infer_output_dtype(f, r) == np.float32
+
+
+def test_infer_output_dtype_empty_raises():
+    with pytest.raises(ValueError, match="at least one"):
+        infer_output_dtype(lambda x: x)
+
+
+def test_infer_output_dtype_reserved_kwarg_collision_raises():
+    r = testdata.raster.dem_small
+    with pytest.raises(ValueError, match="reserved"):
+        infer_output_dtype(lambda d, **kw: d, r, input_masks="anything")
 
 
 def test_map_blocks_empty_rasters_raises():
@@ -578,7 +667,7 @@ def test_map_blocks_preserves_first_input_grid():
     r1 = testdata.raster.dem_small
     r2 = testdata.raster.dem_small.set_null_value(99.0)
     assert r2.null_value != r1.null_value
-    out = map_blocks(lambda a, b: a + b, r1, r2)
+    out = map_blocks(lambda a, b: a + b, r1, r2, null_value=r1.null_value)
     assert out.crs == r1.crs
     assert out.affine == r1.affine
     assert out.null_value == r1.null_value
@@ -1207,14 +1296,14 @@ def _int16_copy(r):
 def test_map_blocks_dtype_inferred_for_mixed_inputs():
     r1 = testdata.raster.dem_small  # float32
     r2 = _int16_copy(r1)
-    out = map_blocks(lambda a, b: a + b, r1, r2, null_value="default")
+    out = map_blocks(lambda a, b: a + b, r1, r2)
     # NumPy promotion: float32 + int16 -> float32. dask infers it.
     assert out.dtype == np.float32
 
 
 def test_map_blocks_dtype_inferred_from_in_func_cast():
     r = testdata.raster.dem_small  # float32
-    out = map_blocks(lambda x: x.astype(np.int32), r, null_value="default")
+    out = map_blocks(lambda x: x.astype(np.int32), r)
     # If we used np.result_type on inputs we'd get float32.
     # Inferring via the actual function call yields int32.
     assert out.dtype == np.int32
@@ -1226,7 +1315,6 @@ def test_map_blocks_explicit_dtype_overrides_inference():
         lambda x: x.astype(np.float64),
         r,
         dtype=np.float64,
-        null_value="default",
     )
     assert out.dtype == np.float64
 
@@ -1264,12 +1352,12 @@ def test_geo_map_blocks_dtype_inferred_from_in_func_cast():
     assert out.dtype == np.int32
 
 
-def test_map_blocks_null_value_default_uses_inferred_dtype():
+def test_map_blocks_null_value_uses_inferred_dtype():
     # When dtype is inferred to float32 (the promoted result), the
-    # "default" null should be the float32 default, NOT int16's.
+    # default null is the float32 default, NOT int16's.
     r1 = testdata.raster.dem_small  # float32
     r2 = _int16_copy(r1)
-    out = map_blocks(lambda a, b: a + b, r1, r2, null_value="default")
+    out = map_blocks(lambda a, b: a + b, r1, r2)
     assert out.dtype == np.float32
     assert out.null_value == get_default_null_value(np.dtype(np.float32))
 

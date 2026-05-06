@@ -20,6 +20,7 @@ import dask.array as da
 import numpy as np
 import xarray as xr
 from affine import Affine
+from dask.array.core import apply_infer_dtype
 from dask.utils import has_keyword
 from odc.geo.geobox import GeoBox
 
@@ -35,6 +36,7 @@ __all__ = [
     "geo_block_infos_as_dask",
     "geo_map_blocks",
     "geo_map_overlap",
+    "infer_output_dtype",
     "map_blocks",
     "map_overlap",
 ]
@@ -382,12 +384,23 @@ def map_blocks(func, *rasters, dtype=None, null_value=None, **kwargs):
         by calling ``func`` on tiny meta samples (matches NumPy
         promotion for the typical elementwise case, and reflects any
         in-func cast such as ``.astype``).
-    null_value : scalar or str, optional
-        Output null value. ``None`` (default) inherits from the first
-        input. A scalar is used as-is. The string ``"default"`` selects
-        a dtype-appropriate default via
-        :func:`raster_tools.masking.get_default_null_value` -- handy when
-        ``dtype`` changes and the input's null value isn't representable.
+    null_value : scalar, optional
+        Output null value.
+
+        - ``None`` (default): if there is exactly one input raster and
+          the output dtype matches its dtype, the output inherits
+          that input's null value (preserves the sentinel for
+          identity-like single-input ops). Otherwise, the value is
+          a dtype-appropriate default from
+          :func:`raster_tools.masking.get_default_null_value` against
+          the resolved output dtype -- always representable, never
+          overflows when the dtype changes.
+        - scalar: used as-is.
+        - strings (including the previously-supported ``"default"``)
+          are no longer accepted.
+
+        To force inherit-from-first-input across other cases, pass
+        the value explicitly: ``null_value=r1.null_value``.
     **kwargs
         Extra keyword arguments forwarded per-block to ``func``. The
         reserved names listed above are not allowed here.
@@ -461,14 +474,30 @@ def map_blocks(func, *rasters, dtype=None, null_value=None, **kwargs):
                 f"raster {i} shape {r.shape} does not match raster 0 "
                 f"shape {ref.shape}"
             )
-    inputs = [r.data for r in rasters]
+    wrapper, inputs = _build_map_blocks_wrapper(func, rasters)
+    out_data = da.map_blocks(wrapper, *inputs, dtype=dtype, **kwargs)
+    out_nv = _resolve_map_blocks_null_value(
+        null_value, rasters, out_data.dtype
+    )
+    return data_to_raster_like(out_data, ref, nv=out_nv)
+
+
+def _build_map_blocks_wrapper(func, rasters):
+    """Build the per-block wrapper map_blocks passes to dask.
+
+    Returns ``(wrapper, inputs)``. ``wrapper`` is the callable to
+    pass to :func:`dask.array.map_blocks`. ``inputs`` is the list of
+    dask arrays to spread positionally (data first; masks appended
+    only when the user's ``func`` opts in via ``input_masks=``).
+    """
     pass_masks = has_keyword(func, "input_masks")
-    if pass_masks:
-        inputs.extend([r.mask for r in rasters])
     pass_block_info = has_keyword(func, "block_info")
     pass_input_nvs = has_keyword(func, "input_null_values")
-    if pass_input_nvs:
-        nvs = tuple(r.null_value for r in rasters)
+
+    inputs = [r.data for r in rasters]
+    if pass_masks:
+        inputs.extend(r.mask for r in rasters)
+    nvs = tuple(r.null_value for r in rasters) if pass_input_nvs else None
 
     def _wrapper(*block_args, block_info=None, **inner_kwargs):
         if pass_masks:
@@ -484,9 +513,82 @@ def map_blocks(func, *rasters, dtype=None, null_value=None, **kwargs):
             inner_kwargs["input_null_values"] = nvs
         return func(*input_data, **inner_kwargs)
 
-    out_data = da.map_blocks(_wrapper, *inputs, dtype=dtype, **kwargs)
-    out_nv = _resolve_null_value(null_value, ref.null_value, out_data.dtype)
-    return data_to_raster_like(out_data, ref, nv=out_nv)
+    return _wrapper, inputs
+
+
+def _resolve_map_blocks_null_value(null_value, rasters, out_dtype):
+    """Resolve the output null value for :func:`map_blocks`.
+
+    ``None`` (default):
+
+    - If there is exactly one input raster and the output dtype
+      matches its dtype, use that input's null value (preserves the
+      sentinel for identity-like single-input ops).
+    - Otherwise, use
+      :func:`raster_tools.masking.get_default_null_value` against
+      ``out_dtype`` -- always representable, never overflows when the
+      dtype changes.
+
+    Any string value raises ``ValueError``. A scalar passes through.
+    """
+    if null_value is None:
+        if len(rasters) == 1 and rasters[0].dtype == out_dtype:
+            return rasters[0].null_value
+        return get_default_null_value(out_dtype)
+    if isinstance(null_value, str):
+        raise ValueError(
+            f"null_value must be None or a scalar, got {null_value!r}"
+        )
+    return null_value
+
+
+def infer_output_dtype(func, *rasters, **kwargs):
+    """Infer the output dtype ``func`` will produce on these rasters.
+
+    Mirrors :func:`map_blocks`'s contract: applies the same
+    introspection-based wrapping (``input_masks``,
+    ``input_null_values``, ``block_info`` are injected if named in
+    ``func``'s signature), then runs
+    :func:`dask.array.core.apply_infer_dtype` on tiny meta samples to
+    derive the output dtype without computing real data.
+
+    Useful for users who want to know what dtype their per-block
+    function will produce -- e.g. to pre-resolve a null value sentinel
+    or build downstream graphs.
+
+    Parameters
+    ----------
+    func : callable
+        Per-block function; same contract as :func:`map_blocks`.
+    *rasters : Raster or str
+        One or more input rasters (path strings accepted).
+    **kwargs
+        Extra keyword arguments forwarded per-block to ``func``.
+
+    Returns
+    -------
+    numpy.dtype
+        The inferred output dtype.
+
+    Raises
+    ------
+    ValueError
+        If no rasters are provided, or if dask cannot infer the dtype
+        from a sample call (in which case dask suggests passing
+        ``dtype=`` explicitly to :func:`map_blocks`).
+    """
+    if not rasters:
+        raise ValueError("infer_output_dtype requires at least one raster")
+    reserved_collision = _MAP_BLOCKS_RESERVED_KWARGS & kwargs.keys()
+    if reserved_collision:
+        raise ValueError(
+            f"these kwargs are reserved by map_blocks for per-block "
+            f"injection and cannot be passed by the caller: "
+            f"{sorted(reserved_collision)}"
+        )
+    rasters = [get_raster(r) for r in rasters]
+    wrapper, inputs = _build_map_blocks_wrapper(func, rasters)
+    return apply_infer_dtype(wrapper, inputs, kwargs, "infer_output_dtype")
 
 
 _NAMED_BOUNDARIES = frozenset({"reflect", "periodic", "nearest", "none"})
