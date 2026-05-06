@@ -20,6 +20,7 @@ import dask.array as da
 import numpy as np
 import xarray as xr
 from affine import Affine
+from dask.utils import has_keyword
 from odc.geo.geobox import GeoBox
 
 from raster_tools._grids import are_all_grids_same
@@ -309,32 +310,65 @@ def _resolve_null_value(null_value, ref_null_value, out_dtype):
     return null_value
 
 
-def map_blocks(
-    func,
-    *rasters,
-    pass_mask=False,
-    dtype=None,
-    null_value=None,
-    **kwargs,
-):
+# Kwarg names reserved for map_blocks's per-block injection. The user's
+# func opts in to any of these by including them as named parameters.
+# The caller of map_blocks may not pass them via **kwargs.
+_MAP_BLOCKS_RESERVED_KWARGS = frozenset(
+    {"input_masks", "input_null_values", "block_info"}
+)
+
+
+def map_blocks(func, *rasters, dtype=None, null_value=None, **kwargs):
     """Apply ``func`` block-wise across one or more aligned rasters.
 
-    Thin wrapper over :func:`dask.array.map_blocks`. Each call to ``func``
-    receives one block from each input raster, in the same order. The
-    output :class:`~raster_tools.Raster` adopts its CRS, affine, x/y
-    coords, and mask from the first input. v1 is shape-preserving: the
-    user function must return a NumPy array of the same shape as a
-    single input data block.
+    Thin wrapper over :func:`dask.array.map_blocks`. Each call to
+    ``func`` receives one block from each input raster, in the same
+    order as ``*rasters``. The output :class:`~raster_tools.Raster`
+    adopts its CRS, affine, and x/y coords from the first input;
+    its mask is derived from the output data (see Notes).
+    v1 is shape-preserving: ``func`` must return a NumPy array of
+    the same shape as a single input data block.
+
+    Per-block contract
+    ------------------
+    Always passed positionally:
+
+        func(*input_data, **kwargs)
+
+    where ``input_data`` is a tuple of N NumPy blocks, one per input
+    raster, in caller order.
+
+    The user can also opt in to receive per-block extras by including
+    named parameters in ``func``'s signature. Detection mirrors dask's
+    own ``block_info=`` / ``block_id=`` mechanism and uses
+    :func:`inspect.signature` (via :func:`dask.utils.has_keyword`).
+    Recognized names:
+
+    - ``input_masks`` -- tuple of N ``np.ndarray`` (bool) per-block
+      mask arrays, parallel to ``input_data``.
+    - ``input_null_values`` -- tuple of N scalars, each input
+      raster's ``null_value`` (``None`` if unset).
+    - ``block_info`` -- dask's standard per-block info dict (see
+      :func:`dask.array.map_blocks`).
+
+    A function whose only kwargs absorber is ``**kwargs`` (e.g.
+    ``def f(*args, **kwargs):``) does NOT trigger any of these
+    injections -- ``inspect.signature`` only sees explicit parameter
+    names. Name the kwargs you want.
+
+    Reserved kwargs
+    ---------------
+    ``input_masks``, ``input_null_values``, and ``block_info`` are
+    reserved. Passing any of them via ``map_blocks``'s own
+    ``**kwargs`` raises ``ValueError`` -- otherwise the wrapper's
+    injection would silently clobber the caller's value.
 
     Parameters
     ----------
     func : callable
-        Per-block function. With ``pass_mask=False`` (default) it
-        receives ``(data1, ..., dataN, **kwargs)``. With
-        ``pass_mask=True`` each input's mask block is interleaved
-        immediately after its data block:
-        ``(data1, mask1, data2, mask2, ..., dataN, maskN, **kwargs)``.
-        Must return a NumPy array of the same shape as ``data1``.
+        Per-block function. See "Per-block contract" above for the
+        full signature rules. Must return a NumPy array of the same
+        shape as a single input data block.
     *rasters : Raster or str
         One or more aligned input rasters. Path strings are accepted.
         Only the 3D shape is validated; CRS, affine, and chunk
@@ -343,10 +377,6 @@ def map_blocks(
         inputs -- typically via ``r2.reproject(r1.geobox)``. For a
         geo-aware variant that strictly requires matching grids, see
         :func:`geo_map_blocks`.
-    pass_mask : bool, optional
-        If ``True``, each input's boolean mask block is passed to
-        ``func`` immediately after its data block (interleaved). Default
-        ``False``.
     dtype : dtype-like, optional
         Output dtype. When ``None`` (default), dask infers the dtype
         by calling ``func`` on tiny meta samples (matches NumPy
@@ -359,7 +389,8 @@ def map_blocks(
         :func:`raster_tools.masking.get_default_null_value` -- handy when
         ``dtype`` changes and the input's null value isn't representable.
     **kwargs
-        Extra keyword arguments forwarded per-block to ``func``.
+        Extra keyword arguments forwarded per-block to ``func``. The
+        reserved names listed above are not allowed here.
 
     Returns
     -------
@@ -380,12 +411,31 @@ def map_blocks(
     first input's mask through unchanged. Writing a new mask via
     ``func`` is not supported in v1.
 
-    Per-input null values are not passed to ``func``: prefer the mask
-    blocks (``pass_mask=True``) over comparing data values to a null
-    sentinel, since float / NaN equality is unreliable. If you really
-    need the null value(s) inside ``func``, capture them via
-    ``**kwargs`` at the call site, e.g.
-    ``map_blocks(f, r1, r2, nvs=(r1.null_value, r2.null_value))``.
+    Examples
+    --------
+    Plain elementwise on one input (no special injection):
+
+    >>> def double(d):
+    ...     return d * 2
+    >>> doubled = map_blocks(double, r)              # doctest: +SKIP
+
+    Mask-aware multi-input -- write the null sentinel where either
+    input was masked:
+
+    >>> def add_skip_nulls(a, b, *, input_masks, **kwargs):
+    ...     ma, mb = input_masks
+    ...     out = a + b
+    ...     out[ma | mb] = -9999
+    ...     return out
+    >>> summed = map_blocks(                          # doctest: +SKIP
+    ...     add_skip_nulls, r1, r2, null_value=-9999,
+    ... )
+
+    Use dask's per-block info inside ``func``:
+
+    >>> def by_chunk_id(d, *, block_info, **kwargs):
+    ...     bi = block_info[None]["chunk-location"]
+    ...     ...                                       # doctest: +SKIP
 
     See Also
     --------
@@ -396,6 +446,13 @@ def map_blocks(
     """
     if not rasters:
         raise ValueError("map_blocks requires at least one raster")
+    reserved_collision = _MAP_BLOCKS_RESERVED_KWARGS & kwargs.keys()
+    if reserved_collision:
+        raise ValueError(
+            f"these kwargs are reserved by map_blocks for per-block "
+            f"injection and cannot be passed by the caller: "
+            f"{sorted(reserved_collision)}"
+        )
     rasters = [get_raster(r) for r in rasters]
     ref = rasters[0]
     for i, r in enumerate(rasters[1:], 1):
@@ -404,11 +461,30 @@ def map_blocks(
                 f"raster {i} shape {r.shape} does not match raster 0 "
                 f"shape {ref.shape}"
             )
-    if pass_mask:
-        inputs = [arr for r in rasters for arr in (r.data, r.mask)]
-    else:
-        inputs = [r.data for r in rasters]
-    out_data = da.map_blocks(func, *inputs, dtype=dtype, **kwargs)
+    inputs = [r.data for r in rasters]
+    pass_masks = has_keyword(func, "input_masks")
+    if pass_masks:
+        inputs.extend([r.mask for r in rasters])
+    pass_block_info = has_keyword(func, "block_info")
+    pass_input_nvs = has_keyword(func, "input_null_values")
+    if pass_input_nvs:
+        nvs = tuple(r.null_value for r in rasters)
+
+    def _wrapper(*block_args, block_info=None, **inner_kwargs):
+        if pass_masks:
+            n = len(block_args)
+            input_data = block_args[: n // 2]
+            input_masks = block_args[n // 2 :]
+            inner_kwargs["input_masks"] = input_masks
+        else:
+            input_data = block_args
+        if pass_block_info:
+            inner_kwargs["block_info"] = block_info
+        if pass_input_nvs:
+            inner_kwargs["input_null_values"] = nvs
+        return func(*input_data, **inner_kwargs)
+
+    out_data = da.map_blocks(_wrapper, *inputs, dtype=dtype, **kwargs)
     out_nv = _resolve_null_value(null_value, ref.null_value, out_data.dtype)
     return data_to_raster_like(out_data, ref, nv=out_nv)
 

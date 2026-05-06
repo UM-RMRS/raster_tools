@@ -398,42 +398,167 @@ def test_map_blocks_null_value_invalid_string():
         map_blocks(lambda x: x.copy(), r, null_value="auto")
 
 
-def test_map_blocks_pass_mask_single_input():
+def test_map_blocks_input_masks_single_input():
+    # User opts in to mask injection by naming `input_masks` in func.
     r = testdata.raster.dem_clipped_small  # has masked cells
     sentinel = np.float32(-1.0)
 
-    def fill_nulls(data, mask):
+    def fill_nulls(data, *, input_masks):
+        (mask,) = input_masks
         assert data.shape == mask.shape
         return np.where(mask, sentinel, data)
 
-    out = map_blocks(fill_nulls, r, pass_mask=True)
+    out = map_blocks(fill_nulls, r)
     data_in = r.data.compute()
     mask_in = r.mask.compute()
     expected = np.where(mask_in, sentinel, data_in)
     np.testing.assert_array_equal(out.data.compute(), expected)
 
 
-def test_map_blocks_pass_mask_two_input_ordering():
+def test_map_blocks_input_masks_two_input_ordering():
+    # input_masks is a tuple parallel to *input_data: input_masks[i] is
+    # the mask block for input i.
     r1 = testdata.raster.dem_small
     r2 = testdata.raster.dem_small
 
-    def check(d1, m1, d2, m2):
-        # Order check: data/mask interleaved per input. d1/d2 are float
-        # data, m1/m2 are bool masks. Adjacent positions belong to the
-        # same raster.
+    def check(d1, d2, *, input_masks):
+        m1, m2 = input_masks
         assert d1.dtype == r1.dtype and d2.dtype == r2.dtype
         assert m1.dtype == np.bool_ and m2.dtype == np.bool_
-        # Same shapes across all four block args.
         assert d1.shape == d2.shape == m1.shape == m2.shape
         return d1 + d2 + m1.astype(d1.dtype) + m2.astype(d2.dtype)
 
-    out = map_blocks(check, r1, r2, pass_mask=True)
+    out = map_blocks(check, r1, r2)
     d1 = r1.data.compute()
     d2 = r2.data.compute()
     m1 = r1.mask.compute()
     m2 = r2.mask.compute()
     expected = d1 + d2 + m1.astype(d1.dtype) + m2.astype(d2.dtype)
     np.testing.assert_array_equal(out.data.compute(), expected)
+
+
+def test_map_blocks_plain_func_gets_no_injection():
+    # No special params named -> none of the reserved injection
+    # kwargs should appear in **kwargs.
+    r = testdata.raster.dem_small
+
+    seen = []
+
+    def f(d, **kw):
+        seen.append(set(kw))
+        return d
+
+    map_blocks(f, r).data.compute()
+    for kw_keys in seen:
+        assert "input_masks" not in kw_keys
+        assert "input_null_values" not in kw_keys
+        assert "block_info" not in kw_keys
+
+
+def test_map_blocks_input_null_values_injected():
+    # input_null_values is a tuple parallel to inputs.
+    r1 = testdata.raster.dem_small.set_null_value(-1.0)
+    r2 = testdata.raster.dem_small.set_null_value(-2.0)
+
+    seen = []
+
+    def f(d1, d2, *, input_null_values):
+        seen.append(input_null_values)
+        return d1 + d2
+
+    map_blocks(f, r1, r2).data.compute()
+    assert seen
+    for nvs in seen:
+        assert nvs == (np.float32(-1.0), np.float32(-2.0))
+
+
+def test_map_blocks_block_info_injected():
+    r = testdata.raster.dem_small.chunk((1, 50, 50))
+
+    seen = []
+
+    def f(d, *, block_info):
+        if block_info is not None:
+            seen.append(block_info[None]["chunk-location"])
+        return d
+
+    map_blocks(f, r).data.compute()
+    # 2x2 spatial chunks -> 4 unique chunk locations.
+    assert sorted(set(seen)) == [
+        (0, 0, 0),
+        (0, 0, 1),
+        (0, 1, 0),
+        (0, 1, 1),
+    ]
+
+
+def test_map_blocks_multiple_specials_simultaneously():
+    r1 = testdata.raster.dem_small.set_null_value(-1.0).chunk((1, 50, 50))
+    r2 = testdata.raster.dem_small.set_null_value(-2.0).chunk((1, 50, 50))
+
+    seen = []
+
+    def f(d1, d2, *, input_masks, input_null_values, block_info, factor):
+        # All three reserved + a user-passed kwarg `factor`.
+        if block_info is not None:
+            seen.append(
+                {
+                    "n_masks": len(input_masks),
+                    "nvs": input_null_values,
+                    "factor": factor,
+                    "has_block_info": True,
+                }
+            )
+        return (d1 + d2) * factor
+
+    map_blocks(f, r1, r2, factor=3).data.compute()
+    assert seen and all(
+        s["n_masks"] == 2
+        and s["nvs"] == (np.float32(-1.0), np.float32(-2.0))
+        and s["factor"] == 3
+        and s["has_block_info"]
+        for s in seen
+    )
+
+
+def test_map_blocks_kwargs_only_func_gets_no_injection():
+    # A function whose only kwargs absorber is **kwargs (no explicit
+    # named params) does not trigger introspection-based injection.
+    r = testdata.raster.dem_small
+
+    seen = []
+
+    def f(*args, **kwargs):
+        seen.append(set(kwargs))
+        return args[0]
+
+    map_blocks(f, r).data.compute()
+    for kw_keys in seen:
+        assert "input_masks" not in kw_keys
+        assert "input_null_values" not in kw_keys
+        assert "block_info" not in kw_keys
+
+
+@pytest.mark.parametrize(
+    "name", ["input_masks", "input_null_values", "block_info"]
+)
+def test_map_blocks_reserved_name_collision_raises(name):
+    r = testdata.raster.dem_small
+    with pytest.raises(ValueError, match="reserved"):
+        map_blocks(lambda d, **kw: d, r, **{name: "anything"})
+
+
+def test_map_blocks_mask_round_trip():
+    # User opts in to input_masks; writes the resolved null_value at
+    # the originally-masked cells; verify those land in the output mask.
+    r = testdata.raster.dem_clipped_small.set_null_value(-1.0)
+
+    def fill_nulls(d, *, input_masks):
+        (m,) = input_masks
+        return np.where(m, np.float32(-1.0), d)
+
+    out = map_blocks(fill_nulls, r)
+    np.testing.assert_array_equal(out.mask.compute(), r.mask.compute())
 
 
 def test_map_blocks_empty_rasters_raises():
