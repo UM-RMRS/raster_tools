@@ -364,13 +364,21 @@ def map_blocks(
     Returns
     -------
     Raster
-        A new lazy Raster on the first input's grid, carrying its mask.
+        A new lazy Raster on the first input's grid.
 
     Notes
     -----
     Cross-input CRS or affine mismatches are not validated; the caller
-    is responsible. The output's mask is the first input's mask --
-    writing a new mask via ``func`` is not supported in v1.
+    is responsible.
+
+    The output Raster's mask is **derived from the output data and
+    the resolved output null value** -- ``out_data == null_value``,
+    or ``np.isnan(out_data)`` for NaN nulls; all-False if no null
+    value is set. This matches the rest of raster_tools but means
+    a function that changes which cells equal the null sentinel
+    will shift which cells appear masked -- it does not carry the
+    first input's mask through unchanged. Writing a new mask via
+    ``func`` is not supported in v1.
 
     Per-input null values are not passed to ``func``: prefer the mask
     blocks (``pass_mask=True``) over comparing data values to a null
@@ -598,8 +606,9 @@ def map_overlap(
 
         The boundary -> mask rule only affects what the user's function
         sees in the mask block during the call when ``pass_mask=True``.
-        The output Raster's mask is the first input's mask carried
-        through (padded cells trimmed off before the user sees them).
+        The output Raster's mask is built independently from the
+        output data (see Returns / Notes below); padded cells are
+        trimmed off before the user sees them.
     pass_mask : bool, optional
         If ``True``, each input's boolean mask block is passed to
         ``func`` immediately after its data block (interleaved).
@@ -620,7 +629,7 @@ def map_overlap(
     Returns
     -------
     Raster
-        A new lazy Raster on the first input's grid, carrying its mask.
+        A new lazy Raster on the first input's grid.
 
     Notes
     -----
@@ -628,6 +637,15 @@ def map_overlap(
     matches the input grid. If you need un-trimmed output, call
     :func:`dask.array.overlap.map_overlap` directly on
     ``raster.data``.
+
+    The output Raster's mask is **derived from the output data and
+    the resolved output null value** -- ``out_data == null_value``,
+    or ``np.isnan(out_data)`` for NaN nulls; all-False if no null
+    value is set. This matches the rest of raster_tools but means
+    a function that changes which cells equal the null sentinel
+    will shift which cells appear masked -- it does not carry the
+    first input's mask through unchanged. Writing a new mask via
+    ``func`` is not supported in v1.
 
     Asymmetric per-side depths are only supported with no padding
     (``boundary=None`` or ``"none"``). Combining asymmetric depth with
@@ -751,7 +769,7 @@ def geo_map_blocks(
     Returns
     -------
     Raster
-        A new lazy Raster on the first input's grid, carrying its mask.
+        A new lazy Raster on the first input's grid.
 
     Notes
     -----
@@ -767,8 +785,14 @@ def geo_map_blocks(
     against the input -- they're discarded; the output Raster's grid
     comes from ``rasters[0]``.
 
-    The output's mask is the first input's mask -- writing a new mask
-    via ``func`` is not supported in v1.
+    The output Raster's mask is **derived from the output data and
+    the resolved output null value** -- ``out_data == null_value``,
+    or ``np.isnan(out_data)`` for NaN nulls; all-False if no null
+    value is set. This matches the rest of raster_tools but means
+    a function that changes which cells equal the null sentinel
+    will shift which cells appear masked -- it does not carry the
+    first input's mask through unchanged. Writing a new mask via
+    ``func`` is not supported in v1.
 
     During dask's dtype-inference meta call, ``func`` is invoked once
     with 0-shape DataArrays (no coords) and ``geo_block_info=None``.
@@ -926,7 +950,7 @@ def geo_map_overlap(
     Returns
     -------
     Raster
-        A new lazy Raster on the first input's grid, carrying its mask.
+        A new lazy Raster on the first input's grid.
 
     Notes
     -----
@@ -941,10 +965,21 @@ def geo_map_overlap(
     extends to cover the overlap region, and ``row_slice`` /
     ``col_slice`` may have negative starts for top/left edge chunks.
 
+    The output Raster's mask is **derived from the output data and
+    the resolved output null value** -- ``out_data == null_value``,
+    or ``np.isnan(out_data)`` for NaN nulls; all-False if no null
+    value is set. This matches the rest of raster_tools but means
+    a function that changes which cells equal the null sentinel
+    will shift which cells appear masked -- it does not carry the
+    first input's mask through unchanged. Writing a new mask via
+    ``func`` is not supported in v1.
+
     The data/mask boundary correspondence rule from :func:`map_overlap`
     applies (``"null"`` -> mask True; reflect/periodic/nearest -> mask
     same; constant matching null_value -> mask True; other constants
-    -> mask False).
+    -> mask False). This affects what ``func`` sees in the mask block
+    when ``pass_mask=True``; it does not affect how the *output*
+    mask is built.
 
     During dask's dtype-inference meta call, ``func`` is invoked once
     with 0-shape DataArrays (no coords) and ``geo_block_info=None``.
