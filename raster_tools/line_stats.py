@@ -12,10 +12,6 @@ from raster_tools.rasterize import _rio_mask
 from raster_tools.vector import get_vector
 
 
-def _trim(x, slices):
-    return x[tuple(slices)]
-
-
 @nb.jit(nopython=True, nogil=True)
 def _length_sum(out, lengths, idxs):
     n = len(lengths)
@@ -47,21 +43,6 @@ def _compute_lengths(geom_df, targets):
         lengths, overlay.len.to_numpy(), overlay.target_idx.to_numpy()
     )
     return lengths
-
-
-def _get_valid_slice(xc):
-    # Build a slice that spans the valid data within the given coordinate array
-    left = None
-    i = 0
-    while np.isnan(xc[i]):
-        left = i + 1
-        i += 1
-    right = None
-    i = -1
-    while np.isnan(xc[i]):
-        right = i
-        i -= 1
-    return slice(left, right)
 
 
 def _len_coords(geom):
@@ -123,6 +104,8 @@ VERTS_PER_GEOM_CUTOFF = 15
 # rasterized. Keeping the number processed at a time low allows dask to better
 # handle the memory load.
 GEOM_BATCH_SIZE = 700
+# Only line geometry types are supported, mirroring ArcGIS Line Statistics.
+ALLOWED_GEOM_TYPES = frozenset({"LineString", "MultiLineString", "LinearRing"})
 
 
 def _get_indices_and_lengths_core(geoms_df, xc, yc, radius):
@@ -253,7 +236,9 @@ def length(features, like_rast, radius, weighting_field=None):
     Parameters
     ----------
     features : Vector, str
-        The line features to compute lengths from.
+        The line features to compute lengths from. Only line geometry types
+        (``LineString``, ``MultiLineString``, ``LinearRing``) are supported;
+        other geometry types raise ``TypeError``.
     like_rast : Raster, str
         A raster to use as a reference grid and CRS. The output raster will be
         on the same grid.
@@ -284,6 +269,16 @@ def length(features, like_rast, radius, weighting_field=None):
         raise ValueError(f"radius must be greater than zero: Got: {radius!r}.")
     if like_rast.crs is None:
         raise ValueError("like_rast must have a CRS set.")
+    gtypes = features.data.geometry.geom_type.unique()
+    if hasattr(gtypes, "compute"):
+        gtypes = gtypes.compute()
+    bad = sorted(set(gtypes) - ALLOWED_GEOM_TYPES)
+    if bad:
+        raise TypeError(
+            "line_stats.length only supports line geometries "
+            "(LineString, MultiLineString, LinearRing); got: "
+            f"{bad}"
+        )
     if weighting_field is not None:
         if not is_str(weighting_field):
             raise TypeError("weighting_field must be a string.")
