@@ -822,12 +822,14 @@ def geo_map_blocks(
     # inference).
     gbi_lookup = geo_block_infos(ref)
 
-    def _meta_dataarray(arr):
+    def _meta_dataarray(arr, nodata=None):
         # Build a placeholder DataArray for dask's meta-inference call.
         # `arr` may have any shape (often (1, 0, 0)); construct coords
         # matching each axis length so xarray's validation passes.
+        # Attach nodata so the user's func sees the same metadata it
+        # will get on the real per-block call.
         nb, ny, nx = arr.shape
-        return xr.DataArray(
+        xda = xr.DataArray(
             arr,
             dims=("band", "y", "x"),
             coords={
@@ -836,6 +838,9 @@ def geo_map_blocks(
                 "x": np.zeros(nx, dtype="float64"),
             },
         )
+        if nodata is not None:
+            xda = xda.rio.write_nodata(nodata)
+        return xda
 
     def _wrapper(*block_args, block_info=None, **inner_kwargs):
         # block_info is None during dask's meta-inference call. Run
@@ -848,9 +853,17 @@ def geo_map_blocks(
                 for i in range(n):
                     d = block_args[2 * i]
                     m = block_args[2 * i + 1]
-                    das.extend([_meta_dataarray(d), _meta_dataarray(m)])
+                    das.extend(
+                        [
+                            _meta_dataarray(d, nodata=nvs[i]),
+                            _meta_dataarray(m),
+                        ]
+                    )
             else:
-                das = [_meta_dataarray(block_args[i]) for i in range(n)]
+                das = [
+                    _meta_dataarray(block_args[i], nodata=nvs[i])
+                    for i in range(n)
+                ]
             result = func(*das, geo_block_info=None, **inner_kwargs)
             if hasattr(result, "values"):
                 return np.asarray(result.values)
@@ -1033,9 +1046,12 @@ def geo_map_overlap(
         inputs = [r.data for r in rasters]
     depths = [depth_dict] * len(inputs)
 
-    def _meta_dataarray(arr):
+    def _meta_dataarray(arr, nodata=None):
+        # Placeholder DataArray for dask's meta-inference call.
+        # Attach nodata so the user's func sees the same metadata it
+        # will get on the real per-block call.
         nb, ny, nx = arr.shape
-        return xr.DataArray(
+        xda = xr.DataArray(
             arr,
             dims=("band", "y", "x"),
             coords={
@@ -1044,6 +1060,9 @@ def geo_map_overlap(
                 "x": np.zeros(nx, dtype="float64"),
             },
         )
+        if nodata is not None:
+            xda = xda.rio.write_nodata(nodata)
+        return xda
 
     def _wrapper(*block_args, block_info=None, **inner_kwargs):
         # block_info is None during dask's meta-inference call.
@@ -1053,9 +1072,17 @@ def geo_map_overlap(
                 for i in range(n):
                     d = block_args[2 * i]
                     m = block_args[2 * i + 1]
-                    das.extend([_meta_dataarray(d), _meta_dataarray(m)])
+                    das.extend(
+                        [
+                            _meta_dataarray(d, nodata=nvs[i]),
+                            _meta_dataarray(m),
+                        ]
+                    )
             else:
-                das = [_meta_dataarray(block_args[i]) for i in range(n)]
+                das = [
+                    _meta_dataarray(block_args[i], nodata=nvs[i])
+                    for i in range(n)
+                ]
             result = func(*das, geo_block_info=None, **inner_kwargs)
             if hasattr(result, "values"):
                 return np.asarray(result.values)

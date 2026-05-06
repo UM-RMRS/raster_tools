@@ -855,6 +855,25 @@ def test_geo_map_blocks_func_sees_coords_crs_nodata():
     geo_map_blocks(f, r).data.compute()
 
 
+def test_geo_map_blocks_nodata_visible_in_meta_call():
+    # The DataArray passed to the user's func during dask's dtype-
+    # inference meta call should carry the same nodata as the real
+    # per-block call.
+    r = testdata.raster.dem_small.set_null_value(-1.0)
+    seen_meta = []
+    seen_real = []
+
+    def f(xda, geo_block_info=None, **kw):
+        (seen_meta if geo_block_info is None else seen_real).append(
+            xda.rio.nodata
+        )
+        return xda
+
+    geo_map_blocks(f, r).data.compute()
+    assert seen_meta and all(nv == -1.0 for nv in seen_meta)
+    assert seen_real and all(nv == -1.0 for nv in seen_real)
+
+
 def test_geo_map_blocks_returns_dataarray():
     r = testdata.raster.dem_small.chunk((1, 50, 50))
 
@@ -1217,6 +1236,22 @@ def test_geo_map_overlap_geo_block_info_shape_matches_block():
         return xda
 
     geo_map_overlap(f, r, depth=1, boundary="reflect").data.compute()
+
+
+def test_geo_map_overlap_nodata_visible_in_meta_call():
+    r = testdata.raster.dem_small.set_null_value(-1.0)
+    seen_meta = []
+    seen_real = []
+
+    def f(xda, geo_block_info=None, **kw):
+        (seen_meta if geo_block_info is None else seen_real).append(
+            xda.rio.nodata
+        )
+        return xda
+
+    geo_map_overlap(f, r, depth=1, boundary="reflect").data.compute()
+    assert seen_meta and all(nv == -1.0 for nv in seen_meta)
+    assert seen_real and all(nv == -1.0 for nv in seen_real)
 
 
 def test_geo_map_overlap_boundary_null_with_pass_mask():
