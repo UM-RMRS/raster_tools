@@ -647,6 +647,26 @@ def infer_output_dtype(func, *rasters, **kwargs):
     return apply_infer_dtype(wrapper, inputs, kwargs, "infer_output_dtype")
 
 
+def _check_asymmetric_depth_compatible_with_boundary(depth_dict, boundary):
+    """Mirror dask's restriction: tuple depth requires boundary 'none'.
+
+    ``da.overlap.map_overlap`` raises ``NotImplementedError`` deep in
+    its graph when any per-axis depth is a tuple and the boundary on
+    that axis isn't ``"none"``. Surface that as a ``ValueError`` at
+    call time with a message that names the offending axis.
+    """
+    if boundary is None or boundary == "none":
+        return
+    for axis in (1, 2):
+        d = depth_dict.get(axis, 0)
+        if isinstance(d, tuple):
+            raise ValueError(
+                f"asymmetric depth {d!r} on axis {axis} is only "
+                "supported with boundary=None or boundary='none'; "
+                f"got boundary={boundary!r}"
+            )
+
+
 _NAMED_BOUNDARIES = frozenset({"reflect", "periodic", "nearest", "none"})
 # Case-insensitive aliases for "fill outside cells with the raster's
 # null value." Matched after .lower()-ing the input string.
@@ -929,8 +949,7 @@ def map_overlap(
                 f"shape {ref.shape}"
             )
     depth_dict = _normalize_depth(depth)
-    # TODO: pre-validate (asymmetric depth + non-'none' boundary) with
-    # a friendlier error than dask's.
+    _check_asymmetric_depth_compatible_with_boundary(depth_dict, boundary)
 
     wrapper, inputs = _build_map_blocks_wrapper(
         func, rasters, null_value=null_value
@@ -1287,6 +1306,7 @@ def geo_map_overlap(
         )
 
     depth_dict = _normalize_depth(depth)
+    _check_asymmetric_depth_compatible_with_boundary(depth_dict, boundary)
     rasters = _ensure_chunks_for_overlap(rasters, depth_dict)
     ref = rasters[0]  # rechunk may have changed ref's chunking
     nvs = [r.null_value for r in rasters]

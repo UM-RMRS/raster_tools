@@ -1137,18 +1137,35 @@ def test_map_overlap_unrecognized_boundary_raises():
         map_overlap(lambda b: b, r, depth=1, boundary="bogus")
 
 
-def test_map_overlap_asymmetric_depth_with_reflect_propagates_dask_error():
-    # TODO: pre-validate this combo with a friendlier error.
+@pytest.mark.parametrize(
+    ("depth", "boundary"),
+    [
+        ({1: (2, 1), 2: 0}, "reflect"),
+        ({1: (1, 2), 2: 0}, 0),
+        ({1: 0, 2: (0, 1)}, "null"),
+        # Even a "symmetric" tuple counts -- dask checks the type.
+        ({1: (2, 2), 2: 0}, "reflect"),
+    ],
+)
+def test_map_overlap_asymmetric_depth_with_non_none_boundary_raises(
+    depth, boundary
+):
     r = make_raster(
         shape=(1, 100, 100), dtype=np.float32, chunksize=(1, 50, 50)
     )
-    with pytest.raises(NotImplementedError, match="[Aa]symmetric"):
-        map_overlap(
-            lambda b: b,
-            r,
-            depth={1: (2, 1), 2: 0},
-            boundary="reflect",
-        ).data.compute()
+    with pytest.raises(ValueError, match="asymmetric depth"):
+        map_overlap(lambda b: b, r, depth=depth, boundary=boundary)
+
+
+@pytest.mark.parametrize("boundary", [None, "none"])
+def test_map_overlap_asymmetric_depth_with_none_boundary_ok(boundary):
+    r = make_raster(
+        shape=(1, 100, 100), dtype=np.float32, chunksize=(1, 50, 50)
+    )
+    out = map_overlap(
+        lambda b: b, r, depth={1: (2, 1), 2: 0}, boundary=boundary
+    )
+    np.testing.assert_array_equal(out.data.compute(), r.data.compute())
 
 
 def test_map_overlap_input_null_values_injected():
@@ -1895,3 +1912,37 @@ def test_geo_map_overlap_rechunk_with_pass_mask():
 
     out = geo_map_overlap(f, r, depth=20, boundary="reflect", pass_mask=True)
     np.testing.assert_allclose(out.data.compute(), r.data.compute())
+
+
+@pytest.mark.parametrize(
+    ("depth", "boundary"),
+    [
+        ({1: (2, 1), 2: 0}, "reflect"),
+        ({1: (1, 2), 2: 0}, 0),
+        ({1: 0, 2: (0, 1)}, "null"),
+        ({1: (2, 2), 2: 0}, "reflect"),
+    ],
+)
+def test_geo_map_overlap_asymmetric_depth_with_non_none_boundary_raises(
+    depth, boundary
+):
+    r = make_raster(
+        shape=(1, 100, 100), dtype=np.float32, chunksize=(1, 50, 50)
+    )
+    with pytest.raises(ValueError, match="asymmetric depth"):
+        geo_map_overlap(
+            lambda xda, **kw: xda, r, depth=depth, boundary=boundary
+        )
+
+
+@pytest.mark.parametrize("boundary", [None, "none"])
+def test_geo_map_overlap_asymmetric_depth_with_none_boundary_ok(boundary):
+    r = make_raster(
+        shape=(1, 100, 100), dtype=np.float32, chunksize=(1, 50, 50)
+    )
+
+    def f(xda, **kw):
+        return xda
+
+    out = geo_map_overlap(f, r, depth={1: (2, 1), 2: 0}, boundary=boundary)
+    np.testing.assert_array_equal(out.data.compute(), r.data.compute())
