@@ -1071,17 +1071,44 @@ def _validate_aligned_rasters(rasters, fname):
     return rasters, ref
 
 
-def _build_geo_map_blocks_wrapper(func, rasters, null_value=None):
-    """Build the per-block wrapper geo_map_blocks passes to dask.
+def _resolve_gbi_no_pad(block_info, block_args, gbi_lookup):
+    """gbi resolver for geo_map_blocks: straight chunk-location lookup."""
+    return gbi_lookup[block_info[0]["chunk-location"]]
 
-    Returns ``(wrapper, inputs)``. ``wrapper`` is the callable to
-    pass to :func:`dask.array.map_blocks`. ``inputs`` is the list of
-    dask arrays to spread positionally (data first; masks appended
-    only when the user's ``func`` opts in via ``input_masks=``).
 
-    Mirrors :func:`_build_map_blocks_wrapper` but produces coordinated
-    :class:`xarray.DataArray` blocks instead of NumPy. Captures only
-    small immutables in the closure -- no Raster references.
+def _resolve_gbi_with_overlap_pad(block_info, block_args, gbi_lookup):
+    """gbi resolver for geo_map_overlap: pad the base gbi to match the
+    overlap-included block shape.
+
+    Distributes the per-axis overlap symmetrically. Exact for interior
+    chunks and any non-``"none"`` boundary; approximate for
+    ``boundary=None``/``"none"`` edge chunks (the per-side split may
+    be slightly off-position).
+    """
+    base_gbi = gbi_lookup[block_info[0]["chunk-location"]]
+    base_shape = base_gbi.shape
+    actual_shape = block_args[0].shape
+    tot_dy = actual_shape[1] - base_shape[1]
+    tot_dx = actual_shape[2] - base_shape[2]
+    top, bottom = tot_dy // 2, tot_dy - tot_dy // 2
+    left, right = tot_dx // 2, tot_dx - tot_dx // 2
+    gbi = base_gbi.pad_y(top, bottom) if (top or bottom) else base_gbi
+    if left or right:
+        gbi = gbi.pad_x(left, right)
+    return gbi
+
+
+def _build_geo_wrapper(func, rasters, *, null_value, gbi_resolver):
+    """Shared per-block wrapper builder for geo_map_blocks /
+    geo_map_overlap.
+
+    ``gbi_resolver(block_info, block_args, gbi_lookup) -> GeoBlockInfo``
+    decides how to translate dask's chunk-location into the gbi the
+    user sees. Pass :func:`_resolve_gbi_no_pad` for the no-overlap
+    flavor; :func:`_resolve_gbi_with_overlap_pad` for overlap.
+
+    Returns ``(wrapper, inputs)``. Captures only small immutables in
+    the closure -- no Raster references.
     """
     pass_masks = has_keyword(func, "input_masks")
     pass_block_info = has_keyword(func, "block_info")
@@ -1126,8 +1153,7 @@ def _build_geo_map_blocks_wrapper(func, rasters, null_value=None):
             )
             gbi = None
         else:
-            chunk_loc = block_info[0]["chunk-location"]
-            gbi = gbi_lookup[chunk_loc]
+            gbi = gbi_resolver(block_info, block_args, gbi_lookup)
             data_das = []
             mask_das = [] if pass_masks else None
             for i, d in enumerate(data_blocks):
@@ -1166,6 +1192,34 @@ def _build_geo_map_blocks_wrapper(func, rasters, null_value=None):
         return np.asarray(result)
 
     return _wrapper, inputs
+
+
+def _build_geo_map_blocks_wrapper(func, rasters, null_value=None):
+    """Per-block wrapper for :func:`geo_map_blocks`.
+
+    Thin shim over :func:`_build_geo_wrapper` with the no-pad gbi
+    resolver.
+    """
+    return _build_geo_wrapper(
+        func,
+        rasters,
+        null_value=null_value,
+        gbi_resolver=_resolve_gbi_no_pad,
+    )
+
+
+def _build_geo_map_overlap_wrapper(func, rasters, null_value=None):
+    """Per-block wrapper for :func:`geo_map_overlap`.
+
+    Thin shim over :func:`_build_geo_wrapper` with the overlap-pad
+    gbi resolver.
+    """
+    return _build_geo_wrapper(
+        func,
+        rasters,
+        null_value=null_value,
+        gbi_resolver=_resolve_gbi_with_overlap_pad,
+    )
 
 
 def geo_map_blocks(
@@ -1341,9 +1395,9 @@ def geo_map_overlap(
     *rasters,
     depth,
     boundary=None,
-    pass_mask=False,
     dtype=None,
     null_value=None,
+    meta=None,
     **kwargs,
 ):
     """Apply ``func`` block-wise with overlap, handing it coordinated
@@ -1356,19 +1410,54 @@ def geo_map_overlap(
     coords reflect the overlapped extent (top-left corner shifted
     outward by the per-side pad).
 
+    Per-block contract
+    ------------------
+    Always passed positionally:
+
+        func(*data_dataarrays, **kwargs)
+
+    where ``data_dataarrays`` is a tuple of N coordinated
+    :class:`xarray.DataArray` blocks, one per input raster, in caller
+    order. Each block already includes the overlap region; the
+    wrapper trims it after the function returns so the result lands
+    on the input's grid.
+
+    The user can opt in to receive per-block extras by including
+    named parameters in ``func``'s signature. Same set as
+    :func:`geo_map_blocks`:
+
+    - ``input_masks`` -- tuple of N ``xr.DataArray`` (bool) per-block
+      mask arrays, parallel to and overlap-included with the data
+      DataArrays.
+    - ``input_null_values`` -- tuple of N scalars, each input's
+      ``null_value`` (``None`` if unset).
+    - ``block_info`` -- dask's standard per-block info dict.
+    - ``out_null_value`` -- scalar; resolved per-chunk via
+      ``block_info[None]["dtype"]``. Typed zero of the first input's
+      dtype during the meta call.
+    - ``geo_block_info`` -- the per-chunk :class:`GeoBlockInfo`,
+      reflecting the **overlapped** extent: ``shape`` matches the
+      data block (including overlap), ``geobox`` extends to cover
+      the overlap region, and ``row_slice`` / ``col_slice`` may have
+      negative starts for top/left edge chunks. ``None`` during the
+      meta call.
+
+    A function whose only kwargs absorber is ``**kwargs`` does NOT
+    trigger any of these injections -- name the kwargs you want.
+
+    Reserved kwargs
+    ---------------
+    ``input_masks``, ``input_null_values``, ``block_info``,
+    ``out_null_value``, and ``geo_block_info`` are reserved. Passing
+    any of them via ``geo_map_overlap``'s own ``**kwargs`` raises
+    ``ValueError``.
+
     Parameters
     ----------
     func : callable
-        Per-block function. With ``pass_mask=False`` (default) it
-        receives ``(xda1, ..., xdaN, geo_block_info=gbi, **kwargs)``.
-        With ``pass_mask=True`` each input's mask DataArray is
-        interleaved immediately after its data DataArray:
-        ``(xda1, xma1, xda2, xma2, ..., xdaN, xmaN,
-        geo_block_info=gbi, **kwargs)``. Each block already includes
-        the overlap region; the wrapper trims it after the function
-        returns so the result lands on the input's grid. May return
-        either an ``xr.DataArray`` (its ``.values`` are extracted) or
-        a NumPy array of the same shape as a single
+        Per-block function. See "Per-block contract" above. May
+        return either an ``xr.DataArray`` (its ``.values`` are
+        extracted) or a NumPy array of the same shape as a single
         (overlap-included) data block.
     *rasters : Raster or str
         One or more input rasters. Path strings are accepted. All
@@ -1382,22 +1471,34 @@ def geo_map_overlap(
         Same semantics as :func:`map_overlap` (None / scalar /
         ``"null"`` / ``"null_value"`` / ``"nodata"`` /
         ``"reflect"`` / ``"periodic"`` / ``"nearest"`` / ``"none"``).
-    pass_mask : bool, optional
-        If ``True``, each input's boolean mask DataArray is passed to
-        ``func`` immediately after its data DataArray (interleaved).
-        Default ``False``.
     dtype : dtype-like, optional
         Output dtype. When ``None`` (default), dask infers the dtype
-        by calling ``func`` on tiny meta samples (matches NumPy
-        promotion for the typical elementwise case, and reflects any
-        in-func cast such as ``.astype``).
-    null_value : scalar or str, optional
-        Output null value. ``None`` (default) inherits from the first
-        input. A scalar is used as-is. The string ``"default"`` selects
-        a dtype-appropriate default via
-        :func:`raster_tools.masking.get_default_null_value`.
+        by calling ``func`` on tiny meta samples.
+    null_value : scalar, optional
+        Output null value.
+
+        - ``None`` (default): if there is exactly one input raster and
+          the output dtype matches its dtype, the output inherits
+          that input's null value. Otherwise, a dtype-appropriate
+          default from
+          :func:`raster_tools.masking.get_default_null_value`.
+        - scalar: used as-is.
+        - strings (including the previously-supported ``"default"``)
+          are no longer accepted.
+    meta : array-like, optional
+        Empty array with the desired output array type. Forwarded to
+        :func:`dask.array.overlap.map_overlap`. When provided, dask
+        uses this as the output meta and skips the 0-shape sample
+        call it would otherwise make to derive one -- useful when
+        ``func`` cannot tolerate 0-shape DataArray inputs. Note that
+        the wrapper always returns a NumPy array (it extracts
+        ``.values`` from any returned :class:`xarray.DataArray`), so
+        ``meta`` describes the wrapper's NumPy output, not the user
+        func's xarray output. When ``None`` (default), dask derives
+        a NumPy meta by calling ``func`` on 0-shape inputs.
     **kwargs
-        Extra keyword arguments forwarded per-block to ``func``.
+        Extra keyword arguments forwarded per-block to ``func``. The
+        reserved names listed above are not allowed here.
 
     Returns
     -------
@@ -1411,38 +1512,23 @@ def geo_map_overlap(
     :func:`dask.array.overlap.map_overlap` directly on
     ``raster.data``.
 
-    The per-block :class:`GeoBlockInfo` is always passed to ``func`` as
-    ``geo_block_info`` and reflects the **overlapped** extent: its
-    ``shape`` matches the data block (including overlap), ``geobox``
-    extends to cover the overlap region, and ``row_slice`` /
-    ``col_slice`` may have negative starts for top/left edge chunks.
-
     The output Raster's mask is **derived from the output data and
     the resolved output null value** -- ``out_data == null_value``,
     or ``np.isnan(out_data)`` for NaN nulls; all-False if no null
-    value is set. This matches the rest of raster_tools but means
-    a function that changes which cells equal the null sentinel
-    will shift which cells appear masked -- it does not carry the
-    first input's mask through unchanged. Writing a new mask via
-    ``func`` is not supported in v1.
+    value is set. Writing a new mask via ``func`` is not supported.
 
     The data/mask boundary correspondence rule from :func:`map_overlap`
     applies (``"null"`` -> mask True; reflect/periodic/nearest -> mask
     same; constant matching null_value -> mask True; other constants
     -> mask False). This affects what ``func`` sees in the mask block
-    when ``pass_mask=True``; it does not affect how the *output*
-    mask is built.
+    when it opts in to ``input_masks=``; it does not affect how the
+    *output* mask is built.
 
     Dask invokes ``func`` once on 0-shape DataArrays (no coords) to
     derive the output array meta -- this happens whether or not
-    ``dtype=`` is provided. Passing ``dtype=`` only skips the
-    additional sample call dask would otherwise make to infer the
-    output dtype; it does not skip the 0-shape meta call. During the
-    meta call ``geo_block_info`` is ``None``. Most NumPy / xarray ops
-    handle 0-shape inputs fine.
-
-    Per-input null values are not passed to ``func``; prefer
-    ``pass_mask=True`` over comparing data values to a null sentinel.
+    ``dtype=`` is provided. Pass ``meta=`` to skip the call entirely.
+    During the meta call ``geo_block_info`` is ``None`` if the func
+    opts in. Most NumPy / xarray ops handle 0-shape inputs fine.
 
     With ``boundary=None`` or ``"none"``, edge chunks aren't padded on
     the array-boundary side. The per-side overlap split is computed
@@ -1458,11 +1544,16 @@ def geo_map_overlap(
     raster_tools.Raster.reproject : Per-input alignment to a target
         grid; pass ``r1.geobox`` to align ``r2`` to ``r1``.
     """
-    # TODO: add a `meta=` kwarg forwarded to da.overlap.map_overlap
-    # (matching map_blocks / map_overlap / geo_map_blocks). Deferred
-    # until this function is migrated to the introspection-based
-    # contract; do it as part of that refactor to avoid churning the
-    # signature twice.
+    if not rasters:
+        raise ValueError("geo_map_overlap requires at least one raster")
+    _check_dtype_meta_agree(dtype, meta)
+    reserved_collision = _GEO_MAP_BLOCKS_RESERVED_KWARGS & kwargs.keys()
+    if reserved_collision:
+        raise ValueError(
+            f"these kwargs are reserved by geo_map_overlap for per-block "
+            f"injection and cannot be passed by the caller: "
+            f"{sorted(reserved_collision)}"
+        )
     rasters, ref = _validate_aligned_rasters(rasters, "geo_map_overlap")
     if not are_all_grids_same([r.geobox for r in rasters]):
         raise ValueError(
@@ -1476,87 +1567,30 @@ def geo_map_overlap(
     _check_asymmetric_depth_compatible_with_boundary(depth_dict, boundary)
     rasters = _ensure_chunks_for_overlap(rasters, depth_dict)
     ref = rasters[0]  # rechunk may have changed ref's chunking
-    nvs = [r.null_value for r in rasters]
-    n = len(rasters)
-    gbi_lookup = geo_block_infos(ref)
 
-    if pass_mask:
-        boundaries = []
-        for r in rasters:
-            data_b, mask_b = _resolve_boundary(boundary, r)
-            boundaries.extend([data_b, mask_b])
-    else:
-        boundaries = [_resolve_boundary(boundary, r)[0] for r in rasters]
-
-    if pass_mask:
-        inputs = [arr for r in rasters for arr in (r.data, r.mask)]
-    else:
-        inputs = [r.data for r in rasters]
+    wrapper, inputs = _build_geo_map_overlap_wrapper(
+        func, rasters, null_value=null_value
+    )
+    pass_masks = has_keyword(func, "input_masks")
+    boundaries = [_resolve_boundary(boundary, r)[0] for r in rasters]
+    if pass_masks:
+        boundaries.extend(_resolve_boundary(boundary, r)[1] for r in rasters)
     depths = [depth_dict] * len(inputs)
 
-    def _wrapper(*block_args, block_info=None, **inner_kwargs):
-        # block_info is None during dask's meta-inference call.
-        if block_info is None:
-            if pass_mask:
-                das = []
-                for i in range(n):
-                    d = block_args[2 * i]
-                    m = block_args[2 * i + 1]
-                    das.extend(
-                        [
-                            _meta_dataarray(d, nodata=nvs[i]),
-                            _meta_dataarray(m),
-                        ]
-                    )
-            else:
-                das = [
-                    _meta_dataarray(block_args[i], nodata=nvs[i])
-                    for i in range(n)
-                ]
-            result = func(*das, geo_block_info=None, **inner_kwargs)
-            if hasattr(result, "values"):
-                return np.asarray(result.values)
-            return np.asarray(result)
-
-        chunk_loc = block_info[0]["chunk-location"]
-        base_gbi = gbi_lookup[chunk_loc]
-        base_shape = base_gbi.shape
-        actual_shape = block_args[0].shape
-        # Distribute the per-axis overlap symmetrically. Exact for
-        # interior chunks and any non-'none' boundary; approximate for
-        # boundary=None/'none' edge chunks (see Notes).
-        tot_dy = actual_shape[1] - base_shape[1]
-        tot_dx = actual_shape[2] - base_shape[2]
-        top, bottom = tot_dy // 2, tot_dy - tot_dy // 2
-        left, right = tot_dx // 2, tot_dx - tot_dx // 2
-        gbi = base_gbi.pad_y(top, bottom) if (top or bottom) else base_gbi
-        if left or right:
-            gbi = gbi.pad_x(left, right)
-
-        if pass_mask:
-            das = []
-            for i in range(n):
-                d = block_args[2 * i]
-                m = block_args[2 * i + 1]
-                xd, xm = gbi.to_dataarray(d, mask=m, nodata=nvs[i])
-                das.extend([xd, xm])
-        else:
-            das = [
-                gbi.to_dataarray(block_args[i], nodata=nvs[i])
-                for i in range(n)
-            ]
-        result = func(*das, geo_block_info=gbi, **inner_kwargs)
-        if hasattr(result, "values"):
-            return np.asarray(result.values)
-        return np.asarray(result)
-
     out_data = da.overlap.map_overlap(
-        _wrapper,
+        wrapper,
         *inputs,
         depth=depths,
         boundary=boundaries,
         dtype=dtype,
+        meta=meta,
         **kwargs,
     )
-    out_nv = _resolve_null_value(null_value, ref.null_value, out_data.dtype)
+    out_nv = _resolve_out_null_value(
+        null_value=null_value,
+        ref_dtype=ref.dtype,
+        ref_null_value=ref.null_value,
+        n_rasters=len(rasters),
+        out_dtype=out_data.dtype,
+    )
     return data_to_raster_like(out_data, ref, nv=out_nv)
