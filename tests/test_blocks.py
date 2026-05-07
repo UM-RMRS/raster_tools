@@ -14,11 +14,13 @@ from affine import Affine
 from raster_tools.blocks import (
     GeoBlockInfo,
     geo_block_infos_as_dask,
+    geo_infer_output_dtype,
     geo_map_blocks,
     geo_map_overlap,
     infer_output_dtype,
     map_blocks,
     map_overlap,
+    resolve_output_null_value,
 )
 from raster_tools.masking import get_default_null_value
 from tests.utils import make_raster
@@ -2536,3 +2538,124 @@ def test_geo_map_overlap_out_null_value_with_meta_skips_meta_call():
     ).data.compute()
     assert -1.0 in seen
     assert all(v == -1.0 for v in seen)
+
+
+# ---------------------------------------------------------------------------
+# Plan 5: API completeness
+# ---------------------------------------------------------------------------
+
+
+def test_geo_infer_output_dtype_identity():
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32)
+    assert geo_infer_output_dtype(lambda xda, **kw: xda, r) == np.float32
+
+
+def test_geo_infer_output_dtype_in_func_cast():
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32)
+    out = geo_infer_output_dtype(lambda xda, **kw: xda.astype(np.int32), r)
+    assert out == np.int32
+
+
+def test_geo_infer_output_dtype_meta_short_circuits():
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32)
+    called = []
+
+    def f(xda, **kw):
+        called.append(1)
+        return xda
+
+    out = geo_infer_output_dtype(f, r, meta=np.empty((), dtype=np.int16))
+    assert out == np.int16
+    assert called == []  # func not invoked when meta= is given
+
+
+def test_infer_output_dtype_meta_short_circuits():
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32)
+    called = []
+
+    def f(d):
+        called.append(1)
+        return d
+
+    out = infer_output_dtype(f, r, meta=np.empty((), dtype=np.int16))
+    assert out == np.int16
+    assert called == []
+
+
+def test_geo_infer_output_dtype_rejects_dask_kwargs():
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32)
+    with pytest.raises(ValueError, match="dask graph-construction options"):
+        geo_infer_output_dtype(lambda xda, **kw: xda, r, chunks=object())
+
+
+def test_geo_infer_output_dtype_reserved_kwarg_collision_raises():
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32)
+    with pytest.raises(ValueError, match="reserved"):
+        geo_infer_output_dtype(
+            lambda xda, **kw: xda, r, geo_block_info=object()
+        )
+
+
+def test_resolve_output_null_value_inherits_for_single_input():
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32, null=-1.0)
+    nv = resolve_output_null_value(lambda d: d, r)
+    assert nv == -1.0
+
+
+def test_resolve_output_null_value_dtype_default_when_dtype_changes():
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32, null=-1.0)
+    nv = resolve_output_null_value(lambda d: d.astype(np.int32), r)
+    assert nv == get_default_null_value(np.dtype(np.int32))
+
+
+def test_resolve_output_null_value_explicit_scalar():
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32, null=-1.0)
+    nv = resolve_output_null_value(lambda d: d, r, null_value=42.0)
+    assert nv == 42.0
+
+
+def test_resolve_output_null_value_meta_supplied():
+    # When meta= is given, dtype comes from meta directly; func is
+    # not invoked.
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32)
+    called = []
+
+    def f(d):
+        called.append(1)
+        return d
+
+    nv = resolve_output_null_value(f, r, meta=np.empty((), dtype=np.int32))
+    assert nv == get_default_null_value(np.dtype(np.int32))
+    assert called == []
+
+
+def test_resolve_output_null_value_dtype_supplied():
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32, null=-1.0)
+    called = []
+
+    def f(d):
+        called.append(1)
+        return d.astype(np.int32)
+
+    nv = resolve_output_null_value(f, r, dtype=np.int32)
+    assert nv == get_default_null_value(np.dtype(np.int32))
+    assert called == []  # explicit dtype skips inference
+
+
+def test_resolve_output_null_value_geo_path():
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32, null=-1.0)
+    nv = resolve_output_null_value(lambda xda, **kw: xda, r, geo=True)
+    assert nv == -1.0
+
+
+def test_resolve_output_null_value_matches_real_call():
+    # The resolved value should match what map_blocks actually puts on
+    # the output Raster -- the whole point of the helper.
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32, null=-1.0)
+    pre = resolve_output_null_value(
+        lambda d: d.astype(np.int32), r, null_value=42
+    )
+    out = map_blocks(
+        lambda d: d.astype(np.int32), r, null_value=42, dtype=np.int32
+    )
+    assert pre == out.null_value

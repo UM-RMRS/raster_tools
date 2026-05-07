@@ -34,11 +34,13 @@ from raster_tools.utils import nan_equal
 __all__ = [
     "GeoBlockInfo",
     "geo_block_infos_as_dask",
+    "geo_infer_output_dtype",
     "geo_map_blocks",
     "geo_map_overlap",
     "infer_output_dtype",
     "map_blocks",
     "map_overlap",
+    "resolve_output_null_value",
 ]
 
 
@@ -695,7 +697,7 @@ def _resolve_out_null_value(
     return null_value
 
 
-def infer_output_dtype(func, *rasters, **kwargs):
+def infer_output_dtype(func, *rasters, meta=None, **kwargs):
     """Infer the output dtype ``func`` will produce on these rasters.
 
     Mirrors :func:`map_blocks`'s contract: applies the same
@@ -717,6 +719,9 @@ def infer_output_dtype(func, *rasters, **kwargs):
         Per-block function; same contract as :func:`map_blocks`.
     *rasters : Raster or str
         One or more input rasters (path strings accepted).
+    meta : array-like, optional
+        If supplied, short-circuits inference and returns
+        ``meta.dtype`` directly. ``func`` is not invoked.
     **kwargs
         Extra keyword arguments forwarded per-block to ``func``.
 
@@ -742,9 +747,128 @@ def infer_output_dtype(func, *rasters, **kwargs):
             f"injection and cannot be passed by the caller: "
             f"{sorted(reserved_collision)}"
         )
+    if meta is not None:
+        return np.asarray(meta).dtype
     rasters = [get_raster(r) for r in rasters]
     wrapper, inputs = _build_map_blocks_wrapper(func, rasters)
     return apply_infer_dtype(wrapper, inputs, kwargs, "infer_output_dtype")
+
+
+def geo_infer_output_dtype(func, *rasters, meta=None, **kwargs):
+    """Infer the output dtype a :func:`geo_map_blocks`-shaped ``func``
+    will produce on these rasters.
+
+    Geo analog of :func:`infer_output_dtype`: builds the geo wrapper
+    (so ``func`` sees coordinated :class:`xarray.DataArray` blocks
+    plus any opted-in introspections, including ``geo_block_info``)
+    and runs :func:`dask.array.core.apply_infer_dtype` to derive the
+    output dtype without computing real data.
+
+    Parameters
+    ----------
+    func : callable
+        Per-block function; same contract as :func:`geo_map_blocks`.
+    *rasters : Raster or str
+        One or more input rasters (path strings accepted). Only shape
+        is validated (matching ``infer_output_dtype``'s permissive
+        ergonomics); strict grid alignment isn't required for
+        inference.
+    meta : array-like, optional
+        If supplied, short-circuits inference and returns
+        ``meta.dtype`` directly. ``func`` is not invoked.
+    **kwargs
+        Extra keyword arguments forwarded per-block to ``func``.
+
+    Returns
+    -------
+    numpy.dtype
+        The inferred output dtype.
+    """
+    if not rasters:
+        raise ValueError("geo_infer_output_dtype requires at least one raster")
+    _check_no_dask_kwargs(kwargs)
+    reserved_collision = _GEO_MAP_BLOCKS_RESERVED_KWARGS & kwargs.keys()
+    if reserved_collision:
+        raise ValueError(
+            f"these kwargs are reserved by geo_map_blocks for per-block "
+            f"injection and cannot be passed by the caller: "
+            f"{sorted(reserved_collision)}"
+        )
+    if meta is not None:
+        return np.asarray(meta).dtype
+    rasters = [get_raster(r) for r in rasters]
+    wrapper, inputs = _build_geo_map_blocks_wrapper(func, rasters)
+    return apply_infer_dtype(wrapper, inputs, kwargs, "geo_infer_output_dtype")
+
+
+def resolve_output_null_value(
+    func,
+    *rasters,
+    dtype=None,
+    null_value=None,
+    meta=None,
+    geo=False,
+    **kwargs,
+):
+    """Return the output null sentinel a real call would produce.
+
+    Combines dtype resolution (from ``meta``, ``dtype``, or
+    inference) with the same null-value rules :func:`map_blocks` and
+    friends apply, without building a graph or computing data. Useful
+    for callers who want to pre-allocate buffers, decide a sentinel
+    upfront, or pre-validate that the resolved sentinel is what they
+    expect.
+
+    Parameters
+    ----------
+    func : callable
+        Per-block function; same contract as :func:`map_blocks` (or
+        :func:`geo_map_blocks` when ``geo=True``).
+    *rasters : Raster or str
+        One or more input rasters (path strings accepted).
+    dtype : dtype-like, optional
+        If supplied, used as the output dtype directly.
+    null_value : scalar, optional
+        Same semantics as :func:`map_blocks`'s ``null_value``.
+    meta : array-like, optional
+        If supplied, ``meta.dtype`` is the output dtype.
+    geo : bool, optional
+        If ``True``, use :func:`geo_infer_output_dtype` (the geo
+        wrapper); otherwise :func:`infer_output_dtype` (the NumPy
+        wrapper). Default ``False``.
+    **kwargs
+        Extra keyword arguments forwarded per-block to ``func`` for
+        the inference call (ignored when ``meta=`` or ``dtype=`` is
+        supplied).
+
+    Returns
+    -------
+    scalar or None
+        The null value the output Raster would carry. ``None`` if
+        the resolution rules yield no null value (e.g. an
+        unsupported dtype).
+    """
+    if not rasters:
+        raise ValueError(
+            "resolve_output_null_value requires at least one raster"
+        )
+    rasters_resolved = [get_raster(r) for r in rasters]
+    ref = rasters_resolved[0]
+    if meta is not None:
+        out_dtype = np.asarray(meta).dtype
+    elif dtype is not None:
+        out_dtype = np.dtype(dtype)
+    elif geo:
+        out_dtype = geo_infer_output_dtype(func, *rasters, **kwargs)
+    else:
+        out_dtype = infer_output_dtype(func, *rasters, **kwargs)
+    return _resolve_out_null_value(
+        null_value=null_value,
+        ref_dtype=ref.dtype,
+        ref_null_value=ref.null_value,
+        n_rasters=len(rasters_resolved),
+        out_dtype=out_dtype,
+    )
 
 
 def _check_asymmetric_depth_compatible_with_boundary(depth_dict, boundary):
