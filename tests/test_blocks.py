@@ -1424,12 +1424,13 @@ def test_geo_map_blocks_kwargs_forwarded():
     np.testing.assert_allclose(out.data.compute(), r.data.compute() * 4)
 
 
-def test_geo_map_blocks_pass_mask_single_input():
+def test_geo_map_blocks_input_masks_single_input():
     r = make_raster(
         shape=(1, 100, 100), dtype=np.float32, chunksize=(1, 50, 50)
     )
 
-    def f(xda, xma, **kw):
+    def f(xda, *, input_masks):
+        xma = input_masks[0]
         assert isinstance(xda, xr.DataArray)
         assert isinstance(xma, xr.DataArray)
         assert xma.dtype == bool
@@ -1439,14 +1440,14 @@ def test_geo_map_blocks_pass_mask_single_input():
         )
         return xda + xma.astype(xda.dtype)
 
-    out = geo_map_blocks(f, r, pass_mask=True)
+    out = geo_map_blocks(f, r)
     np.testing.assert_allclose(
         out.data.compute(),
         r.data.compute() + r.mask.compute().astype(r.dtype),
     )
 
 
-def test_geo_map_blocks_pass_mask_two_input_interleaved():
+def test_geo_map_blocks_input_masks_two_input():
     r1 = make_raster(
         shape=(1, 100, 100), dtype=np.float32, chunksize=(1, 50, 50)
     )
@@ -1454,12 +1455,13 @@ def test_geo_map_blocks_pass_mask_two_input_interleaved():
         shape=(1, 100, 100), dtype=np.float32, chunksize=(1, 50, 50)
     )
 
-    def f(xda1, xma1, xda2, xma2, **kw):
+    def f(xda1, xda2, *, input_masks):
+        xma1, xma2 = input_masks
         assert xda1.dtype == r1.dtype and xda2.dtype == r2.dtype
         assert xma1.dtype == bool and xma2.dtype == bool
         return xda1 + xda2
 
-    out = geo_map_blocks(f, r1, r2, pass_mask=True)
+    out = geo_map_blocks(f, r1, r2)
     np.testing.assert_allclose(
         out.data.compute(), r1.data.compute() + r2.data.compute()
     )
@@ -1473,8 +1475,9 @@ def test_geo_map_blocks_dtype_change():
     def f(xda, **kw):
         return xda.astype(np.int32)
 
-    out = geo_map_blocks(f, r, dtype=np.int32, null_value="default")
+    out = geo_map_blocks(f, r, dtype=np.int32)
     assert out.dtype == np.int32
+    # null_value=None + dtype change -> dtype default.
     assert out.null_value == get_default_null_value(np.dtype(np.int32))
 
 
@@ -1501,10 +1504,14 @@ def test_geo_map_blocks_shape_mismatch_raises():
 
 
 def test_geo_map_blocks_preserves_first_input_grid():
-    r1 = make_raster(shape=(1, 100, 100), dtype=np.float32)
+    r1 = make_raster(shape=(1, 100, 100), dtype=np.float32, null=-1.0)
     r2 = make_raster(shape=(1, 100, 100), dtype=np.float32, null=99.0)
     assert r2.null_value != r1.null_value
-    out = geo_map_blocks(lambda a, b, **kw: a + b, r1, r2)
+    # Force the inherit by passing r1's null_value explicitly; the
+    # multi-input default rule would otherwise pick the dtype default.
+    out = geo_map_blocks(
+        lambda a, b, **kw: a + b, r1, r2, null_value=r1.null_value
+    )
     assert out.crs == r1.crs
     assert out.affine == r1.affine
     assert out.null_value == r1.null_value
@@ -1562,6 +1569,132 @@ def test_geo_map_blocks_sub_pixel_fp_noise_tolerated():
     np.testing.assert_allclose(out.data.compute(), r1.data.compute() * 2)
 
 
+def test_geo_map_blocks_input_null_values_injected():
+    r1 = make_raster(shape=(1, 100, 100), dtype=np.float32, null=-1.0)
+    r2 = make_raster(shape=(1, 100, 100), dtype=np.float32, null=-2.0)
+    seen = []
+
+    def f(xda1, xda2, *, input_null_values):
+        seen.append(input_null_values)
+        return xda1 + xda2
+
+    geo_map_blocks(f, r1, r2).data.compute()
+    assert any(s == (-1.0, -2.0) for s in seen)
+
+
+def test_geo_map_blocks_block_info_injected():
+    r = make_raster(
+        shape=(1, 100, 100), dtype=np.float32, chunksize=(1, 50, 50)
+    )
+    seen = []
+
+    def f(xda, *, block_info):
+        if block_info is not None:
+            seen.append(block_info[0]["chunk-location"])
+        return xda
+
+    geo_map_blocks(f, r).data.compute()
+    assert len(set(seen)) == 4
+
+
+def test_geo_map_blocks_geo_block_info_optin():
+    # geo_block_info is opt-in: a func that doesn't name it doesn't
+    # receive it. Bare 1-arg signature is now valid.
+    r = make_raster(
+        shape=(1, 100, 100), dtype=np.float32, chunksize=(1, 50, 50)
+    )
+
+    def f(xda):
+        # No **kw absorber; geo_block_info MUST not be passed.
+        return xda
+
+    out = geo_map_blocks(f, r)
+    np.testing.assert_array_equal(out.data.compute(), r.data.compute())
+
+
+def test_geo_map_blocks_out_null_value_inherits_for_single_input():
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32, null=-1.0)
+    seen = []
+
+    def f(xda, *, out_null_value):
+        seen.append(out_null_value)
+        return xda
+
+    out = geo_map_blocks(f, r)
+    out.data.compute()
+    assert -1.0 in seen
+    assert out.null_value == -1.0
+
+
+def test_geo_map_blocks_out_null_value_dtype_default_when_dtype_changes():
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32, null=-1.0)
+    seen = []
+
+    def f(xda, *, out_null_value):
+        seen.append(out_null_value)
+        return xda.astype(np.int32)
+
+    out = geo_map_blocks(f, r, dtype=np.int32)
+    out.data.compute()
+    expected = get_default_null_value(np.dtype(np.int32))
+    assert expected in seen
+
+
+def test_geo_map_blocks_no_injection_when_func_does_not_name_kwargs():
+    r = make_raster(
+        shape=(1, 100, 100), dtype=np.float32, chunksize=(1, 50, 50)
+    )
+    seen = []
+
+    def f(xda, **kw):
+        seen.append(set(kw.keys()))
+        return xda
+
+    geo_map_blocks(f, r).data.compute()
+    for kw_keys in seen:
+        assert "input_masks" not in kw_keys
+        assert "input_null_values" not in kw_keys
+        assert "block_info" not in kw_keys
+        assert "out_null_value" not in kw_keys
+        assert "geo_block_info" not in kw_keys
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "input_masks",
+        "input_null_values",
+        "block_info",
+        "out_null_value",
+        "geo_block_info",
+    ],
+)
+def test_geo_map_blocks_reserved_kwargs_collide(name):
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32)
+    with pytest.raises(ValueError, match="reserved"):
+        geo_map_blocks(lambda xda, **kw: xda, r, **{name: object()})
+
+
+def test_geo_map_blocks_null_value_inherits_for_single_input_unchanged_dtype():
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32, null=-1.0)
+    out = geo_map_blocks(lambda xda, **kw: xda, r)
+    assert out.null_value == -1.0
+
+
+def test_geo_map_blocks_null_value_dtype_default_for_multi_input():
+    r1 = make_raster(shape=(1, 100, 100), dtype=np.float32, null=-1.0)
+    r2 = make_raster(shape=(1, 100, 100), dtype=np.float32, null=-2.0)
+    out = geo_map_blocks(lambda a, b, **kw: a + b, r1, r2)
+    assert out.null_value == get_default_null_value(np.dtype(out.dtype))
+    assert out.null_value not in (-1.0, -2.0)
+
+
+def test_geo_map_blocks_null_value_invalid_string():
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32)
+    with pytest.raises(ValueError, match="must be None or a scalar"):
+        geo_map_blocks(lambda xda, **kw: xda, r, null_value="default")
+
+
 # ---------------------------------------------------------------------------
 # dtype inference (mirror dask)
 # ---------------------------------------------------------------------------
@@ -1609,19 +1742,13 @@ def test_map_overlap_dtype_inferred_for_mixed_inputs():
 def test_geo_map_blocks_dtype_inferred_for_mixed_inputs():
     r1 = make_raster(shape=(1, 100, 100), dtype=np.float32)  # float32
     r2 = make_raster(shape=(1, 100, 100), dtype=np.int16)
-    out = geo_map_blocks(
-        lambda a, b, **kw: a + b, r1, r2, null_value="default"
-    )
+    out = geo_map_blocks(lambda a, b, **kw: a + b, r1, r2)
     assert out.dtype == np.float32
 
 
 def test_geo_map_blocks_dtype_inferred_from_in_func_cast():
     r = make_raster(shape=(1, 100, 100), dtype=np.float32)  # float32
-    out = geo_map_blocks(
-        lambda xda, **kw: xda.astype(np.int32),
-        r,
-        null_value="default",
-    )
+    out = geo_map_blocks(lambda xda, **kw: xda.astype(np.int32), r)
     assert out.dtype == np.int32
 
 

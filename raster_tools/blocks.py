@@ -978,6 +978,36 @@ def map_overlap(
     return data_to_raster_like(out_data, ref, nv=out_nv)
 
 
+# Reserved kwargs for geo_map_blocks: superset of map_blocks's
+# reserved set, plus the geo-only `geo_block_info` injection.
+_GEO_MAP_BLOCKS_RESERVED_KWARGS = _MAP_BLOCKS_RESERVED_KWARGS | frozenset(
+    {"geo_block_info"}
+)
+
+
+def _meta_dataarray(arr, nodata=None):
+    """Build a placeholder DataArray for dask's meta-inference call.
+
+    ``arr`` may have any shape (often ``(1, 0, 0)``); construct coords
+    matching each axis length so xarray's validation passes. Attach
+    ``nodata`` so the user's func sees the same metadata it will get
+    on the real per-block call.
+    """
+    nb, ny, nx = arr.shape
+    xda = xr.DataArray(
+        arr,
+        dims=("band", "y", "x"),
+        coords={
+            "band": np.arange(nb, dtype="int64"),
+            "y": np.zeros(ny, dtype="float64"),
+            "x": np.zeros(nx, dtype="float64"),
+        },
+    )
+    if nodata is not None:
+        xda = xda.rio.write_nodata(nodata)
+    return xda
+
+
 def _validate_aligned_rasters(rasters, fname):
     if not rasters:
         raise ValueError(f"{fname} requires at least one raster")
@@ -992,10 +1022,106 @@ def _validate_aligned_rasters(rasters, fname):
     return rasters, ref
 
 
+def _build_geo_map_blocks_wrapper(func, rasters, null_value=None):
+    """Build the per-block wrapper geo_map_blocks passes to dask.
+
+    Returns ``(wrapper, inputs)``. ``wrapper`` is the callable to
+    pass to :func:`dask.array.map_blocks`. ``inputs`` is the list of
+    dask arrays to spread positionally (data first; masks appended
+    only when the user's ``func`` opts in via ``input_masks=``).
+
+    Mirrors :func:`_build_map_blocks_wrapper` but produces coordinated
+    :class:`xarray.DataArray` blocks instead of NumPy. Captures only
+    small immutables in the closure -- no Raster references.
+    """
+    pass_masks = has_keyword(func, "input_masks")
+    pass_block_info = has_keyword(func, "block_info")
+    pass_input_nvs = has_keyword(func, "input_null_values")
+    pass_out_nv = has_keyword(func, "out_null_value")
+    pass_geo_block_info = has_keyword(func, "geo_block_info")
+
+    inputs = [r.data for r in rasters]
+    if pass_masks:
+        inputs.extend(r.mask for r in rasters)
+
+    nvs = tuple(r.null_value for r in rasters)
+    ref = rasters[0]
+    ref_dtype = ref.dtype
+    ref_null_value = ref.null_value
+    n_rasters = len(rasters)
+    # Per-chunk GeoBlockInfos, looked up by dask's chunk-location.
+    gbi_lookup = geo_block_infos(ref)
+    meta_placeholder = (
+        np.zeros((), dtype=ref_dtype)[()] if pass_out_nv else None
+    )
+
+    def _wrapper(*block_args, block_info=None, **inner_kwargs):
+        if pass_masks:
+            n = len(block_args)
+            data_blocks = block_args[: n // 2]
+            mask_blocks = block_args[n // 2 :]
+        else:
+            data_blocks = block_args
+            mask_blocks = None
+
+        if block_info is None:
+            # Meta-inference call: 0-shape DataArrays via _meta_dataarray.
+            data_das = [
+                _meta_dataarray(d, nodata=nvs[i])
+                for i, d in enumerate(data_blocks)
+            ]
+            mask_das = (
+                [_meta_dataarray(m) for m in mask_blocks]
+                if pass_masks
+                else None
+            )
+            gbi = None
+        else:
+            chunk_loc = block_info[0]["chunk-location"]
+            gbi = gbi_lookup[chunk_loc]
+            data_das = []
+            mask_das = [] if pass_masks else None
+            for i, d in enumerate(data_blocks):
+                if pass_masks:
+                    xd, xm = gbi.to_dataarray(
+                        d, mask=mask_blocks[i], nodata=nvs[i]
+                    )
+                    data_das.append(xd)
+                    mask_das.append(xm)
+                else:
+                    data_das.append(gbi.to_dataarray(d, nodata=nvs[i]))
+
+        if pass_masks:
+            inner_kwargs["input_masks"] = tuple(mask_das)
+        if pass_input_nvs:
+            inner_kwargs["input_null_values"] = nvs
+        if pass_block_info:
+            inner_kwargs["block_info"] = block_info
+        if pass_geo_block_info:
+            inner_kwargs["geo_block_info"] = gbi
+        if pass_out_nv:
+            if block_info is None:
+                inner_kwargs["out_null_value"] = meta_placeholder
+            else:
+                inner_kwargs["out_null_value"] = _resolve_out_null_value(
+                    null_value=null_value,
+                    ref_dtype=ref_dtype,
+                    ref_null_value=ref_null_value,
+                    n_rasters=n_rasters,
+                    out_dtype=block_info[None]["dtype"],
+                )
+
+        result = func(*data_das, **inner_kwargs)
+        if hasattr(result, "values"):
+            return np.asarray(result.values)
+        return np.asarray(result)
+
+    return _wrapper, inputs
+
+
 def geo_map_blocks(
     func,
     *rasters,
-    pass_mask=False,
     dtype=None,
     null_value=None,
     **kwargs,
@@ -1012,39 +1138,77 @@ def geo_map_blocks(
     xarray-land (rio accessors, xr.where, etc.) without having to
     rebuild coordinates itself.
 
+    Per-block contract
+    ------------------
+    Always passed positionally:
+
+        func(*data_dataarrays, **kwargs)
+
+    where ``data_dataarrays`` is a tuple of N coordinated
+    :class:`xarray.DataArray` blocks, one per input raster, in caller
+    order.
+
+    The user can also opt in to receive per-block extras by including
+    named parameters in ``func``'s signature. Detection mirrors dask's
+    ``block_info=`` mechanism (via :func:`dask.utils.has_keyword`).
+    Recognized names:
+
+    - ``input_masks`` -- tuple of N ``xr.DataArray`` (bool) per-block
+      mask arrays, parallel to the data DataArrays. Same name as
+      :func:`map_blocks` (NumPy there); per-function the element
+      type matches what data is in that function.
+    - ``input_null_values`` -- tuple of N scalars, each input's
+      ``null_value`` (``None`` if unset).
+    - ``block_info`` -- dask's standard per-block info dict.
+    - ``out_null_value`` -- scalar; the resolved output null value
+      the wrapper will use to derive the output mask. Resolved
+      per-chunk via ``block_info[None]["dtype"]``. During dask's
+      meta inference call, this is a typed zero of the first
+      input's dtype.
+    - ``geo_block_info`` -- the per-chunk :class:`GeoBlockInfo`
+      (the geo-aware analog of dask's ``block_info``). ``None``
+      during the meta inference call.
+
+    A function whose only kwargs absorber is ``**kwargs`` does NOT
+    trigger any of these injections -- name the kwargs you want.
+
+    Reserved kwargs
+    ---------------
+    ``input_masks``, ``input_null_values``, ``block_info``,
+    ``out_null_value``, and ``geo_block_info`` are reserved. Passing
+    any of them via ``geo_map_blocks``'s own ``**kwargs`` raises
+    ``ValueError``.
+
     Parameters
     ----------
     func : callable
-        Per-block function. With ``pass_mask=False`` (default) it
-        receives ``(xda1, ..., xdaN, geo_block_info=gbi, **kwargs)``.
-        With ``pass_mask=True`` each input's mask DataArray is
-        interleaved immediately after its data DataArray:
-        ``(xda1, xma1, xda2, xma2, ..., xdaN, xmaN,
-        geo_block_info=gbi, **kwargs)``. May return either an
-        ``xr.DataArray`` (its ``.values`` are extracted) or a NumPy
-        array of the same shape as a single data block.
+        Per-block function. See "Per-block contract" above. May
+        return either an ``xr.DataArray`` (its ``.values`` are
+        extracted) or a NumPy array of the same shape as a single
+        data block.
     *rasters : Raster or str
         One or more input rasters. Path strings are accepted. All
         inputs must be on the same grid (CRS, affine, shape) within
         the established sub-pixel tolerance; mismatched inputs raise
         ``ValueError``. Use ``r2.reproject(r1.geobox)`` to align
         inputs first if needed.
-    pass_mask : bool, optional
-        If ``True``, each input's boolean mask DataArray is passed to
-        ``func`` immediately after its data DataArray (interleaved).
-        Default ``False``.
     dtype : dtype-like, optional
         Output dtype. When ``None`` (default), dask infers the dtype
-        by calling ``func`` on tiny meta samples (matches NumPy
-        promotion for the typical elementwise case, and reflects any
-        in-func cast such as ``.astype``).
-    null_value : scalar or str, optional
-        Output null value. ``None`` (default) inherits from the first
-        input. A scalar is used as-is. The string ``"default"`` selects
-        a dtype-appropriate default via
-        :func:`raster_tools.masking.get_default_null_value`.
+        by calling ``func`` on tiny meta samples.
+    null_value : scalar, optional
+        Output null value.
+
+        - ``None`` (default): if there is exactly one input raster and
+          the output dtype matches its dtype, the output inherits
+          that input's null value. Otherwise, a dtype-appropriate
+          default from
+          :func:`raster_tools.masking.get_default_null_value`.
+        - scalar: used as-is.
+        - strings (including the previously-supported ``"default"``)
+          are no longer accepted.
     **kwargs
-        Extra keyword arguments forwarded per-block to ``func``.
+        Extra keyword arguments forwarded per-block to ``func``. The
+        reserved names listed above are not allowed here.
 
     Returns
     -------
@@ -1053,14 +1217,6 @@ def geo_map_blocks(
 
     Notes
     -----
-    The per-block :class:`GeoBlockInfo` is always passed to ``func`` as
-    the keyword argument ``geo_block_info``. Functions that don't need
-    it can either accept and ignore it, or absorb it via ``**kwargs``.
-    Use it when you need the parent-array context the DataArray
-    doesn't carry: ``parent_affine``, ``parent_shape``,
-    ``chunk_location``, or the per-axis ``band_slice`` / ``row_slice``
-    / ``col_slice``.
-
     Coords / CRS / nodata on a returned DataArray are not validated
     against the input -- they're discarded; the output Raster's grid
     comes from ``rasters[0]``.
@@ -1068,23 +1224,32 @@ def geo_map_blocks(
     The output Raster's mask is **derived from the output data and
     the resolved output null value** -- ``out_data == null_value``,
     or ``np.isnan(out_data)`` for NaN nulls; all-False if no null
-    value is set. This matches the rest of raster_tools but means
-    a function that changes which cells equal the null sentinel
-    will shift which cells appear masked -- it does not carry the
-    first input's mask through unchanged. Writing a new mask via
-    ``func`` is not supported in v1.
+    value is set. Writing a new mask via ``func`` is not supported.
 
-    During dask's dtype-inference meta call, ``func`` is invoked once
-    with 0-shape DataArrays (no coords) and ``geo_block_info=None``.
-    Most NumPy / xarray ops handle this fine; if your function can't,
-    pass ``dtype=`` explicitly to skip inference.
+    Dask invokes ``func`` once on 0-shape DataArrays (no coords) to
+    derive the output array meta -- this happens whether or not
+    ``dtype=`` is provided. Passing ``dtype=`` only skips the
+    additional sample call dask would otherwise make to infer the
+    output dtype; it does not skip the 0-shape meta call. During the
+    meta call ``geo_block_info`` is ``None`` if the func opts in.
+    Most NumPy / xarray ops handle 0-shape inputs fine.
 
     See Also
     --------
     map_blocks : Non-geo variant; permissive (shape-only check).
+    geo_map_overlap : Geo-aware variant with overlap.
     raster_tools.Raster.reproject : Per-input alignment to a target
         grid; pass ``r1.geobox`` to align ``r2`` to ``r1``.
     """
+    if not rasters:
+        raise ValueError("geo_map_blocks requires at least one raster")
+    reserved_collision = _GEO_MAP_BLOCKS_RESERVED_KWARGS & kwargs.keys()
+    if reserved_collision:
+        raise ValueError(
+            f"these kwargs are reserved by geo_map_blocks for per-block "
+            f"injection and cannot be passed by the caller: "
+            f"{sorted(reserved_collision)}"
+        )
     rasters, ref = _validate_aligned_rasters(rasters, "geo_map_blocks")
     if not are_all_grids_same([r.geobox for r in rasters]):
         raise ValueError(
@@ -1093,87 +1258,17 @@ def geo_map_blocks(
             "Raster.reproject(crs_or_geobox=...) to align inputs "
             "first, e.g. r2.reproject(r1.geobox)."
         )
-    nvs = [r.null_value for r in rasters]
-    n = len(rasters)
-    # Pre-build per-chunk GeoBlockInfos and look them up by chunk-location
-    # via dask's standard `block_info` injection. Avoids passing the GBI
-    # object array as a side-input dask array (which would have a chunk
-    # shape mismatch with the data inputs and break dask's shape
-    # inference).
-    gbi_lookup = geo_block_infos(ref)
-
-    def _meta_dataarray(arr, nodata=None):
-        # Build a placeholder DataArray for dask's meta-inference call.
-        # `arr` may have any shape (often (1, 0, 0)); construct coords
-        # matching each axis length so xarray's validation passes.
-        # Attach nodata so the user's func sees the same metadata it
-        # will get on the real per-block call.
-        nb, ny, nx = arr.shape
-        xda = xr.DataArray(
-            arr,
-            dims=("band", "y", "x"),
-            coords={
-                "band": np.arange(nb, dtype="int64"),
-                "y": np.zeros(ny, dtype="float64"),
-                "x": np.zeros(nx, dtype="float64"),
-            },
-        )
-        if nodata is not None:
-            xda = xda.rio.write_nodata(nodata)
-        return xda
-
-    def _wrapper(*block_args, block_info=None, **inner_kwargs):
-        # block_info is None during dask's meta-inference call. Run
-        # the user's func on empty DataArrays so dask can read the
-        # actual output dtype (mirrors dask.map_blocks's standard
-        # inference).
-        if block_info is None:
-            if pass_mask:
-                das = []
-                for i in range(n):
-                    d = block_args[2 * i]
-                    m = block_args[2 * i + 1]
-                    das.extend(
-                        [
-                            _meta_dataarray(d, nodata=nvs[i]),
-                            _meta_dataarray(m),
-                        ]
-                    )
-            else:
-                das = [
-                    _meta_dataarray(block_args[i], nodata=nvs[i])
-                    for i in range(n)
-                ]
-            result = func(*das, geo_block_info=None, **inner_kwargs)
-            if hasattr(result, "values"):
-                return np.asarray(result.values)
-            return np.asarray(result)
-        chunk_loc = block_info[0]["chunk-location"]
-        gbi = gbi_lookup[chunk_loc]
-        if pass_mask:
-            das = []
-            for i in range(n):
-                d = block_args[2 * i]
-                m = block_args[2 * i + 1]
-                xd, xm = gbi.to_dataarray(d, mask=m, nodata=nvs[i])
-                das.extend([xd, xm])
-        else:
-            das = [
-                gbi.to_dataarray(block_args[i], nodata=nvs[i])
-                for i in range(n)
-            ]
-        result = func(*das, geo_block_info=gbi, **inner_kwargs)
-        if hasattr(result, "values"):
-            return np.asarray(result.values)
-        return np.asarray(result)
-
-    inputs = []
-    for r in rasters:
-        inputs.append(r.data)
-        if pass_mask:
-            inputs.append(r.mask)
-    out_data = da.map_blocks(_wrapper, *inputs, dtype=dtype, **kwargs)
-    out_nv = _resolve_null_value(null_value, ref.null_value, out_data.dtype)
+    wrapper, inputs = _build_geo_map_blocks_wrapper(
+        func, rasters, null_value=null_value
+    )
+    out_data = da.map_blocks(wrapper, *inputs, dtype=dtype, **kwargs)
+    out_nv = _resolve_out_null_value(
+        null_value=null_value,
+        ref_dtype=ref.dtype,
+        ref_null_value=ref.null_value,
+        n_rasters=len(rasters),
+        out_dtype=out_data.dtype,
+    )
     return data_to_raster_like(out_data, ref, nv=out_nv)
 
 
@@ -1274,10 +1369,13 @@ def geo_map_overlap(
     when ``pass_mask=True``; it does not affect how the *output*
     mask is built.
 
-    During dask's dtype-inference meta call, ``func`` is invoked once
-    with 0-shape DataArrays (no coords) and ``geo_block_info=None``.
-    Most NumPy / xarray ops handle this fine; if your function can't,
-    pass ``dtype=`` explicitly to skip inference.
+    Dask invokes ``func`` once on 0-shape DataArrays (no coords) to
+    derive the output array meta -- this happens whether or not
+    ``dtype=`` is provided. Passing ``dtype=`` only skips the
+    additional sample call dask would otherwise make to infer the
+    output dtype; it does not skip the 0-shape meta call. During the
+    meta call ``geo_block_info`` is ``None``. Most NumPy / xarray ops
+    handle 0-shape inputs fine.
 
     Per-input null values are not passed to ``func``; prefer
     ``pass_mask=True`` over comparing data values to a null sentinel.
@@ -1326,24 +1424,6 @@ def geo_map_overlap(
     else:
         inputs = [r.data for r in rasters]
     depths = [depth_dict] * len(inputs)
-
-    def _meta_dataarray(arr, nodata=None):
-        # Placeholder DataArray for dask's meta-inference call.
-        # Attach nodata so the user's func sees the same metadata it
-        # will get on the real per-block call.
-        nb, ny, nx = arr.shape
-        xda = xr.DataArray(
-            arr,
-            dims=("band", "y", "x"),
-            coords={
-                "band": np.arange(nb, dtype="int64"),
-                "y": np.zeros(ny, dtype="float64"),
-                "x": np.zeros(nx, dtype="float64"),
-            },
-        )
-        if nodata is not None:
-            xda = xda.rio.write_nodata(nodata)
-        return xda
 
     def _wrapper(*block_args, block_info=None, **inner_kwargs):
         # block_info is None during dask's meta-inference call.
