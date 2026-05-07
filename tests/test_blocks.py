@@ -781,6 +781,22 @@ def test_map_blocks_preserves_first_input_grid():
     assert out.null_value == r1.null_value
 
 
+def test_map_blocks_meta_skips_zero_shape_call():
+    # When meta= is provided, dask uses it as the output meta and
+    # skips the 0-shape sample call it would otherwise make. A func
+    # that raises on 0-shape input must not be invoked.
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32)
+
+    def f(d):
+        if 0 in d.shape:
+            raise RuntimeError("0-shape call should not happen")
+        return d
+
+    out = map_blocks(f, r, meta=np.empty((), dtype=np.float32))
+    assert out.dtype == np.float32
+    np.testing.assert_array_equal(out.data.compute(), r.data.compute())
+
+
 # ---------------------------------------------------------------------------
 # map_overlap
 # ---------------------------------------------------------------------------
@@ -1292,6 +1308,27 @@ def test_map_overlap_null_value_invalid_string():
         map_overlap(lambda b: b, r, depth=0, null_value="default")
 
 
+def test_map_overlap_meta_skips_zero_shape_call():
+    r = make_raster(
+        shape=(1, 100, 100), dtype=np.float32, chunksize=(1, 50, 50)
+    )
+
+    def f(d):
+        if 0 in d.shape:
+            raise RuntimeError("0-shape call should not happen")
+        return d
+
+    out = map_overlap(
+        f,
+        r,
+        depth=1,
+        boundary="reflect",
+        meta=np.empty((), dtype=np.float32),
+    )
+    assert out.dtype == np.float32
+    np.testing.assert_allclose(out.data.compute(), r.data.compute())
+
+
 # ---------------------------------------------------------------------------
 # geo_map_blocks
 # ---------------------------------------------------------------------------
@@ -1693,6 +1730,37 @@ def test_geo_map_blocks_null_value_invalid_string():
     r = make_raster(shape=(1, 100, 100), dtype=np.float32)
     with pytest.raises(ValueError, match="must be None or a scalar"):
         geo_map_blocks(lambda xda, **kw: xda, r, null_value="default")
+
+
+@pytest.mark.parametrize(
+    "fn",
+    [
+        lambda r, **kw: map_blocks(lambda d: d, r, **kw),
+        lambda r, **kw: map_overlap(
+            lambda d: d, r, depth=0, boundary="reflect", **kw
+        ),
+        lambda r, **kw: geo_map_blocks(lambda xda, **k: xda, r, **kw),
+    ],
+)
+def test_meta_dtype_mismatch_raises(fn):
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32)
+    with pytest.raises(ValueError, match="conflicts with meta"):
+        fn(r, dtype=np.int64, meta=np.empty((), dtype=np.float32))
+
+
+def test_geo_map_blocks_meta_skips_zero_shape_call():
+    # meta= forwards to dask's map_blocks. The user's func must not
+    # be invoked with 0-shape DataArrays.
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32)
+
+    def f(xda, **kw):
+        if 0 in xda.shape:
+            raise RuntimeError("0-shape call should not happen")
+        return xda
+
+    out = geo_map_blocks(f, r, meta=np.empty((), dtype=np.float32))
+    assert out.dtype == np.float32
+    np.testing.assert_array_equal(out.data.compute(), r.data.compute())
 
 
 # ---------------------------------------------------------------------------

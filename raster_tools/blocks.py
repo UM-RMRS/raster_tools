@@ -320,7 +320,27 @@ _MAP_BLOCKS_RESERVED_KWARGS = frozenset(
 )
 
 
-def map_blocks(func, *rasters, dtype=None, null_value=None, **kwargs):
+def _check_dtype_meta_agree(dtype, meta):
+    """Raise if both dtype and meta are set and their dtypes disagree.
+
+    dask doesn't validate this combination -- it lets ``.dtype``
+    report the kwarg while ``_meta`` carries the meta's dtype and
+    the actual computed dtype is whatever ``func`` returns. Catch
+    the mismatch upfront.
+    """
+    if dtype is None or meta is None:
+        return
+    meta_dtype = np.asarray(meta).dtype
+    if np.dtype(dtype) != meta_dtype:
+        raise ValueError(
+            f"dtype={dtype!r} conflicts with meta.dtype={meta_dtype!r}; "
+            "pass one or the other, or matching values."
+        )
+
+
+def map_blocks(
+    func, *rasters, dtype=None, null_value=None, meta=None, **kwargs
+):
     """Apply ``func`` block-wise across one or more aligned rasters.
 
     Thin wrapper over :func:`dask.array.map_blocks`. Each call to
@@ -414,6 +434,15 @@ def map_blocks(func, *rasters, dtype=None, null_value=None, **kwargs):
 
         To force inherit-from-first-input across other cases, pass
         the value explicitly: ``null_value=r1.null_value``.
+    meta : array-like, optional
+        Empty array with the desired output array type (e.g.
+        ``np.empty((), dtype=np.float32)``, or a CuPy / sparse
+        equivalent). Forwarded to :func:`dask.array.map_blocks`. When
+        provided, dask uses this as the output meta and skips the
+        0-shape sample call it would otherwise make to derive one --
+        useful when ``func`` cannot tolerate 0-shape input. When
+        ``None`` (default), dask derives a NumPy meta by calling
+        ``func`` on 0-shape inputs.
     **kwargs
         Extra keyword arguments forwarded per-block to ``func``. The
         reserved names listed above are not allowed here.
@@ -472,6 +501,7 @@ def map_blocks(func, *rasters, dtype=None, null_value=None, **kwargs):
     """
     if not rasters:
         raise ValueError("map_blocks requires at least one raster")
+    _check_dtype_meta_agree(dtype, meta)
     reserved_collision = _MAP_BLOCKS_RESERVED_KWARGS & kwargs.keys()
     if reserved_collision:
         raise ValueError(
@@ -490,7 +520,9 @@ def map_blocks(func, *rasters, dtype=None, null_value=None, **kwargs):
     wrapper, inputs = _build_map_blocks_wrapper(
         func, rasters, null_value=null_value
     )
-    out_data = da.map_blocks(wrapper, *inputs, dtype=dtype, **kwargs)
+    out_data = da.map_blocks(
+        wrapper, *inputs, dtype=dtype, meta=meta, **kwargs
+    )
     out_nv = _resolve_out_null_value(
         null_value=null_value,
         ref_dtype=ref.dtype,
@@ -790,7 +822,14 @@ def _resolve_boundary(boundary, raster):
 
 
 def map_overlap(
-    func, *rasters, depth, boundary=None, dtype=None, null_value=None, **kwargs
+    func,
+    *rasters,
+    depth,
+    boundary=None,
+    dtype=None,
+    null_value=None,
+    meta=None,
+    **kwargs,
 ):
     """Apply ``func`` block-wise with overlap across one or more rasters.
 
@@ -901,6 +940,14 @@ def map_overlap(
         - scalar: used as-is.
         - strings (including the previously-supported ``"default"``)
           are no longer accepted.
+    meta : array-like, optional
+        Empty array with the desired output array type. Forwarded to
+        :func:`dask.array.overlap.map_overlap`. When provided, dask
+        uses this as the output meta and skips the 0-shape sample
+        call it would otherwise make to derive one -- useful when
+        ``func`` cannot tolerate 0-shape input. When ``None``
+        (default), dask derives a NumPy meta by calling ``func`` on
+        0-shape inputs.
     **kwargs
         Extra keyword arguments forwarded per-block to ``func``. The
         reserved names listed above are not allowed here.
@@ -933,6 +980,7 @@ def map_overlap(
     """
     if not rasters:
         raise ValueError("map_overlap requires at least one raster")
+    _check_dtype_meta_agree(dtype, meta)
     reserved_collision = _MAP_BLOCKS_RESERVED_KWARGS & kwargs.keys()
     if reserved_collision:
         raise ValueError(
@@ -966,6 +1014,7 @@ def map_overlap(
         depth=depths,
         boundary=boundaries,
         dtype=dtype,
+        meta=meta,
         **kwargs,
     )
     out_nv = _resolve_out_null_value(
@@ -1124,6 +1173,7 @@ def geo_map_blocks(
     *rasters,
     dtype=None,
     null_value=None,
+    meta=None,
     **kwargs,
 ):
     """Apply ``func`` block-wise across one or more aligned rasters,
@@ -1206,6 +1256,17 @@ def geo_map_blocks(
         - scalar: used as-is.
         - strings (including the previously-supported ``"default"``)
           are no longer accepted.
+    meta : array-like, optional
+        Empty array with the desired output array type. Forwarded to
+        :func:`dask.array.map_blocks`. When provided, dask uses this
+        as the output meta and skips the 0-shape sample call it
+        would otherwise make to derive one -- useful when ``func``
+        cannot tolerate 0-shape DataArray inputs. Note that the
+        wrapper always returns a NumPy array (it extracts ``.values``
+        from any returned :class:`xarray.DataArray`), so ``meta``
+        describes the wrapper's NumPy output, not the user func's
+        xarray output. When ``None`` (default), dask derives a NumPy
+        meta by calling ``func`` on 0-shape inputs.
     **kwargs
         Extra keyword arguments forwarded per-block to ``func``. The
         reserved names listed above are not allowed here.
@@ -1243,6 +1304,7 @@ def geo_map_blocks(
     """
     if not rasters:
         raise ValueError("geo_map_blocks requires at least one raster")
+    _check_dtype_meta_agree(dtype, meta)
     reserved_collision = _GEO_MAP_BLOCKS_RESERVED_KWARGS & kwargs.keys()
     if reserved_collision:
         raise ValueError(
@@ -1261,7 +1323,9 @@ def geo_map_blocks(
     wrapper, inputs = _build_geo_map_blocks_wrapper(
         func, rasters, null_value=null_value
     )
-    out_data = da.map_blocks(wrapper, *inputs, dtype=dtype, **kwargs)
+    out_data = da.map_blocks(
+        wrapper, *inputs, dtype=dtype, meta=meta, **kwargs
+    )
     out_nv = _resolve_out_null_value(
         null_value=null_value,
         ref_dtype=ref.dtype,
@@ -1394,6 +1458,11 @@ def geo_map_overlap(
     raster_tools.Raster.reproject : Per-input alignment to a target
         grid; pass ``r1.geobox`` to align ``r2`` to ``r1``.
     """
+    # TODO: add a `meta=` kwarg forwarded to da.overlap.map_overlap
+    # (matching map_blocks / map_overlap / geo_map_blocks). Deferred
+    # until this function is migrated to the introspection-based
+    # contract; do it as part of that refactor to avoid churning the
+    # signature twice.
     rasters, ref = _validate_aligned_rasters(rasters, "geo_map_overlap")
     if not are_all_grids_same([r.geobox for r in rasters]):
         raise ValueError(
