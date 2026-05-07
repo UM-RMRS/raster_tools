@@ -886,16 +886,15 @@ def test_map_overlap_boundary_null_with_set_null_value():
     )
     captured = {}
 
-    def grab(d, m):
+    def grab(d, *, input_masks):
         # When this is called on a block, d/m include the overlap rim.
         # On an edge chunk the boundary-side rim is filled with the
         # null value in data and True in mask.
+        m = input_masks[0]
         captured.setdefault("samples", []).append((d.copy(), m.copy()))
         return d
 
-    map_overlap(
-        grab, r, depth=1, boundary="null", pass_mask=True
-    ).data.compute()
+    map_overlap(grab, r, depth=1, boundary="null").data.compute()
     samples = _real_blocks(captured["samples"])
     # With 50x50 chunks of a 100x100 array and depth=1, the array has
     # 2x2 = 4 chunks, each grown to 52x52 (rim from neighbor or from
@@ -926,13 +925,12 @@ def test_map_overlap_boundary_null_uses_default_when_unset():
 
     captured = {}
 
-    def grab(d, m):
+    def grab(d, *, input_masks):
+        m = input_masks[0]
         captured.setdefault("samples", []).append((d.copy(), m.copy()))
         return d
 
-    map_overlap(
-        grab, r, depth=1, boundary="null", pass_mask=True
-    ).data.compute()
+    map_overlap(grab, r, depth=1, boundary="null").data.compute()
     samples = _real_blocks(captured["samples"])
     # Expect at least one edge sample whose boundary rim is the
     # default null value in data and True in mask.
@@ -967,25 +965,18 @@ def test_map_overlap_scalar_matching_null_value_acts_like_null():
     captured_scalar = {}
 
     def grab_into(target):
-        def _grab(d, m):
+        def _grab(d, *, input_masks):
+            m = input_masks[0]
             target.setdefault("samples", []).append((d.copy(), m.copy()))
             return d
 
         return _grab
 
     map_overlap(
-        grab_into(captured_null),
-        r,
-        depth=1,
-        boundary="null",
-        pass_mask=True,
+        grab_into(captured_null), r, depth=1, boundary="null"
     ).data.compute()
     map_overlap(
-        grab_into(captured_scalar),
-        r,
-        depth=1,
-        boundary=-1.0,
-        pass_mask=True,
+        grab_into(captured_scalar), r, depth=1, boundary=-1.0
     ).data.compute()
     null_samples = _real_blocks(captured_null["samples"])
     scalar_samples = _real_blocks(captured_scalar["samples"])
@@ -1001,11 +992,12 @@ def test_map_overlap_scalar_zero_when_null_is_not_zero():
     )
     captured = {}
 
-    def grab(d, m):
+    def grab(d, *, input_masks):
+        m = input_masks[0]
         captured.setdefault("samples", []).append((d.copy(), m.copy()))
         return d
 
-    map_overlap(grab, r, depth=1, boundary=0, pass_mask=True).data.compute()
+    map_overlap(grab, r, depth=1, boundary=0).data.compute()
     samples = _real_blocks(captured["samples"])
     # boundary=0 pads both array edges. The corner-edge chunk has a
     # boundary-rim filled with 0 in data and False in mask (because
@@ -1025,19 +1017,13 @@ def test_map_overlap_multi_input_different_null_values():
     )
     captured = []
 
-    def grab(d1, m1, d2, m2):
+    def grab(d1, d2, *, input_masks):
+        m1, m2 = input_masks
         if all(s > 0 for s in d1.shape):
             captured.append((d1.copy(), m1.copy(), d2.copy(), m2.copy()))
         return d1 + d2
 
-    map_overlap(
-        grab,
-        r1,
-        r2,
-        depth=1,
-        boundary="null",
-        pass_mask=True,
-    ).data.compute()
+    map_overlap(grab, r1, r2, depth=1, boundary="null").data.compute()
     # On each edge sample, each input's boundary-rim cells are filled
     # with its OWN null_value (not the other's).
     found = any(
@@ -1059,23 +1045,24 @@ def test_map_overlap_two_input_add():
     )
 
 
-def test_map_overlap_pass_mask_single_input():
+def test_map_overlap_input_masks_single_input():
     r = make_raster(
         shape=(1, 100, 100), dtype=np.float32, chunksize=(1, 50, 50)
     )
 
-    def f(d, m):
+    def f(d, *, input_masks):
+        m = input_masks[0]
         assert d.shape == m.shape
         return d + m.astype(d.dtype)
 
-    out = map_overlap(f, r, depth=1, boundary="reflect", pass_mask=True)
+    out = map_overlap(f, r, depth=1, boundary="reflect")
     np.testing.assert_allclose(
         out.data.compute(),
         r.data.compute() + r.mask.compute().astype(r.dtype),
     )
 
 
-def test_map_overlap_pass_mask_two_input_interleaved():
+def test_map_overlap_input_masks_two_input():
     r1 = make_raster(
         shape=(1, 100, 100), dtype=np.float32, chunksize=(1, 50, 50)
     )
@@ -1083,13 +1070,14 @@ def test_map_overlap_pass_mask_two_input_interleaved():
         shape=(1, 100, 100), dtype=np.float32, chunksize=(1, 50, 50)
     )
 
-    def f(d1, m1, d2, m2):
+    def f(d1, d2, *, input_masks):
+        m1, m2 = input_masks
         assert d1.dtype == r1.dtype and d2.dtype == r2.dtype
         assert m1.dtype == np.bool_ and m2.dtype == np.bool_
         assert d1.shape == d2.shape == m1.shape == m2.shape
         return d1 + d2
 
-    out = map_overlap(f, r1, r2, depth=1, boundary="reflect", pass_mask=True)
+    out = map_overlap(f, r1, r2, depth=1, boundary="reflect")
     np.testing.assert_allclose(
         out.data.compute(), r1.data.compute() + r2.data.compute()
     )
@@ -1105,9 +1093,9 @@ def test_map_overlap_dtype_change():
         depth=1,
         boundary="reflect",
         dtype=np.int32,
-        null_value="default",
     )
     assert out.dtype == np.int32
+    # null_value=None + dtype change -> dtype default.
     assert out.null_value == get_default_null_value(np.dtype(np.int32))
 
 
@@ -1161,6 +1149,130 @@ def test_map_overlap_asymmetric_depth_with_reflect_propagates_dask_error():
             depth={1: (2, 1), 2: 0},
             boundary="reflect",
         ).data.compute()
+
+
+def test_map_overlap_input_null_values_injected():
+    r1 = make_raster(
+        shape=(1, 100, 100), dtype=np.float32, null=-1.0, chunksize=(1, 50, 50)
+    )
+    r2 = make_raster(
+        shape=(1, 100, 100), dtype=np.float32, null=-2.0, chunksize=(1, 50, 50)
+    )
+    seen = []
+
+    def f(d1, d2, *, input_null_values):
+        seen.append(input_null_values)
+        return d1 + d2
+
+    map_overlap(f, r1, r2, depth=1, boundary="reflect").data.compute()
+    assert any(s == (-1.0, -2.0) for s in seen)
+
+
+def test_map_overlap_block_info_injected():
+    r = make_raster(
+        shape=(1, 100, 100), dtype=np.float32, chunksize=(1, 50, 50)
+    )
+    seen = []
+
+    def f(d, *, block_info):
+        if block_info is not None:
+            seen.append(block_info[0]["chunk-location"])
+        return d
+
+    map_overlap(f, r, depth=1, boundary="reflect").data.compute()
+    # 2x2 spatial chunks -> 4 distinct chunk locations.
+    assert len(set(seen)) == 4
+
+
+def test_map_overlap_out_null_value_inherits_for_single_input():
+    r = make_raster(
+        shape=(1, 100, 100), dtype=np.float32, null=-1.0, chunksize=(1, 50, 50)
+    )
+    seen = []
+
+    def f(d, *, out_null_value):
+        seen.append(out_null_value)
+        return d
+
+    out = map_overlap(f, r, depth=1, boundary="reflect")
+    out.data.compute()
+    assert -1.0 in seen
+    assert out.null_value == -1.0
+
+
+def test_map_overlap_out_null_value_dtype_default_when_dtype_changes():
+    r = make_raster(
+        shape=(1, 100, 100), dtype=np.float32, null=-1.0, chunksize=(1, 50, 50)
+    )
+
+    def f(d, *, out_null_value):
+        # Use out_null_value at a typed location so dtype inference
+        # produces int32 from the cast inside func.
+        return d.astype(np.int32)
+
+    seen = []
+
+    def grab(d, *, out_null_value):
+        seen.append(out_null_value)
+        return d.astype(np.int32)
+
+    out = map_overlap(grab, r, depth=1, boundary="reflect", dtype=np.int32)
+    out.data.compute()
+    expected = get_default_null_value(np.dtype(np.int32))
+    assert expected in seen
+
+
+def test_map_overlap_no_injection_when_func_does_not_name_kwargs():
+    r = make_raster(
+        shape=(1, 100, 100), dtype=np.float32, chunksize=(1, 50, 50)
+    )
+    seen = []
+
+    def f(d, **kw):
+        seen.append(set(kw.keys()))
+        return d
+
+    map_overlap(f, r, depth=1, boundary="reflect").data.compute()
+    for kw_keys in seen:
+        assert "input_masks" not in kw_keys
+        assert "input_null_values" not in kw_keys
+        assert "block_info" not in kw_keys
+        assert "out_null_value" not in kw_keys
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "input_masks",
+        "input_null_values",
+        "block_info",
+        "out_null_value",
+    ],
+)
+def test_map_overlap_reserved_kwargs_collide(name):
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32)
+    with pytest.raises(ValueError, match="reserved"):
+        map_overlap(lambda d: d, r, depth=0, **{name: object()})
+
+
+def test_map_overlap_null_value_inherits_for_single_input_unchanged_dtype():
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32, null=-1.0)
+    out = map_overlap(lambda b: b, r, depth=0)
+    assert out.null_value == -1.0
+
+
+def test_map_overlap_null_value_dtype_default_for_multi_input():
+    r1 = make_raster(shape=(1, 100, 100), dtype=np.float32, null=-1.0)
+    r2 = make_raster(shape=(1, 100, 100), dtype=np.float32, null=-2.0)
+    out = map_overlap(lambda a, b: a + b, r1, r2, depth=0)
+    assert out.null_value == get_default_null_value(np.dtype(out.dtype))
+    assert out.null_value not in (-1.0, -2.0)
+
+
+def test_map_overlap_null_value_invalid_string():
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32)
+    with pytest.raises(ValueError, match="must be None or a scalar"):
+        map_overlap(lambda b: b, r, depth=0, null_value="default")
 
 
 # ---------------------------------------------------------------------------
@@ -1473,7 +1585,6 @@ def test_map_overlap_dtype_inferred_for_mixed_inputs():
         r2,
         depth=1,
         boundary="reflect",
-        null_value="default",
     )
     assert out.dtype == np.float32
 

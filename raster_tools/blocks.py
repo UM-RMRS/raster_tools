@@ -770,44 +770,68 @@ def _resolve_boundary(boundary, raster):
 
 
 def map_overlap(
-    func,
-    *rasters,
-    depth,
-    boundary=None,
-    pass_mask=False,
-    dtype=None,
-    null_value=None,
-    **kwargs,
+    func, *rasters, depth, boundary=None, dtype=None, null_value=None, **kwargs
 ):
     """Apply ``func`` block-wise with overlap across one or more rasters.
 
     Thin wrapper over :func:`dask.array.overlap.map_overlap`. Each call
     to ``func`` receives one block from each input raster, in the same
-    order, with ``depth`` extra cells of overlap on each side. dask
-    trims the overlap from the result before it's wrapped back into a
-    Raster on the input's grid, so the user function returns
-    same-shape (overlap-included) blocks and doesn't need to trim
-    itself.
+    order as ``*rasters``, with ``depth`` extra cells of overlap on
+    each side. dask trims the overlap from the result before it's
+    wrapped back into a Raster on the input's grid, so the user
+    function returns same-shape (overlap-included) blocks and doesn't
+    need to trim itself.
+
+    Per-block contract
+    ------------------
+    Always passed positionally:
+
+        func(*input_data, **kwargs)
+
+    where ``input_data`` is a tuple of N NumPy blocks, one per input
+    raster, in caller order. Each block already includes the overlap
+    region.
+
+    The user can also opt in to receive per-block extras by including
+    named parameters in ``func``'s signature. Detection mirrors dask's
+    own ``block_info=`` / ``block_id=`` mechanism and uses
+    :func:`inspect.signature` (via :func:`dask.utils.has_keyword`).
+    Recognized names (same set as :func:`map_blocks`):
+
+    - ``input_masks`` -- tuple of N ``np.ndarray`` (bool) per-block
+      mask arrays, parallel to ``input_data`` and overlap-included.
+    - ``input_null_values`` -- tuple of N scalars, each input
+      raster's ``null_value`` (``None`` if unset).
+    - ``block_info`` -- dask's standard per-block info dict.
+    - ``out_null_value`` -- scalar; the resolved output null value
+      the wrapper will use to derive the output mask. Resolved per-
+      chunk via ``block_info[None]["dtype"]``. During dask's meta
+      inference call, this is a typed zero of the first input's
+      dtype (so funcs like ``np.where(m, out_null_value, d)`` infer
+      the same dtype as their input).
+
+    A function whose only kwargs absorber is ``**kwargs`` does NOT
+    trigger any of these injections -- name the kwargs you want.
+
+    Reserved kwargs
+    ---------------
+    ``input_masks``, ``input_null_values``, ``block_info``, and
+    ``out_null_value`` are reserved. Passing any of them via
+    ``map_overlap``'s own ``**kwargs`` raises ``ValueError``.
 
     Parameters
     ----------
     func : callable
-        Per-block function. With ``pass_mask=False`` (default) it
-        receives ``(data1, ..., dataN, **kwargs)``. With
-        ``pass_mask=True`` each input's mask block is interleaved
-        immediately after its data block:
-        ``(data1, mask1, data2, mask2, ..., dataN, maskN, **kwargs)``.
-        Each block already includes the overlap region. Must return a
-        NumPy array of the same shape as the (overlap-included) data
-        block.
+        Per-block function. See "Per-block contract" above. Must
+        return a NumPy array of the same shape as a single
+        (overlap-included) data block.
     *rasters : Raster or str
         One or more aligned input rasters. Path strings are accepted.
         Only the 3D shape is validated; CRS, affine, and chunk
         alignment are *not* checked. The caller is responsible for
         aligning inputs -- typically via ``r2.reproject(r1.geobox)``.
         For a geo-aware variant that strictly requires matching grids,
-        see :func:`geo_map_blocks` (and the planned
-        ``geo_map_overlap``).
+        see :func:`geo_map_overlap`.
     depth : int, tuple of int, or dict
         Number of overlap cells per spatial axis. ``int`` applies to
         both ``y`` and ``x`` (band axis fixed at 0).
@@ -839,26 +863,27 @@ def map_overlap(
         independently.
 
         The boundary -> mask rule only affects what the user's function
-        sees in the mask block during the call when ``pass_mask=True``.
+        sees in the mask block when it opts in to ``input_masks=``.
         The output Raster's mask is built independently from the
         output data (see Returns / Notes below); padded cells are
         trimmed off before the user sees them.
-    pass_mask : bool, optional
-        If ``True``, each input's boolean mask block is passed to
-        ``func`` immediately after its data block (interleaved).
-        Default ``False``.
     dtype : dtype-like, optional
         Output dtype. When ``None`` (default), dask infers the dtype
-        by calling ``func`` on tiny meta samples (matches NumPy
-        promotion for the typical elementwise case, and reflects any
-        in-func cast such as ``.astype``).
-    null_value : scalar or str, optional
-        Output null value. ``None`` (default) inherits from the first
-        input. A scalar is used as-is. The string ``"default"`` selects
-        a dtype-appropriate default via
-        :func:`raster_tools.masking.get_default_null_value`.
+        by calling ``func`` on tiny meta samples.
+    null_value : scalar, optional
+        Output null value.
+
+        - ``None`` (default): if there is exactly one input raster and
+          the output dtype matches its dtype, the output inherits
+          that input's null value. Otherwise, the value is a
+          dtype-appropriate default from
+          :func:`raster_tools.masking.get_default_null_value`.
+        - scalar: used as-is.
+        - strings (including the previously-supported ``"default"``)
+          are no longer accepted.
     **kwargs
-        Extra keyword arguments forwarded per-block to ``func``.
+        Extra keyword arguments forwarded per-block to ``func``. The
+        reserved names listed above are not allowed here.
 
     Returns
     -------
@@ -875,25 +900,26 @@ def map_overlap(
     The output Raster's mask is **derived from the output data and
     the resolved output null value** -- ``out_data == null_value``,
     or ``np.isnan(out_data)`` for NaN nulls; all-False if no null
-    value is set. This matches the rest of raster_tools but means
-    a function that changes which cells equal the null sentinel
-    will shift which cells appear masked -- it does not carry the
-    first input's mask through unchanged. Writing a new mask via
-    ``func`` is not supported in v1.
+    value is set. Writing a new mask via ``func`` is not supported.
 
     Asymmetric per-side depths are only supported with no padding
-    (``boundary=None`` or ``"none"``). Combining asymmetric depth with
-    a non-``"none"`` boundary will produce a dask error.
+    (``boundary=None`` or ``"none"``).
 
-    Per-input null values are not passed to ``func``: prefer the mask
-    blocks (``pass_mask=True``) over comparing data values to a null
-    sentinel, since float / NaN equality is unreliable. If you really
-    need the null value(s) inside ``func``, capture them via
-    ``**kwargs`` at the call site, e.g.
-    ``map_overlap(f, r1, r2, depth=1, nvs=(r1.null_value, r2.null_value))``.
+    See Also
+    --------
+    map_blocks : Block-wise without overlap; same per-block contract.
+    geo_map_overlap : Geo-aware variant that hands ``func`` coordinated
+        ``xr.DataArray`` blocks.
     """
     if not rasters:
         raise ValueError("map_overlap requires at least one raster")
+    reserved_collision = _MAP_BLOCKS_RESERVED_KWARGS & kwargs.keys()
+    if reserved_collision:
+        raise ValueError(
+            f"these kwargs are reserved by map_overlap for per-block "
+            f"injection and cannot be passed by the caller: "
+            f"{sorted(reserved_collision)}"
+        )
     rasters = [get_raster(r) for r in rasters]
     ref = rasters[0]
     for i, r in enumerate(rasters[1:], 1):
@@ -905,30 +931,31 @@ def map_overlap(
     depth_dict = _normalize_depth(depth)
     # TODO: pre-validate (asymmetric depth + non-'none' boundary) with
     # a friendlier error than dask's.
-    # TODO: support an explicit (data_boundary, mask_boundary) tuple
-    # form for users who want manual control.
-    # TODO: support per-axis dict boundaries (advanced form).
 
-    if pass_mask:
-        inputs = [arr for r in rasters for arr in (r.data, r.mask)]
-        boundaries = []
-        for r in rasters:
-            data_b, mask_b = _resolve_boundary(boundary, r)
-            boundaries.extend([data_b, mask_b])
-    else:
-        inputs = [r.data for r in rasters]
-        boundaries = [_resolve_boundary(boundary, r)[0] for r in rasters]
+    wrapper, inputs = _build_map_blocks_wrapper(
+        func, rasters, null_value=null_value
+    )
+    pass_masks = has_keyword(func, "input_masks")
+    boundaries = [_resolve_boundary(boundary, r)[0] for r in rasters]
+    if pass_masks:
+        boundaries.extend(_resolve_boundary(boundary, r)[1] for r in rasters)
     depths = [depth_dict] * len(inputs)
 
     out_data = da.overlap.map_overlap(
-        func,
+        wrapper,
         *inputs,
         depth=depths,
         boundary=boundaries,
         dtype=dtype,
         **kwargs,
     )
-    out_nv = _resolve_null_value(null_value, ref.null_value, out_data.dtype)
+    out_nv = _resolve_out_null_value(
+        null_value=null_value,
+        ref_dtype=ref.dtype,
+        ref_null_value=ref.null_value,
+        n_rasters=len(rasters),
+        out_dtype=out_data.dtype,
+    )
     return data_to_raster_like(out_data, ref, nv=out_nv)
 
 
