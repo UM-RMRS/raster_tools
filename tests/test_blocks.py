@@ -1176,6 +1176,60 @@ def test_map_overlap_unrecognized_boundary_raises():
 
 
 @pytest.mark.parametrize(
+    "boundary",
+    [
+        "Reflect",
+        "REFLECT",
+        "Periodic",
+        "Nearest",
+        "None",
+        "NONE",
+    ],
+)
+def test_map_overlap_named_boundary_case_insensitive(boundary):
+    r = make_raster(
+        shape=(1, 100, 100), dtype=np.float32, chunksize=(1, 50, 50)
+    )
+    # Just confirm it doesn't raise and the round-trip computes.
+    out = map_overlap(lambda b: b, r, depth=1, boundary=boundary)
+    np.testing.assert_array_equal(out.data.compute(), r.data.compute())
+
+
+@pytest.mark.parametrize(
+    "boundary",
+    [
+        "Reflect",
+        "REFLECT",
+        "Periodic",
+        "Nearest",
+        "None",
+        "NONE",
+    ],
+)
+def test_geo_map_overlap_named_boundary_case_insensitive(boundary):
+    r = make_raster(
+        shape=(1, 100, 100), dtype=np.float32, chunksize=(1, 50, 50)
+    )
+
+    def f(xda, **kw):
+        return xda
+
+    out = geo_map_overlap(f, r, depth=1, boundary=boundary)
+    np.testing.assert_array_equal(out.data.compute(), r.data.compute())
+
+
+def test_map_overlap_asymmetric_depth_with_capital_none_boundary_ok():
+    # The asymmetric-depth pre-check is now case-insensitive: "None"
+    # is treated as the no-pad sentinel and asymmetric depth is
+    # accepted.
+    r = make_raster(
+        shape=(1, 100, 100), dtype=np.float32, chunksize=(1, 50, 50)
+    )
+    out = map_overlap(lambda b: b, r, depth={1: (2, 1), 2: 0}, boundary="None")
+    np.testing.assert_array_equal(out.data.compute(), r.data.compute())
+
+
+@pytest.mark.parametrize(
     ("depth", "boundary"),
     [
         ({1: (2, 1), 2: 0}, "reflect"),

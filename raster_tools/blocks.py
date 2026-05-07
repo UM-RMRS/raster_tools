@@ -723,7 +723,9 @@ def _check_asymmetric_depth_compatible_with_boundary(depth_dict, boundary):
     that axis isn't ``"none"``. Surface that as a ``ValueError`` at
     call time with a message that names the offending axis.
     """
-    if boundary is None or boundary == "none":
+    if boundary is None:
+        return
+    if isinstance(boundary, str) and boundary.lower() == "none":
         return
     for axis in (1, 2):
         d = depth_dict.get(axis, 0)
@@ -832,23 +834,27 @@ def _resolve_boundary(boundary, raster):
     if boundary is None:
         return None, None
     if isinstance(boundary, str):
-        # "null" / "null_value" / "nodata" / "NoData" / "NODATA" all
-        # match here -- compare case-insensitively.
-        if boundary.lower() in _NULL_BOUNDARIES:
+        # All boundary strings are matched case-insensitively
+        # (so "NoData" / "REFLECT" / "None" all work). Return the
+        # canonical lowercase form so dask's overlap module sees the
+        # token it expects (it compares against the lowercase
+        # literals).
+        b = boundary.lower()
+        if b in _NULL_BOUNDARIES:
             nv = raster.null_value
             if nv is None:
                 nv = get_default_null_value(raster.dtype)
             return nv, True
-        if boundary in _NAMED_BOUNDARIES:
+        if b in _NAMED_BOUNDARIES:
             # 'none' -> dask treats as no padding for both arrays.
             # 'reflect'/'periodic'/'nearest' -> mask is padded the
             # same way so reflected/wrapped/copied data and mask stay
             # in sync.
-            return boundary, boundary
+            return b, b
         raise ValueError(
             f"unrecognized boundary string {boundary!r}; expected one "
-            f"of {sorted(_NULL_BOUNDARIES | _NAMED_BOUNDARIES)} or "
-            "None / a numeric scalar"
+            f"of {sorted(_NULL_BOUNDARIES | _NAMED_BOUNDARIES)} "
+            "(case-insensitive) or None / a numeric scalar"
         )
     # Numeric scalar.
     nv = raster.null_value
