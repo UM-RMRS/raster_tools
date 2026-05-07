@@ -354,17 +354,16 @@ def map_blocks(func, *rasters, dtype=None, null_value=None, **kwargs):
       :func:`dask.array.map_blocks`).
     - ``out_null_value`` -- scalar; the resolved output null value
       the wrapper will use to derive the output mask. Useful for
-      ``func`` to write at cells it wants masked. When ``func``
-      declares this, ``map_blocks`` resolves the value upfront so
-      the wrapper can inject it. If ``dtype`` is also ``None``,
-      this triggers an extra
-      :func:`dask.array.core.apply_infer_dtype` call at construction
-      time -- one extra invocation of ``func`` on tiny meta samples,
-      during which ``out_null_value`` is a typed zero of the first
-      input's dtype (so ``np.where(m, out_null_value, d)``-style
-      funcs infer correctly). If your func's *output dtype* depends
-      on the specific ``out_null_value`` scalar, pass ``dtype=``
-      explicitly to skip inference.
+      ``func`` to write at cells it wants masked. The wrapper
+      resolves it per-chunk using ``block_info[None]["dtype"]`` so
+      no extra dtype-inference pass is needed. During dask's own
+      meta inference call (where ``block_info`` is ``None``),
+      ``out_null_value`` is a typed zero of the first input's dtype,
+      so funcs like ``np.where(m, out_null_value, d)`` infer the
+      same dtype as their input rather than collapsing to object
+      dtype. If your func's *output dtype* depends on the specific
+      ``out_null_value`` scalar, pass ``dtype=`` explicitly to
+      bypass dask's inference.
 
     A function whose only kwargs absorber is ``**kwargs`` (e.g.
     ``def f(*args, **kwargs):``) does NOT trigger any of these
@@ -488,46 +487,21 @@ def map_blocks(func, *rasters, dtype=None, null_value=None, **kwargs):
                 f"raster {i} shape {r.shape} does not match raster 0 "
                 f"shape {ref.shape}"
             )
-    if has_keyword(func, "out_null_value"):
-        # User opts in to seeing the resolved output null value. We
-        # must resolve it before building the wrapper so it can be
-        # captured in the closure. With explicit dtype we use it
-        # directly; otherwise we run apply_infer_dtype upfront on a
-        # sentinel wrapper.
-        if dtype is not None:
-            out_dtype = np.dtype(dtype)
-        else:
-            # Use a typed-zero placeholder of the first input's
-            # dtype during the meta call so user funcs like
-            # `np.where(m, out_null_value, d)` infer the same dtype
-            # as their input rather than collapsing to object dtype.
-            # Funcs whose dtype genuinely depends on the *value* of
-            # out_null_value should pass dtype= explicitly.
-            placeholder = np.zeros((), dtype=ref.dtype)[()]
-            sentinel_wrapper, sentinel_inputs = _build_map_blocks_wrapper(
-                func, rasters, out_null_value=placeholder
-            )
-            out_dtype = apply_infer_dtype(
-                sentinel_wrapper,
-                sentinel_inputs,
-                kwargs,
-                "map_blocks",
-            )
-        out_nv = _resolve_map_blocks_null_value(null_value, rasters, out_dtype)
-        wrapper, inputs = _build_map_blocks_wrapper(
-            func, rasters, out_null_value=out_nv
-        )
-        out_data = da.map_blocks(wrapper, *inputs, dtype=out_dtype, **kwargs)
-    else:
-        wrapper, inputs = _build_map_blocks_wrapper(func, rasters)
-        out_data = da.map_blocks(wrapper, *inputs, dtype=dtype, **kwargs)
-        out_nv = _resolve_map_blocks_null_value(
-            null_value, rasters, out_data.dtype
-        )
+    wrapper, inputs = _build_map_blocks_wrapper(
+        func, rasters, null_value=null_value
+    )
+    out_data = da.map_blocks(wrapper, *inputs, dtype=dtype, **kwargs)
+    out_nv = _resolve_out_null_value(
+        null_value=null_value,
+        ref_dtype=ref.dtype,
+        ref_null_value=ref.null_value,
+        n_rasters=len(rasters),
+        out_dtype=out_data.dtype,
+    )
     return data_to_raster_like(out_data, ref, nv=out_nv)
 
 
-def _build_map_blocks_wrapper(func, rasters, out_null_value=None):
+def _build_map_blocks_wrapper(func, rasters, null_value=None):
     """Build the per-block wrapper map_blocks passes to dask.
 
     Returns ``(wrapper, inputs)``. ``wrapper`` is the callable to
@@ -535,9 +509,12 @@ def _build_map_blocks_wrapper(func, rasters, out_null_value=None):
     dask arrays to spread positionally (data first; masks appended
     only when the user's ``func`` opts in via ``input_masks=``).
 
-    ``out_null_value`` is captured in the closure and injected when
-    ``func`` declares it. Resolution must happen upfront in the
-    caller (otherwise the closure would capture ``None``).
+    The wrapper captures only small immutable values from the input
+    rasters (per-input null values, ref dtype + null value, and the
+    user's ``null_value`` parameter) so dask doesn't ship full
+    Raster objects across workers. ``out_null_value`` is resolved
+    inside the wrapper at call time using
+    ``block_info[None]["dtype"]``, so no pre-resolution is needed.
     """
     pass_masks = has_keyword(func, "input_masks")
     pass_block_info = has_keyword(func, "block_info")
@@ -547,7 +524,20 @@ def _build_map_blocks_wrapper(func, rasters, out_null_value=None):
     inputs = [r.data for r in rasters]
     if pass_masks:
         inputs.extend(r.mask for r in rasters)
+
+    # Capture only scalars / small immutables. No Raster references.
     nvs = tuple(r.null_value for r in rasters) if pass_input_nvs else None
+    ref = rasters[0]
+    ref_dtype = ref.dtype
+    ref_null_value = ref.null_value
+    n_rasters = len(rasters)
+    # Typed-zero placeholder used only during dask's meta inference
+    # call (where block_info is None). Lets funcs like
+    # ``np.where(m, out_null_value, d)`` infer the same dtype as
+    # their input rather than collapsing to object dtype.
+    meta_placeholder = (
+        np.zeros((), dtype=ref_dtype)[()] if pass_out_nv else None
+    )
 
     def _wrapper(*block_args, block_info=None, **inner_kwargs):
         if pass_masks:
@@ -562,30 +552,44 @@ def _build_map_blocks_wrapper(func, rasters, out_null_value=None):
         if pass_input_nvs:
             inner_kwargs["input_null_values"] = nvs
         if pass_out_nv:
-            inner_kwargs["out_null_value"] = out_null_value
+            if block_info is None:
+                inner_kwargs["out_null_value"] = meta_placeholder
+            else:
+                inner_kwargs["out_null_value"] = _resolve_out_null_value(
+                    null_value=null_value,
+                    ref_dtype=ref_dtype,
+                    ref_null_value=ref_null_value,
+                    n_rasters=n_rasters,
+                    out_dtype=block_info[None]["dtype"],
+                )
         return func(*input_data, **inner_kwargs)
 
     return _wrapper, inputs
 
 
-def _resolve_map_blocks_null_value(null_value, rasters, out_dtype):
-    """Resolve the output null value for :func:`map_blocks`.
+def _resolve_out_null_value(
+    *, null_value, ref_dtype, ref_null_value, n_rasters, out_dtype
+):
+    """Resolve the output null value from precomputed scalars.
 
-    ``None`` (default):
+    Used both by :func:`map_blocks` (after dask returns the inferred
+    dtype) and by the in-wrapper per-block path (to compute a
+    chunk-local ``out_null_value`` from
+    ``block_info[None]["dtype"]``). Takes only scalars / dtypes so
+    the wrapper's closure stays free of Raster references.
 
-    - If there is exactly one input raster and the output dtype
-      matches its dtype, use that input's null value (preserves the
-      sentinel for identity-like single-input ops).
-    - Otherwise, use
-      :func:`raster_tools.masking.get_default_null_value` against
-      ``out_dtype`` -- always representable, never overflows when the
-      dtype changes.
+    Resolution rules:
 
-    Any string value raises ``ValueError``. A scalar passes through.
+    - ``null_value`` is a scalar -> use it.
+    - ``null_value`` is a string -> ``ValueError``.
+    - ``null_value`` is ``None`` and there is exactly one input whose
+      dtype matches ``out_dtype`` -> inherit that input's null value.
+    - Otherwise -> :func:`get_default_null_value` against
+      ``out_dtype``.
     """
     if null_value is None:
-        if len(rasters) == 1 and rasters[0].dtype == out_dtype:
-            return rasters[0].null_value
+        if n_rasters == 1 and ref_dtype == out_dtype:
+            return ref_null_value
         return get_default_null_value(out_dtype)
     if isinstance(null_value, str):
         raise ValueError(
