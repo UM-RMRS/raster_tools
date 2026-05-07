@@ -1914,6 +1914,44 @@ def test_geo_map_blocks_meta_skips_zero_shape_call():
     np.testing.assert_array_equal(out.data.compute(), r.data.compute())
 
 
+def test_geo_map_blocks_out_null_value_meta_call_typed_zero():
+    # During the 0-shape meta call (no meta= passed), the wrapper
+    # supplies out_null_value as a typed zero of the first input's
+    # dtype. Real per-chunk calls see the resolved scalar.
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32, null=-1.0)
+    seen_meta = []
+    seen_real = []
+
+    def f(xda, *, out_null_value, geo_block_info):
+        if geo_block_info is None:
+            seen_meta.append((type(out_null_value), out_null_value))
+        else:
+            seen_real.append(out_null_value)
+        return xda
+
+    geo_map_blocks(f, r).data.compute()
+    assert any(t is np.float32 for t, _ in seen_meta)
+    assert any(v == np.float32(0.0) for _, v in seen_meta)
+    assert -1.0 in seen_real
+
+
+def test_geo_map_blocks_out_null_value_with_meta_skips_meta_call():
+    # When meta= is passed, the meta call is skipped entirely; the
+    # func only sees real-chunk values for out_null_value.
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32, null=-1.0)
+    seen = []
+
+    def f(xda, *, out_null_value, geo_block_info):
+        if geo_block_info is None:
+            raise RuntimeError("0-shape meta call should not happen")
+        seen.append(out_null_value)
+        return xda
+
+    geo_map_blocks(f, r, meta=np.empty((), dtype=np.float32)).data.compute()
+    assert -1.0 in seen
+    assert all(v == -1.0 for v in seen)
+
+
 # ---------------------------------------------------------------------------
 # dtype inference (mirror dask)
 # ---------------------------------------------------------------------------
@@ -2455,3 +2493,46 @@ def test_geo_map_overlap_meta_skips_zero_shape_call():
     )
     assert out.dtype == np.float32
     np.testing.assert_allclose(out.data.compute(), r.data.compute())
+
+
+def test_geo_map_overlap_out_null_value_meta_call_typed_zero():
+    r = make_raster(
+        shape=(1, 100, 100), dtype=np.float32, null=-1.0, chunksize=(1, 50, 50)
+    )
+    seen_meta = []
+    seen_real = []
+
+    def f(xda, *, out_null_value, geo_block_info):
+        if geo_block_info is None:
+            seen_meta.append((type(out_null_value), out_null_value))
+        else:
+            seen_real.append(out_null_value)
+        return xda
+
+    geo_map_overlap(f, r, depth=1, boundary="reflect").data.compute()
+    assert any(t is np.float32 for t, _ in seen_meta)
+    assert any(v == np.float32(0.0) for _, v in seen_meta)
+    assert -1.0 in seen_real
+
+
+def test_geo_map_overlap_out_null_value_with_meta_skips_meta_call():
+    r = make_raster(
+        shape=(1, 100, 100), dtype=np.float32, null=-1.0, chunksize=(1, 50, 50)
+    )
+    seen = []
+
+    def f(xda, *, out_null_value, geo_block_info):
+        if geo_block_info is None:
+            raise RuntimeError("0-shape meta call should not happen")
+        seen.append(out_null_value)
+        return xda
+
+    geo_map_overlap(
+        f,
+        r,
+        depth=1,
+        boundary="reflect",
+        meta=np.empty((), dtype=np.float32),
+    ).data.compute()
+    assert -1.0 in seen
+    assert all(v == -1.0 for v in seen)

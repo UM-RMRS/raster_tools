@@ -325,6 +325,22 @@ _DASK_RESERVED_KWARGS = frozenset(
 )
 
 
+def _out_dtype_hint(dtype, meta):
+    """Resolve the user-supplied output dtype, if any.
+
+    Wrapper builders use this to pre-resolve ``out_null_value``
+    independently of dask's per-chunk ``block_info[None]["dtype"]``,
+    which is ``None`` when ``meta=`` is set (dask doesn't carry the
+    dtype through block_info in that case, even though the meta's
+    dtype is the actual output dtype).
+    """
+    if meta is not None:
+        return np.asarray(meta).dtype
+    if dtype is not None:
+        return np.dtype(dtype)
+    return None
+
+
 def _check_no_dask_kwargs(kwargs):
     collision = _DASK_RESERVED_KWARGS & kwargs.keys()
     if collision:
@@ -548,7 +564,10 @@ def map_blocks(
                 f"shape {ref.shape}"
             )
     wrapper, inputs = _build_map_blocks_wrapper(
-        func, rasters, null_value=null_value
+        func,
+        rasters,
+        null_value=null_value,
+        out_dtype_hint=_out_dtype_hint(dtype, meta),
     )
     out_data = da.map_blocks(
         wrapper, *inputs, dtype=dtype, meta=meta, **kwargs
@@ -563,7 +582,9 @@ def map_blocks(
     return data_to_raster_like(out_data, ref, nv=out_nv)
 
 
-def _build_map_blocks_wrapper(func, rasters, null_value=None):
+def _build_map_blocks_wrapper(
+    func, rasters, null_value=None, out_dtype_hint=None
+):
     """Build the per-block wrapper map_blocks passes to dask.
 
     Returns ``(wrapper, inputs)``. ``wrapper`` is the callable to
@@ -617,12 +638,23 @@ def _build_map_blocks_wrapper(func, rasters, null_value=None):
             if block_info is None:
                 inner_kwargs["out_null_value"] = meta_placeholder
             else:
+                # Prefer the upfront hint (set when the caller passed
+                # dtype= or meta=); fall back to dask's per-chunk
+                # dtype. The hint is needed because dask leaves
+                # block_info[None]["dtype"] as None when meta= is
+                # set, even though the meta's dtype IS the output.
+                chunk_dtype = block_info[None]["dtype"]
+                resolved_dtype = (
+                    out_dtype_hint
+                    if out_dtype_hint is not None
+                    else chunk_dtype
+                )
                 inner_kwargs["out_null_value"] = _resolve_out_null_value(
                     null_value=null_value,
                     ref_dtype=ref_dtype,
                     ref_null_value=ref_null_value,
                     n_rasters=n_rasters,
-                    out_dtype=block_info[None]["dtype"],
+                    out_dtype=resolved_dtype,
                 )
         result = func(*input_data, **inner_kwargs)
         if isinstance(result, xr.DataArray):
@@ -1053,7 +1085,10 @@ def map_overlap(
     _check_asymmetric_depth_compatible_with_boundary(depth_dict, boundary)
 
     wrapper, inputs = _build_map_blocks_wrapper(
-        func, rasters, null_value=null_value
+        func,
+        rasters,
+        null_value=null_value,
+        out_dtype_hint=_out_dtype_hint(dtype, meta),
     )
     pass_masks = has_keyword(func, "input_masks")
     boundaries = [_resolve_boundary(boundary, r)[0] for r in rasters]
@@ -1151,7 +1186,9 @@ def _resolve_gbi_with_overlap_pad(block_info, block_args, gbi_lookup):
     return gbi
 
 
-def _build_geo_wrapper(func, rasters, *, null_value, gbi_resolver):
+def _build_geo_wrapper(
+    func, rasters, *, null_value, gbi_resolver, out_dtype_hint=None
+):
     """Shared per-block wrapper builder for geo_map_blocks /
     geo_map_overlap.
 
@@ -1231,12 +1268,18 @@ def _build_geo_wrapper(func, rasters, *, null_value, gbi_resolver):
             if block_info is None:
                 inner_kwargs["out_null_value"] = meta_placeholder
             else:
+                chunk_dtype = block_info[None]["dtype"]
+                resolved_dtype = (
+                    out_dtype_hint
+                    if out_dtype_hint is not None
+                    else chunk_dtype
+                )
                 inner_kwargs["out_null_value"] = _resolve_out_null_value(
                     null_value=null_value,
                     ref_dtype=ref_dtype,
                     ref_null_value=ref_null_value,
                     n_rasters=n_rasters,
-                    out_dtype=block_info[None]["dtype"],
+                    out_dtype=resolved_dtype,
                 )
 
         result = func(*data_das, **inner_kwargs)
@@ -1247,7 +1290,9 @@ def _build_geo_wrapper(func, rasters, *, null_value, gbi_resolver):
     return _wrapper, inputs
 
 
-def _build_geo_map_blocks_wrapper(func, rasters, null_value=None):
+def _build_geo_map_blocks_wrapper(
+    func, rasters, null_value=None, out_dtype_hint=None
+):
     """Per-block wrapper for :func:`geo_map_blocks`.
 
     Thin shim over :func:`_build_geo_wrapper` with the no-pad gbi
@@ -1258,10 +1303,13 @@ def _build_geo_map_blocks_wrapper(func, rasters, null_value=None):
         rasters,
         null_value=null_value,
         gbi_resolver=_resolve_gbi_no_pad,
+        out_dtype_hint=out_dtype_hint,
     )
 
 
-def _build_geo_map_overlap_wrapper(func, rasters, null_value=None):
+def _build_geo_map_overlap_wrapper(
+    func, rasters, null_value=None, out_dtype_hint=None
+):
     """Per-block wrapper for :func:`geo_map_overlap`.
 
     Thin shim over :func:`_build_geo_wrapper` with the overlap-pad
@@ -1272,6 +1320,7 @@ def _build_geo_map_overlap_wrapper(func, rasters, null_value=None):
         rasters,
         null_value=null_value,
         gbi_resolver=_resolve_gbi_with_overlap_pad,
+        out_dtype_hint=out_dtype_hint,
     )
 
 
@@ -1431,7 +1480,10 @@ def geo_map_blocks(
             "first, e.g. r2.reproject(r1.geobox)."
         )
     wrapper, inputs = _build_geo_map_blocks_wrapper(
-        func, rasters, null_value=null_value
+        func,
+        rasters,
+        null_value=null_value,
+        out_dtype_hint=_out_dtype_hint(dtype, meta),
     )
     out_data = da.map_blocks(
         wrapper, *inputs, dtype=dtype, meta=meta, **kwargs
@@ -1628,7 +1680,10 @@ def geo_map_overlap(
     ref = rasters[0]  # rechunk may have changed ref's chunking
 
     wrapper, inputs = _build_geo_map_overlap_wrapper(
-        func, rasters, null_value=null_value
+        func,
+        rasters,
+        null_value=null_value,
+        out_dtype_hint=_out_dtype_hint(dtype, meta),
     )
     pass_masks = has_keyword(func, "input_masks")
     boundaries = [_resolve_boundary(boundary, r)[0] for r in rasters]
