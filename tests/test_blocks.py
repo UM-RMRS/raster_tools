@@ -1751,6 +1751,78 @@ def test_meta_dtype_mismatch_raises(fn):
         fn(r, dtype=np.int64, meta=np.empty((), dtype=np.float32))
 
 
+# ---------------------------------------------------------------------------
+# dask-kwargs leakage rejection (issue #1)
+# ---------------------------------------------------------------------------
+
+
+_DASK_LEAK_NAMES = [
+    "chunks",
+    "name",
+    "token",
+    "drop_axis",
+    "new_axis",
+    "concatenate",
+    "align_arrays",
+    "trim",
+]
+
+
+@pytest.mark.parametrize(
+    "fn",
+    [
+        lambda r, **kw: map_blocks(lambda d: d, r, **kw),
+        lambda r, **kw: map_overlap(
+            lambda d: d, r, depth=0, boundary="reflect", **kw
+        ),
+        lambda r, **kw: geo_map_blocks(lambda xda, **k: xda, r, **kw),
+        lambda r, **kw: geo_map_overlap(
+            lambda xda, **k: xda, r, depth=0, boundary="reflect", **kw
+        ),
+    ],
+)
+@pytest.mark.parametrize("name", _DASK_LEAK_NAMES)
+def test_dask_kwargs_leakage_rejected(fn, name):
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32)
+    with pytest.raises(ValueError, match="dask graph-construction options"):
+        fn(r, **{name: object()})
+
+
+@pytest.mark.parametrize("name", _DASK_LEAK_NAMES)
+def test_infer_output_dtype_rejects_dask_kwargs(name):
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32)
+    with pytest.raises(ValueError, match="dask graph-construction options"):
+        infer_output_dtype(lambda d: d, r, **{name: object()})
+
+
+# ---------------------------------------------------------------------------
+# DataArray return preservation (issue #2)
+# ---------------------------------------------------------------------------
+
+
+def test_map_blocks_dataarray_return_extracted():
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32)
+
+    def f(d):
+        # Wrap in a DataArray; wrapper should extract .data.
+        return xr.DataArray(d * 2, dims=("band", "y", "x"))
+
+    out = map_blocks(f, r)
+    np.testing.assert_allclose(out.data.compute(), r.data.compute() * 2)
+
+
+def test_map_overlap_dataarray_return_extracted():
+    r = make_raster(
+        shape=(1, 100, 100), dtype=np.float32, chunksize=(1, 50, 50)
+    )
+
+    def f(d):
+        return xr.DataArray(d * 3, dims=("band", "y", "x"))
+
+    out = map_overlap(f, r, depth=0, boundary="reflect")
+    np.testing.assert_allclose(out.data.compute(), r.data.compute() * 3)
+
+
 def test_geo_map_blocks_meta_skips_zero_shape_call():
     # meta= forwards to dask's map_blocks. The user's func must not
     # be invoked with 0-shape DataArrays.

@@ -10,10 +10,10 @@ Also defines :class:`GeoBlockInfo`, the geo-aware analog of dask's
 ``block_info`` dict: a per-block metadata object carrying the block's
 :class:`~odc.geo.geobox.GeoBox`, its band/row/col slices into the parent
 array, and helpers for padding/shifting the block window and reconstructing
-an :class:`xarray.DataArray` for the block's data. The future
-``geo_map_blocks`` / ``geo_map_overlap`` wrappers will build on this
-primitive: each user callback receives a coordinated ``DataArray`` (with
-band/y/x coords, CRS, nodata) instead of a raw NumPy block.
+an :class:`xarray.DataArray` for the block's data. The geo wrappers
+build on this primitive to hand each user callback a coordinated
+``DataArray`` (with band/y/x coords, CRS, nodata) instead of a raw
+NumPy block.
 """
 
 import dask.array as da
@@ -300,24 +300,39 @@ def geo_block_infos_as_dask(raster):
     return da.from_array(geo_block_infos(raster), chunks=1)
 
 
-def _resolve_null_value(null_value, ref_null_value, out_dtype):
-    if null_value is None:
-        return ref_null_value
-    if isinstance(null_value, str):
-        if null_value != "default":
-            raise ValueError(
-                f"null_value string must be 'default', got {null_value!r}"
-            )
-        return get_default_null_value(out_dtype)
-    return null_value
-
-
 # Kwarg names reserved for map_blocks's per-block injection. The user's
 # func opts in to any of these by including them as named parameters.
 # The caller of map_blocks may not pass them via **kwargs.
 _MAP_BLOCKS_RESERVED_KWARGS = frozenset(
     {"input_masks", "input_null_values", "block_info", "out_null_value"}
 )
+
+# Kwarg names that dask's map_blocks / map_overlap accept as graph-
+# construction options. If a caller passes one via our **kwargs path
+# it would silently be forwarded to their per-block func instead of
+# dask. Reject upfront with a message pointing them at dask directly.
+_DASK_RESERVED_KWARGS = frozenset(
+    {
+        "chunks",
+        "name",
+        "token",
+        "drop_axis",
+        "new_axis",
+        "concatenate",
+        "align_arrays",
+        "trim",
+    }
+)
+
+
+def _check_no_dask_kwargs(kwargs):
+    collision = _DASK_RESERVED_KWARGS & kwargs.keys()
+    if collision:
+        raise ValueError(
+            f"these kwargs are dask graph-construction options and are "
+            f"not forwarded to your func; call dask directly if you need "
+            f"them: {sorted(collision)}"
+        )
 
 
 def _check_dtype_meta_agree(dtype, meta):
@@ -348,8 +363,9 @@ def map_blocks(
     order as ``*rasters``. The output :class:`~raster_tools.Raster`
     adopts its CRS, affine, and x/y coords from the first input;
     its mask is derived from the output data (see Notes).
-    v1 is shape-preserving: ``func`` must return a NumPy array of
-    the same shape as a single input data block.
+    v1 is shape-preserving: ``func`` must return an array-like of
+    the same shape as a single input data block (see ``func`` below
+    for the accepted types).
 
     Per-block contract
     ------------------
@@ -402,8 +418,13 @@ def map_blocks(
     ----------
     func : callable
         Per-block function. See "Per-block contract" above for the
-        full signature rules. Must return a NumPy array of the same
-        shape as a single input data block.
+        full signature rules. Must return either an
+        :class:`xarray.DataArray` (its ``.data`` is extracted,
+        preserving the underlying backend) or any array-like that
+        dask can ingest (NumPy ndarray, cupy ndarray, sparse array,
+        etc.) with the same shape as a single input data block. For
+        non-numpy backends, also pass ``meta=`` so dask's output
+        meta is correct.
     *rasters : Raster or str
         One or more aligned input rasters. Path strings are accepted.
         Only the 3D shape is validated; CRS, affine, and chunk
@@ -502,6 +523,7 @@ def map_blocks(
     if not rasters:
         raise ValueError("map_blocks requires at least one raster")
     _check_dtype_meta_agree(dtype, meta)
+    _check_no_dask_kwargs(kwargs)
     reserved_collision = _MAP_BLOCKS_RESERVED_KWARGS & kwargs.keys()
     if reserved_collision:
         raise ValueError(
@@ -594,7 +616,10 @@ def _build_map_blocks_wrapper(func, rasters, null_value=None):
                     n_rasters=n_rasters,
                     out_dtype=block_info[None]["dtype"],
                 )
-        return func(*input_data, **inner_kwargs)
+        result = func(*input_data, **inner_kwargs)
+        if isinstance(result, xr.DataArray):
+            return result.data
+        return result
 
     return _wrapper, inputs
 
@@ -667,6 +692,7 @@ def infer_output_dtype(func, *rasters, **kwargs):
     """
     if not rasters:
         raise ValueError("infer_output_dtype requires at least one raster")
+    _check_no_dask_kwargs(kwargs)
     reserved_collision = _MAP_BLOCKS_RESERVED_KWARGS & kwargs.keys()
     if reserved_collision:
         raise ValueError(
@@ -882,8 +908,11 @@ def map_overlap(
     ----------
     func : callable
         Per-block function. See "Per-block contract" above. Must
-        return a NumPy array of the same shape as a single
-        (overlap-included) data block.
+        return either an :class:`xarray.DataArray` (its ``.data`` is
+        extracted, preserving backend) or any array-like that dask
+        can ingest (NumPy ndarray, cupy ndarray, sparse array, etc.)
+        with the same shape as a single (overlap-included) data
+        block. For non-numpy backends, also pass ``meta=``.
     *rasters : Raster or str
         One or more aligned input rasters. Path strings are accepted.
         Only the 3D shape is validated; CRS, affine, and chunk
@@ -981,6 +1010,7 @@ def map_overlap(
     if not rasters:
         raise ValueError("map_overlap requires at least one raster")
     _check_dtype_meta_agree(dtype, meta)
+    _check_no_dask_kwargs(kwargs)
     reserved_collision = _MAP_BLOCKS_RESERVED_KWARGS & kwargs.keys()
     if reserved_collision:
         raise ValueError(
@@ -1187,9 +1217,9 @@ def _build_geo_wrapper(func, rasters, *, null_value, gbi_resolver):
                 )
 
         result = func(*data_das, **inner_kwargs)
-        if hasattr(result, "values"):
-            return np.asarray(result.values)
-        return np.asarray(result)
+        if isinstance(result, xr.DataArray):
+            return result.data
+        return result
 
     return _wrapper, inputs
 
@@ -1287,9 +1317,11 @@ def geo_map_blocks(
     ----------
     func : callable
         Per-block function. See "Per-block contract" above. May
-        return either an ``xr.DataArray`` (its ``.values`` are
-        extracted) or a NumPy array of the same shape as a single
-        data block.
+        return either an :class:`xarray.DataArray` (its ``.data`` is
+        extracted, preserving backend) or any array-like that dask
+        can ingest (NumPy ndarray, cupy ndarray, sparse array, etc.)
+        with the same shape as a single data block. For non-numpy
+        backends, also pass ``meta=``.
     *rasters : Raster or str
         One or more input rasters. Path strings are accepted. All
         inputs must be on the same grid (CRS, affine, shape) within
@@ -1315,11 +1347,11 @@ def geo_map_blocks(
         :func:`dask.array.map_blocks`. When provided, dask uses this
         as the output meta and skips the 0-shape sample call it
         would otherwise make to derive one -- useful when ``func``
-        cannot tolerate 0-shape DataArray inputs. Note that the
-        wrapper always returns a NumPy array (it extracts ``.values``
-        from any returned :class:`xarray.DataArray`), so ``meta``
-        describes the wrapper's NumPy output, not the user func's
-        xarray output. When ``None`` (default), dask derives a NumPy
+        cannot tolerate 0-shape DataArray inputs. The wrapper extracts
+        ``.data`` from any returned :class:`xarray.DataArray`, so
+        ``meta`` describes the wrapper's array output (whatever
+        backend the user's func produces). When ``None`` (default),
+        dask derives a NumPy
         meta by calling ``func`` on 0-shape inputs.
     **kwargs
         Extra keyword arguments forwarded per-block to ``func``. The
@@ -1359,6 +1391,7 @@ def geo_map_blocks(
     if not rasters:
         raise ValueError("geo_map_blocks requires at least one raster")
     _check_dtype_meta_agree(dtype, meta)
+    _check_no_dask_kwargs(kwargs)
     reserved_collision = _GEO_MAP_BLOCKS_RESERVED_KWARGS & kwargs.keys()
     if reserved_collision:
         raise ValueError(
@@ -1456,9 +1489,11 @@ def geo_map_overlap(
     ----------
     func : callable
         Per-block function. See "Per-block contract" above. May
-        return either an ``xr.DataArray`` (its ``.values`` are
-        extracted) or a NumPy array of the same shape as a single
-        (overlap-included) data block.
+        return either an :class:`xarray.DataArray` (its ``.data``
+        is extracted, preserving backend) or any array-like that
+        dask can ingest (NumPy ndarray, cupy ndarray, sparse array,
+        etc.) with the same shape as a single (overlap-included)
+        data block. For non-numpy backends, also pass ``meta=``.
     *rasters : Raster or str
         One or more input rasters. Path strings are accepted. All
         inputs must be on the same grid (CRS, affine, shape) within
@@ -1490,12 +1525,12 @@ def geo_map_overlap(
         :func:`dask.array.overlap.map_overlap`. When provided, dask
         uses this as the output meta and skips the 0-shape sample
         call it would otherwise make to derive one -- useful when
-        ``func`` cannot tolerate 0-shape DataArray inputs. Note that
-        the wrapper always returns a NumPy array (it extracts
-        ``.values`` from any returned :class:`xarray.DataArray`), so
-        ``meta`` describes the wrapper's NumPy output, not the user
-        func's xarray output. When ``None`` (default), dask derives
-        a NumPy meta by calling ``func`` on 0-shape inputs.
+        ``func`` cannot tolerate 0-shape DataArray inputs. The
+        wrapper extracts ``.data`` from any returned
+        :class:`xarray.DataArray`, so ``meta`` describes the
+        wrapper's array output (whatever backend the user's func
+        produces). When ``None`` (default), dask derives a NumPy
+        meta by calling ``func`` on 0-shape inputs.
     **kwargs
         Extra keyword arguments forwarded per-block to ``func``. The
         reserved names listed above are not allowed here.
@@ -1547,6 +1582,7 @@ def geo_map_overlap(
     if not rasters:
         raise ValueError("geo_map_overlap requires at least one raster")
     _check_dtype_meta_agree(dtype, meta)
+    _check_no_dask_kwargs(kwargs)
     reserved_collision = _GEO_MAP_BLOCKS_RESERVED_KWARGS & kwargs.keys()
     if reserved_collision:
         raise ValueError(
