@@ -747,6 +747,28 @@ def test_infer_output_dtype_with_introspection_kwargs():
     assert infer_output_dtype(f, r) == np.float32
 
 
+def test_infer_output_dtype_injects_out_null_value_placeholder():
+    # When the func names out_null_value, the inference call should
+    # receive the typed-zero placeholder of the first input's dtype
+    # (not None and not the resolved real value).
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32)
+    seen = []
+
+    def f(d, *, out_null_value):
+        seen.append((type(out_null_value), out_null_value))
+        return d
+
+    out_dtype = infer_output_dtype(f, r)
+    assert out_dtype == np.float32
+    # During inference dask makes the meta call; the wrapper supplies
+    # the typed zero (np.float32(0.0)).
+    assert seen, "func was not invoked during inference"
+    types_seen = {t for t, _ in seen}
+    values_seen = {v for _, v in seen}
+    assert np.float32 in types_seen
+    assert np.float32(0.0) in values_seen
+
+
 def test_infer_output_dtype_empty_raises():
     with pytest.raises(ValueError, match="at least one"):
         infer_output_dtype(lambda x: x)

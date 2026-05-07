@@ -398,8 +398,9 @@ def map_blocks(
       so funcs like ``np.where(m, out_null_value, d)`` infer the
       same dtype as their input rather than collapsing to object
       dtype. If your func's *output dtype* depends on the specific
-      ``out_null_value`` scalar, pass ``dtype=`` explicitly to
-      bypass dask's inference.
+      ``out_null_value`` scalar, pass ``meta=`` to skip dask's
+      0-shape meta call entirely; ``dtype=`` only skips the additional
+      sample call dask makes for dtype inference, not the meta call.
 
     A function whose only kwargs absorber is ``**kwargs`` (e.g.
     ``def f(*args, **kwargs):``) does NOT trigger any of these
@@ -486,6 +487,13 @@ def map_blocks(
     will shift which cells appear masked -- it does not carry the
     first input's mask through unchanged. Writing a new mask via
     ``func`` is not supported in v1.
+
+    Dask invokes ``func`` once on 0-shape inputs to derive the output
+    array meta -- this happens whether or not ``dtype=`` is provided.
+    Pass ``meta=`` to skip the call entirely; ``dtype=`` only skips
+    the additional sample call dask would otherwise make to infer the
+    output dtype, not the 0-shape meta call. Most NumPy ops handle
+    0-shape inputs fine.
 
     Examples
     --------
@@ -659,9 +667,11 @@ def infer_output_dtype(func, *rasters, **kwargs):
     """Infer the output dtype ``func`` will produce on these rasters.
 
     Mirrors :func:`map_blocks`'s contract: applies the same
-    introspection-based wrapping (``input_masks``,
-    ``input_null_values``, ``block_info`` are injected if named in
-    ``func``'s signature), then runs
+    introspection-based wrapping. ``input_masks``,
+    ``input_null_values``, ``block_info``, and ``out_null_value`` are
+    injected if named in ``func``'s signature (during inference,
+    ``out_null_value`` is the typed-zero placeholder of the first
+    input's dtype). Then runs
     :func:`dask.array.core.apply_infer_dtype` on tiny meta samples to
     derive the output dtype without computing real data.
 
@@ -1000,6 +1010,13 @@ def map_overlap(
 
     Asymmetric per-side depths are only supported with no padding
     (``boundary=None`` or ``"none"``).
+
+    Dask invokes ``func`` once on 0-shape inputs to derive the output
+    array meta -- this happens whether or not ``dtype=`` is provided.
+    Pass ``meta=`` to skip the call entirely; ``dtype=`` only skips
+    the additional sample call dask would otherwise make to infer the
+    output dtype, not the 0-shape meta call. Most NumPy ops handle
+    0-shape inputs fine.
 
     See Also
     --------
