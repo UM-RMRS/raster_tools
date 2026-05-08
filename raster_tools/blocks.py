@@ -6,6 +6,12 @@ and :func:`geo_map_overlap` which hand each user callback coordinated
 :class:`xarray.DataArray` blocks (with band/y/x coords, CRS, nodata)
 instead of raw NumPy blocks.
 
+All four functions are **shape-preserving**: ``func`` must return an
+array-like of the same shape as a single input data block (the
+overlap-included shape, for the ``_overlap`` variants). The output
+Raster lands on the first input's grid; ``chunks=`` and other
+graph-construction options are not exposed.
+
 Also defines :class:`GeoBlockInfo`, the geo-aware analog of dask's
 ``block_info`` dict: a per-block metadata object carrying the block's
 :class:`~odc.geo.geobox.GeoBox`, its band/row/col slices into the parent
@@ -328,6 +334,19 @@ _DASK_RESERVED_KWARGS = frozenset(
 )
 
 
+def _meta_dtype(meta):
+    """Read ``meta``'s dtype without forcing a host-side materialization.
+
+    Prefer the ``.dtype`` attribute (numpy / cupy / sparse / dask
+    arrays all have one) and fall back to ``np.asarray`` only for
+    array-likes that don't expose it directly.
+    """
+    dtype = getattr(meta, "dtype", None)
+    if dtype is not None:
+        return np.dtype(dtype)
+    return np.asarray(meta).dtype
+
+
 def _out_dtype_hint(dtype, meta):
     """Resolve the user-supplied output dtype, if any.
 
@@ -338,7 +357,7 @@ def _out_dtype_hint(dtype, meta):
     dtype is the actual output dtype).
     """
     if meta is not None:
-        return np.asarray(meta).dtype
+        return _meta_dtype(meta)
     if dtype is not None:
         return np.dtype(dtype)
     return None
@@ -396,7 +415,7 @@ def _check_dtype_meta_agree(dtype, meta):
     """
     if dtype is None or meta is None:
         return
-    meta_dtype = np.asarray(meta).dtype
+    meta_dtype = _meta_dtype(meta)
     if np.dtype(dtype) != meta_dtype:
         raise ValueError(
             f"dtype={dtype!r} conflicts with meta.dtype={meta_dtype!r}; "
@@ -414,9 +433,6 @@ def map_blocks(
     order as ``*rasters``. The output :class:`~raster_tools.Raster`
     adopts its CRS, affine, and x/y coords from the first input;
     its mask is derived from the output data (see Notes).
-    v1 is shape-preserving: ``func`` must return an array-like of
-    the same shape as a single input data block (see ``func`` below
-    for the accepted types).
 
     Per-block contract
     ------------------
@@ -768,7 +784,7 @@ def infer_output_dtype(func, *rasters, meta=None, **kwargs):
     rasters = [get_raster(r) for r in rasters]
     _check_shape_aligned(rasters)
     if meta is not None:
-        return np.asarray(meta).dtype
+        return _meta_dtype(meta)
     wrapper, inputs = _build_map_blocks_wrapper(func, rasters)
     return apply_infer_dtype(wrapper, inputs, kwargs, "infer_output_dtype")
 
@@ -814,7 +830,7 @@ def geo_infer_output_dtype(func, *rasters, meta=None, **kwargs):
     rasters = [get_raster(r) for r in rasters]
     _check_shape_aligned(rasters)
     if meta is not None:
-        return np.asarray(meta).dtype
+        return _meta_dtype(meta)
     wrapper, inputs = _build_geo_map_blocks_wrapper(func, rasters)
     return apply_infer_dtype(wrapper, inputs, kwargs, "geo_infer_output_dtype")
 
@@ -837,7 +853,7 @@ def _resolve_output_null_value_impl(
     _check_shape_aligned(rasters_resolved)
     ref = rasters_resolved[0]
     if meta is not None:
-        out_dtype = np.asarray(meta).dtype
+        out_dtype = _meta_dtype(meta)
     elif dtype is not None:
         out_dtype = np.dtype(dtype)
     else:
@@ -1260,6 +1276,19 @@ def map_overlap(
     output dtype, not the 0-shape meta call. Most NumPy ops handle
     0-shape inputs fine.
 
+    Examples
+    --------
+    3x3 mean with reflected edges:
+
+    >>> def mean_3x3(d):                                # doctest: +SKIP
+    ...     pad = d[0]
+    ...     out = np.zeros_like(pad, dtype=np.float32)
+    ...     ... # convolve and write to out[1:-1, 1:-1]
+    ...     return out[None]
+    >>> smoothed = map_overlap(
+    ...     mean_3x3, r, depth=1, boundary="reflect",
+    ... )                                                # doctest: +SKIP
+
     See Also
     --------
     map_blocks : Block-wise without overlap; same per-block contract.
@@ -1632,6 +1661,18 @@ def geo_map_blocks(
     meta call ``geo_block_info`` is ``None`` if the func opts in.
     Most NumPy / xarray ops handle 0-shape inputs fine.
 
+    Examples
+    --------
+    Use the per-chunk geobox to clip a vector layer before
+    rasterizing into the chunk:
+
+    >>> def clip_and_rasterize(xda, *, geo_block_info=None):
+    ...     if geo_block_info is None:
+    ...         return xda  # 0-shape meta call -- bail out
+    ...     bbox = geo_block_info.bbox
+    ...     ...                                          # doctest: +SKIP
+    >>> out = geo_map_blocks(clip_and_rasterize, r)      # doctest: +SKIP
+
     See Also
     --------
     map_blocks : Non-geo variant; permissive (shape-only check).
@@ -1823,6 +1864,22 @@ def geo_map_overlap(
     symmetrically; for those edge cases the ``geo_block_info`` extent
     may be slightly off-position. For interior chunks and all
     non-``"none"`` boundaries this is exact.
+
+    Examples
+    --------
+    Sum vector-line lengths within a per-cell radius (the pattern
+    used by :mod:`raster_tools.line_stats`):
+
+    >>> def length_chunk(xda, *, geo_block_info=None, gdf, radius):
+    ...     if geo_block_info is None:
+    ...         return xda                              # doctest: +SKIP
+    ...     xc, yc = geo_block_info.x, geo_block_info.y
+    ...     ...
+    ...     return out_arr
+    >>> out = geo_map_overlap(                          # doctest: +SKIP
+    ...     length_chunk, r, depth=10, boundary=0,
+    ...     gdf=lines_df, radius=radius,
+    ... )
 
     See Also
     --------
