@@ -1684,15 +1684,29 @@ def geo_map_blocks(
 
     Examples
     --------
-    Use the per-chunk geobox to clip a vector layer before
-    rasterizing into the chunk:
+    Use the per-chunk geobox to clip a vector layer and rasterize
+    into the chunk. The output dtype is uint8, not the input's
+    float32 -- pass ``meta=`` so dask uses the right dtype and
+    skips the 0-shape meta call entirely (no ``geo_block_info is
+    None`` guard needed):
 
-    >>> def clip_and_rasterize(xda, *, geo_block_info=None):
-    ...     if geo_block_info is None:
-    ...         return xda  # 0-shape meta call -- bail out
+    >>> def clip_and_rasterize(xda, *, geo_block_info, gdf):
     ...     bbox = geo_block_info.bbox
     ...     ...                                          # doctest: +SKIP
-    >>> out = geo_map_blocks(clip_and_rasterize, r)      # doctest: +SKIP
+    ...     return burned_uint8
+    >>> out = geo_map_blocks(                            # doctest: +SKIP
+    ...     clip_and_rasterize, r,
+    ...     meta=np.empty((), dtype=np.uint8),
+    ...     gdf=lines_gdf,
+    ... )
+
+    For dtype-preserving funcs (output dtype equals input dtype),
+    you can skip ``meta=`` and guard on the meta call instead:
+
+    >>> def scale(xda, *, geo_block_info=None):          # doctest: +SKIP
+    ...     if geo_block_info is None:
+    ...         return xda                # safe: same dtype, same shape
+    ...     return xda * 2
 
     See Also
     --------
@@ -1893,19 +1907,27 @@ def geo_map_overlap(
 
     Examples
     --------
-    Sum vector-line lengths within a per-cell radius (the pattern
-    used by :mod:`raster_tools.line_stats`):
+    Sum vector-line lengths within a per-cell radius. Pass
+    ``meta=`` so dask skips the 0-shape meta call entirely (no
+    ``geo_block_info is None`` guard needed):
 
-    >>> def length_chunk(xda, *, geo_block_info=None, gdf, radius):
-    ...     if geo_block_info is None:
-    ...         return xda                              # doctest: +SKIP
+    >>> def length_chunk(xda, *, geo_block_info, gdf, radius):
     ...     xc, yc = geo_block_info.x, geo_block_info.y
-    ...     ...
-    ...     return out_arr
-    >>> out = geo_map_overlap(                          # doctest: +SKIP
+    ...     ...                                          # doctest: +SKIP
+    ...     return out_arr_float32
+    >>> out = geo_map_overlap(                           # doctest: +SKIP
     ...     length_chunk, r, depth=10, boundary=0,
+    ...     meta=np.empty((), dtype=np.float32),
     ...     gdf=lines_df, radius=radius,
     ... )
+
+    For dtype-preserving funcs (output dtype equals input dtype),
+    you can skip ``meta=`` and guard on the meta call instead:
+
+    >>> def smooth(xda, *, geo_block_info=None):         # doctest: +SKIP
+    ...     if geo_block_info is None:
+    ...         return xda             # safe: same dtype, same shape
+    ...     ...                        # apply per-pixel smoother
 
     See Also
     --------
