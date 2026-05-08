@@ -353,6 +353,38 @@ def _check_no_dask_kwargs(kwargs):
         )
 
 
+def _check_reserved_kwargs(kwargs, reserved_set, fname):
+    """Raise if any reserved-injection kwarg name leaked through ``**kwargs``.
+
+    The four public functions (and the inference helpers) reserve a
+    set of kwarg names for per-block injection; passing any of them
+    via ``**kwargs`` would silently clobber the wrapper's value.
+    """
+    collision = reserved_set & kwargs.keys()
+    if collision:
+        raise ValueError(
+            f"these kwargs are reserved by {fname} for per-block "
+            f"injection and cannot be passed by the caller: "
+            f"{sorted(collision)}"
+        )
+
+
+def _check_shape_aligned(rasters):
+    """Raise on any raster that doesn't match ``rasters[0]``'s 3D shape.
+
+    Used by the four public functions and the inference / resolve
+    helpers. Permissive: doesn't check CRS / affine -- callers that
+    require strict grid alignment add :func:`are_all_grids_same`.
+    """
+    ref = rasters[0]
+    for i, r in enumerate(rasters[1:], 1):
+        if r.shape != ref.shape:
+            raise ValueError(
+                f"raster {i} shape {r.shape} does not match raster 0 "
+                f"shape {ref.shape}"
+            )
+
+
 def _check_dtype_meta_agree(dtype, meta):
     """Raise if both dtype and meta are set and their dtypes disagree.
 
@@ -550,21 +582,10 @@ def map_blocks(
         raise ValueError("map_blocks requires at least one raster")
     _check_dtype_meta_agree(dtype, meta)
     _check_no_dask_kwargs(kwargs)
-    reserved_collision = _MAP_BLOCKS_RESERVED_KWARGS & kwargs.keys()
-    if reserved_collision:
-        raise ValueError(
-            f"these kwargs are reserved by map_blocks for per-block "
-            f"injection and cannot be passed by the caller: "
-            f"{sorted(reserved_collision)}"
-        )
+    _check_reserved_kwargs(kwargs, _MAP_BLOCKS_RESERVED_KWARGS, "map_blocks")
     rasters = [get_raster(r) for r in rasters]
+    _check_shape_aligned(rasters)
     ref = rasters[0]
-    for i, r in enumerate(rasters[1:], 1):
-        if r.shape != ref.shape:
-            raise ValueError(
-                f"raster {i} shape {r.shape} does not match raster 0 "
-                f"shape {ref.shape}"
-            )
     wrapper, inputs = _build_map_blocks_wrapper(
         func,
         rasters,
@@ -611,7 +632,7 @@ def _build_map_blocks_wrapper(
         inputs.extend(r.mask for r in rasters)
 
     # Capture only scalars / small immutables. No Raster references.
-    nvs = tuple(r.null_value for r in rasters) if pass_input_nvs else None
+    nvs = tuple(r.null_value for r in rasters)
     ref = rasters[0]
     ref_dtype = ref.dtype
     ref_null_value = ref.null_value
@@ -740,21 +761,11 @@ def infer_output_dtype(func, *rasters, meta=None, **kwargs):
     if not rasters:
         raise ValueError("infer_output_dtype requires at least one raster")
     _check_no_dask_kwargs(kwargs)
-    reserved_collision = _MAP_BLOCKS_RESERVED_KWARGS & kwargs.keys()
-    if reserved_collision:
-        raise ValueError(
-            f"these kwargs are reserved by map_blocks for per-block "
-            f"injection and cannot be passed by the caller: "
-            f"{sorted(reserved_collision)}"
-        )
+    _check_reserved_kwargs(
+        kwargs, _MAP_BLOCKS_RESERVED_KWARGS, "infer_output_dtype"
+    )
     rasters = [get_raster(r) for r in rasters]
-    ref = rasters[0]
-    for i, r in enumerate(rasters[1:], 1):
-        if r.shape != ref.shape:
-            raise ValueError(
-                f"raster {i} shape {r.shape} does not match raster 0 "
-                f"shape {ref.shape}"
-            )
+    _check_shape_aligned(rasters)
     if meta is not None:
         return np.asarray(meta).dtype
     wrapper, inputs = _build_map_blocks_wrapper(func, rasters)
@@ -794,21 +805,13 @@ def geo_infer_output_dtype(func, *rasters, meta=None, **kwargs):
     if not rasters:
         raise ValueError("geo_infer_output_dtype requires at least one raster")
     _check_no_dask_kwargs(kwargs)
-    reserved_collision = _GEO_MAP_BLOCKS_RESERVED_KWARGS & kwargs.keys()
-    if reserved_collision:
-        raise ValueError(
-            f"these kwargs are reserved by geo_map_blocks for per-block "
-            f"injection and cannot be passed by the caller: "
-            f"{sorted(reserved_collision)}"
-        )
+    _check_reserved_kwargs(
+        kwargs,
+        _GEO_MAP_BLOCKS_RESERVED_KWARGS,
+        "geo_infer_output_dtype",
+    )
     rasters = [get_raster(r) for r in rasters]
-    ref = rasters[0]
-    for i, r in enumerate(rasters[1:], 1):
-        if r.shape != ref.shape:
-            raise ValueError(
-                f"raster {i} shape {r.shape} does not match raster 0 "
-                f"shape {ref.shape}"
-            )
+    _check_shape_aligned(rasters)
     if meta is not None:
         return np.asarray(meta).dtype
     wrapper, inputs = _build_geo_map_blocks_wrapper(func, rasters)
@@ -869,13 +872,8 @@ def resolve_output_null_value(
     _check_dtype_meta_agree(dtype, meta)
     _check_no_dask_kwargs(kwargs)
     rasters_resolved = [get_raster(r) for r in rasters]
+    _check_shape_aligned(rasters_resolved)
     ref = rasters_resolved[0]
-    for i, r in enumerate(rasters_resolved[1:], 1):
-        if r.shape != ref.shape:
-            raise ValueError(
-                f"raster {i} shape {r.shape} does not match raster 0 "
-                f"shape {ref.shape}"
-            )
     if meta is not None:
         out_dtype = np.asarray(meta).dtype
     elif dtype is not None:
@@ -1212,21 +1210,10 @@ def map_overlap(
         raise ValueError("map_overlap requires at least one raster")
     _check_dtype_meta_agree(dtype, meta)
     _check_no_dask_kwargs(kwargs)
-    reserved_collision = _MAP_BLOCKS_RESERVED_KWARGS & kwargs.keys()
-    if reserved_collision:
-        raise ValueError(
-            f"these kwargs are reserved by map_overlap for per-block "
-            f"injection and cannot be passed by the caller: "
-            f"{sorted(reserved_collision)}"
-        )
+    _check_reserved_kwargs(kwargs, _MAP_BLOCKS_RESERVED_KWARGS, "map_overlap")
     rasters = [get_raster(r) for r in rasters]
+    _check_shape_aligned(rasters)
     ref = rasters[0]
-    for i, r in enumerate(rasters[1:], 1):
-        if r.shape != ref.shape:
-            raise ValueError(
-                f"raster {i} shape {r.shape} does not match raster 0 "
-                f"shape {ref.shape}"
-            )
     depth_dict = _normalize_depth(depth)
     _check_asymmetric_depth_compatible_with_boundary(depth_dict, boundary)
 
@@ -1289,20 +1276,6 @@ def _meta_dataarray(arr, nodata=None):
     if nodata is not None:
         xda = xda.rio.write_nodata(nodata)
     return xda
-
-
-def _validate_aligned_rasters(rasters, fname):
-    if not rasters:
-        raise ValueError(f"{fname} requires at least one raster")
-    rasters = [get_raster(r) for r in rasters]
-    ref = rasters[0]
-    for i, r in enumerate(rasters[1:], 1):
-        if r.shape != ref.shape:
-            raise ValueError(
-                f"raster {i} shape {r.shape} does not match raster 0 "
-                f"shape {ref.shape}"
-            )
-    return rasters, ref
 
 
 def _resolve_gbi_no_pad(block_info, block_args, gbi_lookup):
@@ -1610,14 +1583,12 @@ def geo_map_blocks(
         raise ValueError("geo_map_blocks requires at least one raster")
     _check_dtype_meta_agree(dtype, meta)
     _check_no_dask_kwargs(kwargs)
-    reserved_collision = _GEO_MAP_BLOCKS_RESERVED_KWARGS & kwargs.keys()
-    if reserved_collision:
-        raise ValueError(
-            f"these kwargs are reserved by geo_map_blocks for per-block "
-            f"injection and cannot be passed by the caller: "
-            f"{sorted(reserved_collision)}"
-        )
-    rasters, ref = _validate_aligned_rasters(rasters, "geo_map_blocks")
+    _check_reserved_kwargs(
+        kwargs, _GEO_MAP_BLOCKS_RESERVED_KWARGS, "geo_map_blocks"
+    )
+    rasters = [get_raster(r) for r in rasters]
+    _check_shape_aligned(rasters)
+    ref = rasters[0]
     if not are_all_grids_same([r.geobox for r in rasters]):
         raise ValueError(
             "geo_map_blocks requires all input rasters to be on the "
@@ -1804,14 +1775,12 @@ def geo_map_overlap(
         raise ValueError("geo_map_overlap requires at least one raster")
     _check_dtype_meta_agree(dtype, meta)
     _check_no_dask_kwargs(kwargs)
-    reserved_collision = _GEO_MAP_BLOCKS_RESERVED_KWARGS & kwargs.keys()
-    if reserved_collision:
-        raise ValueError(
-            f"these kwargs are reserved by geo_map_overlap for per-block "
-            f"injection and cannot be passed by the caller: "
-            f"{sorted(reserved_collision)}"
-        )
-    rasters, ref = _validate_aligned_rasters(rasters, "geo_map_overlap")
+    _check_reserved_kwargs(
+        kwargs, _GEO_MAP_BLOCKS_RESERVED_KWARGS, "geo_map_overlap"
+    )
+    rasters = [get_raster(r) for r in rasters]
+    _check_shape_aligned(rasters)
+    ref = rasters[0]
     if not are_all_grids_same([r.geobox for r in rasters]):
         raise ValueError(
             "geo_map_overlap requires all input rasters to be on the "
