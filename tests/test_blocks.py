@@ -17,6 +17,7 @@ from raster_tools.blocks import (
     geo_infer_output_dtype,
     geo_map_blocks,
     geo_map_overlap,
+    geo_resolve_output_null_value,
     infer_output_dtype,
     map_blocks,
     map_overlap,
@@ -2642,10 +2643,46 @@ def test_resolve_output_null_value_dtype_supplied():
     assert called == []  # explicit dtype skips inference
 
 
-def test_resolve_output_null_value_geo_path():
+def test_geo_resolve_output_null_value_inherits_for_single_input():
     r = make_raster(shape=(1, 100, 100), dtype=np.float32, null=-1.0)
-    nv = resolve_output_null_value(lambda xda, **kw: xda, r, geo=True)
+    nv = geo_resolve_output_null_value(lambda xda, **kw: xda, r)
     assert nv == -1.0
+
+
+def test_geo_resolve_output_null_value_dtype_default_when_dtype_changes():
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32, null=-1.0)
+    nv = geo_resolve_output_null_value(
+        lambda xda, **kw: xda.astype(np.int32), r
+    )
+    assert nv == get_default_null_value(np.dtype(np.int32))
+
+
+def test_geo_resolve_output_null_value_meta_supplied():
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32)
+    called = []
+
+    def f(xda, **kw):
+        called.append(1)
+        return xda
+
+    nv = geo_resolve_output_null_value(f, r, meta=np.empty((), dtype=np.int32))
+    assert nv == get_default_null_value(np.dtype(np.int32))
+    assert called == []
+
+
+def test_geo_resolve_output_null_value_validates_shapes():
+    r1 = make_raster(shape=(1, 100, 100), dtype=np.float32)
+    r2 = make_raster(shape=(1, 50, 50), dtype=np.float32)
+    with pytest.raises(ValueError, match="raster 1 shape"):
+        geo_resolve_output_null_value(lambda a, b, **kw: a + b, r1, r2)
+
+
+def test_geo_resolve_output_null_value_rejects_dask_kwargs():
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32)
+    with pytest.raises(ValueError, match="dask graph-construction options"):
+        geo_resolve_output_null_value(
+            lambda xda, **kw: xda, r, chunks=object()
+        )
 
 
 def test_resolve_output_null_value_matches_real_call():

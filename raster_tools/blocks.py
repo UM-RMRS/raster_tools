@@ -37,6 +37,7 @@ __all__ = [
     "geo_infer_output_dtype",
     "geo_map_blocks",
     "geo_map_overlap",
+    "geo_resolve_output_null_value",
     "infer_output_dtype",
     "map_blocks",
     "map_overlap",
@@ -818,29 +819,55 @@ def geo_infer_output_dtype(func, *rasters, meta=None, **kwargs):
     return apply_infer_dtype(wrapper, inputs, kwargs, "geo_infer_output_dtype")
 
 
-def resolve_output_null_value(
-    func,
-    *rasters,
-    dtype=None,
-    null_value=None,
-    meta=None,
-    geo=False,
-    **kwargs,
+def _resolve_output_null_value_impl(
+    func, rasters, *, dtype, null_value, meta, kwargs, infer, fname
 ):
-    """Return the output null sentinel a real call would produce.
+    """Shared core for resolve / geo_resolve _output_null_value.
+
+    ``infer`` is the inference helper to call when neither ``meta``
+    nor ``dtype`` is supplied: :func:`infer_output_dtype` for the
+    NumPy variant, :func:`geo_infer_output_dtype` for the geo
+    variant.
+    """
+    if not rasters:
+        raise ValueError(f"{fname} requires at least one raster")
+    _check_dtype_meta_agree(dtype, meta)
+    _check_no_dask_kwargs(kwargs)
+    rasters_resolved = [get_raster(r) for r in rasters]
+    _check_shape_aligned(rasters_resolved)
+    ref = rasters_resolved[0]
+    if meta is not None:
+        out_dtype = np.asarray(meta).dtype
+    elif dtype is not None:
+        out_dtype = np.dtype(dtype)
+    else:
+        out_dtype = infer(func, *rasters_resolved, **kwargs)
+    return _resolve_out_null_value(
+        null_value=null_value,
+        ref_dtype=ref.dtype,
+        ref_null_value=ref.null_value,
+        n_rasters=len(rasters_resolved),
+        out_dtype=out_dtype,
+    )
+
+
+def resolve_output_null_value(
+    func, *rasters, dtype=None, null_value=None, meta=None, **kwargs
+):
+    """Return the output null sentinel a :func:`map_blocks` /
+    :func:`map_overlap` call would produce.
 
     Combines dtype resolution (from ``meta``, ``dtype``, or
-    inference) with the same null-value rules :func:`map_blocks` and
-    friends apply, without building a graph or computing data. Useful
-    for callers who want to pre-allocate buffers, decide a sentinel
-    upfront, or pre-validate that the resolved sentinel is what they
-    expect.
+    :func:`infer_output_dtype`) with the same null-value rules
+    :func:`map_blocks` and :func:`map_overlap` apply, without
+    building a graph or computing data. Useful for callers who want
+    to pre-allocate buffers, decide a sentinel upfront, or
+    pre-validate that the resolved sentinel is what they expect.
 
     Parameters
     ----------
     func : callable
-        Per-block function; same contract as :func:`map_blocks` (or
-        :func:`geo_map_blocks` when ``geo=True``).
+        Per-block function; same contract as :func:`map_blocks`.
     *rasters : Raster or str
         One or more input rasters (path strings accepted).
     dtype : dtype-like, optional
@@ -849,10 +876,57 @@ def resolve_output_null_value(
         Same semantics as :func:`map_blocks`'s ``null_value``.
     meta : array-like, optional
         If supplied, ``meta.dtype`` is the output dtype.
-    geo : bool, optional
-        If ``True``, use :func:`geo_infer_output_dtype` (the geo
-        wrapper); otherwise :func:`infer_output_dtype` (the NumPy
-        wrapper). Default ``False``.
+    **kwargs
+        Extra keyword arguments forwarded per-block to ``func`` for
+        the inference call (ignored when ``meta=`` or ``dtype=`` is
+        supplied).
+
+    Returns
+    -------
+    scalar or None
+        The null value the output Raster would carry. ``None`` if
+        the resolution rules yield no null value (e.g. an
+        unsupported dtype).
+
+    See Also
+    --------
+    geo_resolve_output_null_value : Geo-aware variant.
+    """
+    return _resolve_output_null_value_impl(
+        func,
+        rasters,
+        dtype=dtype,
+        null_value=null_value,
+        meta=meta,
+        kwargs=kwargs,
+        infer=infer_output_dtype,
+        fname="resolve_output_null_value",
+    )
+
+
+def geo_resolve_output_null_value(
+    func, *rasters, dtype=None, null_value=None, meta=None, **kwargs
+):
+    """Return the output null sentinel a :func:`geo_map_blocks` /
+    :func:`geo_map_overlap` call would produce.
+
+    Geo analog of :func:`resolve_output_null_value`. Uses the geo
+    wrapper for inference (so ``func`` sees coordinated
+    :class:`xarray.DataArray` blocks plus any opted-in
+    introspections, including ``geo_block_info``).
+
+    Parameters
+    ----------
+    func : callable
+        Per-block function; same contract as :func:`geo_map_blocks`.
+    *rasters : Raster or str
+        One or more input rasters (path strings accepted).
+    dtype : dtype-like, optional
+        If supplied, used as the output dtype directly.
+    null_value : scalar, optional
+        Same semantics as :func:`geo_map_blocks`'s ``null_value``.
+    meta : array-like, optional
+        If supplied, ``meta.dtype`` is the output dtype.
     **kwargs
         Extra keyword arguments forwarded per-block to ``func`` for
         the inference call (ignored when ``meta=`` or ``dtype=`` is
@@ -865,29 +939,15 @@ def resolve_output_null_value(
         the resolution rules yield no null value (e.g. an
         unsupported dtype).
     """
-    if not rasters:
-        raise ValueError(
-            "resolve_output_null_value requires at least one raster"
-        )
-    _check_dtype_meta_agree(dtype, meta)
-    _check_no_dask_kwargs(kwargs)
-    rasters_resolved = [get_raster(r) for r in rasters]
-    _check_shape_aligned(rasters_resolved)
-    ref = rasters_resolved[0]
-    if meta is not None:
-        out_dtype = np.asarray(meta).dtype
-    elif dtype is not None:
-        out_dtype = np.dtype(dtype)
-    elif geo:
-        out_dtype = geo_infer_output_dtype(func, *rasters, **kwargs)
-    else:
-        out_dtype = infer_output_dtype(func, *rasters, **kwargs)
-    return _resolve_out_null_value(
+    return _resolve_output_null_value_impl(
+        func,
+        rasters,
+        dtype=dtype,
         null_value=null_value,
-        ref_dtype=ref.dtype,
-        ref_null_value=ref.null_value,
-        n_rasters=len(rasters_resolved),
-        out_dtype=out_dtype,
+        meta=meta,
+        kwargs=kwargs,
+        infer=geo_infer_output_dtype,
+        fname="geo_resolve_output_null_value",
     )
 
 
