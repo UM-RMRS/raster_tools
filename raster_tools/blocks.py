@@ -428,6 +428,11 @@ def map_blocks(
 ):
     """Apply ``func`` block-wise across one or more aligned rasters.
 
+    Per-block kwargs (opt-in): ``input_masks``, ``input_null_values``,
+    ``block_info``, ``out_null_value``. Name any of these in ``func``'s
+    signature to receive them per chunk; see "Per-block contract" below
+    for details.
+
     Thin wrapper over :func:`dask.array.map_blocks`. Each call to
     ``func`` receives one block from each input raster, in the same
     order as ``*rasters``. The output :class:`~raster_tools.Raster`
@@ -738,12 +743,13 @@ def _resolve_out_null_value(
 def infer_output_dtype(func, *rasters, meta=None, **kwargs):
     """Infer the output dtype ``func`` will produce on these rasters.
 
-    Mirrors :func:`map_blocks`'s contract: applies the same
-    introspection-based wrapping. ``input_masks``,
-    ``input_null_values``, ``block_info``, and ``out_null_value`` are
-    injected if named in ``func``'s signature (during inference,
-    ``out_null_value`` is the typed-zero placeholder of the first
-    input's dtype). Then runs
+    Per-block kwargs (opt-in): ``input_masks``, ``input_null_values``,
+    ``block_info``, ``out_null_value`` -- same set as :func:`map_blocks`.
+    Name any in ``func``'s signature and they're injected during the
+    inference call (``out_null_value`` is the typed-zero placeholder
+    of the first input's dtype).
+
+    Mirrors :func:`map_blocks`'s contract, then runs
     :func:`dask.array.core.apply_infer_dtype` on tiny meta samples to
     derive the output dtype without computing real data.
 
@@ -792,6 +798,11 @@ def infer_output_dtype(func, *rasters, meta=None, **kwargs):
 def geo_infer_output_dtype(func, *rasters, meta=None, **kwargs):
     """Infer the output dtype a :func:`geo_map_blocks`-shaped ``func``
     will produce on these rasters.
+
+    Per-block kwargs (opt-in): ``input_masks``, ``input_null_values``,
+    ``block_info``, ``out_null_value``, ``geo_block_info`` -- same set
+    as :func:`geo_map_blocks`. Name any in ``func``'s signature and
+    they're injected during the inference call.
 
     Geo analog of :func:`infer_output_dtype`: builds the geo wrapper
     (so ``func`` sees coordinated :class:`xarray.DataArray` blocks
@@ -1126,6 +1137,11 @@ def map_overlap(
     **kwargs,
 ):
     """Apply ``func`` block-wise with overlap across one or more rasters.
+
+    Per-block kwargs (opt-in): ``input_masks``, ``input_null_values``,
+    ``block_info``, ``out_null_value``. Name any of these in ``func``'s
+    signature to receive them per chunk; see "Per-block contract" below
+    for details.
 
     Thin wrapper over :func:`dask.array.overlap.map_overlap`. Each call
     to ``func`` receives one block from each input raster, in the same
@@ -1543,6 +1559,11 @@ def geo_map_blocks(
     """Apply ``func`` block-wise across one or more aligned rasters,
     handing it coordinated :class:`xarray.DataArray` blocks.
 
+    Per-block kwargs (opt-in): ``input_masks``, ``input_null_values``,
+    ``block_info``, ``out_null_value``, ``geo_block_info``. Name any
+    of these in ``func``'s signature to receive them per chunk; see
+    "Per-block contract" below for details.
+
     Same shape and contract as :func:`map_blocks`, but each raster's
     data block is wrapped in a coordinated ``xr.DataArray`` (with
     ``band`` / ``y`` / ``x`` coords from the block's geobox, the
@@ -1728,6 +1749,11 @@ def geo_map_overlap(
 ):
     """Apply ``func`` block-wise with overlap, handing it coordinated
     :class:`xarray.DataArray` blocks.
+
+    Per-block kwargs (opt-in): ``input_masks``, ``input_null_values``,
+    ``block_info``, ``out_null_value``, ``geo_block_info``. Name any
+    of these in ``func``'s signature to receive them per chunk; see
+    "Per-block contract" below for details.
 
     Same shape and contract as :func:`geo_map_blocks` but adds the
     overlap machinery from :func:`map_overlap` (``depth``,
