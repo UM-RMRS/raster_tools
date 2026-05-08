@@ -747,9 +747,16 @@ def infer_output_dtype(func, *rasters, meta=None, **kwargs):
             f"injection and cannot be passed by the caller: "
             f"{sorted(reserved_collision)}"
         )
+    rasters = [get_raster(r) for r in rasters]
+    ref = rasters[0]
+    for i, r in enumerate(rasters[1:], 1):
+        if r.shape != ref.shape:
+            raise ValueError(
+                f"raster {i} shape {r.shape} does not match raster 0 "
+                f"shape {ref.shape}"
+            )
     if meta is not None:
         return np.asarray(meta).dtype
-    rasters = [get_raster(r) for r in rasters]
     wrapper, inputs = _build_map_blocks_wrapper(func, rasters)
     return apply_infer_dtype(wrapper, inputs, kwargs, "infer_output_dtype")
 
@@ -794,9 +801,16 @@ def geo_infer_output_dtype(func, *rasters, meta=None, **kwargs):
             f"injection and cannot be passed by the caller: "
             f"{sorted(reserved_collision)}"
         )
+    rasters = [get_raster(r) for r in rasters]
+    ref = rasters[0]
+    for i, r in enumerate(rasters[1:], 1):
+        if r.shape != ref.shape:
+            raise ValueError(
+                f"raster {i} shape {r.shape} does not match raster 0 "
+                f"shape {ref.shape}"
+            )
     if meta is not None:
         return np.asarray(meta).dtype
-    rasters = [get_raster(r) for r in rasters]
     wrapper, inputs = _build_geo_map_blocks_wrapper(func, rasters)
     return apply_infer_dtype(wrapper, inputs, kwargs, "geo_infer_output_dtype")
 
@@ -852,8 +866,16 @@ def resolve_output_null_value(
         raise ValueError(
             "resolve_output_null_value requires at least one raster"
         )
+    _check_dtype_meta_agree(dtype, meta)
+    _check_no_dask_kwargs(kwargs)
     rasters_resolved = [get_raster(r) for r in rasters]
     ref = rasters_resolved[0]
+    for i, r in enumerate(rasters_resolved[1:], 1):
+        if r.shape != ref.shape:
+            raise ValueError(
+                f"raster {i} shape {r.shape} does not match raster 0 "
+                f"shape {ref.shape}"
+            )
     if meta is not None:
         out_dtype = np.asarray(meta).dtype
     elif dtype is not None:

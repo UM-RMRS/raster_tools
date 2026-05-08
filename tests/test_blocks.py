@@ -2659,3 +2659,92 @@ def test_resolve_output_null_value_matches_real_call():
         lambda d: d.astype(np.int32), r, null_value=42, dtype=np.int32
     )
     assert pre == out.null_value
+
+
+# ---------------------------------------------------------------------------
+# A: resolve_output_null_value upfront validations
+# ---------------------------------------------------------------------------
+
+
+def test_resolve_output_null_value_rejects_dtype_meta_mismatch():
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32)
+    with pytest.raises(ValueError, match="conflicts with meta"):
+        resolve_output_null_value(
+            lambda d: d,
+            r,
+            dtype=np.int64,
+            meta=np.empty((), dtype=np.float32),
+        )
+
+
+def test_resolve_output_null_value_rejects_dask_kwargs_with_meta():
+    # Even when meta short-circuits inference, forbidden kwargs must
+    # still raise.
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32)
+    with pytest.raises(ValueError, match="dask graph-construction options"):
+        resolve_output_null_value(
+            lambda d: d,
+            r,
+            meta=np.empty((), dtype=np.float32),
+            chunks=object(),
+        )
+
+
+def test_resolve_output_null_value_rejects_dask_kwargs_with_dtype():
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32)
+    with pytest.raises(ValueError, match="dask graph-construction options"):
+        resolve_output_null_value(
+            lambda d: d, r, dtype=np.int32, chunks=object()
+        )
+
+
+def test_resolve_output_null_value_validates_shapes():
+    r1 = make_raster(shape=(1, 100, 100), dtype=np.float32)
+    r2 = make_raster(shape=(1, 50, 50), dtype=np.float32)
+    with pytest.raises(ValueError, match="raster 1 shape"):
+        resolve_output_null_value(lambda a, b: a + b, r1, r2)
+
+
+# ---------------------------------------------------------------------------
+# B: infer_output_dtype / geo_infer_output_dtype validate shapes
+# ---------------------------------------------------------------------------
+
+
+def test_infer_output_dtype_validates_shapes():
+    r1 = make_raster(shape=(1, 100, 100), dtype=np.float32)
+    r2 = make_raster(shape=(1, 50, 50), dtype=np.float32)
+    with pytest.raises(ValueError, match="raster 1 shape"):
+        infer_output_dtype(lambda a, b: a + b, r1, r2)
+
+
+def test_infer_output_dtype_validates_shapes_even_with_meta():
+    # Shape validation runs before the meta short-circuit so that
+    # mismatched inputs are caught even when inference is skipped.
+    r1 = make_raster(shape=(1, 100, 100), dtype=np.float32)
+    r2 = make_raster(shape=(1, 50, 50), dtype=np.float32)
+    with pytest.raises(ValueError, match="raster 1 shape"):
+        infer_output_dtype(
+            lambda a, b: a + b,
+            r1,
+            r2,
+            meta=np.empty((), dtype=np.float32),
+        )
+
+
+def test_geo_infer_output_dtype_validates_shapes():
+    r1 = make_raster(shape=(1, 100, 100), dtype=np.float32)
+    r2 = make_raster(shape=(1, 50, 50), dtype=np.float32)
+    with pytest.raises(ValueError, match="raster 1 shape"):
+        geo_infer_output_dtype(lambda a, b, **kw: a + b, r1, r2)
+
+
+def test_geo_infer_output_dtype_validates_shapes_even_with_meta():
+    r1 = make_raster(shape=(1, 100, 100), dtype=np.float32)
+    r2 = make_raster(shape=(1, 50, 50), dtype=np.float32)
+    with pytest.raises(ValueError, match="raster 1 shape"):
+        geo_infer_output_dtype(
+            lambda a, b, **kw: a + b,
+            r1,
+            r2,
+            meta=np.empty((), dtype=np.float32),
+        )
