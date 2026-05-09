@@ -13,15 +13,15 @@ from affine import Affine
 
 from raster_tools.blocks import (
     GeoBlockInfo,
+    _geo_infer_output_dtype,
+    _geo_resolve_output_null_value,
+    _infer_output_dtype,
+    _resolve_output_null_value,
     geo_block_infos_as_dask,
-    geo_infer_output_dtype,
     geo_map_blocks,
     geo_map_overlap,
-    geo_resolve_output_null_value,
-    infer_output_dtype,
     map_blocks,
     map_overlap,
-    resolve_output_null_value,
 )
 from raster_tools.masking import get_default_null_value
 from tests.utils import make_raster
@@ -708,12 +708,12 @@ def test_map_blocks_mask_round_trip():
 
 def test_infer_output_dtype_identity():
     r = make_raster(shape=(1, 100, 100), dtype=np.float32)
-    assert infer_output_dtype(lambda x: x, r) == np.float32
+    assert _infer_output_dtype(lambda x: x, r) == np.float32
 
 
 def test_infer_output_dtype_in_func_cast():
     r = make_raster(shape=(1, 100, 100), dtype=np.float32)  # float32
-    assert infer_output_dtype(lambda x: x.astype(np.int32), r) == np.int32
+    assert _infer_output_dtype(lambda x: x.astype(np.int32), r) == np.int32
 
 
 def test_infer_output_dtype_multi_input_promotion():
@@ -724,7 +724,7 @@ def test_infer_output_dtype_multi_input_promotion():
         r1.data.astype(np.int16), x=r1.x, y=r1.y, crs=r1.crs
     )
     # NumPy promotion of float32 + int16 -> float32.
-    assert infer_output_dtype(lambda a, b: a + b, r1, r2) == np.float32
+    assert _infer_output_dtype(lambda a, b: a + b, r1, r2) == np.float32
 
 
 def test_infer_output_dtype_matches_map_blocks_dtype():
@@ -733,7 +733,7 @@ def test_infer_output_dtype_matches_map_blocks_dtype():
     def f(x):
         return x.astype(np.int64)
 
-    inferred = infer_output_dtype(f, r)
+    inferred = _infer_output_dtype(f, r)
     out = map_blocks(f, r)
     assert inferred == out.dtype == np.int64
 
@@ -747,7 +747,7 @@ def test_infer_output_dtype_with_introspection_kwargs():
         # Returns the same dtype as input regardless of mask.
         return x
 
-    assert infer_output_dtype(f, r) == np.float32
+    assert _infer_output_dtype(f, r) == np.float32
 
 
 def test_infer_output_dtype_injects_out_null_value_placeholder():
@@ -761,7 +761,7 @@ def test_infer_output_dtype_injects_out_null_value_placeholder():
         seen.append((type(out_null_value), out_null_value))
         return d
 
-    out_dtype = infer_output_dtype(f, r)
+    out_dtype = _infer_output_dtype(f, r)
     assert out_dtype == np.float32
     # During inference dask makes the meta call; the wrapper supplies
     # the typed zero (np.float32(0.0)).
@@ -774,13 +774,13 @@ def test_infer_output_dtype_injects_out_null_value_placeholder():
 
 def test_infer_output_dtype_empty_raises():
     with pytest.raises(ValueError, match="at least one"):
-        infer_output_dtype(lambda x: x)
+        _infer_output_dtype(lambda x: x)
 
 
 def test_infer_output_dtype_reserved_kwarg_collision_raises():
     r = make_raster(shape=(1, 100, 100), dtype=np.float32)
     with pytest.raises(ValueError, match="reserved"):
-        infer_output_dtype(lambda d, **kw: d, r, input_masks="anything")
+        _infer_output_dtype(lambda d, **kw: d, r, input_masks="anything")
 
 
 def test_map_blocks_empty_rasters_raises():
@@ -1871,7 +1871,7 @@ def test_dask_kwargs_leakage_rejected(fn, name):
 def test_infer_output_dtype_rejects_dask_kwargs(name):
     r = make_raster(shape=(1, 100, 100), dtype=np.float32)
     with pytest.raises(ValueError, match="dask graph-construction options"):
-        infer_output_dtype(lambda d: d, r, **{name: object()})
+        _infer_output_dtype(lambda d: d, r, **{name: object()})
 
 
 # ---------------------------------------------------------------------------
@@ -2548,12 +2548,12 @@ def test_geo_map_overlap_out_null_value_with_meta_skips_meta_call():
 
 def test_geo_infer_output_dtype_identity():
     r = make_raster(shape=(1, 100, 100), dtype=np.float32)
-    assert geo_infer_output_dtype(lambda xda, **kw: xda, r) == np.float32
+    assert _geo_infer_output_dtype(lambda xda, **kw: xda, r) == np.float32
 
 
 def test_geo_infer_output_dtype_in_func_cast():
     r = make_raster(shape=(1, 100, 100), dtype=np.float32)
-    out = geo_infer_output_dtype(lambda xda, **kw: xda.astype(np.int32), r)
+    out = _geo_infer_output_dtype(lambda xda, **kw: xda.astype(np.int32), r)
     assert out == np.int32
 
 
@@ -2565,7 +2565,7 @@ def test_geo_infer_output_dtype_meta_short_circuits():
         called.append(1)
         return xda
 
-    out = geo_infer_output_dtype(f, r, meta=np.empty((), dtype=np.int16))
+    out = _geo_infer_output_dtype(f, r, meta=np.empty((), dtype=np.int16))
     assert out == np.int16
     assert called == []  # func not invoked when meta= is given
 
@@ -2578,7 +2578,7 @@ def test_infer_output_dtype_meta_short_circuits():
         called.append(1)
         return d
 
-    out = infer_output_dtype(f, r, meta=np.empty((), dtype=np.int16))
+    out = _infer_output_dtype(f, r, meta=np.empty((), dtype=np.int16))
     assert out == np.int16
     assert called == []
 
@@ -2586,32 +2586,32 @@ def test_infer_output_dtype_meta_short_circuits():
 def test_geo_infer_output_dtype_rejects_dask_kwargs():
     r = make_raster(shape=(1, 100, 100), dtype=np.float32)
     with pytest.raises(ValueError, match="dask graph-construction options"):
-        geo_infer_output_dtype(lambda xda, **kw: xda, r, chunks=object())
+        _geo_infer_output_dtype(lambda xda, **kw: xda, r, chunks=object())
 
 
 def test_geo_infer_output_dtype_reserved_kwarg_collision_raises():
     r = make_raster(shape=(1, 100, 100), dtype=np.float32)
     with pytest.raises(ValueError, match="reserved"):
-        geo_infer_output_dtype(
+        _geo_infer_output_dtype(
             lambda xda, **kw: xda, r, geo_block_info=object()
         )
 
 
 def test_resolve_output_null_value_inherits_for_single_input():
     r = make_raster(shape=(1, 100, 100), dtype=np.float32, null=-1.0)
-    nv = resolve_output_null_value(lambda d: d, r)
+    nv = _resolve_output_null_value(lambda d: d, r)
     assert nv == -1.0
 
 
 def test_resolve_output_null_value_dtype_default_when_dtype_changes():
     r = make_raster(shape=(1, 100, 100), dtype=np.float32, null=-1.0)
-    nv = resolve_output_null_value(lambda d: d.astype(np.int32), r)
+    nv = _resolve_output_null_value(lambda d: d.astype(np.int32), r)
     assert nv == get_default_null_value(np.dtype(np.int32))
 
 
 def test_resolve_output_null_value_explicit_scalar():
     r = make_raster(shape=(1, 100, 100), dtype=np.float32, null=-1.0)
-    nv = resolve_output_null_value(lambda d: d, r, null_value=42.0)
+    nv = _resolve_output_null_value(lambda d: d, r, null_value=42.0)
     assert nv == 42.0
 
 
@@ -2625,7 +2625,7 @@ def test_resolve_output_null_value_meta_supplied():
         called.append(1)
         return d
 
-    nv = resolve_output_null_value(f, r, meta=np.empty((), dtype=np.int32))
+    nv = _resolve_output_null_value(f, r, meta=np.empty((), dtype=np.int32))
     assert nv == get_default_null_value(np.dtype(np.int32))
     assert called == []
 
@@ -2638,20 +2638,20 @@ def test_resolve_output_null_value_dtype_supplied():
         called.append(1)
         return d.astype(np.int32)
 
-    nv = resolve_output_null_value(f, r, dtype=np.int32)
+    nv = _resolve_output_null_value(f, r, dtype=np.int32)
     assert nv == get_default_null_value(np.dtype(np.int32))
     assert called == []  # explicit dtype skips inference
 
 
 def test_geo_resolve_output_null_value_inherits_for_single_input():
     r = make_raster(shape=(1, 100, 100), dtype=np.float32, null=-1.0)
-    nv = geo_resolve_output_null_value(lambda xda, **kw: xda, r)
+    nv = _geo_resolve_output_null_value(lambda xda, **kw: xda, r)
     assert nv == -1.0
 
 
 def test_geo_resolve_output_null_value_dtype_default_when_dtype_changes():
     r = make_raster(shape=(1, 100, 100), dtype=np.float32, null=-1.0)
-    nv = geo_resolve_output_null_value(
+    nv = _geo_resolve_output_null_value(
         lambda xda, **kw: xda.astype(np.int32), r
     )
     assert nv == get_default_null_value(np.dtype(np.int32))
@@ -2665,7 +2665,9 @@ def test_geo_resolve_output_null_value_meta_supplied():
         called.append(1)
         return xda
 
-    nv = geo_resolve_output_null_value(f, r, meta=np.empty((), dtype=np.int32))
+    nv = _geo_resolve_output_null_value(
+        f, r, meta=np.empty((), dtype=np.int32)
+    )
     assert nv == get_default_null_value(np.dtype(np.int32))
     assert called == []
 
@@ -2674,13 +2676,13 @@ def test_geo_resolve_output_null_value_validates_shapes():
     r1 = make_raster(shape=(1, 100, 100), dtype=np.float32)
     r2 = make_raster(shape=(1, 50, 50), dtype=np.float32)
     with pytest.raises(ValueError, match="raster 1 shape"):
-        geo_resolve_output_null_value(lambda a, b, **kw: a + b, r1, r2)
+        _geo_resolve_output_null_value(lambda a, b, **kw: a + b, r1, r2)
 
 
 def test_geo_resolve_output_null_value_rejects_dask_kwargs():
     r = make_raster(shape=(1, 100, 100), dtype=np.float32)
     with pytest.raises(ValueError, match="dask graph-construction options"):
-        geo_resolve_output_null_value(
+        _geo_resolve_output_null_value(
             lambda xda, **kw: xda, r, chunks=object()
         )
 
@@ -2689,7 +2691,7 @@ def test_resolve_output_null_value_matches_real_call():
     # The resolved value should match what map_blocks actually puts on
     # the output Raster -- the whole point of the helper.
     r = make_raster(shape=(1, 100, 100), dtype=np.float32, null=-1.0)
-    pre = resolve_output_null_value(
+    pre = _resolve_output_null_value(
         lambda d: d.astype(np.int32), r, null_value=42
     )
     out = map_blocks(
@@ -2699,14 +2701,14 @@ def test_resolve_output_null_value_matches_real_call():
 
 
 # ---------------------------------------------------------------------------
-# A: resolve_output_null_value upfront validations
+# A: _resolve_output_null_value upfront validations
 # ---------------------------------------------------------------------------
 
 
 def test_resolve_output_null_value_rejects_dtype_meta_mismatch():
     r = make_raster(shape=(1, 100, 100), dtype=np.float32)
     with pytest.raises(ValueError, match="conflicts with meta"):
-        resolve_output_null_value(
+        _resolve_output_null_value(
             lambda d: d,
             r,
             dtype=np.int64,
@@ -2719,7 +2721,7 @@ def test_resolve_output_null_value_rejects_dask_kwargs_with_meta():
     # still raise.
     r = make_raster(shape=(1, 100, 100), dtype=np.float32)
     with pytest.raises(ValueError, match="dask graph-construction options"):
-        resolve_output_null_value(
+        _resolve_output_null_value(
             lambda d: d,
             r,
             meta=np.empty((), dtype=np.float32),
@@ -2730,7 +2732,7 @@ def test_resolve_output_null_value_rejects_dask_kwargs_with_meta():
 def test_resolve_output_null_value_rejects_dask_kwargs_with_dtype():
     r = make_raster(shape=(1, 100, 100), dtype=np.float32)
     with pytest.raises(ValueError, match="dask graph-construction options"):
-        resolve_output_null_value(
+        _resolve_output_null_value(
             lambda d: d, r, dtype=np.int32, chunks=object()
         )
 
@@ -2739,11 +2741,11 @@ def test_resolve_output_null_value_validates_shapes():
     r1 = make_raster(shape=(1, 100, 100), dtype=np.float32)
     r2 = make_raster(shape=(1, 50, 50), dtype=np.float32)
     with pytest.raises(ValueError, match="raster 1 shape"):
-        resolve_output_null_value(lambda a, b: a + b, r1, r2)
+        _resolve_output_null_value(lambda a, b: a + b, r1, r2)
 
 
 # ---------------------------------------------------------------------------
-# B: infer_output_dtype / geo_infer_output_dtype validate shapes
+# B: _infer_output_dtype / _geo_infer_output_dtype validate shapes
 # ---------------------------------------------------------------------------
 
 
@@ -2751,7 +2753,7 @@ def test_infer_output_dtype_validates_shapes():
     r1 = make_raster(shape=(1, 100, 100), dtype=np.float32)
     r2 = make_raster(shape=(1, 50, 50), dtype=np.float32)
     with pytest.raises(ValueError, match="raster 1 shape"):
-        infer_output_dtype(lambda a, b: a + b, r1, r2)
+        _infer_output_dtype(lambda a, b: a + b, r1, r2)
 
 
 def test_infer_output_dtype_validates_shapes_even_with_meta():
@@ -2760,7 +2762,7 @@ def test_infer_output_dtype_validates_shapes_even_with_meta():
     r1 = make_raster(shape=(1, 100, 100), dtype=np.float32)
     r2 = make_raster(shape=(1, 50, 50), dtype=np.float32)
     with pytest.raises(ValueError, match="raster 1 shape"):
-        infer_output_dtype(
+        _infer_output_dtype(
             lambda a, b: a + b,
             r1,
             r2,
@@ -2772,14 +2774,14 @@ def test_geo_infer_output_dtype_validates_shapes():
     r1 = make_raster(shape=(1, 100, 100), dtype=np.float32)
     r2 = make_raster(shape=(1, 50, 50), dtype=np.float32)
     with pytest.raises(ValueError, match="raster 1 shape"):
-        geo_infer_output_dtype(lambda a, b, **kw: a + b, r1, r2)
+        _geo_infer_output_dtype(lambda a, b, **kw: a + b, r1, r2)
 
 
 def test_geo_infer_output_dtype_validates_shapes_even_with_meta():
     r1 = make_raster(shape=(1, 100, 100), dtype=np.float32)
     r2 = make_raster(shape=(1, 50, 50), dtype=np.float32)
     with pytest.raises(ValueError, match="raster 1 shape"):
-        geo_infer_output_dtype(
+        _geo_infer_output_dtype(
             lambda a, b, **kw: a + b,
             r1,
             r2,

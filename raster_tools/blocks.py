@@ -39,15 +39,12 @@ from raster_tools.utils import nan_equal
 
 __all__ = [
     "GeoBlockInfo",
+    "geo_block_infos",
     "geo_block_infos_as_dask",
-    "geo_infer_output_dtype",
     "geo_map_blocks",
     "geo_map_overlap",
-    "geo_resolve_output_null_value",
-    "infer_output_dtype",
     "map_blocks",
     "map_overlap",
-    "resolve_output_null_value",
 ]
 
 
@@ -744,7 +741,7 @@ def _resolve_out_null_value(
     return null_value
 
 
-def infer_output_dtype(func, *rasters, meta=None, **kwargs):
+def _infer_output_dtype(func, *rasters, meta=None, **kwargs):
     """Infer the output dtype ``func`` will produce on these rasters.
 
     Per-block kwargs (opt-in): ``input_masks``, ``input_null_values``,
@@ -786,20 +783,20 @@ def infer_output_dtype(func, *rasters, meta=None, **kwargs):
         ``dtype=`` explicitly to :func:`map_blocks`).
     """
     if not rasters:
-        raise ValueError("infer_output_dtype requires at least one raster")
+        raise ValueError("_infer_output_dtype requires at least one raster")
     _check_no_dask_kwargs(kwargs)
     _check_reserved_kwargs(
-        kwargs, _MAP_BLOCKS_RESERVED_KWARGS, "infer_output_dtype"
+        kwargs, _MAP_BLOCKS_RESERVED_KWARGS, "_infer_output_dtype"
     )
     rasters = [get_raster(r) for r in rasters]
     _check_shape_aligned(rasters)
     if meta is not None:
         return _meta_dtype(meta)
     wrapper, inputs = _build_map_blocks_wrapper(func, rasters)
-    return apply_infer_dtype(wrapper, inputs, kwargs, "infer_output_dtype")
+    return apply_infer_dtype(wrapper, inputs, kwargs, "_infer_output_dtype")
 
 
-def geo_infer_output_dtype(func, *rasters, meta=None, **kwargs):
+def _geo_infer_output_dtype(func, *rasters, meta=None, **kwargs):
     """Infer the output dtype a :func:`geo_map_blocks`-shaped ``func``
     will produce on these rasters.
 
@@ -808,7 +805,7 @@ def geo_infer_output_dtype(func, *rasters, meta=None, **kwargs):
     as :func:`geo_map_blocks`. Name any in ``func``'s signature and
     they're injected during the inference call.
 
-    Geo analog of :func:`infer_output_dtype`: builds the geo wrapper
+    Geo analog of ``_infer_output_dtype``: builds the geo wrapper
     (so ``func`` sees georeferenced :class:`xarray.DataArray` blocks
     plus any opted-in introspections, including ``geo_block_info``)
     and runs :func:`dask.array.core.apply_infer_dtype` to derive the
@@ -820,7 +817,7 @@ def geo_infer_output_dtype(func, *rasters, meta=None, **kwargs):
         Per-block function; same contract as :func:`geo_map_blocks`.
     *rasters : Raster or str
         One or more input rasters (path strings accepted). Only shape
-        is validated (matching ``infer_output_dtype``'s permissive
+        is validated (matching ``_infer_output_dtype``'s permissive
         ergonomics); strict grid alignment isn't required for
         inference.
     meta : array-like, optional
@@ -835,19 +832,23 @@ def geo_infer_output_dtype(func, *rasters, meta=None, **kwargs):
         The inferred output dtype.
     """
     if not rasters:
-        raise ValueError("geo_infer_output_dtype requires at least one raster")
+        raise ValueError(
+            "_geo_infer_output_dtype requires at least one raster"
+        )
     _check_no_dask_kwargs(kwargs)
     _check_reserved_kwargs(
         kwargs,
         _GEO_MAP_BLOCKS_RESERVED_KWARGS,
-        "geo_infer_output_dtype",
+        "_geo_infer_output_dtype",
     )
     rasters = [get_raster(r) for r in rasters]
     _check_shape_aligned(rasters)
     if meta is not None:
         return _meta_dtype(meta)
     wrapper, inputs = _build_geo_map_blocks_wrapper(func, rasters)
-    return apply_infer_dtype(wrapper, inputs, kwargs, "geo_infer_output_dtype")
+    return apply_infer_dtype(
+        wrapper, inputs, kwargs, "_geo_infer_output_dtype"
+    )
 
 
 def _resolve_output_null_value_impl(
@@ -856,8 +857,8 @@ def _resolve_output_null_value_impl(
     """Shared core for resolve / geo_resolve _output_null_value.
 
     ``infer`` is the inference helper to call when neither ``meta``
-    nor ``dtype`` is supplied: :func:`infer_output_dtype` for the
-    NumPy variant, :func:`geo_infer_output_dtype` for the geo
+    nor ``dtype`` is supplied: ``_infer_output_dtype`` for the
+    NumPy variant, ``_geo_infer_output_dtype`` for the geo
     variant.
     """
     if not rasters:
@@ -882,14 +883,14 @@ def _resolve_output_null_value_impl(
     )
 
 
-def resolve_output_null_value(
+def _resolve_output_null_value(
     func, *rasters, dtype=None, null_value=None, meta=None, **kwargs
 ):
     """Return the output null sentinel a :func:`map_blocks` /
     :func:`map_overlap` call would produce.
 
     Combines dtype resolution (from ``meta``, ``dtype``, or
-    :func:`infer_output_dtype`) with the same null-value rules
+    ``_infer_output_dtype``) with the same null-value rules
     :func:`map_blocks` and :func:`map_overlap` apply, without
     building a graph or computing data. Useful for callers who want
     to pre-allocate buffers, decide a sentinel upfront, or
@@ -921,7 +922,7 @@ def resolve_output_null_value(
 
     See Also
     --------
-    geo_resolve_output_null_value : Geo-aware variant.
+    _geo_resolve_output_null_value : Geo-aware variant.
     """
     return _resolve_output_null_value_impl(
         func,
@@ -930,18 +931,18 @@ def resolve_output_null_value(
         null_value=null_value,
         meta=meta,
         kwargs=kwargs,
-        infer=infer_output_dtype,
-        fname="resolve_output_null_value",
+        infer=_infer_output_dtype,
+        fname="_resolve_output_null_value",
     )
 
 
-def geo_resolve_output_null_value(
+def _geo_resolve_output_null_value(
     func, *rasters, dtype=None, null_value=None, meta=None, **kwargs
 ):
     """Return the output null sentinel a :func:`geo_map_blocks` /
     :func:`geo_map_overlap` call would produce.
 
-    Geo analog of :func:`resolve_output_null_value`. Uses the geo
+    Geo analog of ``_resolve_output_null_value``. Uses the geo
     wrapper for inference (so ``func`` sees georeferenced
     :class:`xarray.DataArray` blocks plus any opted-in
     introspections, including ``geo_block_info``).
@@ -977,8 +978,8 @@ def geo_resolve_output_null_value(
         null_value=null_value,
         meta=meta,
         kwargs=kwargs,
-        infer=geo_infer_output_dtype,
-        fname="geo_resolve_output_null_value",
+        infer=_geo_infer_output_dtype,
+        fname="_geo_resolve_output_null_value",
     )
 
 
@@ -1430,8 +1431,8 @@ def _build_geo_wrapper(
 
     ``gbi_resolver(block_info, block_args, gbi_lookup) -> GeoBlockInfo``
     decides how to translate dask's chunk-location into the gbi the
-    user sees. Pass :func:`_resolve_gbi_no_pad` for the no-overlap
-    flavor; :func:`_resolve_gbi_with_overlap_pad` for overlap.
+    user sees. Pass ``_resolve_gbi_no_pad`` for the no-overlap
+    flavor; ``_resolve_gbi_with_overlap_pad`` for overlap.
 
     Returns ``(wrapper, inputs)``. Captures only small immutables in
     the closure -- no Raster references.
@@ -1531,7 +1532,7 @@ def _build_geo_map_blocks_wrapper(
 ):
     """Per-block wrapper for :func:`geo_map_blocks`.
 
-    Thin shim over :func:`_build_geo_wrapper` with the no-pad gbi
+    Thin shim over ``_build_geo_wrapper`` with the no-pad gbi
     resolver.
     """
     return _build_geo_wrapper(
@@ -1548,7 +1549,7 @@ def _build_geo_map_overlap_wrapper(
 ):
     """Per-block wrapper for :func:`geo_map_overlap`.
 
-    Thin shim over :func:`_build_geo_wrapper` with the overlap-pad
+    Thin shim over ``_build_geo_wrapper`` with the overlap-pad
     gbi resolver.
     """
     return _build_geo_wrapper(
