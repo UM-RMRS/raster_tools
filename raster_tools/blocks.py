@@ -1665,9 +1665,17 @@ def geo_map_blocks(
 
     Notes
     -----
-    Coords / CRS / nodata on a returned DataArray are not validated
-    against the input -- they're discarded; the output Raster's grid
-    comes from ``rasters[0]``.
+    .. warning::
+       ``func`` must not alter the grid. The output Raster lands on
+       the **input** grid (``rasters[0]``'s CRS / affine / x / y),
+       regardless of any coords / CRS / nodata your func sets on a
+       returned DataArray -- the wrapper extracts ``.data`` and
+       discards everything else. Operations that change the grid
+       (reproject, clip, coarsen, sel, manual coord assignment,
+       etc.) will silently produce a Raster whose values were
+       computed on a different grid than the one it claims, with no
+       error at construction time. Use :meth:`Raster.reproject` /
+       :meth:`Raster.clip` / etc. before or after this call instead.
 
     The output Raster's mask is **derived from the output data and
     the resolved output null value** -- ``out_data == null_value``,
@@ -1875,6 +1883,18 @@ def geo_map_overlap(
 
     Notes
     -----
+    .. warning::
+       ``func`` must not alter the grid. The output Raster lands on
+       the **input** grid (``rasters[0]``'s CRS / affine / x / y),
+       regardless of any coords / CRS / nodata your func sets on a
+       returned DataArray -- the wrapper extracts ``.data`` and
+       discards everything else. Operations that change the grid
+       (reproject, clip, coarsen, sel, manual coord assignment,
+       etc.) will silently produce a Raster whose values were
+       computed on a different grid than the one it claims, with no
+       error at construction time. Use :meth:`Raster.reproject` /
+       :meth:`Raster.clip` / etc. before or after this call instead.
+
     The wrapper always trims overlap before returning so the result
     matches the input grid. If you need un-trimmed output, call
     :func:`dask.array.overlap.map_overlap` directly on
