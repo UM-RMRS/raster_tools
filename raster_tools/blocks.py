@@ -441,6 +441,15 @@ def map_blocks(
 
     Per-block contract
     ------------------
+    The output Raster's mask is rebuilt from the output data and the
+    resolved output null value (``out_data == null_value``, or
+    ``np.isnan(out_data)`` for NaN nulls) -- write the sentinel
+    only at cells you want masked. Cells your func happens to leave
+    equal to the sentinel will appear masked even if you didn't
+    intend them to; cells you wanted masked but didn't write the
+    sentinel to will not. This is true regardless of the input
+    rasters' masks: input masks do **not** carry through unchanged.
+
     Always passed positionally:
 
         func(*input_data, **kwargs)
@@ -551,14 +560,9 @@ def map_blocks(
     Cross-input CRS or affine mismatches are not validated; the caller
     is responsible.
 
-    The output Raster's mask is **derived from the output data and
-    the resolved output null value** -- ``out_data == null_value``,
-    or ``np.isnan(out_data)`` for NaN nulls; all-False if no null
-    value is set. This matches the rest of raster_tools but means
-    a function that changes which cells equal the null sentinel
-    will shift which cells appear masked -- it does not carry the
-    first input's mask through unchanged. Writing a new mask via
-    ``func`` is not supported in v1.
+    The output mask is all-False if no null value is set (see the
+    per-block contract above for how the mask is built when one is).
+    Writing a new mask directly via ``func`` is not supported.
 
     Dask invokes ``func`` once on 0-shape inputs to derive the output
     array meta -- this happens whether or not ``dtype=`` is provided.
@@ -1153,6 +1157,15 @@ def map_overlap(
 
     Per-block contract
     ------------------
+    The output Raster's mask is rebuilt from the output data and the
+    resolved output null value (``out_data == null_value``, or
+    ``np.isnan(out_data)`` for NaN nulls) -- write the sentinel
+    only at cells you want masked. Cells your func happens to leave
+    equal to the sentinel will appear masked even if you didn't
+    intend them to; cells you wanted masked but didn't write the
+    sentinel to will not. This is true regardless of the input
+    rasters' masks: input masks do **not** carry through unchanged.
+
     Always passed positionally:
 
         func(*input_data, **kwargs)
@@ -1277,10 +1290,9 @@ def map_overlap(
     :func:`dask.array.overlap.map_overlap` directly on
     ``raster.data``.
 
-    The output Raster's mask is **derived from the output data and
-    the resolved output null value** -- ``out_data == null_value``,
-    or ``np.isnan(out_data)`` for NaN nulls; all-False if no null
-    value is set. Writing a new mask via ``func`` is not supported.
+    The output mask is all-False if no null value is set (see the
+    per-block contract above for how the mask is built when one is).
+    Writing a new mask directly via ``func`` is not supported.
 
     Asymmetric per-side depths are only supported with no padding
     (``boundary=None`` or ``"none"``).
@@ -1575,6 +1587,15 @@ def geo_map_blocks(
 
     Per-block contract
     ------------------
+    The output Raster's mask is rebuilt from the output data and the
+    resolved output null value (``out_data == null_value``, or
+    ``np.isnan(out_data)`` for NaN nulls) -- write the sentinel
+    only at cells you want masked. Cells your func happens to leave
+    equal to the sentinel will appear masked even if you didn't
+    intend them to; cells you wanted masked but didn't write the
+    sentinel to will not. This is true regardless of the input
+    rasters' masks: input masks do **not** carry through unchanged.
+
     Always passed positionally:
 
         func(*data_dataarrays, **kwargs)
@@ -1677,10 +1698,9 @@ def geo_map_blocks(
        error at construction time. Use :meth:`Raster.reproject` /
        :meth:`Raster.clip` / etc. before or after this call instead.
 
-    The output Raster's mask is **derived from the output data and
-    the resolved output null value** -- ``out_data == null_value``,
-    or ``np.isnan(out_data)`` for NaN nulls; all-False if no null
-    value is set. Writing a new mask via ``func`` is not supported.
+    The output mask is all-False if no null value is set (see the
+    per-block contract above for how the mask is built when one is).
+    Writing a new mask directly via ``func`` is not supported.
 
     Dask invokes ``func`` once on 0-shape DataArrays (no coords) to
     derive the output array meta -- this happens whether or not
@@ -1786,6 +1806,15 @@ def geo_map_overlap(
 
     Per-block contract
     ------------------
+    The output Raster's mask is rebuilt from the output data and the
+    resolved output null value (``out_data == null_value``, or
+    ``np.isnan(out_data)`` for NaN nulls) -- write the sentinel
+    only at cells you want masked. Cells your func happens to leave
+    equal to the sentinel will appear masked even if you didn't
+    intend them to; cells you wanted masked but didn't write the
+    sentinel to will not. This is true regardless of the input
+    rasters' masks: input masks do **not** carry through unchanged.
+
     Always passed positionally:
 
         func(*data_dataarrays, **kwargs)
@@ -1900,10 +1929,9 @@ def geo_map_overlap(
     :func:`dask.array.overlap.map_overlap` directly on
     ``raster.data``.
 
-    The output Raster's mask is **derived from the output data and
-    the resolved output null value** -- ``out_data == null_value``,
-    or ``np.isnan(out_data)`` for NaN nulls; all-False if no null
-    value is set. Writing a new mask via ``func`` is not supported.
+    The output mask is all-False if no null value is set (see the
+    per-block contract above for how the mask is built when one is).
+    Writing a new mask directly via ``func`` is not supported.
 
     The data/mask boundary correspondence rule from :func:`map_overlap`
     applies (``"null"`` -> mask True; reflect/periodic/nearest -> mask
