@@ -398,7 +398,9 @@ def _check_shape_aligned(rasters):
         if r.shape != ref.shape:
             raise ValueError(
                 f"raster {i} shape {r.shape} does not match raster 0 "
-                f"shape {ref.shape}"
+                f"shape {ref.shape}. Use ``Raster.reproject`` to align "
+                f"inputs to the same grid first, e.g. "
+                f"``r{i}.reproject(r0.geobox)``."
             )
 
 
