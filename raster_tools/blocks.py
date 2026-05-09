@@ -2,7 +2,7 @@
 
 Provides :func:`map_blocks` and :func:`map_overlap` as thin wrappers over
 the corresponding ``dask.array`` functions, plus :func:`geo_map_blocks`
-and :func:`geo_map_overlap` which hand each user callback coordinated
+and :func:`geo_map_overlap` which hand each user callback georeferenced
 :class:`xarray.DataArray` blocks (with band/y/x coords, CRS, nodata)
 instead of raw NumPy blocks.
 
@@ -17,7 +17,7 @@ Also defines :class:`GeoBlockInfo`, the geo-aware analog of dask's
 :class:`~odc.geo.geobox.GeoBox`, its band/row/col slices into the parent
 array, and helpers for padding/shifting the block window and reconstructing
 an :class:`xarray.DataArray` for the block's data. The geo wrappers
-build on this primitive to hand each user callback a coordinated
+build on this primitive to hand each user callback a georeferenced
 ``DataArray`` (with band/y/x coords, CRS, nodata) instead of a raw
 NumPy block.
 """
@@ -139,7 +139,7 @@ class GeoBlockInfo:
 
     def to_dataarray(self, data, *, mask=None, nodata=None):
         """
-        Wrap a block's pixel data as a coordinated :class:`xarray.DataArray`.
+        Wrap a block's pixel data as a georeferenced :class:`xarray.DataArray`.
 
         Builds an ``xr.DataArray`` with ``band``, ``y``, ``x`` coords drawn
         from this block's geobox and band slice, attaches the CRS via
@@ -596,7 +596,7 @@ def map_blocks(
     See Also
     --------
     geo_map_blocks : Geo-aware variant that requires matching grids
-        and hands ``func`` coordinated ``xr.DataArray`` blocks.
+        and hands ``func`` georeferenced ``xr.DataArray`` blocks.
     raster_tools.Raster.reproject : Per-input alignment to a target
         grid; pass ``r1.geobox`` to align ``r2`` to ``r1``.
     """
@@ -805,7 +805,7 @@ def geo_infer_output_dtype(func, *rasters, meta=None, **kwargs):
     they're injected during the inference call.
 
     Geo analog of :func:`infer_output_dtype`: builds the geo wrapper
-    (so ``func`` sees coordinated :class:`xarray.DataArray` blocks
+    (so ``func`` sees georeferenced :class:`xarray.DataArray` blocks
     plus any opted-in introspections, including ``geo_block_info``)
     and runs :func:`dask.array.core.apply_infer_dtype` to derive the
     output dtype without computing real data.
@@ -938,7 +938,7 @@ def geo_resolve_output_null_value(
     :func:`geo_map_overlap` call would produce.
 
     Geo analog of :func:`resolve_output_null_value`. Uses the geo
-    wrapper for inference (so ``func`` sees coordinated
+    wrapper for inference (so ``func`` sees georeferenced
     :class:`xarray.DataArray` blocks plus any opted-in
     introspections, including ``geo_block_info``).
 
@@ -1308,7 +1308,7 @@ def map_overlap(
     See Also
     --------
     map_blocks : Block-wise without overlap; same per-block contract.
-    geo_map_overlap : Geo-aware variant that hands ``func`` coordinated
+    geo_map_overlap : Geo-aware variant that hands ``func`` georeferenced
         ``xr.DataArray`` blocks.
     """
     if not rasters:
@@ -1557,7 +1557,7 @@ def geo_map_blocks(
     **kwargs,
 ):
     """Apply ``func`` block-wise across one or more aligned rasters,
-    handing it coordinated :class:`xarray.DataArray` blocks.
+    handing it georeferenced :class:`xarray.DataArray` blocks.
 
     Per-block kwargs (opt-in): ``input_masks``, ``input_null_values``,
     ``block_info``, ``out_null_value``, ``geo_block_info``. Name any
@@ -1565,7 +1565,7 @@ def geo_map_blocks(
     "Per-block contract" below for details.
 
     Same shape and contract as :func:`map_blocks`, but each raster's
-    data block is wrapped in a coordinated ``xr.DataArray`` (with
+    data block is wrapped in a georeferenced ``xr.DataArray`` (with
     ``band`` / ``y`` / ``x`` coords from the block's geobox, the
     raster's CRS, and the raster's null value attached as ``nodata``)
     via :meth:`GeoBlockInfo.to_dataarray` before being passed to
@@ -1579,7 +1579,7 @@ def geo_map_blocks(
 
         func(*data_dataarrays, **kwargs)
 
-    where ``data_dataarrays`` is a tuple of N coordinated
+    where ``data_dataarrays`` is a tuple of N georeferenced
     :class:`xarray.DataArray` blocks, one per input raster, in caller
     order.
 
@@ -1761,7 +1761,7 @@ def geo_map_overlap(
     meta=None,
     **kwargs,
 ):
-    """Apply ``func`` block-wise with overlap, handing it coordinated
+    """Apply ``func`` block-wise with overlap, handing it georeferenced
     :class:`xarray.DataArray` blocks.
 
     Per-block kwargs (opt-in): ``input_masks``, ``input_null_values``,
@@ -1782,7 +1782,7 @@ def geo_map_overlap(
 
         func(*data_dataarrays, **kwargs)
 
-    where ``data_dataarrays`` is a tuple of N coordinated
+    where ``data_dataarrays`` is a tuple of N georeferenced
     :class:`xarray.DataArray` blocks, one per input raster, in caller
     order. Each block already includes the overlap region; the
     wrapper trims it after the function returns so the result lands
