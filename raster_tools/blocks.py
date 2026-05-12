@@ -470,9 +470,12 @@ def map_blocks(
     - ``out_null_value`` -- scalar; the resolved output null value
       the wrapper will use to derive the output mask. Useful for
       ``func`` to write at cells it wants masked. The wrapper
-      resolves it per-chunk using ``block_info[None]["dtype"]`` so
-      no extra dtype-inference pass is needed. During dask's own
-      meta inference call (where ``block_info`` is ``None``),
+      resolves it per-chunk: when ``meta=`` or ``dtype=`` is set,
+      from that hint (dask leaves ``block_info[None]["dtype"]`` as
+      ``None`` whenever ``meta=`` is set); otherwise from
+      ``block_info[None]["dtype"]``. Either way no extra
+      dtype-inference pass is needed. During dask's own meta
+      inference call (where ``block_info`` is ``None``),
       ``out_null_value`` is a typed zero of the first input's dtype,
       so funcs like ``np.where(m, out_null_value, d)`` infer the
       same dtype as their input rather than collapsing to object
@@ -1623,8 +1626,8 @@ def geo_map_blocks(
 
     - ``input_masks`` -- tuple of N ``xr.DataArray`` (bool) per-block
       mask arrays, parallel to the data DataArrays. Same name as
-      :func:`map_blocks` (NumPy there); per-function the element
-      type matches what data is in that function.
+      :func:`map_blocks`, but elements are ``xr.DataArray`` here
+      (vs. ``np.ndarray`` in :func:`map_blocks`).
     - ``input_null_values`` -- tuple of N scalars, each input's
       ``null_value`` (``None`` if unset).
     - ``block_info`` -- dask's standard per-block info dict.
@@ -1714,7 +1717,8 @@ def geo_map_blocks(
     per-block contract above for how the mask is built when one is).
     Writing a new mask directly via ``func`` is not supported.
 
-    Dask invokes ``func`` once on 0-shape DataArrays (no coords) to
+    Dask invokes ``func`` once on 0-shape DataArrays (with
+    zero-filled placeholder coords, not real geocoordinates) to
     derive the output array meta -- this happens whether or not
     ``dtype=`` is provided. Passing ``dtype=`` only skips the
     additional sample call dask would otherwise make to infer the
@@ -1957,7 +1961,8 @@ def geo_map_overlap(
     when it opts in to ``input_masks=``; it does not affect how the
     *output* mask is built.
 
-    Dask invokes ``func`` once on 0-shape DataArrays (no coords) to
+    Dask invokes ``func`` once on 0-shape DataArrays (with
+    zero-filled placeholder coords, not real geocoordinates) to
     derive the output array meta -- this happens whether or not
     ``dtype=`` is provided. Pass ``meta=`` to skip the call entirely.
     During the meta call ``geo_block_info`` is ``None`` if the func
