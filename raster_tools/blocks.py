@@ -427,11 +427,6 @@ def map_blocks(
 ):
     """Apply ``func`` block-wise across one or more aligned rasters.
 
-    Per-block kwargs (opt-in): ``input_masks``, ``input_null_values``,
-    ``block_info``, ``out_null_value``. Name any of these in ``func``'s
-    signature to receive them per chunk; see "Per-block contract" below
-    for details.
-
     Thin wrapper over :func:`dask.array.map_blocks`. Each call to
     ``func`` receives one block from each input raster, in the same
     order as ``*rasters``. The output :class:`~raster_tools.Raster`
@@ -440,6 +435,10 @@ def map_blocks(
 
     Per-block contract
     ------------------
+    Per-block kwargs (opt-in): ``input_masks``, ``input_null_values``,
+    ``block_info``, ``out_null_value``. Name any of these in ``func``'s
+    signature to receive them per chunk; see below.
+
     The output Raster's mask is rebuilt from the output data and the
     resolved output null value (``out_data == null_value``, or
     ``np.isnan(out_data)`` for NaN nulls) -- write the sentinel
@@ -1150,11 +1149,6 @@ def map_overlap(
 ):
     """Apply ``func`` block-wise with overlap across one or more rasters.
 
-    Per-block kwargs (opt-in): ``input_masks``, ``input_null_values``,
-    ``block_info``, ``out_null_value``. Name any of these in ``func``'s
-    signature to receive them per chunk; see "Per-block contract" below
-    for details.
-
     Thin wrapper over :func:`dask.array.overlap.map_overlap`. Each call
     to ``func`` receives one block from each input raster, in the same
     order as ``*rasters``, with ``depth`` extra cells of overlap on
@@ -1165,6 +1159,10 @@ def map_overlap(
 
     Per-block contract
     ------------------
+    Per-block kwargs (opt-in): ``input_masks``, ``input_null_values``,
+    ``block_info``, ``out_null_value``. Name any of these in ``func``'s
+    signature to receive them per chunk; see below.
+
     The output Raster's mask is rebuilt from the output data and the
     resolved output null value (``out_data == null_value``, or
     ``np.isnan(out_data)`` for NaN nulls) -- write the sentinel
@@ -1586,11 +1584,6 @@ def geo_map_blocks(
     """Apply ``func`` block-wise across one or more aligned rasters,
     handing it georeferenced :class:`xarray.DataArray` blocks.
 
-    Per-block kwargs (opt-in): ``input_masks``, ``input_null_values``,
-    ``block_info``, ``out_null_value``, ``geo_block_info``. Name any
-    of these in ``func``'s signature to receive them per chunk; see
-    "Per-block contract" below for details.
-
     Same shape and contract as :func:`map_blocks`, but each raster's
     data block is wrapped in a georeferenced ``xr.DataArray`` (with
     ``band`` / ``y`` / ``x`` coords from the block's geobox, the
@@ -1602,6 +1595,10 @@ def geo_map_blocks(
 
     Per-block contract
     ------------------
+    Per-block kwargs (opt-in): ``input_masks``, ``input_null_values``,
+    ``block_info``, ``out_null_value``. Name any of these in ``func``'s
+    signature to receive them per chunk; see below.
+
     The output Raster's mask is rebuilt from the output data and the
     resolved output null value (``out_data == null_value``, or
     ``np.isnan(out_data)`` for NaN nulls) -- write the sentinel
@@ -1813,11 +1810,6 @@ def geo_map_overlap(
     """Apply ``func`` block-wise with overlap, handing it georeferenced
     :class:`xarray.DataArray` blocks.
 
-    Per-block kwargs (opt-in): ``input_masks``, ``input_null_values``,
-    ``block_info``, ``out_null_value``, ``geo_block_info``. Name any
-    of these in ``func``'s signature to receive them per chunk; see
-    "Per-block contract" below for details.
-
     Same shape and contract as :func:`geo_map_blocks` but adds the
     overlap machinery from :func:`map_overlap` (``depth``,
     ``boundary``, the data/mask boundary correspondence rule). Each
@@ -1827,6 +1819,10 @@ def geo_map_overlap(
 
     Per-block contract
     ------------------
+    Per-block kwargs (opt-in): ``input_masks``, ``input_null_values``,
+    ``block_info``, ``out_null_value``. Name any of these in ``func``'s
+    signature to receive them per chunk; see below.
+
     The output Raster's mask is rebuilt from the output data and the
     resolved output null value (``out_data == null_value``, or
     ``np.isnan(out_data)`` for NaN nulls) -- write the sentinel
