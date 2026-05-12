@@ -468,21 +468,9 @@ def map_blocks(
     - ``block_info`` -- dask's standard per-block info dict (see
       :func:`dask.array.map_blocks`).
     - ``out_null_value`` -- scalar; the resolved output null value
-      the wrapper will use to derive the output mask. Useful for
-      ``func`` to write at cells it wants masked. The wrapper
-      resolves it per-chunk: when ``meta=`` or ``dtype=`` is set,
-      from that hint (dask leaves ``block_info[None]["dtype"]`` as
-      ``None`` whenever ``meta=`` is set); otherwise from
-      ``block_info[None]["dtype"]``. Either way no extra
-      dtype-inference pass is needed. During dask's own meta
-      inference call (where ``block_info`` is ``None``),
-      ``out_null_value`` is a typed zero of the first input's dtype,
-      so funcs like ``np.where(m, out_null_value, d)`` infer the
-      same dtype as their input rather than collapsing to object
-      dtype. If your func's *output dtype* depends on the specific
-      ``out_null_value`` scalar, pass ``meta=`` to skip dask's
-      0-shape meta call entirely; ``dtype=`` only skips the additional
-      sample call dask makes for dtype inference, not the meta call.
+      the wrapper will use to derive the output mask. Write this
+      sentinel at cells you want masked. See "Output null value
+      resolution" in Notes below.
 
     A function whose only kwargs absorber is ``**kwargs`` (e.g.
     ``def f(*args, **kwargs):``) does NOT trigger any of these
@@ -576,6 +564,25 @@ def map_blocks(
     usually enough; pass ``meta=`` instead if your func also can't
     tolerate 0-shape inputs (dask silently swallows that crash, but
     your downstream output meta will be wrong).
+
+    Output null value resolution
+    ----------------------------
+    When ``func`` opts in to ``out_null_value``, the wrapper resolves
+    the scalar per-chunk without an extra dtype-inference pass:
+
+    - With ``meta=`` or ``dtype=`` set, from that hint (dask leaves
+      ``block_info[None]["dtype"]`` as ``None`` whenever ``meta=`` is
+      set, which is why the hint is consulted first).
+    - Otherwise, from ``block_info[None]["dtype"]``.
+
+    During dask's meta inference call (where ``block_info`` is
+    ``None``), ``out_null_value`` is a typed zero of the first
+    input's dtype so funcs like ``np.where(m, out_null_value, d)``
+    infer the same dtype as their input rather than collapsing to
+    object. If your func's *output dtype* depends on the specific
+    ``out_null_value`` scalar, pass ``meta=`` to skip dask's 0-shape
+    meta call entirely; ``dtype=`` skips only the additional sample
+    call, not the meta call.
 
     Examples
     --------
@@ -1195,11 +1202,9 @@ def map_overlap(
       raster's ``null_value`` (``None`` if unset).
     - ``block_info`` -- dask's standard per-block info dict.
     - ``out_null_value`` -- scalar; the resolved output null value
-      the wrapper will use to derive the output mask. Resolved per-
-      chunk via ``block_info[None]["dtype"]``. During dask's meta
-      inference call, this is a typed zero of the first input's
-      dtype (so funcs like ``np.where(m, out_null_value, d)`` infer
-      the same dtype as their input).
+      the wrapper will use to derive the output mask. Write this
+      sentinel at cells you want masked. See "Output null value
+      resolution" in Notes below.
 
     A function whose only kwargs absorber is ``**kwargs`` does NOT
     trigger any of these injections -- name the kwargs you want.
@@ -1319,6 +1324,25 @@ def map_overlap(
     ``meta=`` instead if your func also can't tolerate 0-shape inputs
     (dask silently swallows that crash, but your downstream output
     meta will be wrong).
+
+    Output null value resolution
+    ----------------------------
+    When ``func`` opts in to ``out_null_value``, the wrapper resolves
+    the scalar per-chunk without an extra dtype-inference pass:
+
+    - With ``meta=`` or ``dtype=`` set, from that hint (dask leaves
+      ``block_info[None]["dtype"]`` as ``None`` whenever ``meta=`` is
+      set, which is why the hint is consulted first).
+    - Otherwise, from ``block_info[None]["dtype"]``.
+
+    During dask's meta inference call (where ``block_info`` is
+    ``None``), ``out_null_value`` is a typed zero of the first
+    input's dtype so funcs like ``np.where(m, out_null_value, d)``
+    infer the same dtype as their input rather than collapsing to
+    object. If your func's *output dtype* depends on the specific
+    ``out_null_value`` scalar, pass ``meta=`` to skip dask's 0-shape
+    meta call entirely; ``dtype=`` skips only the additional sample
+    call, not the meta call.
 
     Examples
     --------
@@ -1632,10 +1656,9 @@ def geo_map_blocks(
       ``null_value`` (``None`` if unset).
     - ``block_info`` -- dask's standard per-block info dict.
     - ``out_null_value`` -- scalar; the resolved output null value
-      the wrapper will use to derive the output mask. Resolved
-      per-chunk via ``block_info[None]["dtype"]``. During dask's
-      meta inference call, this is a typed zero of the first
-      input's dtype.
+      the wrapper will use to derive the output mask. Write this
+      sentinel at cells you want masked. See "Output null value
+      resolution" in Notes below.
     - ``geo_block_info`` -- the per-chunk :class:`GeoBlockInfo`
       (the geo-aware analog of dask's ``block_info``). ``None``
       during the meta inference call.
@@ -1731,6 +1754,25 @@ def geo_map_blocks(
     ``meta=`` instead if your func also can't tolerate 0-shape
     inputs (dask silently swallows that crash, but your downstream
     output meta will be wrong).
+
+    Output null value resolution
+    ----------------------------
+    When ``func`` opts in to ``out_null_value``, the wrapper resolves
+    the scalar per-chunk without an extra dtype-inference pass:
+
+    - With ``meta=`` or ``dtype=`` set, from that hint (dask leaves
+      ``block_info[None]["dtype"]`` as ``None`` whenever ``meta=`` is
+      set, which is why the hint is consulted first).
+    - Otherwise, from ``block_info[None]["dtype"]``.
+
+    During dask's meta inference call (where ``block_info`` is
+    ``None``), ``out_null_value`` is a typed zero of the first
+    input's dtype so funcs like ``np.where(m, out_null_value, d)``
+    infer the same dtype as their input rather than collapsing to
+    object. If your func's *output dtype* depends on the specific
+    ``out_null_value`` scalar, pass ``meta=`` to skip dask's 0-shape
+    meta call entirely; ``dtype=`` skips only the additional sample
+    call, not the meta call.
 
     Examples
     --------
@@ -1856,9 +1898,10 @@ def geo_map_overlap(
     - ``input_null_values`` -- tuple of N scalars, each input's
       ``null_value`` (``None`` if unset).
     - ``block_info`` -- dask's standard per-block info dict.
-    - ``out_null_value`` -- scalar; resolved per-chunk via
-      ``block_info[None]["dtype"]``. Typed zero of the first input's
-      dtype during the meta call.
+    - ``out_null_value`` -- scalar; the resolved output null value
+      the wrapper will use to derive the output mask. Write this
+      sentinel at cells you want masked. See "Output null value
+      resolution" in Notes below.
     - ``geo_block_info`` -- the per-chunk :class:`GeoBlockInfo`,
       reflecting the **overlapped** extent: ``shape`` matches the
       data block (including overlap), ``geobox`` extends to cover
@@ -1982,6 +2025,25 @@ def geo_map_overlap(
     symmetrically; for those edge cases the ``geo_block_info`` extent
     may be slightly off-position. For interior chunks and all
     non-``"none"`` boundaries this is exact.
+
+    Output null value resolution
+    ----------------------------
+    When ``func`` opts in to ``out_null_value``, the wrapper resolves
+    the scalar per-chunk without an extra dtype-inference pass:
+
+    - With ``meta=`` or ``dtype=`` set, from that hint (dask leaves
+      ``block_info[None]["dtype"]`` as ``None`` whenever ``meta=`` is
+      set, which is why the hint is consulted first).
+    - Otherwise, from ``block_info[None]["dtype"]``.
+
+    During dask's meta inference call (where ``block_info`` is
+    ``None``), ``out_null_value`` is a typed zero of the first
+    input's dtype so funcs like ``np.where(m, out_null_value, d)``
+    infer the same dtype as their input rather than collapsing to
+    object. If your func's *output dtype* depends on the specific
+    ``out_null_value`` scalar, pass ``meta=`` to skip dask's 0-shape
+    meta call entirely; ``dtype=`` skips only the additional sample
+    call, not the meta call.
 
     Examples
     --------
