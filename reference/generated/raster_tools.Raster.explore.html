@@ -9,7 +9,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
 
-    <title>raster_tools.Raster.explore &#8212; raster_tools 0.10.2 documentation</title>
+    <title>raster_tools.Raster.explore &#8212; raster_tools 0.11.0 documentation</title>
   
   
   
@@ -45,7 +45,7 @@
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
     <link rel="next" title="raster_tools.Raster.plot" href="raster_tools.Raster.plot.html" />
-    <link rel="prev" title="raster_tools.Raster.save" href="raster_tools.Raster.save.html" />
+    <link rel="prev" title="raster_tools.Raster.save_chunks" href="raster_tools.Raster.save_chunks.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="None"/>
   </head>
@@ -117,7 +117,7 @@
   
   
   
-    <p class="title logo__title">raster_tools 0.10.2 documentation</p>
+    <p class="title logo__title">raster_tools 0.11.0 documentation</p>
   
 </a></div>
         <div class="sidebar-primary-item"><nav class="bd-links" id="bd-docs-nav" aria-label="Main">
@@ -130,6 +130,7 @@
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.open_dataset.html">raster_tools.open_dataset</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.band_concat.html">raster_tools.band_concat</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.mosaic.html">raster_tools.mosaic</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.split_bands.html">raster_tools.split_bands</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.stack_bands.html">raster_tools.stack_bands</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.constant_raster.html">raster_tools.constant_raster</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.empty_like.html">raster_tools.empty_like</a></li>
@@ -139,6 +140,7 @@
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.zeros_like.html">raster_tools.zeros_like</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.reclassify.html">raster_tools.reclassify</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.remap_range.html">raster_tools.remap_range</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.pad.html">raster_tools.pad</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.Vector.html">raster_tools.Vector</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.count_layer_features.html">raster_tools.count_layer_features</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.list_layers.html">raster_tools.list_layers</a></li>
@@ -196,10 +198,12 @@
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.set_crs.html">raster_tools.Raster.set_crs</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.xy.html">raster_tools.Raster.xy</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.reproject.html">raster_tools.Raster.reproject</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.pad.html">raster_tools.Raster.pad</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.close.html">raster_tools.Raster.close</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.eval.html">raster_tools.Raster.eval</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.load.html">raster_tools.Raster.load</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.save.html">raster_tools.Raster.save</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.save_chunks.html">raster_tools.Raster.save_chunks</a></li>
 <li class="toctree-l3 current active"><a class="current reference internal" href="#">raster_tools.Raster.explore</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.plot.html">raster_tools.Raster.plot</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.get_chunk_bounding_boxes.html">raster_tools.Raster.get_chunk_bounding_boxes</a></li>
@@ -498,12 +502,12 @@ greater than 0.</p>
     <div class="footer-article-item"><!-- Previous / next buttons -->
 <div class="prev-next-area">
     <a class="left-prev"
-       href="raster_tools.Raster.save.html"
+       href="raster_tools.Raster.save_chunks.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">raster_tools.Raster.save</p>
+        <p class="prev-next-title">raster_tools.Raster.save_chunks</p>
       </div>
     </a>
     <a class="right-next"

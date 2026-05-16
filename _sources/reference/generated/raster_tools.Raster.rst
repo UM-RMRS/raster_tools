@@ -46,6 +46,7 @@
       ~Raster.set_crs
       ~Raster.set_null
       ~Raster.set_null_value
+      ~Raster.split_bands
       ~Raster.std
       ~Raster.sum
       ~Raster.to_dataset

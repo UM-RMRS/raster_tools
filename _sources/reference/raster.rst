@@ -156,6 +156,14 @@ Warping
 
    Raster.reproject
 
+Padding
+-------
+
+.. autosummary::
+   :toctree: generated/
+
+   Raster.pad
+
 
 Raster IO
 ---------
@@ -167,6 +175,7 @@ Raster IO
    Raster.eval
    Raster.load
    Raster.save
+   Raster.save_chunks
 
 Plotting
 ========

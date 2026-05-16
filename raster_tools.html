@@ -9,7 +9,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
 
-    <title>raster_tools package &#8212; raster_tools 0.10.2 documentation</title>
+    <title>raster_tools package &#8212; raster_tools 0.11.0 documentation</title>
   
   
   
@@ -117,7 +117,7 @@
   
   
   
-    <p class="title logo__title">raster_tools 0.10.2 documentation</p>
+    <p class="title logo__title">raster_tools 0.11.0 documentation</p>
   
 </a></div>
         <div class="sidebar-primary-item"><nav class="bd-links" id="bd-docs-nav" aria-label="Main">
@@ -130,6 +130,7 @@
 <li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.open_dataset.html">raster_tools.open_dataset</a></li>
 <li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.band_concat.html">raster_tools.band_concat</a></li>
 <li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.mosaic.html">raster_tools.mosaic</a></li>
+<li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.split_bands.html">raster_tools.split_bands</a></li>
 <li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.stack_bands.html">raster_tools.stack_bands</a></li>
 <li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.constant_raster.html">raster_tools.constant_raster</a></li>
 <li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.empty_like.html">raster_tools.empty_like</a></li>
@@ -139,6 +140,7 @@
 <li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.zeros_like.html">raster_tools.zeros_like</a></li>
 <li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.reclassify.html">raster_tools.reclassify</a></li>
 <li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.remap_range.html">raster_tools.remap_range</a></li>
+<li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.pad.html">raster_tools.pad</a></li>
 <li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.Vector.html">raster_tools.Vector</a></li>
 <li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.count_layer_features.html">raster_tools.count_layer_features</a></li>
 <li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.list_layers.html">raster_tools.list_layers</a></li>
@@ -196,10 +198,12 @@
 <li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.Raster.set_crs.html">raster_tools.Raster.set_crs</a></li>
 <li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.Raster.xy.html">raster_tools.Raster.xy</a></li>
 <li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.Raster.reproject.html">raster_tools.Raster.reproject</a></li>
+<li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.Raster.pad.html">raster_tools.Raster.pad</a></li>
 <li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.Raster.close.html">raster_tools.Raster.close</a></li>
 <li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.Raster.eval.html">raster_tools.Raster.eval</a></li>
 <li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.Raster.load.html">raster_tools.Raster.load</a></li>
 <li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.Raster.save.html">raster_tools.Raster.save</a></li>
+<li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.Raster.save_chunks.html">raster_tools.Raster.save_chunks</a></li>
 <li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.Raster.explore.html">raster_tools.Raster.explore</a></li>
 <li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.Raster.plot.html">raster_tools.Raster.plot</a></li>
 <li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.Raster.get_chunk_bounding_boxes.html">raster_tools.Raster.get_chunk_bounding_boxes</a></li>
@@ -643,19 +647,21 @@ data raster.</p>
 <span id="raster-tools-creation-module"></span><h2>raster_tools.creation module<a class="headerlink" href="#module-raster_tools.creation" title="Permalink to this headline">#</a></h2>
 <dl class="py function">
 <dt class="sig sig-object py" id="raster_tools.creation.constant_raster">
-<span class="sig-prename descclassname"><span class="pre">raster_tools.creation.</span></span><span class="sig-name descname"><span class="pre">constant_raster</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">raster_template</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">value</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bands</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">copy_mask</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/creation.html#constant_raster"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.creation.constant_raster" title="Permalink to this definition">#</a></dt>
-<dd><p>Create a Raster filled with a constant value like a template raster.</p>
+<span class="sig-prename descclassname"><span class="pre">raster_tools.creation.</span></span><span class="sig-name descname"><span class="pre">constant_raster</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">template</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">value</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bands</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">copy_mask</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">raster_template</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/creation.html#constant_raster"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.creation.constant_raster" title="Permalink to this definition">#</a></dt>
+<dd><p>Create a Raster filled with a constant value like a template.</p>
 <p>This is a convenience function that wraps <a class="reference internal" href="#raster_tools.creation.full_like" title="raster_tools.creation.full_like"><code class="xref py py-func docutils literal notranslate"><span class="pre">full_like()</span></code></a>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>raster_template</strong> (<em>Raster</em><em>, </em><em>str</em>) – Template raster used to define rows, columns, crs, resolution, etc</p></li>
+<li><p><strong>template</strong> (<em>Raster</em><em>, </em><em>str</em><em>, or </em><em>odc.geo.geobox.GeoBox</em>) – Template defining rows, columns, crs, resolution, etc. A path string
+is loaded as a Raster. A <code class="docutils literal notranslate"><span class="pre">GeoBox</span></code> supplies only the grid; in that
+case <code class="docutils literal notranslate"><span class="pre">copy_mask</span></code> is invalid and no mask/null value is propagated.</p></li>
 <li><p><strong>value</strong> (<em>scalar</em><em>, </em><em>optional</em>) – Value to fill result with. Default is 1.</p></li>
 <li><p><strong>bands</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of bands desired for output. Default is 1.</p></li>
 <li><p><strong>dtype</strong> (<em>data-type</em><em>, </em><em>optional</em>) – Overrides the result dtype.</p></li>
 <li><p><strong>copy_mask</strong> (<em>bool</em>) – If <cite>True</cite>, the template raster’s mask is copied to the result raster.
-If <cite>bands</cite> differs from <cite>raster_template</cite>, the first band’s mask is
-copied <cite>bands</cite> times.</p></li>
+If <cite>bands</cite> differs from the template, the first band’s mask is
+copied <cite>bands</cite> times. Only valid when <cite>template</cite> is a Raster.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
@@ -669,17 +675,19 @@ copied <cite>bands</cite> times.</p></li>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="raster_tools.creation.empty_like">
-<span class="sig-prename descclassname"><span class="pre">raster_tools.creation.</span></span><span class="sig-name descname"><span class="pre">empty_like</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">raster_template</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bands</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">copy_mask</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/creation.html#empty_like"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.creation.empty_like" title="Permalink to this definition">#</a></dt>
-<dd><p>Create a Raster filled with uninitialized data like a template raster.</p>
+<span class="sig-prename descclassname"><span class="pre">raster_tools.creation.</span></span><span class="sig-name descname"><span class="pre">empty_like</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">template</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bands</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">copy_mask</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">raster_template</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/creation.html#empty_like"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.creation.empty_like" title="Permalink to this definition">#</a></dt>
+<dd><p>Create a Raster filled with uninitialized data like a template.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>raster_template</strong> (<em>Raster</em><em>, </em><em>str</em>) – Template raster used to define rows, columns, crs, resolution, etc</p></li>
+<li><p><strong>template</strong> (<em>Raster</em><em>, </em><em>str</em><em>, or </em><em>odc.geo.geobox.GeoBox</em>) – Template defining rows, columns, crs, resolution, etc. A path string
+is loaded as a Raster. A <code class="docutils literal notranslate"><span class="pre">GeoBox</span></code> supplies only the grid; in that
+case <code class="docutils literal notranslate"><span class="pre">copy_mask</span></code> is invalid and no mask/null value is propagated.</p></li>
 <li><p><strong>bands</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of bands desired for output. Default is 1.</p></li>
 <li><p><strong>dtype</strong> (<em>data-type</em><em>, </em><em>optional</em>) – Overrides the result dtype.</p></li>
 <li><p><strong>copy_mask</strong> (<em>bool</em>) – If <cite>True</cite>, the template raster’s mask is copied to the result raster.
-If <cite>bands</cite> differs from <cite>raster_template</cite>, the first band’s mask is
-copied <cite>bands</cite> times.</p></li>
+If <cite>bands</cite> differs from the template, the first band’s mask is
+copied <cite>bands</cite> times. Only valid when <cite>template</cite> is a Raster.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
@@ -693,18 +701,20 @@ copied <cite>bands</cite> times.</p></li>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="raster_tools.creation.full_like">
-<span class="sig-prename descclassname"><span class="pre">raster_tools.creation.</span></span><span class="sig-name descname"><span class="pre">full_like</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">raster_template</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">value</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bands</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">copy_mask</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/creation.html#full_like"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.creation.full_like" title="Permalink to this definition">#</a></dt>
-<dd><p>Create a Raster filled with a constant value like a template raster.</p>
+<span class="sig-prename descclassname"><span class="pre">raster_tools.creation.</span></span><span class="sig-name descname"><span class="pre">full_like</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">template=None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">value=&lt;object</span> <span class="pre">object&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bands=1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype=None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">copy_mask=False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">raster_template=None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/creation.html#full_like"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.creation.full_like" title="Permalink to this definition">#</a></dt>
+<dd><p>Create a Raster filled with a constant value like a template.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>raster_template</strong> (<em>Raster</em><em>, </em><em>str</em>) – Template raster used to define rows, columns, crs, resolution, etc</p></li>
+<li><p><strong>template</strong> (<em>Raster</em><em>, </em><em>str</em><em>, or </em><em>odc.geo.geobox.GeoBox</em>) – Template defining rows, columns, crs, resolution, etc. A path string
+is loaded as a Raster. A <code class="docutils literal notranslate"><span class="pre">GeoBox</span></code> supplies only the grid; in that
+case <code class="docutils literal notranslate"><span class="pre">copy_mask</span></code> is invalid and no mask/null value is propagated.</p></li>
 <li><p><strong>value</strong> (<em>scalar</em>) – Value to fill result with.</p></li>
 <li><p><strong>bands</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of bands desired for output. Default is 1.</p></li>
 <li><p><strong>dtype</strong> (<em>data-type</em><em>, </em><em>optional</em>) – Overrides the result dtype.</p></li>
 <li><p><strong>copy_mask</strong> (<em>bool</em>) – If <cite>True</cite>, the template raster’s mask is copied to the result raster.
-If <cite>bands</cite> differs from <cite>raster_template</cite>, the first band’s mask is
-copied <cite>bands</cite> times.</p></li>
+If <cite>bands</cite> differs from the template, the first band’s mask is
+copied <cite>bands</cite> times. Only valid when <cite>template</cite> is a Raster.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
@@ -718,17 +728,19 @@ copied <cite>bands</cite> times.</p></li>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="raster_tools.creation.ones_like">
-<span class="sig-prename descclassname"><span class="pre">raster_tools.creation.</span></span><span class="sig-name descname"><span class="pre">ones_like</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">raster_template</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bands</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">copy_mask</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/creation.html#ones_like"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.creation.ones_like" title="Permalink to this definition">#</a></dt>
-<dd><p>Create a Raster filled with ones like a template raster.</p>
+<span class="sig-prename descclassname"><span class="pre">raster_tools.creation.</span></span><span class="sig-name descname"><span class="pre">ones_like</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">template</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bands</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">copy_mask</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">raster_template</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/creation.html#ones_like"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.creation.ones_like" title="Permalink to this definition">#</a></dt>
+<dd><p>Create a Raster filled with ones like a template.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>raster_template</strong> (<em>Raster</em><em>, </em><em>str</em>) – Template raster used to define rows, columns, crs, resolution, etc</p></li>
+<li><p><strong>template</strong> (<em>Raster</em><em>, </em><em>str</em><em>, or </em><em>odc.geo.geobox.GeoBox</em>) – Template defining rows, columns, crs, resolution, etc. A path string
+is loaded as a Raster. A <code class="docutils literal notranslate"><span class="pre">GeoBox</span></code> supplies only the grid; in that
+case <code class="docutils literal notranslate"><span class="pre">copy_mask</span></code> is invalid and no mask/null value is propagated.</p></li>
 <li><p><strong>bands</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of bands desired for output. Default is 1.</p></li>
 <li><p><strong>dtype</strong> (<em>data-type</em><em>, </em><em>optional</em>) – Overrides the result dtype.</p></li>
 <li><p><strong>copy_mask</strong> (<em>bool</em>) – If <cite>True</cite>, the template raster’s mask is copied to the result raster.
-If <cite>bands</cite> differs from <cite>raster_template</cite>, the first band’s mask is
-copied <cite>bands</cite> times.</p></li>
+If <cite>bands</cite> differs from the template, the first band’s mask is
+copied <cite>bands</cite> times. Only valid when <cite>template</cite> is a Raster.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
@@ -742,14 +754,16 @@ copied <cite>bands</cite> times.</p></li>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="raster_tools.creation.random_raster">
-<span class="sig-prename descclassname"><span class="pre">raster_tools.creation.</span></span><span class="sig-name descname"><span class="pre">random_raster</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">raster_template</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">distribution</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'normal'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bands</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">params</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(1,</span> <span class="pre">0.5)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">copy_mask</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/creation.html#random_raster"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.creation.random_raster" title="Permalink to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">raster_tools.creation.</span></span><span class="sig-name descname"><span class="pre">random_raster</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">template</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">distribution</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'normal'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bands</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">params</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(1,</span> <span class="pre">0.5)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">copy_mask</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">raster_template</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/creation.html#random_raster"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.creation.random_raster" title="Permalink to this definition">#</a></dt>
 <dd><p>Creates a Raster of random values based on the desired distribution.</p>
 <p>This function uses dask.array.random to generate data. The default is a
 normal distribution with mean of 1 and standard deviation of 0.5.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>raster_template</strong> (<em>Raster</em><em>, </em><em>str</em>) – A template raster used to define rows, columns, crs, resolution, etc.</p></li>
+<li><p><strong>template</strong> (<em>Raster</em><em>, </em><em>str</em><em>, or </em><em>odc.geo.geobox.GeoBox</em>) – Template defining rows, columns, crs, resolution, etc. A path string
+is loaded as a Raster. A <code class="docutils literal notranslate"><span class="pre">GeoBox</span></code> supplies only the grid; in that
+case <code class="docutils literal notranslate"><span class="pre">copy_mask</span></code> is invalid and no mask/null value is propagated.</p></li>
 <li><p><strong>distribution</strong> (<em>str</em><em>, </em><em>optional</em>) – <p>Random distribution type. Default is <cite>‘normal’</cite>. See <cite>params</cite> parameter
 below for passing additional distribution  parameters. Valid values
 are:</p>
@@ -774,8 +788,8 @@ additional.</p>
 distribution with mean of 1 and standard deviation of 0.5. Default is
 <code class="docutils literal notranslate"><span class="pre">(1,</span> <span class="pre">0.5)</span></code>.</p></li>
 <li><p><strong>copy_mask</strong> (<em>bool</em>) – If <cite>True</cite>, the template raster’s mask is copied to the result raster.
-If <cite>bands</cite> differs from <cite>raster_template</cite>, the first band’s mask is
-copied <cite>bands</cite> times.</p></li>
+If <cite>bands</cite> differs from the template, the first band’s mask is copied
+<cite>bands</cite> times. Only valid when <cite>template</cite> is a Raster.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
@@ -789,21 +803,23 @@ copied <cite>bands</cite> times.</p></li>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="raster_tools.creation.zeros_like">
-<span class="sig-prename descclassname"><span class="pre">raster_tools.creation.</span></span><span class="sig-name descname"><span class="pre">zeros_like</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">raster_template</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bands</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">copy_mask</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/creation.html#zeros_like"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.creation.zeros_like" title="Permalink to this definition">#</a></dt>
-<dd><p>Create a Raster filled with zeros like a template raster.</p>
+<span class="sig-prename descclassname"><span class="pre">raster_tools.creation.</span></span><span class="sig-name descname"><span class="pre">zeros_like</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">template</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bands</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">copy_mask</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">raster_template</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/creation.html#zeros_like"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.creation.zeros_like" title="Permalink to this definition">#</a></dt>
+<dd><p>Create a Raster filled with zeros like a template.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>raster_template</strong> (<em>Raster</em><em>, </em><em>str</em>) – Template raster used to define rows, columns, crs, resolution, etc</p></li>
+<li><p><strong>template</strong> (<em>Raster</em><em>, </em><em>str</em><em>, or </em><em>odc.geo.geobox.GeoBox</em>) – Template defining rows, columns, crs, resolution, etc. A path string
+is loaded as a Raster. A <code class="docutils literal notranslate"><span class="pre">GeoBox</span></code> supplies only the grid; in that
+case <code class="docutils literal notranslate"><span class="pre">copy_mask</span></code> is invalid and no mask/null value is propagated.</p></li>
 <li><p><strong>bands</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of bands desired for output. Default is 1.</p></li>
 <li><p><strong>dtype</strong> (<em>data-type</em><em>, </em><em>optional</em>) – Overrides the result dtype.</p></li>
 <li><p><strong>copy_mask</strong> (<em>bool</em>) – If <cite>True</cite>, the template raster’s mask is copied to the result raster.
-If <cite>bands</cite> differs from <cite>raster_template</cite>, the first band’s mask is
-copied <cite>bands</cite> times.</p></li>
+If <cite>bands</cite> differs from the template, the first band’s mask is
+copied <cite>bands</cite> times. Only valid when <cite>template</cite> is a Raster.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
-<dd class="field-even"><p>The resulting raster of zreos.</p>
+<dd class="field-even"><p>The resulting raster of zeros.</p>
 </dd>
 <dt class="field-odd">Return type</dt>
 <dd class="field-odd"><p>Raster</p>
@@ -2504,7 +2520,7 @@ the translated logical kwargs on collisions.</p></li>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="raster_tools.raster.Raster.save_chunks">
-<span class="sig-name descname"><span class="pre">save_chunks</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">prefix</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">per_band</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ext</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save_kwargs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/raster.html#Raster.save_chunks"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.raster.Raster.save_chunks" title="Permalink to this definition">#</a></dt>
+<span class="sig-name descname"><span class="pre">save_chunks</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">prefix</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">per_band</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ext</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">save_kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/raster.html#Raster.save_chunks"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.raster.Raster.save_chunks" title="Permalink to this definition">#</a></dt>
 <dd><p>Save each dask chunk to a separate raster file.</p>
 <p>Useful for tile-based downstream pipelines where each chunk needs
 to live as its own file on disk.</p>
@@ -2524,10 +2540,9 @@ single-band file per <code class="docutils literal notranslate"><span class="pre
 array has shape <code class="docutils literal notranslate"><span class="pre">(nbands,</span> <span class="pre">n_row_chunks,</span> <span class="pre">n_col_chunks)</span></code>.</p></li>
 <li><p><strong>ext</strong> (<em>str</em><em>, </em><em>optional</em>) – File extension applied to every output. The leading dot is
 optional. The default (<code class="docutils literal notranslate"><span class="pre">None</span></code>) picks an extension based on
-the driver (<code class="docutils literal notranslate"><span class="pre">&quot;driver&quot;</span></code> in <cite>save_kwargs</cite>), falling back to
-<code class="docutils literal notranslate"><span class="pre">&quot;.tif&quot;</span></code> when no driver is given. Pass <code class="docutils literal notranslate"><span class="pre">&quot;&quot;</span></code> for no
-extension.</p></li>
-<li><p><strong>save_kwargs</strong> (<em>dict</em><em>, </em><em>optional</em>) – Forwarded verbatim to <a class="reference internal" href="#raster_tools.raster.Raster.save" title="raster_tools.raster.Raster.save"><code class="xref py py-meth docutils literal notranslate"><span class="pre">Raster.save()</span></code></a> for each chunk. Use
+the driver (<code class="docutils literal notranslate"><span class="pre">&quot;driver&quot;</span></code> keyword), falling back to <code class="docutils literal notranslate"><span class="pre">&quot;.tif&quot;</span></code>
+when no driver is given. Pass <code class="docutils literal notranslate"><span class="pre">&quot;&quot;</span></code> for no extension.</p></li>
+<li><p><strong>**save_kwargs</strong> – Forwarded verbatim to <a class="reference internal" href="#raster_tools.raster.Raster.save" title="raster_tools.raster.Raster.save"><code class="xref py py-meth docutils literal notranslate"><span class="pre">Raster.save()</span></code></a> for each chunk. Use
 this to set compression, blocksize, overviews, etc.</p></li>
 </ul>
 </dd>
@@ -2626,6 +2641,18 @@ band dimension, <code class="docutils literal notranslate"><span class="pre">Y</
 <dt class="sig sig-object py" id="raster_tools.raster.Raster.size">
 <em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">size</span></span><a class="headerlink" href="#raster_tools.raster.Raster.size" title="Permalink to this definition">#</a></dt>
 <dd><p>The number of grid cells across all bands.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="raster_tools.raster.Raster.split_bands">
+<span class="sig-name descname"><span class="pre">split_bands</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/raster.html#Raster.split_bands"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.raster.Raster.split_bands" title="Permalink to this definition">#</a></dt>
+<dd><p>Split this raster into a list of single-band rasters.</p>
+<p>See <a class="reference internal" href="reference/generated/raster_tools.split_bands.html#raster_tools.split_bands" title="raster_tools.split_bands"><code class="xref py py-func docutils literal notranslate"><span class="pre">raster_tools.split_bands()</span></code></a> for details.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>list of Raster</p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py method">
@@ -5164,7 +5191,7 @@ the translated logical kwargs on collisions.</p></li>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="raster_tools.Raster.save_chunks">
-<span class="sig-name descname"><span class="pre">save_chunks</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">prefix</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">per_band</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ext</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save_kwargs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/raster.html#Raster.save_chunks"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.Raster.save_chunks" title="Permalink to this definition">#</a></dt>
+<span class="sig-name descname"><span class="pre">save_chunks</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">prefix</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">per_band</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ext</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">save_kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/raster.html#Raster.save_chunks"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.Raster.save_chunks" title="Permalink to this definition">#</a></dt>
 <dd><p>Save each dask chunk to a separate raster file.</p>
 <p>Useful for tile-based downstream pipelines where each chunk needs
 to live as its own file on disk.</p>
@@ -5184,10 +5211,9 @@ single-band file per <code class="docutils literal notranslate"><span class="pre
 array has shape <code class="docutils literal notranslate"><span class="pre">(nbands,</span> <span class="pre">n_row_chunks,</span> <span class="pre">n_col_chunks)</span></code>.</p></li>
 <li><p><strong>ext</strong> (<em>str</em><em>, </em><em>optional</em>) – File extension applied to every output. The leading dot is
 optional. The default (<code class="docutils literal notranslate"><span class="pre">None</span></code>) picks an extension based on
-the driver (<code class="docutils literal notranslate"><span class="pre">&quot;driver&quot;</span></code> in <cite>save_kwargs</cite>), falling back to
-<code class="docutils literal notranslate"><span class="pre">&quot;.tif&quot;</span></code> when no driver is given. Pass <code class="docutils literal notranslate"><span class="pre">&quot;&quot;</span></code> for no
-extension.</p></li>
-<li><p><strong>save_kwargs</strong> (<em>dict</em><em>, </em><em>optional</em>) – Forwarded verbatim to <a class="reference internal" href="reference/generated/raster_tools.Raster.save.html#raster_tools.Raster.save" title="raster_tools.Raster.save"><code class="xref py py-meth docutils literal notranslate"><span class="pre">Raster.save()</span></code></a> for each chunk. Use
+the driver (<code class="docutils literal notranslate"><span class="pre">&quot;driver&quot;</span></code> keyword), falling back to <code class="docutils literal notranslate"><span class="pre">&quot;.tif&quot;</span></code>
+when no driver is given. Pass <code class="docutils literal notranslate"><span class="pre">&quot;&quot;</span></code> for no extension.</p></li>
+<li><p><strong>**save_kwargs</strong> – Forwarded verbatim to <a class="reference internal" href="reference/generated/raster_tools.Raster.save.html#raster_tools.Raster.save" title="raster_tools.Raster.save"><code class="xref py py-meth docutils literal notranslate"><span class="pre">Raster.save()</span></code></a> for each chunk. Use
 this to set compression, blocksize, overviews, etc.</p></li>
 </ul>
 </dd>
@@ -5286,6 +5312,18 @@ band dimension, <code class="docutils literal notranslate"><span class="pre">Y</
 <dt class="sig sig-object py" id="raster_tools.Raster.size">
 <em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">size</span></span><a class="headerlink" href="#raster_tools.Raster.size" title="Permalink to this definition">#</a></dt>
 <dd><p>The number of grid cells across all bands.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="raster_tools.Raster.split_bands">
+<span class="sig-name descname"><span class="pre">split_bands</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/raster.html#Raster.split_bands"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.Raster.split_bands" title="Permalink to this definition">#</a></dt>
+<dd><p>Split this raster into a list of single-band rasters.</p>
+<p>See <a class="reference internal" href="reference/generated/raster_tools.split_bands.html#raster_tools.split_bands" title="raster_tools.split_bands"><code class="xref py py-func docutils literal notranslate"><span class="pre">raster_tools.split_bands()</span></code></a> for details.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>list of Raster</p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py method">
@@ -5997,19 +6035,21 @@ All rasters must have the same shape in the x and y dimensions.</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="raster_tools.constant_raster">
-<span class="sig-prename descclassname"><span class="pre">raster_tools.</span></span><span class="sig-name descname"><span class="pre">constant_raster</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">raster_template</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">value</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bands</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">copy_mask</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/creation.html#constant_raster"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.constant_raster" title="Permalink to this definition">#</a></dt>
-<dd><p>Create a Raster filled with a constant value like a template raster.</p>
+<span class="sig-prename descclassname"><span class="pre">raster_tools.</span></span><span class="sig-name descname"><span class="pre">constant_raster</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">template</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">value</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bands</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">copy_mask</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">raster_template</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/creation.html#constant_raster"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.constant_raster" title="Permalink to this definition">#</a></dt>
+<dd><p>Create a Raster filled with a constant value like a template.</p>
 <p>This is a convenience function that wraps <a class="reference internal" href="reference/generated/raster_tools.full_like.html#raster_tools.full_like" title="raster_tools.full_like"><code class="xref py py-func docutils literal notranslate"><span class="pre">full_like()</span></code></a>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>raster_template</strong> (<a class="reference internal" href="reference/generated/raster_tools.Raster.html#raster_tools.Raster" title="raster_tools.Raster"><em>Raster</em></a><em>, </em><em>str</em>) – Template raster used to define rows, columns, crs, resolution, etc</p></li>
+<li><p><strong>template</strong> (<a class="reference internal" href="reference/generated/raster_tools.Raster.html#raster_tools.Raster" title="raster_tools.Raster"><em>Raster</em></a><em>, </em><em>str</em><em>, or </em><em>odc.geo.geobox.GeoBox</em>) – Template defining rows, columns, crs, resolution, etc. A path string
+is loaded as a Raster. A <code class="docutils literal notranslate"><span class="pre">GeoBox</span></code> supplies only the grid; in that
+case <code class="docutils literal notranslate"><span class="pre">copy_mask</span></code> is invalid and no mask/null value is propagated.</p></li>
 <li><p><strong>value</strong> (<em>scalar</em><em>, </em><em>optional</em>) – Value to fill result with. Default is 1.</p></li>
 <li><p><strong>bands</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of bands desired for output. Default is 1.</p></li>
 <li><p><strong>dtype</strong> (<em>data-type</em><em>, </em><em>optional</em>) – Overrides the result dtype.</p></li>
 <li><p><strong>copy_mask</strong> (<em>bool</em>) – If <cite>True</cite>, the template raster’s mask is copied to the result raster.
-If <cite>bands</cite> differs from <cite>raster_template</cite>, the first band’s mask is
-copied <cite>bands</cite> times.</p></li>
+If <cite>bands</cite> differs from the template, the first band’s mask is
+copied <cite>bands</cite> times. Only valid when <cite>template</cite> is a Raster.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
@@ -6342,17 +6382,19 @@ from <cite>xdata</cite>, if present.</p></li>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="raster_tools.empty_like">
-<span class="sig-prename descclassname"><span class="pre">raster_tools.</span></span><span class="sig-name descname"><span class="pre">empty_like</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">raster_template</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bands</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">copy_mask</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/creation.html#empty_like"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.empty_like" title="Permalink to this definition">#</a></dt>
-<dd><p>Create a Raster filled with uninitialized data like a template raster.</p>
+<span class="sig-prename descclassname"><span class="pre">raster_tools.</span></span><span class="sig-name descname"><span class="pre">empty_like</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">template</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bands</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">copy_mask</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">raster_template</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/creation.html#empty_like"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.empty_like" title="Permalink to this definition">#</a></dt>
+<dd><p>Create a Raster filled with uninitialized data like a template.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>raster_template</strong> (<a class="reference internal" href="reference/generated/raster_tools.Raster.html#raster_tools.Raster" title="raster_tools.Raster"><em>Raster</em></a><em>, </em><em>str</em>) – Template raster used to define rows, columns, crs, resolution, etc</p></li>
+<li><p><strong>template</strong> (<a class="reference internal" href="reference/generated/raster_tools.Raster.html#raster_tools.Raster" title="raster_tools.Raster"><em>Raster</em></a><em>, </em><em>str</em><em>, or </em><em>odc.geo.geobox.GeoBox</em>) – Template defining rows, columns, crs, resolution, etc. A path string
+is loaded as a Raster. A <code class="docutils literal notranslate"><span class="pre">GeoBox</span></code> supplies only the grid; in that
+case <code class="docutils literal notranslate"><span class="pre">copy_mask</span></code> is invalid and no mask/null value is propagated.</p></li>
 <li><p><strong>bands</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of bands desired for output. Default is 1.</p></li>
 <li><p><strong>dtype</strong> (<em>data-type</em><em>, </em><em>optional</em>) – Overrides the result dtype.</p></li>
 <li><p><strong>copy_mask</strong> (<em>bool</em>) – If <cite>True</cite>, the template raster’s mask is copied to the result raster.
-If <cite>bands</cite> differs from <cite>raster_template</cite>, the first band’s mask is
-copied <cite>bands</cite> times.</p></li>
+If <cite>bands</cite> differs from the template, the first band’s mask is
+copied <cite>bands</cite> times. Only valid when <cite>template</cite> is a Raster.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
@@ -6366,18 +6408,20 @@ copied <cite>bands</cite> times.</p></li>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="raster_tools.full_like">
-<span class="sig-prename descclassname"><span class="pre">raster_tools.</span></span><span class="sig-name descname"><span class="pre">full_like</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">raster_template</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">value</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bands</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">copy_mask</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/creation.html#full_like"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.full_like" title="Permalink to this definition">#</a></dt>
-<dd><p>Create a Raster filled with a constant value like a template raster.</p>
+<span class="sig-prename descclassname"><span class="pre">raster_tools.</span></span><span class="sig-name descname"><span class="pre">full_like</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">template=None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">value=&lt;object</span> <span class="pre">object&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bands=1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype=None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">copy_mask=False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">raster_template=None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/creation.html#full_like"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.full_like" title="Permalink to this definition">#</a></dt>
+<dd><p>Create a Raster filled with a constant value like a template.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>raster_template</strong> (<a class="reference internal" href="reference/generated/raster_tools.Raster.html#raster_tools.Raster" title="raster_tools.Raster"><em>Raster</em></a><em>, </em><em>str</em>) – Template raster used to define rows, columns, crs, resolution, etc</p></li>
+<li><p><strong>template</strong> (<a class="reference internal" href="reference/generated/raster_tools.Raster.html#raster_tools.Raster" title="raster_tools.Raster"><em>Raster</em></a><em>, </em><em>str</em><em>, or </em><em>odc.geo.geobox.GeoBox</em>) – Template defining rows, columns, crs, resolution, etc. A path string
+is loaded as a Raster. A <code class="docutils literal notranslate"><span class="pre">GeoBox</span></code> supplies only the grid; in that
+case <code class="docutils literal notranslate"><span class="pre">copy_mask</span></code> is invalid and no mask/null value is propagated.</p></li>
 <li><p><strong>value</strong> (<em>scalar</em>) – Value to fill result with.</p></li>
 <li><p><strong>bands</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of bands desired for output. Default is 1.</p></li>
 <li><p><strong>dtype</strong> (<em>data-type</em><em>, </em><em>optional</em>) – Overrides the result dtype.</p></li>
 <li><p><strong>copy_mask</strong> (<em>bool</em>) – If <cite>True</cite>, the template raster’s mask is copied to the result raster.
-If <cite>bands</cite> differs from <cite>raster_template</cite>, the first band’s mask is
-copied <cite>bands</cite> times.</p></li>
+If <cite>bands</cite> differs from the template, the first band’s mask is
+copied <cite>bands</cite> times. Only valid when <cite>template</cite> is a Raster.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
@@ -6495,17 +6539,19 @@ get a default value based on the output raster’s dtype.</p></li>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="raster_tools.ones_like">
-<span class="sig-prename descclassname"><span class="pre">raster_tools.</span></span><span class="sig-name descname"><span class="pre">ones_like</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">raster_template</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bands</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">copy_mask</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/creation.html#ones_like"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.ones_like" title="Permalink to this definition">#</a></dt>
-<dd><p>Create a Raster filled with ones like a template raster.</p>
+<span class="sig-prename descclassname"><span class="pre">raster_tools.</span></span><span class="sig-name descname"><span class="pre">ones_like</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">template</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bands</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">copy_mask</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">raster_template</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/creation.html#ones_like"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.ones_like" title="Permalink to this definition">#</a></dt>
+<dd><p>Create a Raster filled with ones like a template.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>raster_template</strong> (<a class="reference internal" href="reference/generated/raster_tools.Raster.html#raster_tools.Raster" title="raster_tools.Raster"><em>Raster</em></a><em>, </em><em>str</em>) – Template raster used to define rows, columns, crs, resolution, etc</p></li>
+<li><p><strong>template</strong> (<a class="reference internal" href="reference/generated/raster_tools.Raster.html#raster_tools.Raster" title="raster_tools.Raster"><em>Raster</em></a><em>, </em><em>str</em><em>, or </em><em>odc.geo.geobox.GeoBox</em>) – Template defining rows, columns, crs, resolution, etc. A path string
+is loaded as a Raster. A <code class="docutils literal notranslate"><span class="pre">GeoBox</span></code> supplies only the grid; in that
+case <code class="docutils literal notranslate"><span class="pre">copy_mask</span></code> is invalid and no mask/null value is propagated.</p></li>
 <li><p><strong>bands</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of bands desired for output. Default is 1.</p></li>
 <li><p><strong>dtype</strong> (<em>data-type</em><em>, </em><em>optional</em>) – Overrides the result dtype.</p></li>
 <li><p><strong>copy_mask</strong> (<em>bool</em>) – If <cite>True</cite>, the template raster’s mask is copied to the result raster.
-If <cite>bands</cite> differs from <cite>raster_template</cite>, the first band’s mask is
-copied <cite>bands</cite> times.</p></li>
+If <cite>bands</cite> differs from the template, the first band’s mask is
+copied <cite>bands</cite> times. Only valid when <cite>template</cite> is a Raster.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
@@ -6634,14 +6680,16 @@ new cells to be marked null.</p></li>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="raster_tools.random_raster">
-<span class="sig-prename descclassname"><span class="pre">raster_tools.</span></span><span class="sig-name descname"><span class="pre">random_raster</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">raster_template</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">distribution</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'normal'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bands</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">params</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(1,</span> <span class="pre">0.5)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">copy_mask</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/creation.html#random_raster"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.random_raster" title="Permalink to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">raster_tools.</span></span><span class="sig-name descname"><span class="pre">random_raster</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">template</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">distribution</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'normal'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bands</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">params</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(1,</span> <span class="pre">0.5)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">copy_mask</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">raster_template</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/creation.html#random_raster"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.random_raster" title="Permalink to this definition">#</a></dt>
 <dd><p>Creates a Raster of random values based on the desired distribution.</p>
 <p>This function uses dask.array.random to generate data. The default is a
 normal distribution with mean of 1 and standard deviation of 0.5.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>raster_template</strong> (<a class="reference internal" href="reference/generated/raster_tools.Raster.html#raster_tools.Raster" title="raster_tools.Raster"><em>Raster</em></a><em>, </em><em>str</em>) – A template raster used to define rows, columns, crs, resolution, etc.</p></li>
+<li><p><strong>template</strong> (<a class="reference internal" href="reference/generated/raster_tools.Raster.html#raster_tools.Raster" title="raster_tools.Raster"><em>Raster</em></a><em>, </em><em>str</em><em>, or </em><em>odc.geo.geobox.GeoBox</em>) – Template defining rows, columns, crs, resolution, etc. A path string
+is loaded as a Raster. A <code class="docutils literal notranslate"><span class="pre">GeoBox</span></code> supplies only the grid; in that
+case <code class="docutils literal notranslate"><span class="pre">copy_mask</span></code> is invalid and no mask/null value is propagated.</p></li>
 <li><p><strong>distribution</strong> (<em>str</em><em>, </em><em>optional</em>) – <p>Random distribution type. Default is <cite>‘normal’</cite>. See <cite>params</cite> parameter
 below for passing additional distribution  parameters. Valid values
 are:</p>
@@ -6666,8 +6714,8 @@ additional.</p>
 distribution with mean of 1 and standard deviation of 0.5. Default is
 <code class="docutils literal notranslate"><span class="pre">(1,</span> <span class="pre">0.5)</span></code>.</p></li>
 <li><p><strong>copy_mask</strong> (<em>bool</em>) – If <cite>True</cite>, the template raster’s mask is copied to the result raster.
-If <cite>bands</cite> differs from <cite>raster_template</cite>, the first band’s mask is
-copied <cite>bands</cite> times.</p></li>
+If <cite>bands</cite> differs from the template, the first band’s mask is copied
+<cite>bands</cite> times. Only valid when <cite>template</cite> is a Raster.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
@@ -6814,6 +6862,32 @@ be provided. Both can also be provided.</p></li>
 </dd></dl>
 
 <dl class="py function">
+<dt class="sig sig-object py" id="raster_tools.split_bands">
+<span class="sig-prename descclassname"><span class="pre">raster_tools.</span></span><span class="sig-name descname"><span class="pre">split_bands</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">raster</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/_stack.html#split_bands"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.split_bands" title="Permalink to this definition">#</a></dt>
+<dd><p>Split a multi-band raster into a list of single-band rasters.</p>
+<p>The inverse of <a class="reference internal" href="reference/generated/raster_tools.stack_bands.html#raster_tools.stack_bands" title="raster_tools.stack_bands"><code class="xref py py-func docutils literal notranslate"><span class="pre">stack_bands()</span></code></a> for a single input. The returned
+rasters preserve the source CRS, grid, dtype, and per-band null mask.
+The list has length <code class="docutils literal notranslate"><span class="pre">raster.nbands</span></code> and bands appear in their
+original order. Each output raster has its band coordinate reset to 1.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>raster</strong> (<a class="reference internal" href="reference/generated/raster_tools.Raster.html#raster_tools.Raster" title="raster_tools.Raster"><em>raster_tools.Raster</em></a>) – The raster to split. A single-band input returns a one-element
+list.</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>list of raster_tools.Raster</p>
+</dd>
+</dl>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<dl class="simple">
+<dt><a class="reference internal" href="reference/generated/raster_tools.stack_bands.html#raster_tools.stack_bands" title="raster_tools.stack_bands"><code class="xref py py-obj docutils literal notranslate"><span class="pre">stack_bands</span></code></a></dt><dd><p>Inverse operation.</p>
+</dd>
+</dl>
+</div>
+</dd></dl>
+
+<dl class="py function">
 <dt class="sig sig-object py" id="raster_tools.stack_bands">
 <span class="sig-prename descclassname"><span class="pre">raster_tools.</span></span><span class="sig-name descname"><span class="pre">stack_bands</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">rasters</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dst_crs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dst_grid</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">join</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'inner'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">resampling_method</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'nearest'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">resolution</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">null_value</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/_stack.html#stack_bands"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.stack_bands" title="Permalink to this definition">#</a></dt>
 <dd><p>Stack input rasters into a multi-band raster.</p>
@@ -6912,21 +6986,23 @@ therefore change the output grid; pass <cite>dst_crs</cite>, <cite>resolution</c
 
 <dl class="py function">
 <dt class="sig sig-object py" id="raster_tools.zeros_like">
-<span class="sig-prename descclassname"><span class="pre">raster_tools.</span></span><span class="sig-name descname"><span class="pre">zeros_like</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">raster_template</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bands</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">copy_mask</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/creation.html#zeros_like"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.zeros_like" title="Permalink to this definition">#</a></dt>
-<dd><p>Create a Raster filled with zeros like a template raster.</p>
+<span class="sig-prename descclassname"><span class="pre">raster_tools.</span></span><span class="sig-name descname"><span class="pre">zeros_like</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">template</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bands</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">copy_mask</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">raster_template</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/raster_tools/creation.html#zeros_like"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.zeros_like" title="Permalink to this definition">#</a></dt>
+<dd><p>Create a Raster filled with zeros like a template.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>raster_template</strong> (<a class="reference internal" href="reference/generated/raster_tools.Raster.html#raster_tools.Raster" title="raster_tools.Raster"><em>Raster</em></a><em>, </em><em>str</em>) – Template raster used to define rows, columns, crs, resolution, etc</p></li>
+<li><p><strong>template</strong> (<a class="reference internal" href="reference/generated/raster_tools.Raster.html#raster_tools.Raster" title="raster_tools.Raster"><em>Raster</em></a><em>, </em><em>str</em><em>, or </em><em>odc.geo.geobox.GeoBox</em>) – Template defining rows, columns, crs, resolution, etc. A path string
+is loaded as a Raster. A <code class="docutils literal notranslate"><span class="pre">GeoBox</span></code> supplies only the grid; in that
+case <code class="docutils literal notranslate"><span class="pre">copy_mask</span></code> is invalid and no mask/null value is propagated.</p></li>
 <li><p><strong>bands</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of bands desired for output. Default is 1.</p></li>
 <li><p><strong>dtype</strong> (<em>data-type</em><em>, </em><em>optional</em>) – Overrides the result dtype.</p></li>
 <li><p><strong>copy_mask</strong> (<em>bool</em>) – If <cite>True</cite>, the template raster’s mask is copied to the result raster.
-If <cite>bands</cite> differs from <cite>raster_template</cite>, the first band’s mask is
-copied <cite>bands</cite> times.</p></li>
+If <cite>bands</cite> differs from the template, the first band’s mask is
+copied <cite>bands</cite> times. Only valid when <cite>template</cite> is a Raster.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
-<dd class="field-even"><p>The resulting raster of zreos.</p>
+<dd class="field-even"><p>The resulting raster of zeros.</p>
 </dd>
 <dt class="field-odd">Return type</dt>
 <dd class="field-odd"><p><a class="reference internal" href="reference/generated/raster_tools.Raster.html#raster_tools.Raster" title="raster_tools.Raster">Raster</a></p>

@@ -9,7 +9,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
 
-    <title>Raster Objects &#8212; raster_tools 0.10.2 documentation</title>
+    <title>Raster Objects &#8212; raster_tools 0.11.0 documentation</title>
   
   
   
@@ -117,7 +117,7 @@
   
   
   
-    <p class="title logo__title">raster_tools 0.10.2 documentation</p>
+    <p class="title logo__title">raster_tools 0.11.0 documentation</p>
   
 </a></div>
         <div class="sidebar-primary-item"><nav class="bd-links" id="bd-docs-nav" aria-label="Main">
@@ -130,6 +130,7 @@
 <li class="toctree-l3"><a class="reference internal" href="generated/raster_tools.open_dataset.html">raster_tools.open_dataset</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/raster_tools.band_concat.html">raster_tools.band_concat</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/raster_tools.mosaic.html">raster_tools.mosaic</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/raster_tools.split_bands.html">raster_tools.split_bands</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/raster_tools.stack_bands.html">raster_tools.stack_bands</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/raster_tools.constant_raster.html">raster_tools.constant_raster</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/raster_tools.empty_like.html">raster_tools.empty_like</a></li>
@@ -139,6 +140,7 @@
 <li class="toctree-l3"><a class="reference internal" href="generated/raster_tools.zeros_like.html">raster_tools.zeros_like</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/raster_tools.reclassify.html">raster_tools.reclassify</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/raster_tools.remap_range.html">raster_tools.remap_range</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/raster_tools.pad.html">raster_tools.pad</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/raster_tools.Vector.html">raster_tools.Vector</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/raster_tools.count_layer_features.html">raster_tools.count_layer_features</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/raster_tools.list_layers.html">raster_tools.list_layers</a></li>
@@ -196,10 +198,12 @@
 <li class="toctree-l3"><a class="reference internal" href="generated/raster_tools.Raster.set_crs.html">raster_tools.Raster.set_crs</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/raster_tools.Raster.xy.html">raster_tools.Raster.xy</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/raster_tools.Raster.reproject.html">raster_tools.Raster.reproject</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/raster_tools.Raster.pad.html">raster_tools.Raster.pad</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/raster_tools.Raster.close.html">raster_tools.Raster.close</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/raster_tools.Raster.eval.html">raster_tools.Raster.eval</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/raster_tools.Raster.load.html">raster_tools.Raster.load</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/raster_tools.Raster.save.html">raster_tools.Raster.save</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/raster_tools.Raster.save_chunks.html">raster_tools.Raster.save_chunks</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/raster_tools.Raster.explore.html">raster_tools.Raster.explore</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/raster_tools.Raster.plot.html">raster_tools.Raster.plot</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/raster_tools.Raster.get_chunk_bounding_boxes.html">raster_tools.Raster.get_chunk_bounding_boxes</a></li>
@@ -473,6 +477,7 @@ document.write(`
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#contents-conversion">Contents / Conversion</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#georeferencing">Georeferencing</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#warping">Warping</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#padding">Padding</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#raster-io">Raster IO</a></li>
 </ul>
 </li>
@@ -785,6 +790,20 @@ of this, they can be used like regular scalar variables. Some examples:</p>
 </tbody>
 </table>
 </section>
+<section id="padding">
+<h3>Padding<a class="headerlink" href="#padding" title="Permalink to this headline">#</a></h3>
+<table class="autosummary longtable table autosummary">
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 90%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/raster_tools.Raster.pad.html#raster_tools.Raster.pad" title="raster_tools.Raster.pad"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Raster.pad</span></code></a>(target, *[, fill_values])</p></td>
+<td><p>Pad the raster's grid out to cover the given extent.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
 <section id="raster-io">
 <h3>Raster IO<a class="headerlink" href="#raster-io" title="Permalink to this headline">#</a></h3>
 <table class="autosummary longtable table autosummary">
@@ -804,6 +823,9 @@ of this, they can be used like regular scalar variables. Some examples:</p>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="generated/raster_tools.Raster.save.html#raster_tools.Raster.save" title="raster_tools.Raster.save"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Raster.save</span></code></a>(path[, null_value, driver, ...])</p></td>
 <td><p>Compute the final raster and save it to the provided location.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/raster_tools.Raster.save_chunks.html#raster_tools.Raster.save_chunks" title="raster_tools.Raster.save_chunks"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Raster.save_chunks</span></code></a>(prefix, *[, per_band, ext])</p></td>
+<td><p>Save each dask chunk to a separate raster file.</p></td>
 </tr>
 </tbody>
 </table>
@@ -914,6 +936,7 @@ of this, they can be used like regular scalar variables. Some examples:</p>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#contents-conversion">Contents / Conversion</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#georeferencing">Georeferencing</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#warping">Warping</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#padding">Padding</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#raster-io">Raster IO</a></li>
 </ul>
 </li>

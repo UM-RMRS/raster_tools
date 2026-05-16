@@ -9,7 +9,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
 
-    <title>Top Level Functions &#8212; raster_tools 0.10.2 documentation</title>
+    <title>Top Level Functions &#8212; raster_tools 0.11.0 documentation</title>
   
   
   
@@ -117,7 +117,7 @@
   
   
   
-    <p class="title logo__title">raster_tools 0.10.2 documentation</p>
+    <p class="title logo__title">raster_tools 0.11.0 documentation</p>
   
 </a></div>
         <div class="sidebar-primary-item"><nav class="bd-links" id="bd-docs-nav" aria-label="Main">
@@ -130,6 +130,7 @@
 <li class="toctree-l3"><a class="reference internal" href="generated/raster_tools.open_dataset.html">raster_tools.open_dataset</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/raster_tools.band_concat.html">raster_tools.band_concat</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/raster_tools.mosaic.html">raster_tools.mosaic</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/raster_tools.split_bands.html">raster_tools.split_bands</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/raster_tools.stack_bands.html">raster_tools.stack_bands</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/raster_tools.constant_raster.html">raster_tools.constant_raster</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/raster_tools.empty_like.html">raster_tools.empty_like</a></li>
@@ -139,6 +140,7 @@
 <li class="toctree-l3"><a class="reference internal" href="generated/raster_tools.zeros_like.html">raster_tools.zeros_like</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/raster_tools.reclassify.html">raster_tools.reclassify</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/raster_tools.remap_range.html">raster_tools.remap_range</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/raster_tools.pad.html">raster_tools.pad</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/raster_tools.Vector.html">raster_tools.Vector</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/raster_tools.count_layer_features.html">raster_tools.count_layer_features</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/raster_tools.list_layers.html">raster_tools.list_layers</a></li>
@@ -196,10 +198,12 @@
 <li class="toctree-l3"><a class="reference internal" href="generated/raster_tools.Raster.set_crs.html">raster_tools.Raster.set_crs</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/raster_tools.Raster.xy.html">raster_tools.Raster.xy</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/raster_tools.Raster.reproject.html">raster_tools.Raster.reproject</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/raster_tools.Raster.pad.html">raster_tools.Raster.pad</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/raster_tools.Raster.close.html">raster_tools.Raster.close</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/raster_tools.Raster.eval.html">raster_tools.Raster.eval</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/raster_tools.Raster.load.html">raster_tools.Raster.load</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/raster_tools.Raster.save.html">raster_tools.Raster.save</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/raster_tools.Raster.save_chunks.html">raster_tools.Raster.save_chunks</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/raster_tools.Raster.explore.html">raster_tools.Raster.explore</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/raster_tools.Raster.plot.html">raster_tools.Raster.plot</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/raster_tools.Raster.get_chunk_bounding_boxes.html">raster_tools.Raster.get_chunk_bounding_boxes</a></li>
@@ -459,6 +463,7 @@ document.write(`
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#combining-rasters">Combining Rasters</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#creating-rasters-from-a-template">Creating Rasters from a Template</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#remapping-rasters">Remapping Rasters</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#padding-rasters">Padding Rasters</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#vectors">Vectors</a></li>
 </ul>
             </nav>
@@ -504,7 +509,10 @@ document.write(`
 <tr class="row-even"><td><p><a class="reference internal" href="generated/raster_tools.mosaic.html#raster_tools.mosaic" title="raster_tools.mosaic"><code class="xref py py-obj docutils literal notranslate"><span class="pre">mosaic</span></code></a>(rasters[, mosaic_method, dst_crs, ...])</p></td>
 <td><p>Mosaic multiple rasters into a new, single raster.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/raster_tools.stack_bands.html#raster_tools.stack_bands" title="raster_tools.stack_bands"><code class="xref py py-obj docutils literal notranslate"><span class="pre">stack_bands</span></code></a>(rasters[, dst_crs, dst_grid, ...])</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/raster_tools.split_bands.html#raster_tools.split_bands" title="raster_tools.split_bands"><code class="xref py py-obj docutils literal notranslate"><span class="pre">split_bands</span></code></a>(raster)</p></td>
+<td><p>Split a multi-band raster into a list of single-band rasters.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/raster_tools.stack_bands.html#raster_tools.stack_bands" title="raster_tools.stack_bands"><code class="xref py py-obj docutils literal notranslate"><span class="pre">stack_bands</span></code></a>(rasters[, dst_crs, dst_grid, ...])</p></td>
 <td><p>Stack input rasters into a multi-band raster.</p></td>
 </tr>
 </tbody>
@@ -518,23 +526,23 @@ document.write(`
 <col style="width: 90%" />
 </colgroup>
 <tbody>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/raster_tools.constant_raster.html#raster_tools.constant_raster" title="raster_tools.constant_raster"><code class="xref py py-obj docutils literal notranslate"><span class="pre">constant_raster</span></code></a>(raster_template[, value, ...])</p></td>
-<td><p>Create a Raster filled with a constant value like a template raster.</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/raster_tools.constant_raster.html#raster_tools.constant_raster" title="raster_tools.constant_raster"><code class="xref py py-obj docutils literal notranslate"><span class="pre">constant_raster</span></code></a>([template, value, bands, ...])</p></td>
+<td><p>Create a Raster filled with a constant value like a template.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/raster_tools.empty_like.html#raster_tools.empty_like" title="raster_tools.empty_like"><code class="xref py py-obj docutils literal notranslate"><span class="pre">empty_like</span></code></a>(raster_template[, bands, dtype, ...])</p></td>
-<td><p>Create a Raster filled with uninitialized data like a template raster.</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/raster_tools.empty_like.html#raster_tools.empty_like" title="raster_tools.empty_like"><code class="xref py py-obj docutils literal notranslate"><span class="pre">empty_like</span></code></a>([template, bands, dtype, ...])</p></td>
+<td><p>Create a Raster filled with uninitialized data like a template.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/raster_tools.full_like.html#raster_tools.full_like" title="raster_tools.full_like"><code class="xref py py-obj docutils literal notranslate"><span class="pre">full_like</span></code></a>(raster_template, value[, bands, ...])</p></td>
-<td><p>Create a Raster filled with a constant value like a template raster.</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/raster_tools.full_like.html#raster_tools.full_like" title="raster_tools.full_like"><code class="xref py py-obj docutils literal notranslate"><span class="pre">full_like</span></code></a>([template, value, bands, dtype, ...])</p></td>
+<td><p>Create a Raster filled with a constant value like a template.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/raster_tools.ones_like.html#raster_tools.ones_like" title="raster_tools.ones_like"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ones_like</span></code></a>(raster_template[, bands, dtype, ...])</p></td>
-<td><p>Create a Raster filled with ones like a template raster.</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/raster_tools.ones_like.html#raster_tools.ones_like" title="raster_tools.ones_like"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ones_like</span></code></a>([template, bands, dtype, ...])</p></td>
+<td><p>Create a Raster filled with ones like a template.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/raster_tools.random_raster.html#raster_tools.random_raster" title="raster_tools.random_raster"><code class="xref py py-obj docutils literal notranslate"><span class="pre">random_raster</span></code></a>(raster_template[, ...])</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/raster_tools.random_raster.html#raster_tools.random_raster" title="raster_tools.random_raster"><code class="xref py py-obj docutils literal notranslate"><span class="pre">random_raster</span></code></a>([template, distribution, ...])</p></td>
 <td><p>Creates a Raster of random values based on the desired distribution.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/raster_tools.zeros_like.html#raster_tools.zeros_like" title="raster_tools.zeros_like"><code class="xref py py-obj docutils literal notranslate"><span class="pre">zeros_like</span></code></a>(raster_template[, bands, dtype, ...])</p></td>
-<td><p>Create a Raster filled with zeros like a template raster.</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/raster_tools.zeros_like.html#raster_tools.zeros_like" title="raster_tools.zeros_like"><code class="xref py py-obj docutils literal notranslate"><span class="pre">zeros_like</span></code></a>([template, bands, dtype, ...])</p></td>
+<td><p>Create a Raster filled with zeros like a template.</p></td>
 </tr>
 </tbody>
 </table>
@@ -552,6 +560,20 @@ document.write(`
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="generated/raster_tools.remap_range.html#raster_tools.remap_range" title="raster_tools.remap_range"><code class="xref py py-obj docutils literal notranslate"><span class="pre">remap_range</span></code></a>(raster, mapping[, inclusivity])</p></td>
 <td><p>Remaps values based on a mapping or list of mappings.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="padding-rasters">
+<h2>Padding Rasters<a class="headerlink" href="#padding-rasters" title="Permalink to this headline">#</a></h2>
+<table class="autosummary longtable table autosummary">
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 90%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/raster_tools.pad.html#raster_tools.pad" title="raster_tools.pad"><code class="xref py py-obj docutils literal notranslate"><span class="pre">pad</span></code></a>(raster, target, *[, fill_values])</p></td>
+<td><p>Pad a raster's grid out to cover the given extent.</p></td>
 </tr>
 </tbody>
 </table>
@@ -633,6 +655,7 @@ document.write(`
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#combining-rasters">Combining Rasters</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#creating-rasters-from-a-template">Creating Rasters from a Template</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#remapping-rasters">Remapping Rasters</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#padding-rasters">Padding Rasters</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#vectors">Vectors</a></li>
 </ul>
   </nav></div>

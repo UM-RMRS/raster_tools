@@ -21,6 +21,7 @@ Combining Rasters
 
    band_concat
    mosaic
+   split_bands
    stack_bands
 
 Creating Rasters from a Template
@@ -44,6 +45,14 @@ Remapping Rasters
 
    reclassify
    remap_range
+
+Padding Rasters
+===============
+
+.. autosummary::
+   :toctree: generated/
+
+   pad
 
 Vectors
 =======
