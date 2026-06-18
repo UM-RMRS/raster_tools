@@ -2787,3 +2787,94 @@ def test_geo_infer_output_dtype_validates_shapes_even_with_meta():
             r2,
             meta=np.empty((), dtype=np.float32),
         )
+
+
+# ---------------------------------------------------------------------------
+# C: mismatched input chunking is aligned to the first input
+#
+# Same-grid inputs with different chunking used to crash with an opaque
+# dask IndexError (map_blocks / geo_map_blocks / geo_map_overlap). They
+# are now rechunked to the first input's chunk structure.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "fn",
+    [
+        lambda r1, r2: map_blocks(lambda a, b: a + b, r1, r2),
+        lambda r1, r2: map_overlap(
+            lambda a, b: a + b, r1, r2, depth=1, boundary="reflect"
+        ),
+        lambda r1, r2: geo_map_blocks(lambda a, b, **k: a + b, r1, r2),
+        lambda r1, r2: geo_map_overlap(
+            lambda a, b, **k: a + b, r1, r2, depth=1, boundary="reflect"
+        ),
+    ],
+)
+def test_mismatched_input_chunks_aligned_to_first(fn):
+    r1 = make_raster(shape=(1, 100, 100), dtype=np.float32).chunk((1, 50, 50))
+    # Same data and grid as r1 but a different chunk structure.
+    r2 = rts.data_to_raster(
+        r1.data.compute(), x=r1.x, y=r1.y, crs=r1.crs
+    ).chunk((1, 25, 25))
+    assert r1.data.chunks != r2.data.chunks
+    out = fn(r1, r2)
+    np.testing.assert_allclose(
+        out.data.compute(), r1.data.compute() * 2, rtol=1e-5
+    )
+    # Output lands on the first input's chunking (depth=1 -> no
+    # min-chunk growth for the overlap variants).
+    assert out.data.chunks == r1.data.chunks
+
+
+def test_reproject_workflow_aligns_chunks_regression():
+    # The documented alignment recipe: r2.reproject(r1.geobox). reproject
+    # does not adopt the target's chunking, which used to crash
+    # geo_map_blocks with an opaque IndexError.
+    r1 = make_raster(shape=(1, 100, 100), dtype=np.float32).chunk((1, 50, 50))
+    # Same grid/data as r1 but oddly chunked; reproject onto r1's geobox
+    # keeps values (identity) while retaining the odd chunking.
+    r2 = rts.data_to_raster(
+        r1.data.compute(), x=r1.x, y=r1.y, crs=r1.crs
+    ).chunk((1, 32, 32))
+    r2 = r2.reproject(r1.geobox)
+    assert r2.data.chunks != r1.data.chunks
+    assert r1.geobox == r2.geobox
+    out = geo_map_blocks(lambda a, b, **k: a + b, r1, r2)
+    np.testing.assert_allclose(
+        out.data.compute(), r1.data.compute() * 2, rtol=1e-5
+    )
+    assert out.data.chunks == r1.data.chunks
+
+
+# ---------------------------------------------------------------------------
+# Multi-band / multi-band-chunk coverage
+# ---------------------------------------------------------------------------
+
+
+def test_map_blocks_multiband_multichunk():
+    r = make_raster(shape=(4, 60, 60), dtype=np.float32).chunk((2, 30, 30))
+    out = map_blocks(lambda d: d * 2, r)
+    np.testing.assert_allclose(out.data.compute(), r.data.compute() * 2)
+    assert out.shape == (4, 60, 60)
+
+
+def test_geo_map_blocks_multiband_multichunk():
+    r = make_raster(shape=(4, 60, 60), dtype=np.float32).chunk((2, 30, 30))
+    seen = []
+
+    def f(xda, geo_block_info=None, **kw):
+        if geo_block_info is not None:
+            # The block's band coords match the gbi's band slice.
+            np.testing.assert_array_equal(
+                xda.coords["band"].values, geo_block_info.band
+            )
+            assert xda.shape == geo_block_info.shape
+            seen.append(geo_block_info.chunk_location)
+        return xda * 2
+
+    out = geo_map_blocks(f, r)
+    np.testing.assert_allclose(out.data.compute(), r.data.compute() * 2)
+    assert out.shape == (4, 60, 60)
+    # 2 band-chunks x 2 y-chunks x 2 x-chunks = 8 blocks.
+    assert len(set(seen)) == 8

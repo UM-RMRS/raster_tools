@@ -498,12 +498,13 @@ def map_blocks(
         meta is correct.
     *rasters : Raster or str
         One or more aligned input rasters. Path strings are accepted.
-        Only the 3D shape is validated; CRS, affine, and chunk
-        alignment are *not* checked (mirroring ``gdal_calc.py``'s
-        default behavior). The caller is responsible for aligning
-        inputs -- typically via ``r2.reproject(r1.geobox)``. For a
-        geo-aware variant that strictly requires matching grids, see
-        :func:`geo_map_blocks`.
+        Only the 3D shape is validated; CRS and affine are *not*
+        checked (mirroring ``gdal_calc.py``'s default behavior). The
+        caller is responsible for aligning inputs -- typically via
+        ``r2.reproject(r1.geobox)``. Inputs are auto-rechunked to the
+        first input's chunk structure, so same-shape inputs with
+        differing chunking are handled. For a geo-aware variant that
+        strictly requires matching grids, see :func:`geo_map_blocks`.
     dtype : dtype-like, optional
         Output dtype. When ``None`` (default), dask infers the dtype
         by calling ``func`` on tiny meta samples (matches NumPy
@@ -624,6 +625,7 @@ def map_blocks(
     _check_reserved_kwargs(kwargs, _MAP_BLOCKS_RESERVED_KWARGS, "map_blocks")
     rasters = [get_raster(r) for r in rasters]
     _check_shape_aligned(rasters)
+    rasters = _align_chunks_to_ref(rasters)
     ref = rasters[0]
     wrapper, inputs = _build_map_blocks_wrapper(
         func,
@@ -657,9 +659,15 @@ def _build_map_blocks_wrapper(
     The wrapper captures only small immutable values from the input
     rasters (per-input null values, ref dtype + null value, and the
     user's ``null_value`` parameter) so dask doesn't ship full
-    Raster objects across workers. ``out_null_value`` is resolved
-    inside the wrapper at call time using
-    ``block_info[None]["dtype"]``, so no pre-resolution is needed.
+    Raster objects across workers.
+
+    ``out_dtype_hint`` is the caller-resolved output dtype (from
+    ``dtype=`` / ``meta=``; see :func:`_out_dtype_hint`) or ``None``.
+    When the user's ``func`` opts in to ``out_null_value``, the wrapper
+    resolves it per chunk from the hint when set, otherwise from
+    ``block_info[None]["dtype"]``. The hint is needed because dask
+    leaves ``block_info[None]["dtype"]`` as ``None`` when ``meta=`` is
+    set, even though the meta's dtype is the real output dtype.
     """
     pass_masks = has_keyword(func, "input_masks")
     pass_block_info = has_keyword(func, "block_info")
@@ -1076,8 +1084,29 @@ def _normalize_depth(depth):
     raise TypeError(f"depth must be an int, 2-tuple, or dict; got {depth!r}")
 
 
+def _align_chunks_to_ref(rasters):
+    """Rechunk all inputs to the first raster's chunk structure.
+
+    ``map_blocks`` / ``map_overlap`` / ``geo_map_blocks`` pass the inputs
+    straight to dask, which needs identical block structure across the
+    arrays. Inputs that share a grid but are chunked differently (e.g.
+    after ``reproject``, which does not adopt the target's chunking)
+    otherwise crash with an opaque dask ``IndexError``. Aligning to
+    ``ref`` also keeps the per-chunk :class:`GeoBlockInfo` lookup (built
+    from ``ref``) valid, and keeps the output -- which lands on ``ref``'s
+    grid -- on ``ref``'s chunking. ``r.chunk`` rechunks each raster's
+    data and mask together, so the two stay consistent. No-op for a
+    single input.
+    """
+    ref_chunks = rasters[0].data.chunks
+    return [
+        r if r.data.chunks == ref_chunks else r.chunk(ref_chunks)
+        for r in rasters
+    ]
+
+
 def _ensure_chunks_for_overlap(rasters, depth_dict):
-    """Rechunk inputs so each spatial chunk is at least ``depth`` wide.
+    """Grow chunks for ``depth`` and align all inputs to ``ref``.
 
     ``geo_map_overlap`` builds a per-chunk :class:`GeoBlockInfo` lookup
     from the input's pre-call chunking and keys it by
@@ -1086,6 +1115,13 @@ def _ensure_chunks_for_overlap(rasters, depth_dict):
     depth on that axis), the in-wrapper chunk-location refers to the
     rechunked grid and won't match the lookup. Pre-rechunking here
     keeps both in sync.
+
+    The target chunking is ``ref``'s spatial chunks grown to satisfy the
+    depth minimum on each axis. Every input (including ``ref``) whose
+    chunks differ from that target is rechunked to it, so same-grid
+    inputs with differing chunking are aligned in the same pass (see
+    :func:`_align_chunks_to_ref`). ``ref`` is left untouched when it
+    already matches.
     """
 
     def _depth_for_axis(axis):
@@ -1104,10 +1140,11 @@ def _ensure_chunks_for_overlap(rasters, depth_dict):
             strict=True,
         )
     )
-    if new_yx == yx_chunks:
-        return rasters
-    new_chunks_3d = (ref.data.chunks[0], *new_yx)
-    return [r.chunk(new_chunks_3d) for r in rasters]
+    target_chunks_3d = (ref.data.chunks[0], *new_yx)
+    return [
+        r if r.data.chunks == target_chunks_3d else r.chunk(target_chunks_3d)
+        for r in rasters
+    ]
 
 
 def _resolve_boundary(boundary, raster):
@@ -1226,11 +1263,13 @@ def map_overlap(
         block. For non-numpy backends, also pass ``meta=``.
     *rasters : Raster or str
         One or more aligned input rasters. Path strings are accepted.
-        Only the 3D shape is validated; CRS, affine, and chunk
-        alignment are *not* checked. The caller is responsible for
-        aligning inputs -- typically via ``r2.reproject(r1.geobox)``.
-        For a geo-aware variant that strictly requires matching grids,
-        see :func:`geo_map_overlap`.
+        Only the 3D shape is validated; CRS and affine are *not*
+        checked. The caller is responsible for aligning inputs --
+        typically via ``r2.reproject(r1.geobox)``. Inputs are
+        auto-rechunked to the first input's chunk structure, so
+        same-shape inputs with differing chunking are handled. For a
+        geo-aware variant that strictly requires matching grids, see
+        :func:`geo_map_overlap`.
     depth : int, tuple of int, or dict
         Number of overlap cells per spatial axis. ``int`` applies to
         both ``y`` and ``x`` (band axis fixed at 0).
@@ -1370,6 +1409,7 @@ def map_overlap(
     _check_reserved_kwargs(kwargs, _MAP_BLOCKS_RESERVED_KWARGS, "map_overlap")
     rasters = [get_raster(r) for r in rasters]
     _check_shape_aligned(rasters)
+    rasters = _align_chunks_to_ref(rasters)
     ref = rasters[0]
     depth_dict = _normalize_depth(depth)
     _check_asymmetric_depth_compatible_with_boundary(depth_dict, boundary)
@@ -1472,6 +1512,11 @@ def _build_geo_wrapper(
     decides how to translate dask's chunk-location into the gbi the
     user sees. Pass ``_resolve_gbi_no_pad`` for the no-overlap
     flavor; ``_resolve_gbi_with_overlap_pad`` for overlap.
+
+    ``out_dtype_hint`` is the caller-resolved output dtype (from
+    ``dtype=`` / ``meta=``) or ``None``; it is preferred over
+    ``block_info[None]["dtype"]`` when resolving a per-chunk
+    ``out_null_value`` (same rule as :func:`_build_map_blocks_wrapper`).
 
     Returns ``(wrapper, inputs)``. Captures only small immutables in
     the closure -- no Raster references.
@@ -1623,8 +1668,8 @@ def geo_map_blocks(
     Per-block contract
     ------------------
     Per-block kwargs (opt-in): ``input_masks``, ``input_null_values``,
-    ``block_info``, ``out_null_value``. Name any of these in ``func``'s
-    signature to receive them per chunk; see below.
+    ``block_info``, ``out_null_value``, ``geo_block_info``. Name any of
+    these in ``func``'s signature to receive them per chunk; see below.
 
     The output Raster's mask is rebuilt from the output data and the
     resolved output null value (``out_data == null_value``, or
@@ -1687,7 +1732,10 @@ def geo_map_blocks(
         inputs must be on the same grid (CRS, affine, shape) within
         the established sub-pixel tolerance; mismatched inputs raise
         ``ValueError``. Use ``r2.reproject(r1.geobox)`` to align
-        inputs first if needed.
+        inputs first if needed. Inputs are then auto-rechunked to the
+        first input's chunk structure (``reproject`` does not adopt
+        the target's chunking), so the output stays on the first
+        input's grid and chunking.
     dtype : dtype-like, optional
         Output dtype. When ``None`` (default), dask infers the dtype
         by calling ``func`` on tiny meta samples.
@@ -1824,6 +1872,8 @@ def geo_map_blocks(
             "Raster.reproject(crs_or_geobox=...) to align inputs "
             "first, e.g. r2.reproject(r1.geobox)."
         )
+    rasters = _align_chunks_to_ref(rasters)
+    ref = rasters[0]
     wrapper, inputs = _build_geo_map_blocks_wrapper(
         func,
         rasters,
@@ -1866,8 +1916,8 @@ def geo_map_overlap(
     Per-block contract
     ------------------
     Per-block kwargs (opt-in): ``input_masks``, ``input_null_values``,
-    ``block_info``, ``out_null_value``. Name any of these in ``func``'s
-    signature to receive them per chunk; see below.
+    ``block_info``, ``out_null_value``, ``geo_block_info``. Name any of
+    these in ``func``'s signature to receive them per chunk; see below.
 
     The output Raster's mask is rebuilt from the output data and the
     resolved output null value (``out_data == null_value``, or
@@ -1933,7 +1983,10 @@ def geo_map_overlap(
         inputs must be on the same grid (CRS, affine, shape) within
         the established sub-pixel tolerance; mismatched inputs raise
         ``ValueError``. Use ``r2.reproject(r1.geobox)`` to align
-        inputs first if needed.
+        inputs first if needed. Inputs are then auto-rechunked to the
+        first input's chunk structure (``reproject`` does not adopt
+        the target's chunking), so the output stays on the first
+        input's grid and chunking.
     depth : int, tuple of int, or dict
         Same semantics as :func:`map_overlap`.
     boundary : optional
