@@ -502,6 +502,7 @@ def test_map_blocks_plain_func_gets_no_injection():
         assert "input_masks" not in kw_keys
         assert "input_null_values" not in kw_keys
         assert "block_info" not in kw_keys
+        assert "block_id" not in kw_keys
 
 
 def test_map_blocks_input_null_values_injected():
@@ -541,6 +542,48 @@ def test_map_blocks_block_info_injected():
         (0, 1, 0),
         (0, 1, 1),
     ]
+
+
+def test_map_blocks_block_id_injected():
+    r = make_raster(
+        shape=(1, 100, 100), dtype=np.float32, chunksize=(1, 50, 50)
+    )
+
+    seen = []
+
+    def f(d, *, block_id):
+        # None during the meta inference call; a chunk-location tuple
+        # on real per-block calls.
+        if block_id is not None:
+            seen.append(block_id)
+        return d
+
+    map_blocks(f, r).data.compute()
+    # 2x2 spatial chunks -> 4 unique chunk locations (band axis 0).
+    assert sorted(set(seen)) == [
+        (0, 0, 0),
+        (0, 0, 1),
+        (0, 1, 0),
+        (0, 1, 1),
+    ]
+
+
+def test_map_blocks_block_id_matches_block_info_chunk_location():
+    # block_id is exactly block_info[None]["chunk-location"].
+    r = make_raster(
+        shape=(1, 100, 100), dtype=np.float32, chunksize=(1, 50, 50)
+    )
+
+    seen = []
+
+    def f(d, *, block_id, block_info):
+        if block_info is not None:
+            seen.append((block_id, block_info[None]["chunk-location"]))
+        return d
+
+    map_blocks(f, r).data.compute()
+    assert seen
+    assert all(bid == loc for bid, loc in seen)
 
 
 def test_map_blocks_multiple_specials_simultaneously():
@@ -592,6 +635,7 @@ def test_map_blocks_kwargs_only_func_gets_no_injection():
         assert "input_masks" not in kw_keys
         assert "input_null_values" not in kw_keys
         assert "block_info" not in kw_keys
+        assert "block_id" not in kw_keys
 
 
 @pytest.mark.parametrize(
@@ -600,6 +644,7 @@ def test_map_blocks_kwargs_only_func_gets_no_injection():
         "input_masks",
         "input_null_values",
         "block_info",
+        "block_id",
         "out_null_value",
     ],
 )
@@ -1632,6 +1677,22 @@ def test_geo_map_blocks_block_info_injected():
     assert len(set(seen)) == 4
 
 
+def test_geo_map_blocks_block_id_injected():
+    r = make_raster(
+        shape=(1, 100, 100), dtype=np.float32, chunksize=(1, 50, 50)
+    )
+    seen = []
+
+    def f(xda, *, block_id, block_info):
+        if block_info is not None:
+            seen.append((block_id, block_info[None]["chunk-location"]))
+        return xda
+
+    geo_map_blocks(f, r).data.compute()
+    assert len(seen) == 4
+    assert all(bid == loc for bid, loc in seen)
+
+
 def test_geo_map_blocks_geo_block_info_optin():
     # geo_block_info is opt-in: a func that doesn't name it doesn't
     # receive it. Bare 1-arg signature is now valid.
@@ -1760,9 +1821,11 @@ _DASK_LEAK_NAMES = [
     "token",
     "drop_axis",
     "new_axis",
+    "enforce_ndim",
     "concatenate",
     "align_arrays",
     "trim",
+    "allow_rechunk",
 ]
 
 

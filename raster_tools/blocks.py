@@ -309,13 +309,25 @@ def geo_block_infos_as_dask(raster):
 # func opts in to any of these by including them as named parameters.
 # The caller of map_blocks may not pass them via **kwargs.
 _MAP_BLOCKS_RESERVED_KWARGS = frozenset(
-    {"input_masks", "input_null_values", "block_info", "out_null_value"}
+    {
+        "input_masks",
+        "input_null_values",
+        "block_info",
+        "block_id",
+        "out_null_value",
+    }
 )
 
 # Kwarg names that dask's map_blocks / map_overlap accept as graph-
-# construction options. If a caller passes one via our **kwargs path
-# it would silently be forwarded to their per-block func instead of
-# dask. Reject upfront with a message pointing them at dask directly.
+# construction options. If a caller passes one via our **kwargs path it
+# would silently alter dask's graph (or, for names dask doesn't
+# recognize on the path taken, be forwarded to their per-block func) --
+# either way bypassing our shape-preserving / mask-rebuilding contract.
+# Reject upfront with a message pointing them at dask directly.
+# ``enforce_ndim`` is map_blocks-only and ``allow_rechunk`` is
+# map_overlap-only, but both flavors share this set; rejecting a name
+# the other flavor wouldn't consume is harmless and keeps the contract
+# uniform.
 _DASK_RESERVED_KWARGS = frozenset(
     {
         "chunks",
@@ -323,9 +335,11 @@ _DASK_RESERVED_KWARGS = frozenset(
         "token",
         "drop_axis",
         "new_axis",
+        "enforce_ndim",
         "concatenate",
         "align_arrays",
         "trim",
+        "allow_rechunk",
     }
 )
 
@@ -435,8 +449,8 @@ def map_blocks(
     Per-block contract
     ------------------
     Per-block kwargs (opt-in): ``input_masks``, ``input_null_values``,
-    ``block_info``, ``out_null_value``. Name any of these in ``func``'s
-    signature to receive them per chunk; see below.
+    ``block_info``, ``block_id``, ``out_null_value``. Name any of these
+    in ``func``'s signature to receive them per chunk; see below.
 
     The output Raster's mask is rebuilt from the output data and the
     resolved output null value (``out_data == null_value``, or
@@ -466,6 +480,10 @@ def map_blocks(
       raster's ``null_value`` (``None`` if unset).
     - ``block_info`` -- dask's standard per-block info dict (see
       :func:`dask.array.map_blocks`).
+    - ``block_id`` -- dask's standard per-block index tuple: the
+      block's ``chunk-location`` (equivalently
+      ``block_info[None]["chunk-location"]``). ``None`` during the
+      meta inference call.
     - ``out_null_value`` -- scalar; the resolved output null value
       the wrapper will use to derive the output mask. Write this
       sentinel at cells you want masked. See "Output null value
@@ -478,9 +496,9 @@ def map_blocks(
 
     Reserved kwargs
     ---------------
-    ``input_masks``, ``input_null_values``, ``block_info``, and
-    ``out_null_value`` are reserved. Passing any of them via
-    ``map_blocks``'s own ``**kwargs`` raises ``ValueError`` --
+    ``input_masks``, ``input_null_values``, ``block_info``,
+    ``block_id``, and ``out_null_value`` are reserved. Passing any of
+    them via ``map_blocks``'s own ``**kwargs`` raises ``ValueError`` --
     otherwise the wrapper's injection would silently clobber the
     caller's value.
 
@@ -670,6 +688,7 @@ def _build_map_blocks_wrapper(
     """
     pass_masks = has_keyword(func, "input_masks")
     pass_block_info = has_keyword(func, "block_info")
+    pass_block_id = has_keyword(func, "block_id")
     pass_input_nvs = has_keyword(func, "input_null_values")
     pass_out_nv = has_keyword(func, "out_null_value")
 
@@ -701,6 +720,17 @@ def _build_map_blocks_wrapper(
             input_data = block_args
         if pass_block_info:
             inner_kwargs["block_info"] = block_info
+        if pass_block_id:
+            # dask's block_id is the output block's chunk-location, i.e.
+            # block_info[None]["chunk-location"]. Derive it from
+            # block_info (rather than declaring block_id on the wrapper)
+            # so the meta-inference call -- where block_info is None --
+            # cleanly yields block_id=None too, matching dask.
+            inner_kwargs["block_id"] = (
+                None
+                if block_info is None
+                else block_info[None]["chunk-location"]
+            )
         if pass_input_nvs:
             inner_kwargs["input_null_values"] = nvs
         if pass_out_nv:
@@ -964,8 +994,8 @@ def map_overlap(
     Per-block contract
     ------------------
     Per-block kwargs (opt-in): ``input_masks``, ``input_null_values``,
-    ``block_info``, ``out_null_value``. Name any of these in ``func``'s
-    signature to receive them per chunk; see below.
+    ``block_info``, ``block_id``, ``out_null_value``. Name any of these
+    in ``func``'s signature to receive them per chunk; see below.
 
     The output Raster's mask is rebuilt from the output data and the
     resolved output null value (``out_data == null_value``, or
@@ -995,6 +1025,10 @@ def map_overlap(
     - ``input_null_values`` -- tuple of N scalars, each input
       raster's ``null_value`` (``None`` if unset).
     - ``block_info`` -- dask's standard per-block info dict.
+    - ``block_id`` -- dask's standard per-block index tuple: the
+      block's ``chunk-location`` (equivalently
+      ``block_info[None]["chunk-location"]``). ``None`` during the
+      meta inference call.
     - ``out_null_value`` -- scalar; the resolved output null value
       the wrapper will use to derive the output mask. Write this
       sentinel at cells you want masked. See "Output null value
@@ -1005,9 +1039,9 @@ def map_overlap(
 
     Reserved kwargs
     ---------------
-    ``input_masks``, ``input_null_values``, ``block_info``, and
-    ``out_null_value`` are reserved. Passing any of them via
-    ``map_overlap``'s own ``**kwargs`` raises ``ValueError``.
+    ``input_masks``, ``input_null_values``, ``block_info``,
+    ``block_id``, and ``out_null_value`` are reserved. Passing any of
+    them via ``map_overlap``'s own ``**kwargs`` raises ``ValueError``.
 
     Parameters
     ----------
@@ -1280,6 +1314,7 @@ def _build_geo_wrapper(
     """
     pass_masks = has_keyword(func, "input_masks")
     pass_block_info = has_keyword(func, "block_info")
+    pass_block_id = has_keyword(func, "block_id")
     pass_input_nvs = has_keyword(func, "input_null_values")
     pass_out_nv = has_keyword(func, "out_null_value")
     pass_geo_block_info = has_keyword(func, "geo_block_info")
@@ -1340,6 +1375,14 @@ def _build_geo_wrapper(
             inner_kwargs["input_null_values"] = nvs
         if pass_block_info:
             inner_kwargs["block_info"] = block_info
+        if pass_block_id:
+            # See _build_map_blocks_wrapper: derive from block_info so
+            # the meta call (block_info None) yields block_id=None.
+            inner_kwargs["block_id"] = (
+                None
+                if block_info is None
+                else block_info[None]["chunk-location"]
+            )
         if pass_geo_block_info:
             inner_kwargs["geo_block_info"] = gbi
         if pass_out_nv:
@@ -1425,8 +1468,9 @@ def geo_map_blocks(
     Per-block contract
     ------------------
     Per-block kwargs (opt-in): ``input_masks``, ``input_null_values``,
-    ``block_info``, ``out_null_value``, ``geo_block_info``. Name any of
-    these in ``func``'s signature to receive them per chunk; see below.
+    ``block_info``, ``block_id``, ``out_null_value``, ``geo_block_info``.
+    Name any of these in ``func``'s signature to receive them per chunk;
+    see below.
 
     The output Raster's mask is rebuilt from the output data and the
     resolved output null value (``out_data == null_value``, or
@@ -1457,6 +1501,10 @@ def geo_map_blocks(
     - ``input_null_values`` -- tuple of N scalars, each input's
       ``null_value`` (``None`` if unset).
     - ``block_info`` -- dask's standard per-block info dict.
+    - ``block_id`` -- dask's standard per-block index tuple: the
+      block's ``chunk-location`` (equivalently
+      ``block_info[None]["chunk-location"]``). ``None`` during the
+      meta inference call.
     - ``out_null_value`` -- scalar; the resolved output null value
       the wrapper will use to derive the output mask. Write this
       sentinel at cells you want masked. See "Output null value
@@ -1471,9 +1519,9 @@ def geo_map_blocks(
     Reserved kwargs
     ---------------
     ``input_masks``, ``input_null_values``, ``block_info``,
-    ``out_null_value``, and ``geo_block_info`` are reserved. Passing
-    any of them via ``geo_map_blocks``'s own ``**kwargs`` raises
-    ``ValueError``.
+    ``block_id``, ``out_null_value``, and ``geo_block_info`` are
+    reserved. Passing any of them via ``geo_map_blocks``'s own
+    ``**kwargs`` raises ``ValueError``.
 
     Parameters
     ----------
@@ -1673,8 +1721,9 @@ def geo_map_overlap(
     Per-block contract
     ------------------
     Per-block kwargs (opt-in): ``input_masks``, ``input_null_values``,
-    ``block_info``, ``out_null_value``, ``geo_block_info``. Name any of
-    these in ``func``'s signature to receive them per chunk; see below.
+    ``block_info``, ``block_id``, ``out_null_value``, ``geo_block_info``.
+    Name any of these in ``func``'s signature to receive them per chunk;
+    see below.
 
     The output Raster's mask is rebuilt from the output data and the
     resolved output null value (``out_data == null_value``, or
@@ -1705,6 +1754,10 @@ def geo_map_overlap(
     - ``input_null_values`` -- tuple of N scalars, each input's
       ``null_value`` (``None`` if unset).
     - ``block_info`` -- dask's standard per-block info dict.
+    - ``block_id`` -- dask's standard per-block index tuple: the
+      block's ``chunk-location`` (equivalently
+      ``block_info[None]["chunk-location"]``). ``None`` during the
+      meta inference call.
     - ``out_null_value`` -- scalar; the resolved output null value
       the wrapper will use to derive the output mask. Write this
       sentinel at cells you want masked. See "Output null value
@@ -1722,9 +1775,9 @@ def geo_map_overlap(
     Reserved kwargs
     ---------------
     ``input_masks``, ``input_null_values``, ``block_info``,
-    ``out_null_value``, and ``geo_block_info`` are reserved. Passing
-    any of them via ``geo_map_overlap``'s own ``**kwargs`` raises
-    ``ValueError``.
+    ``block_id``, ``out_null_value``, and ``geo_block_info`` are
+    reserved. Passing any of them via ``geo_map_overlap``'s own
+    ``**kwargs`` raises ``ValueError``.
 
     Parameters
     ----------
