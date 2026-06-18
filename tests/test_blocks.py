@@ -1750,7 +1750,7 @@ def test_meta_dtype_mismatch_raises(fn):
 
 
 # ---------------------------------------------------------------------------
-# dask-kwargs leakage rejection (issue #1)
+# dask-kwargs leakage rejection
 # ---------------------------------------------------------------------------
 
 
@@ -1787,7 +1787,7 @@ def test_dask_kwargs_leakage_rejected(fn, name):
 
 
 # ---------------------------------------------------------------------------
-# DataArray return preservation (issue #2)
+# DataArray return preservation
 # ---------------------------------------------------------------------------
 
 
@@ -2454,7 +2454,7 @@ def test_geo_map_overlap_out_null_value_with_meta_skips_meta_call():
 
 
 # ---------------------------------------------------------------------------
-# C: mismatched input chunking is aligned to the first input
+# mismatched input chunking is aligned to the first input
 #
 # Same-grid inputs with different chunking used to crash with an opaque
 # dask IndexError (map_blocks / geo_map_blocks / geo_map_overlap). They
