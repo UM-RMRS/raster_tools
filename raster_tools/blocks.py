@@ -6,11 +6,14 @@ and :func:`geo_map_overlap` which hand each user callback georeferenced
 :class:`xarray.DataArray` blocks (with band/y/x coords, CRS, nodata)
 instead of raw NumPy blocks.
 
-All four functions are **shape-preserving**: ``func`` must return an
+These are **shape-preserving** by default: ``func`` must return an
 array-like of the same shape as a single input data block (the
 overlap-included shape, for the ``_overlap`` variants). The output
 Raster lands on the first input's grid; ``chunks=`` and other
-graph-construction options are not exposed.
+graph-construction options are not exposed. The one exception is the
+``out_bands`` argument of :func:`map_blocks` / :func:`geo_map_blocks`,
+which changes the **band** count of the output (the y/x grid is still
+preserved); the ``_overlap`` variants remain strictly shape-preserving.
 
 Also defines :class:`GeoBlockInfo`, the geo-aware analog of dask's
 ``block_info`` dict: a per-block metadata object carrying the block's
@@ -22,11 +25,12 @@ build on this primitive to hand each user callback a georeferenced
 NumPy block.
 """
 
+import dask
 import dask.array as da
 import numpy as np
 import xarray as xr
 from affine import Affine
-from dask.utils import has_keyword
+from dask.utils import has_keyword, parse_bytes
 from odc.geo.geobox import GeoBox
 
 from raster_tools._grids import are_all_grids_same
@@ -436,7 +440,13 @@ def _check_dtype_meta_agree(dtype, meta):
 
 
 def map_blocks(
-    func, *rasters, dtype=None, null_value=None, meta=None, **kwargs
+    func,
+    *rasters,
+    dtype=None,
+    null_value=None,
+    meta=None,
+    out_bands=None,
+    **kwargs,
 ):
     """Apply ``func`` block-wise across one or more aligned rasters.
 
@@ -553,6 +563,28 @@ def map_blocks(
         useful when ``func`` cannot tolerate 0-shape input. When
         ``None`` (default), dask derives a NumPy meta by calling
         ``func`` on 0-shape inputs.
+    out_bands : int, optional
+        Number of bands in the output. ``None`` (default) is
+        shape-preserving: the output has the same band count as the
+        input and ``func`` returns same-shape blocks. A positive integer
+        lets ``func`` change the band count (the y/x grid is unchanged),
+        e.g. ``out_bands=3`` to emit three per-pixel statistics from a
+        1-band input, or ``out_bands=1`` to collapse a multi-band stack.
+        ``func`` must return exactly ``out_bands`` bands per block (a
+        mismatch raises ``ValueError``). Consequences when set:
+
+        - The input band axis is collapsed to a **single chunk** so
+          ``func`` sees every band of a spatial tile at once, and the
+          y/x tiles are transparently re-sized so a block holds roughly
+          one ``dask`` ``array.chunk-size`` worth of data -- so ``func``
+          may see different spatial tile sizes than the input's native
+          chunking.
+        - The output Raster is restored to the input's **original** y/x
+          chunking, with per-band band chunks and band coord
+          ``np.arange(out_bands) + 1``.
+        - Passing ``dtype=`` or ``meta=`` is recommended, since dask's
+          0-shape meta call still runs and a band-reshaping ``func`` may
+          not produce the right dtype/shape at 0-shape.
     **kwargs
         Extra keyword arguments forwarded per-block to ``func``. The
         reserved names listed above are not allowed here.
@@ -560,7 +592,8 @@ def map_blocks(
     Returns
     -------
     Raster
-        A new lazy Raster on the first input's grid.
+        A new lazy Raster on the first input's grid (with ``out_bands``
+        bands when that argument is set).
 
     Notes
     -----
@@ -642,16 +675,26 @@ def map_blocks(
     _check_reserved_kwargs(kwargs, _MAP_BLOCKS_RESERVED_KWARGS, "map_blocks")
     rasters = [get_raster(r) for r in rasters]
     _check_shape_aligned(rasters)
-    rasters = _align_chunks_to_ref(rasters)
+    # Pre-rechunk template: keeps the output on the caller's original
+    # y/x chunking even when out_bands re-tiles inputs for the compute.
+    orig_ref = rasters[0]
+    if out_bands is None:
+        rasters = _align_chunks_to_ref(rasters)
+        out_chunks = None
+    else:
+        _check_out_bands(out_bands)
+        rasters = _align_chunks_single_band(rasters, out_bands)
+        out_chunks = ((out_bands,), *rasters[0].data.chunks[1:])
     ref = rasters[0]
     wrapper, inputs = _build_map_blocks_wrapper(
         func,
         rasters,
         null_value=null_value,
         out_dtype_hint=_out_dtype_hint(dtype, meta),
+        out_bands=out_bands,
     )
     out_data = da.map_blocks(
-        wrapper, *inputs, dtype=dtype, meta=meta, **kwargs
+        wrapper, *inputs, dtype=dtype, meta=meta, chunks=out_chunks, **kwargs
     )
     out_nv = _resolve_out_null_value(
         null_value=null_value,
@@ -660,11 +703,11 @@ def map_blocks(
         n_rasters=len(rasters),
         out_dtype=out_data.dtype,
     )
-    return data_to_raster_like(out_data, ref, nv=out_nv)
+    return data_to_raster_like(out_data, orig_ref, nv=out_nv)
 
 
 def _build_map_blocks_wrapper(
-    func, rasters, null_value=None, out_dtype_hint=None
+    func, rasters, null_value=None, out_dtype_hint=None, out_bands=None
 ):
     """Build the per-block wrapper map_blocks passes to dask.
 
@@ -672,6 +715,12 @@ def _build_map_blocks_wrapper(
     pass to :func:`dask.array.map_blocks`. ``inputs`` is the list of
     dask arrays to spread positionally (data first; masks appended
     only when the user's ``func`` opts in via ``input_masks=``).
+
+    When ``out_bands`` is set (a band-count change), the wrapper checks
+    that each block ``func`` returns has exactly ``out_bands`` bands and
+    raises otherwise -- dask silently accepts a mismatch between the
+    func's actual band count and the ``chunks=`` we declare, which would
+    otherwise yield a Raster whose metadata disagrees with its data.
 
     The wrapper captures only small immutable values from the input
     rasters (per-input null values, ref dtype + null value, and the
@@ -756,9 +805,23 @@ def _build_map_blocks_wrapper(
                     out_dtype=resolved_dtype,
                 )
         result = func(*input_data, **inner_kwargs)
-        if isinstance(result, xr.DataArray):
-            return result.data
-        return result
+        arr = result.data if isinstance(result, xr.DataArray) else result
+        # Skip the check during dask's 0-shape meta call (block_info is
+        # None): a raise there is swallowed and re-surfaced as dask's
+        # opaque "dtype inference failed" message. The explicit chunks=
+        # sets the output shape regardless of the meta return, so the
+        # guard only needs to run on real blocks, where it raises a
+        # clear error at compute time.
+        if (
+            out_bands is not None
+            and block_info is not None
+            and arr.shape[0] != out_bands
+        ):
+            raise ValueError(
+                f"func returned {arr.shape[0]} band(s) but out_bands="
+                f"{out_bands} was requested"
+            )
+        return arr
 
     return _wrapper, inputs
 
@@ -890,6 +953,60 @@ def _align_chunks_to_ref(rasters):
         r if r.data.chunks == ref_chunks else r.chunk(ref_chunks)
         for r in rasters
     ]
+
+
+def _check_out_bands(out_bands):
+    """Validate the ``out_bands`` argument: a positive integer or None."""
+    if not is_int(out_bands) or isinstance(out_bands, bool) or out_bands < 1:
+        raise ValueError(
+            f"out_bands must be a positive integer, got {out_bands!r}"
+        )
+
+
+def _check_no_out_bands(kwargs, fname):
+    """Reject a stray ``out_bands`` in the overlap variants' ``**kwargs``.
+
+    ``out_bands`` is only a parameter of :func:`map_blocks` /
+    :func:`geo_map_blocks`; on the overlap variants it would otherwise
+    land in ``**kwargs`` and be silently forwarded to the user's func.
+    """
+    if "out_bands" in kwargs:
+        raise ValueError(
+            "out_bands is only supported by map_blocks / geo_map_blocks, "
+            f"not {fname}; the overlap variants are strictly "
+            "shape-preserving"
+        )
+
+
+def _align_chunks_single_band(rasters, out_bands):
+    """Rechunk inputs to one band-chunk with memory-bounded y/x tiles.
+
+    Used by ``map_blocks`` / ``geo_map_blocks`` when ``out_bands`` is set
+    (a band-count change). The per-block ``func`` must see every band of
+    a spatial tile at once to map the input bands to ``out_bands`` output
+    bands, so the band axis is collapsed to a single chunk. Keeping the
+    original y/x tile would then multiply per-block memory by the band
+    count, so y/x are re-tiled via dask ``"auto"`` to stay within
+    ``array.chunk-size``. The byte budget is divided by
+    ``max(nbands_in, out_bands)`` so that both the all-bands input block
+    (``nbands_in x tile``) and the output block (``out_bands x tile``)
+    fit -- without this an expansion (e.g. 1 -> 100 bands) would produce
+    a multi-GB output block. For a reduction (``out_bands <=
+    nbands_in``) the budget equals ``array.chunk-size``, i.e. exactly
+    ``(nbands, "auto", "auto")`` -- the same idiom ``local_stats`` uses.
+
+    All inputs are aligned to ``ref``'s resulting concrete chunks (as in
+    :func:`_align_chunks_to_ref`); ``ref``'s dtype drives the ``"auto"``
+    sizing. ``r.chunk`` rechunks each raster's data and mask together.
+    """
+    ref = rasters[0]
+    nbands = ref.shape[0]
+    chunk_size = parse_bytes(dask.config.get("array.chunk-size"))
+    limit = max(1, chunk_size * nbands // max(nbands, out_bands))
+    target = ref.data.rechunk(
+        (nbands, "auto", "auto"), block_size_limit=limit
+    ).chunks
+    return [r if r.data.chunks == target else r.chunk(target) for r in rasters]
 
 
 def _ensure_chunks_for_overlap(rasters, depth_dict):
@@ -1197,6 +1314,7 @@ def map_overlap(
         raise ValueError("map_overlap requires at least one raster")
     _check_dtype_meta_agree(dtype, meta)
     _check_no_dask_kwargs(kwargs)
+    _check_no_out_bands(kwargs, "map_overlap")
     _check_reserved_kwargs(kwargs, _MAP_BLOCKS_RESERVED_KWARGS, "map_overlap")
     rasters = [get_raster(r) for r in rasters]
     _check_shape_aligned(rasters)
@@ -1294,7 +1412,13 @@ def _resolve_gbi_with_overlap_pad(block_info, block_args, gbi_lookup):
 
 
 def _build_geo_wrapper(
-    func, rasters, *, null_value, gbi_resolver, out_dtype_hint=None
+    func,
+    rasters,
+    *,
+    null_value,
+    gbi_resolver,
+    out_dtype_hint=None,
+    out_bands=None,
 ):
     """Shared per-block wrapper builder for geo_map_blocks /
     geo_map_overlap.
@@ -1308,6 +1432,9 @@ def _build_geo_wrapper(
     ``dtype=`` / ``meta=``) or ``None``; it is preferred over
     ``block_info[None]["dtype"]`` when resolving a per-chunk
     ``out_null_value`` (same rule as :func:`_build_map_blocks_wrapper`).
+
+    ``out_bands`` (geo_map_blocks only) enables the per-block output
+    band-count check (see :func:`_build_map_blocks_wrapper`).
 
     Returns ``(wrapper, inputs)``. Captures only small immutables in
     the closure -- no Raster references.
@@ -1404,15 +1531,25 @@ def _build_geo_wrapper(
                 )
 
         result = func(*data_das, **inner_kwargs)
-        if isinstance(result, xr.DataArray):
-            return result.data
-        return result
+        arr = result.data if isinstance(result, xr.DataArray) else result
+        # See _build_map_blocks_wrapper: only check real blocks
+        # (block_info is None during dask's 0-shape meta call).
+        if (
+            out_bands is not None
+            and block_info is not None
+            and arr.shape[0] != out_bands
+        ):
+            raise ValueError(
+                f"func returned {arr.shape[0]} band(s) but out_bands="
+                f"{out_bands} was requested"
+            )
+        return arr
 
     return _wrapper, inputs
 
 
 def _build_geo_map_blocks_wrapper(
-    func, rasters, null_value=None, out_dtype_hint=None
+    func, rasters, null_value=None, out_dtype_hint=None, out_bands=None
 ):
     """Per-block wrapper for :func:`geo_map_blocks`.
 
@@ -1425,6 +1562,7 @@ def _build_geo_map_blocks_wrapper(
         null_value=null_value,
         gbi_resolver=_resolve_gbi_no_pad,
         out_dtype_hint=out_dtype_hint,
+        out_bands=out_bands,
     )
 
 
@@ -1451,6 +1589,7 @@ def geo_map_blocks(
     dtype=None,
     null_value=None,
     meta=None,
+    out_bands=None,
     **kwargs,
 ):
     """Apply ``func`` block-wise across one or more aligned rasters,
@@ -1566,6 +1705,17 @@ def geo_map_blocks(
         backend the user's func produces). When ``None`` (default),
         dask derives a NumPy
         meta by calling ``func`` on 0-shape inputs.
+    out_bands : int, optional
+        Number of bands in the output. ``None`` (default) is
+        shape-preserving. A positive integer lets ``func`` change the
+        band count (the y/x grid is unchanged); ``func`` must return
+        exactly ``out_bands`` bands per block (a mismatch raises
+        ``ValueError``). See :func:`map_blocks` for the full semantics:
+        the input band axis is collapsed to a single chunk (so ``func``
+        sees all bands of a spatial tile, on possibly re-sized y/x
+        tiles), the output is restored to the input's original y/x
+        chunking with band coord ``np.arange(out_bands) + 1``, and
+        passing ``dtype=`` / ``meta=`` is recommended.
     **kwargs
         Extra keyword arguments forwarded per-block to ``func``. The
         reserved names listed above are not allowed here.
@@ -1573,7 +1723,8 @@ def geo_map_blocks(
     Returns
     -------
     Raster
-        A new lazy Raster on the first input's grid.
+        A new lazy Raster on the first input's grid (with ``out_bands``
+        bands when that argument is set).
 
     Notes
     -----
@@ -1669,7 +1820,6 @@ def geo_map_blocks(
     )
     rasters = [get_raster(r) for r in rasters]
     _check_shape_aligned(rasters)
-    ref = rasters[0]
     if not are_all_grids_same([r.geobox for r in rasters]):
         raise ValueError(
             "geo_map_blocks requires all input rasters to be on the "
@@ -1677,16 +1827,26 @@ def geo_map_blocks(
             "Raster.reproject(crs_or_geobox=...) to align inputs "
             "first, e.g. r2.reproject(r1.geobox)."
         )
-    rasters = _align_chunks_to_ref(rasters)
+    # Pre-rechunk template: keeps the output on the caller's original
+    # y/x chunking even when out_bands re-tiles inputs for the compute.
+    orig_ref = rasters[0]
+    if out_bands is None:
+        rasters = _align_chunks_to_ref(rasters)
+        out_chunks = None
+    else:
+        _check_out_bands(out_bands)
+        rasters = _align_chunks_single_band(rasters, out_bands)
+        out_chunks = ((out_bands,), *rasters[0].data.chunks[1:])
     ref = rasters[0]
     wrapper, inputs = _build_geo_map_blocks_wrapper(
         func,
         rasters,
         null_value=null_value,
         out_dtype_hint=_out_dtype_hint(dtype, meta),
+        out_bands=out_bands,
     )
     out_data = da.map_blocks(
-        wrapper, *inputs, dtype=dtype, meta=meta, **kwargs
+        wrapper, *inputs, dtype=dtype, meta=meta, chunks=out_chunks, **kwargs
     )
     out_nv = _resolve_out_null_value(
         null_value=null_value,
@@ -1695,7 +1855,7 @@ def geo_map_blocks(
         n_rasters=len(rasters),
         out_dtype=out_data.dtype,
     )
-    return data_to_raster_like(out_data, ref, nv=out_nv)
+    return data_to_raster_like(out_data, orig_ref, nv=out_nv)
 
 
 def geo_map_overlap(
@@ -1943,6 +2103,7 @@ def geo_map_overlap(
         raise ValueError("geo_map_overlap requires at least one raster")
     _check_dtype_meta_agree(dtype, meta)
     _check_no_dask_kwargs(kwargs)
+    _check_no_out_bands(kwargs, "geo_map_overlap")
     _check_reserved_kwargs(
         kwargs, _GEO_MAP_BLOCKS_RESERVED_KWARGS, "geo_map_overlap"
     )

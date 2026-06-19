@@ -5,14 +5,17 @@ import raster_tools as rts  # noqa: F401
 
 # isort: on
 
+import dask
 import dask.array as da
 import numpy as np
 import pytest
 import xarray as xr
 from affine import Affine
+from dask.utils import parse_bytes
 
 from raster_tools.blocks import (
     GeoBlockInfo,
+    _align_chunks_single_band,
     geo_block_infos_as_dask,
     geo_map_blocks,
     geo_map_overlap,
@@ -2605,3 +2608,229 @@ def test_geo_map_blocks_multiband_multichunk():
     assert out.shape == (4, 60, 60)
     # 2 band-chunks x 2 y-chunks x 2 x-chunks = 8 blocks.
     assert len(set(seen)) == 8
+
+
+# ---------------------------------------------------------------------------
+# out_bands: band-count change (map_blocks / geo_map_blocks)
+# ---------------------------------------------------------------------------
+
+
+def test_map_blocks_out_bands_expansion():
+    # 1-band input -> 3-band output (per-pixel stats pattern).
+    r = make_raster(content="arange", shape=(1, 100, 100), dtype=np.float32)
+
+    def expand(d):
+        return np.concatenate([d, d * 2, d * 3], axis=0)
+
+    out = map_blocks(expand, r, out_bands=3)
+    assert out.nbands == 3
+    np.testing.assert_array_equal(np.asarray(out.band), [1, 2, 3])
+    src = r.data.compute()
+    res = out.data.compute()
+    np.testing.assert_allclose(res[0], src[0])
+    np.testing.assert_allclose(res[1], src[0] * 2)
+    np.testing.assert_allclose(res[2], src[0] * 3)
+    # y/x grid preserved.
+    assert out.affine == r.affine
+    assert out.crs == r.crs
+    np.testing.assert_array_equal(out.x, r.x)
+    np.testing.assert_array_equal(out.y, r.y)
+
+
+def test_map_blocks_out_bands_reduction_sees_all_bands():
+    # 4-band input -> 1-band output: func reduces over the band axis,
+    # which only works if it sees all input bands at once (the
+    # single-band-chunk requirement).
+    r = make_raster(content="arange", shape=(4, 100, 100), dtype=np.float32)
+
+    def band_mean(d):
+        return d.mean(axis=0, keepdims=True)
+
+    out = map_blocks(band_mean, r, out_bands=1)
+    assert out.nbands == 1
+    np.testing.assert_array_equal(np.asarray(out.band), [1])
+    np.testing.assert_allclose(
+        out.data.compute()[0], r.data.compute().mean(axis=0)
+    )
+
+
+def test_map_blocks_out_bands_multichunk_spatial():
+    # Single-band-chunk + multiple spatial blocks together.
+    r = make_raster(
+        content="arange",
+        shape=(2, 100, 100),
+        dtype=np.float32,
+        chunksize=(1, 50, 50),
+    )
+
+    def collapse(d):
+        return d.sum(axis=0, keepdims=True)
+
+    out = map_blocks(collapse, r, out_bands=1)
+    assert out.nbands == 1
+    np.testing.assert_allclose(
+        out.data.compute()[0], r.data.compute().sum(axis=0)
+    )
+
+
+def test_map_blocks_out_bands_restores_original_chunking():
+    # The transient single-band-chunk / re-tiled grid is normalized away:
+    # the output lands on the caller's original y/x chunking with
+    # per-band band chunks.
+    r = make_raster(
+        content="arange",
+        shape=(3, 100, 100),
+        dtype=np.float32,
+        chunksize=(1, 50, 50),
+    )
+
+    def three_to_two(d):
+        return np.stack([d[0] + d[1], d[2]], axis=0)
+
+    # Band-indexing func -> pass dtype= so dask skips the (1,1,1)-shaped
+    # dtype-inference sample call it would otherwise make.
+    out = map_blocks(three_to_two, r, out_bands=2, dtype=np.float32)
+    assert out.data.chunks == ((1, 1), (50, 50), (50, 50))
+    assert out.mask.chunks == ((1, 1), (50, 50), (50, 50))
+
+
+def test_align_chunks_single_band_reduction_is_memory_bounded():
+    # Reduction (out_bands <= nbands): single band-chunk and each block
+    # stays within array.chunk-size (equivalent to (nbands,auto,auto)).
+    r = make_raster(content="zeros", shape=(8, 4000, 4000), dtype=np.float32)
+    r = r.chunk((8, 4000, 4000))
+    chunks = _align_chunks_single_band([r], out_bands=1)[0].data.chunks
+    assert len(chunks[0]) == 1 and chunks[0][0] == 8  # single band-chunk
+    block_bytes = chunks[0][0] * chunks[1][0] * chunks[2][0] * 4
+    assert block_bytes <= parse_bytes(dask.config.get("array.chunk-size"))
+
+
+def test_align_chunks_single_band_expansion_bounds_output_block():
+    # Expansion (out_bands > nbands): the tile is shrunk so the OUTPUT
+    # block (out_bands x tile) also fits array.chunk-size.
+    r = make_raster(content="zeros", shape=(1, 8000, 8000), dtype=np.float32)
+    r = r.chunk((1, 8000, 8000))
+    out_bands = 64
+    chunks = _align_chunks_single_band([r], out_bands=out_bands)[0].data.chunks
+    out_block_bytes = out_bands * chunks[1][0] * chunks[2][0] * 4
+    assert out_block_bytes <= parse_bytes(dask.config.get("array.chunk-size"))
+
+
+def test_map_blocks_out_bands_null_value_inherits_single_input():
+    # Single input, dtype unchanged -> inherits the input's null value.
+    r = make_raster(
+        content="arange", shape=(3, 100, 100), dtype=np.float32, null=-1.0
+    )
+
+    def collapse(d):
+        return d.max(axis=0, keepdims=True)
+
+    out = map_blocks(collapse, r, out_bands=1)
+    assert out.null_value == np.float32(-1.0)
+
+
+def test_map_blocks_out_bands_null_value_default_on_dtype_change():
+    # dtype change -> dtype-appropriate default null value.
+    r = make_raster(content="arange", shape=(3, 100, 100), dtype=np.float32)
+
+    def collapse_to_int(d):
+        return d.argmax(axis=0, keepdims=True).astype(np.int16)
+
+    out = map_blocks(collapse_to_int, r, out_bands=1, dtype=np.int16)
+    assert out.dtype == np.int16
+    assert out.null_value == get_default_null_value(np.int16)
+
+
+def test_geo_map_blocks_out_bands_expansion():
+    # geo variant: gbi describes the INPUT band range; output has
+    # out_bands bands.
+    r = make_raster(content="arange", shape=(1, 100, 100), dtype=np.float32)
+    seen = []
+
+    def gexpand(xda, *, geo_block_info=None):
+        if geo_block_info is not None:
+            seen.append(geo_block_info.shape[0])  # input band count
+        return np.concatenate([xda.data, xda.data * 2], axis=0)
+
+    out = geo_map_blocks(gexpand, r, out_bands=2)
+    assert out.nbands == 2
+    np.testing.assert_array_equal(np.asarray(out.band), [1, 2])
+    assert out.data.compute().shape == (2, 100, 100)
+    # gbi described the single input band on every real block.
+    assert seen and all(n == 1 for n in seen)
+
+
+@pytest.mark.parametrize("bad", [0, -1, 2.5, True, "3", 1.0])
+def test_map_blocks_out_bands_validation(bad):
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32)
+    with pytest.raises(ValueError, match="out_bands"):
+        map_blocks(lambda d: d, r, out_bands=bad)
+
+
+@pytest.mark.parametrize(
+    "fn",
+    [
+        lambda r, ob: map_blocks(
+            lambda d: np.concatenate([d, d, d], axis=0), r, out_bands=ob
+        ),
+        lambda r, ob: geo_map_blocks(
+            lambda xda: np.concatenate([xda.data] * 3, axis=0),
+            r,
+            out_bands=ob,
+        ),
+    ],
+)
+def test_out_bands_wrong_count_func_raises(fn):
+    # func returns 3 bands but out_bands=2: the wrapper guard catches
+    # dask's silent shape mismatch at compute time.
+    r = make_raster(content="arange", shape=(1, 100, 100), dtype=np.float32)
+    with pytest.raises(ValueError, match="out_bands"):
+        fn(r, 2).data.compute()
+
+
+def test_out_bands_correct_count_3_to_2_passes():
+    # The passing 3 -> 2 counterpart to the wrong-count test.
+    r = make_raster(content="arange", shape=(3, 100, 100), dtype=np.float32)
+
+    def three_to_two(d):
+        return np.stack([d[0] + d[1], d[2]], axis=0)
+
+    out = map_blocks(three_to_two, r, out_bands=2, dtype=np.float32)
+    assert out.nbands == 2
+    src = r.data.compute()
+    res = out.data.compute()
+    np.testing.assert_allclose(res[0], src[0] + src[1])
+    np.testing.assert_allclose(res[1], src[2])
+
+
+@pytest.mark.parametrize(
+    "fn",
+    [
+        lambda r: map_overlap(lambda d: d, r, depth=1, out_bands=2),
+        lambda r: geo_map_overlap(
+            lambda xda, **k: xda, r, depth=1, out_bands=2
+        ),
+    ],
+)
+def test_overlap_variants_reject_out_bands(fn):
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32)
+    with pytest.raises(ValueError, match="out_bands"):
+        fn(r)
+
+
+def test_map_blocks_out_bands_none_is_shape_preserving():
+    # Regression guard: omitting out_bands (and out_bands=None) keep the
+    # existing shape-preserving behavior.
+    r = make_raster(
+        content="arange",
+        shape=(2, 100, 100),
+        dtype=np.float32,
+        chunksize=(1, 50, 50),
+    )
+    out_default = map_blocks(lambda d: d * 2, r)
+    out_none = map_blocks(lambda d: d * 2, r, out_bands=None)
+    assert out_default.shape == r.shape == out_none.shape
+    assert out_default.data.chunks == r.data.chunks
+    np.testing.assert_allclose(
+        out_default.data.compute(), r.data.compute() * 2
+    )
