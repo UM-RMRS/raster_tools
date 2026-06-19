@@ -446,6 +446,7 @@ def map_blocks(
     null_value=None,
     meta=None,
     out_bands=None,
+    return_mask=False,
     **kwargs,
 ):
     """Apply ``func`` block-wise across one or more aligned rasters.
@@ -453,8 +454,9 @@ def map_blocks(
     Thin wrapper over :func:`dask.array.map_blocks`. Each call to
     ``func`` receives one block from each input raster, in the same
     order as ``*rasters``. The output :class:`~raster_tools.Raster`
-    adopts its CRS, affine, and x/y coords from the first input;
-    its mask is derived from the output data (see Notes).
+    adopts its CRS, affine, and x/y coords from the first input; its
+    mask is derived from the output data by default, or set explicitly
+    by ``func`` via ``return_mask`` (see Notes).
 
     Per-block contract
     ------------------
@@ -462,14 +464,18 @@ def map_blocks(
     ``block_info``, ``block_id``, ``out_null_value``. Name any of these
     in ``func``'s signature to receive them per chunk; see below.
 
-    The output Raster's mask is rebuilt from the output data and the
-    resolved output null value (``out_data == null_value``, or
+    By default the output Raster's mask is rebuilt from the output data
+    and the resolved output null value (``out_data == null_value``, or
     ``np.isnan(out_data)`` for NaN nulls) -- write the sentinel
     only at cells you want masked. Cells your func happens to leave
     equal to the sentinel will appear masked even if you didn't
     intend them to; cells you wanted masked but didn't write the
     sentinel to will not. This is true regardless of the input
     rasters' masks: input masks do **not** carry through unchanged.
+    To set the output mask explicitly instead -- decoupling nullness
+    from the data values and avoiding both failure modes above -- pass
+    ``return_mask=True`` and have ``func`` return a ``(data, mask)``
+    pair; see ``return_mask`` below.
 
     Always passed positionally:
 
@@ -585,6 +591,29 @@ def map_blocks(
         - Passing ``dtype=`` or ``meta=`` is recommended, since dask's
           0-shape meta call still runs and a band-reshaping ``func`` may
           not produce the right dtype/shape at 0-shape.
+    return_mask : bool, optional
+        If ``True``, ``func`` returns a ``(data, mask)`` pair instead of
+        a single array, and the returned ``mask`` -- not a sentinel
+        comparison -- defines the output Raster's null cells. ``mask`` is
+        a boolean array the same shape as ``data``; masked cells are set
+        to the resolved output null value (burned in). Use this to
+        decouple *which* cells are null from *what value* they hold,
+        avoiding the sentinel-collision pitfalls described above. The
+        default is ``False`` (sentinel-derived mask). Notes:
+
+        - The two arrays are carried through dask packed into a single
+          NumPy structured-dtype block, then split apart again -- an
+          internal detail; ``func`` just returns the plain pair.
+        - Passing ``dtype=`` (or ``meta=``) describing the **data**
+          dtype is recommended: it lets dask skip its 0-shape probe
+          entirely. Without a hint the func must tolerate that probe
+          (same caveat as ``out_bands``).
+        - Requires NumPy-backed blocks (the structured-dtype carrier is
+          a NumPy concept); cupy / sparse outputs are not supported with
+          ``return_mask``. Composes with ``out_bands`` (the returned
+          ``mask`` must also have ``out_bands`` bands).
+        - ``out_null_value`` injection is unnecessary (though harmless)
+          when ``return_mask=True``.
     **kwargs
         Extra keyword arguments forwarded per-block to ``func``. The
         reserved names listed above are not allowed here.
@@ -602,7 +631,8 @@ def map_blocks(
 
     The output mask is all-False if no null value is set (see the
     per-block contract above for how the mask is built when one is).
-    Writing a new mask directly via ``func`` is not supported.
+    To write the output mask directly, pass ``return_mask=True`` and
+    return a ``(data, mask)`` pair from ``func`` (see ``return_mask``).
 
     Dask invokes ``func`` once on 0-shape inputs to derive the output
     array meta -- this happens whether or not ``dtype=`` is provided.
@@ -686,16 +716,49 @@ def map_blocks(
         rasters = _align_chunks_single_band(rasters, out_bands)
         out_chunks = ((out_bands,), *rasters[0].data.chunks[1:])
     ref = rasters[0]
+    data_hint = _out_dtype_hint(dtype, meta)
     wrapper, inputs = _build_map_blocks_wrapper(
         func,
         rasters,
         null_value=null_value,
-        out_dtype_hint=_out_dtype_hint(dtype, meta),
+        out_dtype_hint=data_hint,
         out_bands=out_bands,
+        return_mask=return_mask,
+        out_data_dtype=data_hint,
     )
-    out_data = da.map_blocks(
-        wrapper, *inputs, dtype=dtype, meta=meta, chunks=out_chunks, **kwargs
-    )
+    if return_mask:
+        # The wrapper returns a structured (data, mask) array, so the
+        # user's dtype=/meta= (which describe the data part) are folded
+        # into a structured meta rather than forwarded raw -- they would
+        # mis-describe the structured output. A structured meta also
+        # skips dask's 0-shape probe entirely.
+        struct_meta = (
+            np.empty(
+                (), dtype=np.dtype([("data", data_hint), ("mask", np.bool_)])
+            )
+            if data_hint is not None
+            else None
+        )
+        struct = da.map_blocks(
+            wrapper,
+            *inputs,
+            dtype=None,
+            meta=struct_meta,
+            chunks=out_chunks,
+            **kwargs,
+        )
+        out_data = struct["data"]
+        out_mask = struct["mask"]
+    else:
+        out_data = da.map_blocks(
+            wrapper,
+            *inputs,
+            dtype=dtype,
+            meta=meta,
+            chunks=out_chunks,
+            **kwargs,
+        )
+        out_mask = None
     out_nv = _resolve_out_null_value(
         null_value=null_value,
         ref_dtype=ref.dtype,
@@ -703,11 +766,19 @@ def map_blocks(
         n_rasters=len(rasters),
         out_dtype=out_data.dtype,
     )
-    return data_to_raster_like(out_data, orig_ref, nv=out_nv)
+    return data_to_raster_like(
+        out_data, orig_ref, mask=out_mask, nv=out_nv, burn=return_mask
+    )
 
 
 def _build_map_blocks_wrapper(
-    func, rasters, null_value=None, out_dtype_hint=None, out_bands=None
+    func,
+    rasters,
+    null_value=None,
+    out_dtype_hint=None,
+    out_bands=None,
+    return_mask=False,
+    out_data_dtype=None,
 ):
     """Build the per-block wrapper map_blocks passes to dask.
 
@@ -721,6 +792,15 @@ def _build_map_blocks_wrapper(
     raises otherwise -- dask silently accepts a mismatch between the
     func's actual band count and the ``chunks=`` we declare, which would
     otherwise yield a Raster whose metadata disagrees with its data.
+
+    When ``return_mask`` is set, ``func`` returns a ``(data, mask)`` pair
+    and the wrapper packs it into a single NumPy structured-dtype array
+    ``[("data", out_data_dtype), ("mask", bool)]`` -- the only way to
+    carry both through dask's single-array-per-block contract.
+    ``map_blocks`` field-accesses the two back out. ``out_data_dtype``
+    (the resolved data-dtype hint, or ``None``) fixes the struct's data
+    field so it stays stable across blocks; ``None`` falls back to the
+    returned data's dtype.
 
     The wrapper captures only small immutable values from the input
     rasters (per-input null values, ref dtype + null value, and the
@@ -805,6 +885,10 @@ def _build_map_blocks_wrapper(
                     out_dtype=resolved_dtype,
                 )
         result = func(*input_data, **inner_kwargs)
+        if return_mask:
+            return _pack_data_mask(
+                result, block_info, out_bands, out_data_dtype
+            )
         arr = result.data if isinstance(result, xr.DataArray) else result
         # Skip the check during dask's 0-shape meta call (block_info is
         # None): a raise there is swallowed and re-surfaced as dask's
@@ -824,6 +908,54 @@ def _build_map_blocks_wrapper(
         return arr
 
     return _wrapper, inputs
+
+
+def _pack_data_mask(result, block_info, out_bands, out_data_dtype):
+    """Pack a func's ``(data, mask)`` return into a structured array.
+
+    ``return_mask`` mode: ``func`` hands back the data block and an
+    explicit boolean mask block. dask's map_blocks carries one array per
+    block, so we pack both into a single NumPy structured-dtype array
+    ``[("data", <dtype>), ("mask", bool)]``; :func:`map_blocks`
+    field-accesses them back out after the graph is built. Field
+    assignment casts ``data`` to the struct's data dtype and ``mask`` to
+    bool.
+
+    Validation runs only on real blocks (``block_info`` is ``None``
+    during dask's 0-shape meta call, where a raise is swallowed and
+    re-surfaced as an opaque message).
+    """
+    if not (isinstance(result, (tuple, list)) and len(result) == 2):
+        raise ValueError(
+            "func must return a (data, mask) pair when return_mask=True"
+        )
+    data, mask = result
+    if isinstance(data, xr.DataArray):
+        data = data.data
+    if isinstance(mask, xr.DataArray):
+        mask = mask.data
+    if block_info is not None:
+        if out_bands is not None and data.shape[0] != out_bands:
+            raise ValueError(
+                f"func returned {data.shape[0]} band(s) but out_bands="
+                f"{out_bands} was requested"
+            )
+        if mask.shape != data.shape:
+            raise ValueError(
+                f"func returned a mask of shape {mask.shape} that does "
+                f"not match the data shape {data.shape}"
+            )
+    ddt = (
+        out_data_dtype
+        if out_data_dtype is not None
+        else np.asarray(data).dtype
+    )
+    packed = np.empty(
+        data.shape, dtype=np.dtype([("data", ddt), ("mask", np.bool_)])
+    )
+    packed["data"] = data
+    packed["mask"] = mask
+    return packed
 
 
 def _resolve_out_null_value(

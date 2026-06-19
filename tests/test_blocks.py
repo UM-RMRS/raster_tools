@@ -2834,3 +2834,196 @@ def test_map_blocks_out_bands_none_is_shape_preserving():
     np.testing.assert_allclose(
         out_default.data.compute(), r.data.compute() * 2
     )
+
+
+# ---------------------------------------------------------------------------
+# return_mask: explicit output mask (map_blocks)
+# ---------------------------------------------------------------------------
+
+
+def test_map_blocks_return_mask_overrides_sentinel():
+    # The explicit mask defines nullness, decoupled from the data
+    # values: a cell whose value EQUALS the null value stays UNMASKED,
+    # and a cell whose value is NOT the null value is MASKED -- the
+    # opposite of what the sentinel-derived path would produce.
+    r = make_raster(
+        content="ones",
+        shape=(1, 100, 100),
+        dtype=np.float32,
+        chunksize=(1, 100, 100),
+    )
+
+    def f(d):
+        out = d.copy()
+        mask = np.zeros(d.shape, dtype=bool)
+        out[0, 0, 0] = -9999.0  # value == nv but NOT masked
+        mask[0, 0, 1] = True  # masked though value != nv
+        return out, mask
+
+    out = map_blocks(
+        f, r, return_mask=True, null_value=-9999.0, dtype=np.float32
+    )
+    m = out.mask.compute()
+    dat = out.data.compute()
+    assert not m[0, 0, 0]  # holds the sentinel value but is not masked
+    assert m[0, 0, 1]  # masked even though its value isn't the sentinel
+    assert m.sum() == 1  # exactly the one cell func marked
+    assert dat[0, 0, 1] == -9999.0  # masked cell burned to the null value
+    assert dat[0, 0, 0] == -9999.0  # unmasked cell left as func wrote it
+
+
+def test_map_blocks_return_mask_burns_null_value():
+    r = make_raster(
+        content="ones",
+        shape=(1, 100, 100),
+        dtype=np.float32,
+        chunksize=(1, 100, 100),
+    )
+
+    def f(d):
+        mask = np.zeros(d.shape, dtype=bool)
+        mask[0, :5, :5] = True
+        return d, mask
+
+    out = map_blocks(
+        f, r, return_mask=True, null_value=-42.0, dtype=np.float32
+    )
+    assert out.null_value == np.float32(-42.0)
+    dat = out.data.compute()
+    m = out.mask.compute()
+    assert np.all(dat[m] == -42.0)  # masked cells burned
+    assert np.all(dat[~m] == 1.0)  # unmasked cells untouched
+
+
+def test_map_blocks_return_mask_inference_path_no_dtype():
+    # A probe-tolerant func (no scalar indexing) works without dtype=.
+    r = make_raster(
+        content="arange",
+        shape=(1, 100, 100),
+        dtype=np.float32,
+        chunksize=(1, 50, 50),
+    )
+
+    def f(d):
+        return d * 2, d > 1000
+
+    out = map_blocks(f, r, return_mask=True)
+    np.testing.assert_array_equal(out.mask.compute(), r.data.compute() > 1000)
+
+
+def test_map_blocks_return_mask_coerces_non_bool_mask():
+    r = make_raster(
+        content="arange",
+        shape=(1, 100, 100),
+        dtype=np.float32,
+        chunksize=(1, 50, 50),
+    )
+
+    def f(d):
+        return d, (d > 1000).astype(np.int32)
+
+    out = map_blocks(f, r, return_mask=True)
+    m = out.mask.compute()
+    assert m.dtype == np.bool_
+    np.testing.assert_array_equal(m, r.data.compute() > 1000)
+
+
+def test_map_blocks_return_mask_composes_with_out_bands():
+    r = make_raster(
+        content="arange",
+        shape=(3, 100, 100),
+        dtype=np.float32,
+        chunksize=(1, 50, 50),
+    )
+
+    def f(d):  # 3 -> 2 bands + explicit mask
+        data = np.stack([d[0] + d[1], d[2]], axis=0).astype(np.float32)
+        return data, data > 5000
+
+    out = map_blocks(f, r, out_bands=2, return_mask=True, dtype=np.float32)
+    assert out.nbands == 2
+    src = r.data.compute()
+    expected = np.stack([src[0] + src[1], src[2]], axis=0)
+    np.testing.assert_array_equal(out.mask.compute(), expected > 5000)
+
+
+def test_map_blocks_return_mask_composes_with_input_masks():
+    mask_in = np.zeros((1, 100, 100), dtype=bool)
+    mask_in[0, :10, :10] = True
+    r1 = make_raster(
+        content="ones",
+        shape=(1, 100, 100),
+        dtype=np.float32,
+        mask=mask_in,
+        null=-1.0,
+        chunksize=(1, 50, 50),
+    )
+    r2 = make_raster(
+        content="ones",
+        shape=(1, 100, 100),
+        dtype=np.float32,
+        chunksize=(1, 50, 50),
+    )
+
+    def f(a, b, *, input_masks):
+        ma, mb = input_masks
+        return a + b, (ma | mb)
+
+    out = map_blocks(
+        f, r1, r2, return_mask=True, null_value=-999.0, dtype=np.float32
+    )
+    np.testing.assert_array_equal(out.mask.compute(), mask_in)
+
+
+def test_map_blocks_return_mask_requires_pair():
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32)
+    with pytest.raises(ValueError, match="data, mask"):
+        map_blocks(
+            lambda d: d, r, return_mask=True, dtype=np.float32
+        ).data.compute()
+
+
+def test_map_blocks_return_mask_shape_mismatch_raises():
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32)
+
+    def f(d):
+        return d, np.zeros((1, 10, 10), dtype=bool)
+
+    with pytest.raises(ValueError, match="does not match"):
+        map_blocks(f, r, return_mask=True, dtype=np.float32).data.compute()
+
+
+def test_map_blocks_return_mask_load_roundtrips():
+    r = make_raster(
+        content="arange",
+        shape=(1, 100, 100),
+        dtype=np.float32,
+        chunksize=(1, 50, 50),
+    )
+
+    def f(d):
+        return d * 2, d > 1000
+
+    loaded = map_blocks(f, r, return_mask=True).load()
+    assert loaded.shape == (1, 100, 100)
+    np.testing.assert_array_equal(
+        loaded.mask.compute(), r.data.compute() > 1000
+    )
+
+
+def test_map_blocks_return_mask_false_is_unchanged():
+    # Regression guard: return_mask=False (and omitted) keep the
+    # sentinel-derived behavior.
+    r = make_raster(
+        content="arange",
+        shape=(1, 100, 100),
+        dtype=np.float32,
+        null=-1.0,
+        chunksize=(1, 50, 50),
+    )
+    out_default = map_blocks(lambda d: d, r)
+    out_false = map_blocks(lambda d: d, r, return_mask=False)
+    np.testing.assert_array_equal(
+        out_default.data.compute(), out_false.data.compute()
+    )
+    assert not out_default.mask.compute().any()
