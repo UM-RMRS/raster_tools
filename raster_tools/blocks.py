@@ -638,13 +638,16 @@ def map_blocks(
     array meta -- this happens whether or not ``dtype=`` is provided.
     Pass ``meta=`` to skip the call entirely; ``dtype=`` only skips
     the additional sample call dask would otherwise make to infer the
-    output dtype, not the 0-shape meta call. Most NumPy ops handle
-    0-shape inputs fine. If dask raises ``dtype inference failed in
-    map_blocks. Please specify the dtype explicitly using the dtype
-    kwarg``, that's the sample call -- ``dtype=`` per dask's hint is
-    usually enough; pass ``meta=`` instead if your func also can't
-    tolerate 0-shape inputs (dask silently swallows that crash, but
-    your downstream output meta will be wrong).
+    output dtype, not the 0-shape meta call. (Exception: with
+    ``return_mask=True``, ``dtype=`` is folded into a structured
+    ``meta=`` and so *does* skip the 0-shape meta call -- see
+    ``return_mask``.) Most NumPy ops handle 0-shape inputs fine. If
+    dask raises ``dtype inference failed in map_blocks. Please specify
+    the dtype explicitly using the dtype kwarg``, that's the sample
+    call -- ``dtype=`` per dask's hint is usually enough; pass
+    ``meta=`` instead if your func also can't tolerate 0-shape inputs
+    (dask silently swallows that crash, but your downstream output
+    meta will be wrong).
 
     Output null value resolution
     ----------------------------
@@ -1422,15 +1425,17 @@ def map_overlap(
     array meta -- this happens whether or not ``dtype=`` is provided.
     Pass ``meta=`` to skip the call entirely; ``dtype=`` only skips
     the additional sample call dask would otherwise make to infer the
-    output dtype, not the 0-shape meta call. Most NumPy ops handle
-    0-shape inputs fine. If dask raises ``dtype inference failed in
-    map_blocks. Please specify the dtype explicitly using the dtype
-    kwarg``, that's the sample call (dask routes overlap through its
-    inner map_blocks, so the message says map_blocks even from this
-    function) -- ``dtype=`` per dask's hint is usually enough; pass
-    ``meta=`` instead if your func also can't tolerate 0-shape inputs
-    (dask silently swallows that crash, but your downstream output
-    meta will be wrong).
+    output dtype, not the 0-shape meta call. (Exception: with
+    ``return_mask=True``, ``dtype=`` is folded into a structured
+    ``meta=`` and so *does* skip the 0-shape meta call -- see
+    ``return_mask``.) Most NumPy ops handle 0-shape inputs fine. If
+    dask raises ``dtype inference failed in map_blocks. Please specify
+    the dtype explicitly using the dtype kwarg``, that's the sample
+    call (dask routes overlap through its inner map_blocks, so the
+    message says map_blocks even from this function) -- ``dtype=`` per
+    dask's hint is usually enough; pass ``meta=`` instead if your func
+    also can't tolerate 0-shape inputs (dask silently swallows that
+    crash, but your downstream output meta will be wrong).
 
     Output null value resolution
     ----------------------------
@@ -1993,15 +1998,17 @@ def geo_map_blocks(
     derive the output array meta -- this happens whether or not
     ``dtype=`` is provided. Passing ``dtype=`` only skips the
     additional sample call dask would otherwise make to infer the
-    output dtype; it does not skip the 0-shape meta call. During the
-    meta call ``geo_block_info`` is ``None`` if the func opts in.
-    Most NumPy / xarray ops handle 0-shape inputs fine. If dask
-    raises ``dtype inference failed in map_blocks. Please specify
-    the dtype explicitly using the dtype kwarg``, that's the sample
-    call -- ``dtype=`` per dask's hint is usually enough; pass
-    ``meta=`` instead if your func also can't tolerate 0-shape
-    inputs (dask silently swallows that crash, but your downstream
-    output meta will be wrong).
+    output dtype; it does not skip the 0-shape meta call. (Exception:
+    with ``return_mask=True``, ``dtype=`` is folded into a structured
+    ``meta=`` and so *does* skip the 0-shape meta call -- see
+    ``return_mask``.) During the meta call ``geo_block_info`` is
+    ``None`` if the func opts in. Most NumPy / xarray ops handle
+    0-shape inputs fine. If dask raises ``dtype inference failed in
+    map_blocks. Please specify the dtype explicitly using the dtype
+    kwarg``, that's the sample call -- ``dtype=`` per dask's hint is
+    usually enough; pass ``meta=`` instead if your func also can't
+    tolerate 0-shape inputs (dask silently swallows that crash, but
+    your downstream output meta will be wrong).
 
     Output null value resolution
     ----------------------------
@@ -2338,16 +2345,18 @@ def geo_map_overlap(
     zero-filled placeholder coords, not real geocoordinates) to
     derive the output array meta -- this happens whether or not
     ``dtype=`` is provided. Pass ``meta=`` to skip the call entirely.
-    During the meta call ``geo_block_info`` is ``None`` if the func
-    opts in. Most NumPy / xarray ops handle 0-shape inputs fine. If
-    dask raises ``dtype inference failed in map_blocks. Please
-    specify the dtype explicitly using the dtype kwarg``, that's the
-    sample call (dask routes overlap through its inner map_blocks,
-    so the message says map_blocks even from this function) --
-    ``dtype=`` per dask's hint is usually enough; pass ``meta=``
-    instead if your func also can't tolerate 0-shape inputs (dask
-    silently swallows that crash, but your downstream output meta
-    will be wrong).
+    (Exception: with ``return_mask=True``, ``dtype=`` is folded into a
+    structured ``meta=`` and so *does* skip the 0-shape meta call --
+    see ``return_mask``.) During the meta call ``geo_block_info`` is
+    ``None`` if the func opts in. Most NumPy / xarray ops handle
+    0-shape inputs fine. If dask raises ``dtype inference failed in
+    map_blocks. Please specify the dtype explicitly using the dtype
+    kwarg``, that's the sample call (dask routes overlap through its
+    inner map_blocks, so the message says map_blocks even from this
+    function) -- ``dtype=`` per dask's hint is usually enough; pass
+    ``meta=`` instead if your func also can't tolerate 0-shape inputs
+    (dask silently swallows that crash, but your downstream output
+    meta will be wrong).
 
     With ``boundary=None`` or ``"none"``, edge chunks aren't padded on
     the array-boundary side. The per-side overlap split is computed
