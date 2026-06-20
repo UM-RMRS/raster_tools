@@ -1609,6 +1609,8 @@ def _build_geo_wrapper(
     gbi_resolver,
     out_dtype_hint=None,
     out_bands=None,
+    return_mask=False,
+    out_data_dtype=None,
 ):
     """Shared per-block wrapper builder for geo_map_blocks /
     geo_map_overlap.
@@ -1625,6 +1627,11 @@ def _build_geo_wrapper(
 
     ``out_bands`` (geo_map_blocks only) enables the per-block output
     band-count check (see :func:`_build_map_blocks_wrapper`).
+
+    ``return_mask`` / ``out_data_dtype`` enable the explicit-mask path:
+    ``func`` returns a ``(data, mask)`` pair (each an ``xr.DataArray`` or
+    ndarray) which the wrapper packs into a structured block via
+    :func:`_pack_data_mask` (same as :func:`_build_map_blocks_wrapper`).
 
     Returns ``(wrapper, inputs)``. Captures only small immutables in
     the closure -- no Raster references.
@@ -1721,6 +1728,10 @@ def _build_geo_wrapper(
                 )
 
         result = func(*data_das, **inner_kwargs)
+        if return_mask:
+            return _pack_data_mask(
+                result, block_info, out_bands, out_data_dtype
+            )
         arr = result.data if isinstance(result, xr.DataArray) else result
         # See _build_map_blocks_wrapper: only check real blocks
         # (block_info is None during dask's 0-shape meta call).
@@ -1739,7 +1750,13 @@ def _build_geo_wrapper(
 
 
 def _build_geo_map_blocks_wrapper(
-    func, rasters, null_value=None, out_dtype_hint=None, out_bands=None
+    func,
+    rasters,
+    null_value=None,
+    out_dtype_hint=None,
+    out_bands=None,
+    return_mask=False,
+    out_data_dtype=None,
 ):
     """Per-block wrapper for :func:`geo_map_blocks`.
 
@@ -1753,6 +1770,8 @@ def _build_geo_map_blocks_wrapper(
         gbi_resolver=_resolve_gbi_no_pad,
         out_dtype_hint=out_dtype_hint,
         out_bands=out_bands,
+        return_mask=return_mask,
+        out_data_dtype=out_data_dtype,
     )
 
 
@@ -1780,6 +1799,7 @@ def geo_map_blocks(
     null_value=None,
     meta=None,
     out_bands=None,
+    return_mask=False,
     **kwargs,
 ):
     """Apply ``func`` block-wise across one or more aligned rasters,
@@ -1801,14 +1821,17 @@ def geo_map_blocks(
     Name any of these in ``func``'s signature to receive them per chunk;
     see below.
 
-    The output Raster's mask is rebuilt from the output data and the
-    resolved output null value (``out_data == null_value``, or
+    By default the output Raster's mask is rebuilt from the output data
+    and the resolved output null value (``out_data == null_value``, or
     ``np.isnan(out_data)`` for NaN nulls) -- write the sentinel
     only at cells you want masked. Cells your func happens to leave
     equal to the sentinel will appear masked even if you didn't
     intend them to; cells you wanted masked but didn't write the
     sentinel to will not. This is true regardless of the input
     rasters' masks: input masks do **not** carry through unchanged.
+    To set the output mask explicitly instead -- decoupling nullness
+    from the data values -- pass ``return_mask=True`` and have ``func``
+    return a ``(data, mask)`` pair; see ``return_mask`` below.
 
     Always passed positionally:
 
@@ -1906,6 +1929,29 @@ def geo_map_blocks(
         tiles), the output is restored to the input's original y/x
         chunking with band coord ``np.arange(out_bands) + 1``, and
         passing ``dtype=`` / ``meta=`` is recommended.
+    return_mask : bool, optional
+        If ``True``, ``func`` returns a ``(data, mask)`` pair instead of
+        a single array/DataArray, and the returned ``mask`` -- not a
+        sentinel comparison -- defines the output Raster's null cells.
+        ``mask`` is a boolean array the same shape as ``data``; masked
+        cells are set to the resolved output null value (burned in). Use
+        this to decouple *which* cells are null from *what value* they
+        hold, avoiding the sentinel-collision pitfalls described above.
+        The default is ``False`` (sentinel-derived mask). Notes:
+
+        - Each element of the pair may be an :class:`xarray.DataArray`
+          or a bare array; the wrapper uses each element's ``.data``
+          (any coords / CRS are discarded, same as for the data block).
+        - The two arrays are carried through dask packed into a single
+          NumPy structured-dtype block, then split apart again -- an
+          internal detail; ``func`` just returns the plain pair.
+        - Passing ``dtype=`` (or ``meta=``) describing the **data**
+          dtype is recommended: it lets dask skip its 0-shape probe.
+          Without a hint the func must tolerate that probe.
+        - Requires NumPy-backed blocks. Composes with ``out_bands``,
+          ``input_masks``, and ``geo_block_info``. ``out_null_value``
+          injection is unnecessary (though harmless) when
+          ``return_mask=True``.
     **kwargs
         Extra keyword arguments forwarded per-block to ``func``. The
         reserved names listed above are not allowed here.
@@ -1932,7 +1978,8 @@ def geo_map_blocks(
 
     The output mask is all-False if no null value is set (see the
     per-block contract above for how the mask is built when one is).
-    Writing a new mask directly via ``func`` is not supported.
+    To write the output mask directly, pass ``return_mask=True`` and
+    return a ``(data, mask)`` pair from ``func`` (see ``return_mask``).
 
     Dask invokes ``func`` once on 0-shape DataArrays (with
     zero-filled placeholder coords, not real geocoordinates) to
@@ -2028,16 +2075,47 @@ def geo_map_blocks(
         rasters = _align_chunks_single_band(rasters, out_bands)
         out_chunks = ((out_bands,), *rasters[0].data.chunks[1:])
     ref = rasters[0]
+    data_hint = _out_dtype_hint(dtype, meta)
     wrapper, inputs = _build_geo_map_blocks_wrapper(
         func,
         rasters,
         null_value=null_value,
-        out_dtype_hint=_out_dtype_hint(dtype, meta),
+        out_dtype_hint=data_hint,
         out_bands=out_bands,
+        return_mask=return_mask,
+        out_data_dtype=data_hint,
     )
-    out_data = da.map_blocks(
-        wrapper, *inputs, dtype=dtype, meta=meta, chunks=out_chunks, **kwargs
-    )
+    if return_mask:
+        # The wrapper returns a structured (data, mask) array (see
+        # map_blocks); fold the user's data-side dtype=/meta= into a
+        # structured meta rather than forwarding them raw.
+        struct_meta = (
+            np.empty(
+                (), dtype=np.dtype([("data", data_hint), ("mask", np.bool_)])
+            )
+            if data_hint is not None
+            else None
+        )
+        struct = da.map_blocks(
+            wrapper,
+            *inputs,
+            dtype=None,
+            meta=struct_meta,
+            chunks=out_chunks,
+            **kwargs,
+        )
+        out_data = struct["data"]
+        out_mask = struct["mask"]
+    else:
+        out_data = da.map_blocks(
+            wrapper,
+            *inputs,
+            dtype=dtype,
+            meta=meta,
+            chunks=out_chunks,
+            **kwargs,
+        )
+        out_mask = None
     out_nv = _resolve_out_null_value(
         null_value=null_value,
         ref_dtype=ref.dtype,
@@ -2045,7 +2123,9 @@ def geo_map_blocks(
         n_rasters=len(rasters),
         out_dtype=out_data.dtype,
     )
-    return data_to_raster_like(out_data, orig_ref, nv=out_nv)
+    return data_to_raster_like(
+        out_data, orig_ref, mask=out_mask, nv=out_nv, burn=return_mask
+    )
 
 
 def geo_map_overlap(

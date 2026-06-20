@@ -3260,3 +3260,223 @@ def test_map_overlap_return_mask_false_is_unchanged():
         out_default.data.compute(), out_false.data.compute()
     )
     assert not out_default.mask.compute().any()
+
+
+# ---------------------------------------------------------------------------
+# return_mask: explicit output mask (geo_map_blocks)
+# ---------------------------------------------------------------------------
+
+
+def test_geo_map_blocks_return_mask_overrides_sentinel():
+    # The explicit mask defines nullness, decoupled from the data
+    # values (value-based selection so it is independent of coords).
+    r = make_raster(
+        content="arange",
+        shape=(1, 100, 100),
+        dtype=np.float32,
+        chunksize=(1, 100, 100),
+    )
+    src = r.data.compute()
+    v_keep = float(src[0, 50, 50])  # set to nv but NOT masked
+    v_mask = float(src[0, 60, 60])  # masked though value != nv
+
+    def f(xda):
+        d = xda.data
+        out = d.copy()
+        mask = np.zeros(d.shape, dtype=bool)
+        out[d == v_keep] = -9999.0
+        mask[d == v_mask] = True
+        return out, mask
+
+    out = geo_map_blocks(
+        f, r, return_mask=True, null_value=-9999.0, dtype=np.float32
+    )
+    m = out.mask.compute()
+    dat = out.data.compute()
+    assert dat[0, 50, 50] == -9999.0 and not m[0, 50, 50]
+    assert m[0, 60, 60]
+    assert m.sum() == 1
+
+
+def test_geo_map_blocks_return_mask_dataarray_return():
+    # The geo-natural style: func returns a pair of xr.DataArrays.
+    r = make_raster(
+        content="arange",
+        shape=(1, 100, 100),
+        dtype=np.float32,
+        chunksize=(1, 50, 50),
+    )
+
+    def f(xda):
+        return xda * 2, xda > 5000
+
+    out = geo_map_blocks(f, r, return_mask=True)
+    np.testing.assert_array_equal(out.mask.compute(), r.data.compute() > 5000)
+
+
+def test_geo_map_blocks_return_mask_composes_with_geo_block_info():
+    r = make_raster(
+        content="arange",
+        shape=(1, 100, 100),
+        dtype=np.float32,
+        chunksize=(1, 50, 50),
+    )
+    seen = []
+
+    def f(xda, *, geo_block_info=None):
+        if geo_block_info is not None:
+            seen.append(geo_block_info.shape[0])  # input band count
+        return xda.data, xda.data > 5000
+
+    out = geo_map_blocks(f, r, return_mask=True)
+    m = out.mask.compute()  # trigger real-block execution before asserting
+    assert seen and all(n == 1 for n in seen)
+    np.testing.assert_array_equal(m, r.data.compute() > 5000)
+
+
+def test_geo_map_blocks_return_mask_composes_with_out_bands():
+    r = make_raster(
+        content="arange",
+        shape=(3, 100, 100),
+        dtype=np.float32,
+        chunksize=(1, 50, 50),
+    )
+
+    def f(xda):  # 3 -> 2 bands + explicit mask
+        d = xda.data
+        data = np.stack([d[0] + d[1], d[2]], axis=0).astype(np.float32)
+        return data, data > 5000
+
+    out = geo_map_blocks(f, r, out_bands=2, return_mask=True, dtype=np.float32)
+    assert out.nbands == 2
+    src = r.data.compute()
+    expected = np.stack([src[0] + src[1], src[2]], axis=0)
+    np.testing.assert_array_equal(out.mask.compute(), expected > 5000)
+
+
+def test_geo_map_blocks_return_mask_composes_with_input_masks():
+    mask_in = np.zeros((1, 100, 100), dtype=bool)
+    mask_in[0, 20:30, 20:30] = True
+    r1 = make_raster(
+        content="ones",
+        shape=(1, 100, 100),
+        dtype=np.float32,
+        mask=mask_in,
+        null=-1.0,
+        chunksize=(1, 50, 50),
+    )
+    r2 = make_raster(
+        content="ones",
+        shape=(1, 100, 100),
+        dtype=np.float32,
+        chunksize=(1, 50, 50),
+    )
+
+    def f(a, b, *, input_masks):
+        ma, mb = input_masks
+        return a.data + b.data, (ma.data | mb.data)
+
+    out = geo_map_blocks(
+        f, r1, r2, return_mask=True, null_value=-999.0, dtype=np.float32
+    )
+    np.testing.assert_array_equal(out.mask.compute(), mask_in)
+
+
+def test_geo_map_blocks_return_mask_inference_path_no_dtype():
+    r = make_raster(
+        content="arange",
+        shape=(1, 100, 100),
+        dtype=np.float32,
+        chunksize=(1, 50, 50),
+    )
+    out = geo_map_blocks(
+        lambda xda: (xda * 2, xda > 5000), r, return_mask=True
+    )
+    np.testing.assert_array_equal(out.mask.compute(), r.data.compute() > 5000)
+
+
+def test_geo_map_blocks_return_mask_coerces_non_bool_mask():
+    r = make_raster(
+        content="arange",
+        shape=(1, 100, 100),
+        dtype=np.float32,
+        chunksize=(1, 50, 50),
+    )
+
+    def f(xda):
+        return xda.data, (xda.data > 5000).astype(np.int32)
+
+    out = geo_map_blocks(f, r, return_mask=True)
+    m = out.mask.compute()
+    assert m.dtype == np.bool_
+    np.testing.assert_array_equal(m, r.data.compute() > 5000)
+
+
+def test_geo_map_blocks_return_mask_burns_null_value():
+    r = make_raster(
+        content="arange",
+        shape=(1, 100, 100),
+        dtype=np.float32,
+        chunksize=(1, 50, 50),
+    )
+    out = geo_map_blocks(
+        lambda xda: (xda.data, xda.data > 5000),
+        r,
+        return_mask=True,
+        null_value=-42.0,
+        dtype=np.float32,
+    )
+    assert out.null_value == np.float32(-42.0)
+    dat = out.data.compute()
+    m = out.mask.compute()
+    assert np.all(dat[m] == -42.0)
+
+
+def test_geo_map_blocks_return_mask_requires_pair():
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32)
+    with pytest.raises(ValueError, match="data, mask"):
+        geo_map_blocks(
+            lambda xda: xda, r, return_mask=True, dtype=np.float32
+        ).data.compute()
+
+
+def test_geo_map_blocks_return_mask_shape_mismatch_raises():
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32)
+
+    def f(xda):
+        return xda.data, np.zeros((1, 5, 5), dtype=bool)
+
+    with pytest.raises(ValueError, match="does not match"):
+        geo_map_blocks(f, r, return_mask=True, dtype=np.float32).data.compute()
+
+
+def test_geo_map_blocks_return_mask_load_roundtrips():
+    r = make_raster(
+        content="arange",
+        shape=(1, 100, 100),
+        dtype=np.float32,
+        chunksize=(1, 50, 50),
+    )
+    loaded = geo_map_blocks(
+        lambda xda: (xda * 2, xda > 5000), r, return_mask=True
+    ).load()
+    assert loaded.shape == (1, 100, 100)
+    np.testing.assert_array_equal(
+        loaded.mask.compute(), r.data.compute() > 5000
+    )
+
+
+def test_geo_map_blocks_return_mask_false_is_unchanged():
+    r = make_raster(
+        content="arange",
+        shape=(1, 100, 100),
+        dtype=np.float32,
+        null=-1.0,
+        chunksize=(1, 50, 50),
+    )
+    out_default = geo_map_blocks(lambda xda: xda, r)
+    out_false = geo_map_blocks(lambda xda: xda, r, return_mask=False)
+    np.testing.assert_array_equal(
+        out_default.data.compute(), out_false.data.compute()
+    )
+    assert not out_default.mask.compute().any()
