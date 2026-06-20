@@ -3480,3 +3480,266 @@ def test_geo_map_blocks_return_mask_false_is_unchanged():
         out_default.data.compute(), out_false.data.compute()
     )
     assert not out_default.mask.compute().any()
+
+
+# ---------------------------------------------------------------------------
+# return_mask: explicit output mask (geo_map_overlap)
+# ---------------------------------------------------------------------------
+
+
+def test_geo_map_overlap_return_mask_overrides_sentinel():
+    r = make_raster(
+        content="arange",
+        shape=(1, 100, 100),
+        dtype=np.float32,
+        chunksize=(1, 100, 100),
+    )
+    src = r.data.compute()
+    v_keep = float(src[0, 50, 50])  # set to nv but NOT masked
+    v_mask = float(src[0, 60, 60])  # masked though value != nv
+
+    def f(xda):
+        d = xda.data
+        out = d.copy()
+        mask = np.zeros(d.shape, dtype=bool)
+        out[d == v_keep] = -9999.0
+        mask[d == v_mask] = True
+        return out, mask
+
+    out = geo_map_overlap(
+        f,
+        r,
+        depth=1,
+        boundary="reflect",
+        return_mask=True,
+        null_value=-9999.0,
+        dtype=np.float32,
+    )
+    m = out.mask.compute()
+    dat = out.data.compute()
+    assert dat[0, 50, 50] == -9999.0 and not m[0, 50, 50]
+    assert m[0, 60, 60]
+    assert m.sum() == 1
+
+
+def test_geo_map_overlap_return_mask_trims_structured_block():
+    r = make_raster(
+        content="arange",
+        shape=(1, 100, 100),
+        dtype=np.float32,
+        chunksize=(1, 50, 50),
+    )
+
+    def f(xda):
+        return xda.data.astype(np.float32), xda.data > 5000
+
+    out = geo_map_overlap(f, r, depth=1, boundary="reflect", return_mask=True)
+    assert out.shape == (1, 100, 100)
+    np.testing.assert_array_equal(out.mask.compute(), r.data.compute() > 5000)
+
+
+def test_geo_map_overlap_return_mask_dataarray_return():
+    r = make_raster(
+        content="arange",
+        shape=(1, 100, 100),
+        dtype=np.float32,
+        chunksize=(1, 50, 50),
+    )
+
+    def f(xda):
+        return xda * 2, xda > 5000
+
+    out = geo_map_overlap(f, r, depth=1, boundary="reflect", return_mask=True)
+    np.testing.assert_array_equal(out.mask.compute(), r.data.compute() > 5000)
+
+
+def test_geo_map_overlap_return_mask_composes_with_geo_block_info():
+    r = make_raster(
+        content="arange",
+        shape=(1, 100, 100),
+        dtype=np.float32,
+        chunksize=(1, 50, 50),
+    )
+    seen = []
+
+    def f(xda, *, geo_block_info=None):
+        if geo_block_info is not None:
+            seen.append(geo_block_info.shape[0])  # input band count
+        return xda.data, xda.data > 5000
+
+    out = geo_map_overlap(f, r, depth=1, boundary="reflect", return_mask=True)
+    m = out.mask.compute()  # trigger real-block execution before asserting
+    assert seen and all(n == 1 for n in seen)
+    np.testing.assert_array_equal(m, r.data.compute() > 5000)
+
+
+@pytest.mark.parametrize("boundary", [0.0, "reflect", "null"])
+def test_geo_map_overlap_return_mask_boundary_composes(boundary):
+    r = make_raster(
+        content="arange",
+        shape=(1, 100, 100),
+        dtype=np.float32,
+        null=-1.0,
+        chunksize=(1, 50, 50),
+    )
+    out = geo_map_overlap(
+        lambda xda: (xda * 2, xda > 5000),
+        r,
+        depth=1,
+        boundary=boundary,
+        return_mask=True,
+        dtype=np.float32,
+    )
+    assert out.shape == (1, 100, 100)
+    np.testing.assert_array_equal(out.mask.compute(), r.data.compute() > 5000)
+
+
+def test_geo_map_overlap_return_mask_composes_with_input_masks():
+    mask_in = np.zeros((1, 100, 100), dtype=bool)
+    mask_in[0, 20:30, 20:30] = True
+    r1 = make_raster(
+        content="ones",
+        shape=(1, 100, 100),
+        dtype=np.float32,
+        mask=mask_in,
+        null=-1.0,
+        chunksize=(1, 50, 50),
+    )
+    r2 = make_raster(
+        content="ones",
+        shape=(1, 100, 100),
+        dtype=np.float32,
+        chunksize=(1, 50, 50),
+    )
+
+    def f(a, b, *, input_masks):
+        ma, mb = input_masks
+        return a.data + b.data, (ma.data | mb.data)
+
+    out = geo_map_overlap(
+        f,
+        r1,
+        r2,
+        depth=1,
+        boundary="reflect",
+        return_mask=True,
+        null_value=-999.0,
+        dtype=np.float32,
+    )
+    np.testing.assert_array_equal(out.mask.compute(), mask_in)
+
+
+def test_geo_map_overlap_return_mask_inference_path_no_dtype():
+    r = make_raster(
+        content="arange",
+        shape=(1, 100, 100),
+        dtype=np.float32,
+        chunksize=(1, 50, 50),
+    )
+    out = geo_map_overlap(
+        lambda xda: (xda * 2, xda > 5000),
+        r,
+        depth=1,
+        boundary="reflect",
+        return_mask=True,
+    )
+    np.testing.assert_array_equal(out.mask.compute(), r.data.compute() > 5000)
+
+
+def test_geo_map_overlap_return_mask_coerces_non_bool_mask():
+    r = make_raster(
+        content="arange",
+        shape=(1, 100, 100),
+        dtype=np.float32,
+        chunksize=(1, 50, 50),
+    )
+
+    def f(xda):
+        return xda.data, (xda.data > 5000).astype(np.int32)
+
+    out = geo_map_overlap(f, r, depth=1, boundary="reflect", return_mask=True)
+    m = out.mask.compute()
+    assert m.dtype == np.bool_
+    np.testing.assert_array_equal(m, r.data.compute() > 5000)
+
+
+def test_geo_map_overlap_return_mask_burns_null_value():
+    r = make_raster(
+        content="arange",
+        shape=(1, 100, 100),
+        dtype=np.float32,
+        chunksize=(1, 50, 50),
+    )
+    out = geo_map_overlap(
+        lambda xda: (xda.data, xda.data > 5000),
+        r,
+        depth=1,
+        boundary="reflect",
+        return_mask=True,
+        null_value=-42.0,
+        dtype=np.float32,
+    )
+    assert out.null_value == np.float32(-42.0)
+    dat = out.data.compute()
+    m = out.mask.compute()
+    assert np.all(dat[m] == -42.0)
+
+
+def test_geo_map_overlap_return_mask_requires_pair():
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32)
+    with pytest.raises(ValueError, match="data, mask"):
+        geo_map_overlap(
+            lambda xda: xda, r, depth=1, return_mask=True, dtype=np.float32
+        ).data.compute()
+
+
+def test_geo_map_overlap_return_mask_shape_mismatch_raises():
+    r = make_raster(shape=(1, 100, 100), dtype=np.float32)
+
+    def f(xda):
+        return xda.data, np.zeros((1, 5, 5), dtype=bool)
+
+    with pytest.raises(ValueError, match="does not match"):
+        geo_map_overlap(
+            f, r, depth=1, return_mask=True, dtype=np.float32
+        ).data.compute()
+
+
+def test_geo_map_overlap_return_mask_load_roundtrips():
+    r = make_raster(
+        content="arange",
+        shape=(1, 100, 100),
+        dtype=np.float32,
+        chunksize=(1, 50, 50),
+    )
+    loaded = geo_map_overlap(
+        lambda xda: (xda * 2, xda > 5000),
+        r,
+        depth=1,
+        boundary="reflect",
+        return_mask=True,
+    ).load()
+    assert loaded.shape == (1, 100, 100)
+    np.testing.assert_array_equal(
+        loaded.mask.compute(), r.data.compute() > 5000
+    )
+
+
+def test_geo_map_overlap_return_mask_false_is_unchanged():
+    r = make_raster(
+        content="arange",
+        shape=(1, 100, 100),
+        dtype=np.float32,
+        null=-1.0,
+        chunksize=(1, 50, 50),
+    )
+    out_default = geo_map_overlap(
+        lambda xda: xda, r, depth=1, boundary="reflect"
+    )
+    out_false = geo_map_overlap(
+        lambda xda: xda, r, depth=1, boundary="reflect", return_mask=False
+    )
+    np.testing.assert_array_equal(
+        out_default.data.compute(), out_false.data.compute()
+    )
+    assert not out_default.mask.compute().any()

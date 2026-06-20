@@ -1776,7 +1776,12 @@ def _build_geo_map_blocks_wrapper(
 
 
 def _build_geo_map_overlap_wrapper(
-    func, rasters, null_value=None, out_dtype_hint=None
+    func,
+    rasters,
+    null_value=None,
+    out_dtype_hint=None,
+    return_mask=False,
+    out_data_dtype=None,
 ):
     """Per-block wrapper for :func:`geo_map_overlap`.
 
@@ -1789,6 +1794,8 @@ def _build_geo_map_overlap_wrapper(
         null_value=null_value,
         gbi_resolver=_resolve_gbi_with_overlap_pad,
         out_dtype_hint=out_dtype_hint,
+        return_mask=return_mask,
+        out_data_dtype=out_data_dtype,
     )
 
 
@@ -2136,6 +2143,7 @@ def geo_map_overlap(
     dtype=None,
     null_value=None,
     meta=None,
+    return_mask=False,
     **kwargs,
 ):
     """Apply ``func`` block-wise with overlap, handing it georeferenced
@@ -2155,14 +2163,18 @@ def geo_map_overlap(
     Name any of these in ``func``'s signature to receive them per chunk;
     see below.
 
-    The output Raster's mask is rebuilt from the output data and the
-    resolved output null value (``out_data == null_value``, or
+    By default the output Raster's mask is rebuilt from the output data
+    and the resolved output null value (``out_data == null_value``, or
     ``np.isnan(out_data)`` for NaN nulls) -- write the sentinel
     only at cells you want masked. Cells your func happens to leave
     equal to the sentinel will appear masked even if you didn't
     intend them to; cells you wanted masked but didn't write the
     sentinel to will not. This is true regardless of the input
     rasters' masks: input masks do **not** carry through unchanged.
+    To set the output mask explicitly instead -- decoupling nullness
+    from the data values -- pass ``return_mask=True`` and have ``func``
+    return a ``(data, mask)`` pair (both overlap-included); see
+    ``return_mask`` below.
 
     Always passed positionally:
 
@@ -2258,6 +2270,30 @@ def geo_map_overlap(
         wrapper's array output (whatever backend the user's func
         produces). When ``None`` (default), dask derives a NumPy
         meta by calling ``func`` on 0-shape inputs.
+    return_mask : bool, optional
+        If ``True``, ``func`` returns a ``(data, mask)`` pair instead of
+        a single array/DataArray, and the returned ``mask`` -- not a
+        sentinel comparison -- defines the output Raster's null cells.
+        ``mask`` is a boolean array the same shape as ``data`` (both
+        overlap-included; dask trims them together). Masked cells are set
+        to the resolved output null value (burned in). Use this to
+        decouple *which* cells are null from *what value* they hold,
+        avoiding the sentinel-collision pitfalls described above. The
+        default is ``False`` (sentinel-derived mask). Notes:
+
+        - Each element of the pair may be an :class:`xarray.DataArray`
+          or a bare array; the wrapper uses each element's ``.data``
+          (any coords / CRS are discarded, same as for the data block).
+        - The two arrays are carried through dask packed into a single
+          NumPy structured-dtype block, then split apart again -- an
+          internal detail; ``func`` just returns the plain pair.
+        - Passing ``dtype=`` (or ``meta=``) describing the **data**
+          dtype is recommended: it lets dask skip its 0-shape probe.
+          Without a hint the func must tolerate that probe.
+        - Requires NumPy-backed blocks. Composes with ``input_masks``,
+          ``geo_block_info``, and every ``boundary`` mode.
+          ``out_null_value`` injection is unnecessary (though harmless)
+          when ``return_mask=True``.
     **kwargs
         Extra keyword arguments forwarded per-block to ``func``. The
         reserved names listed above are not allowed here.
@@ -2288,7 +2324,8 @@ def geo_map_overlap(
 
     The output mask is all-False if no null value is set (see the
     per-block contract above for how the mask is built when one is).
-    Writing a new mask directly via ``func`` is not supported.
+    To write the output mask directly, pass ``return_mask=True`` and
+    return a ``(data, mask)`` pair from ``func`` (see ``return_mask``).
 
     The data/mask boundary correspondence rule from :func:`map_overlap`
     applies (``"null"`` -> mask True; reflect/periodic/nearest -> mask
@@ -2393,11 +2430,14 @@ def geo_map_overlap(
     rasters = _ensure_chunks_for_overlap(rasters, depth_dict)
     ref = rasters[0]  # rechunk may have changed ref's chunking
 
+    data_hint = _out_dtype_hint(dtype, meta)
     wrapper, inputs = _build_geo_map_overlap_wrapper(
         func,
         rasters,
         null_value=null_value,
-        out_dtype_hint=_out_dtype_hint(dtype, meta),
+        out_dtype_hint=data_hint,
+        return_mask=return_mask,
+        out_data_dtype=data_hint,
     )
     pass_masks = has_keyword(func, "input_masks")
     boundaries = [_resolve_boundary(boundary, r)[0] for r in rasters]
@@ -2405,15 +2445,40 @@ def geo_map_overlap(
         boundaries.extend(_resolve_boundary(boundary, r)[1] for r in rasters)
     depths = [depth_dict] * len(inputs)
 
-    out_data = da.overlap.map_overlap(
-        wrapper,
-        *inputs,
-        depth=depths,
-        boundary=boundaries,
-        dtype=dtype,
-        meta=meta,
-        **kwargs,
-    )
+    if return_mask:
+        # The wrapper returns a structured (data, mask) array (see
+        # map_blocks); fold the user's data-side dtype=/meta= into a
+        # structured meta. dask trims the structured block's overlap rim
+        # like any other array.
+        struct_meta = (
+            np.empty(
+                (), dtype=np.dtype([("data", data_hint), ("mask", np.bool_)])
+            )
+            if data_hint is not None
+            else None
+        )
+        struct = da.overlap.map_overlap(
+            wrapper,
+            *inputs,
+            depth=depths,
+            boundary=boundaries,
+            dtype=None,
+            meta=struct_meta,
+            **kwargs,
+        )
+        out_data = struct["data"]
+        out_mask = struct["mask"]
+    else:
+        out_data = da.overlap.map_overlap(
+            wrapper,
+            *inputs,
+            depth=depths,
+            boundary=boundaries,
+            dtype=dtype,
+            meta=meta,
+            **kwargs,
+        )
+        out_mask = None
     out_nv = _resolve_out_null_value(
         null_value=null_value,
         ref_dtype=ref.dtype,
@@ -2421,4 +2486,6 @@ def geo_map_overlap(
         n_rasters=len(rasters),
         out_dtype=out_data.dtype,
     )
-    return data_to_raster_like(out_data, ref, nv=out_nv)
+    return data_to_raster_like(
+        out_data, ref, mask=out_mask, nv=out_nv, burn=return_mask
+    )
