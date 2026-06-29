@@ -451,221 +451,206 @@ def map_blocks(
 ):
     """Apply ``func`` block-wise across one or more aligned rasters.
 
-    Thin wrapper over :func:`dask.array.map_blocks`. Each call to
-    ``func`` receives one block from each input raster, in the same
-    order as ``*rasters``. The output :class:`~raster_tools.Raster`
-    adopts its CRS, affine, and x/y coords from the first input; its
-    mask is derived from the output data by default, or set explicitly
-    by ``func`` via ``return_mask`` (see Notes).
+    Thin wrapper over :func:`dask.array.map_blocks`. Each call to ``func``
+    receives one block from each input raster, in the same order as
+    ``*rasters``. The output :class:`~raster_tools.Raster` adopts its CRS,
+    affine, and x/y coords from the first input; its mask is derived from the
+    output data by default, or set explicitly by ``func`` via ``return_mask``
+    (see Notes).
 
     Per-block contract
     ------------------
     Per-block kwargs (opt-in): ``input_masks``, ``input_null_values``,
-    ``block_info``, ``block_id``, ``out_null_value``. Name any of these
-    in ``func``'s signature to receive them per chunk; see below.
+    ``block_info``, ``block_id``, ``out_null_value``. Name any of these in
+    ``func``'s signature to receive them per chunk; see below.
 
-    By default the output Raster's mask is rebuilt from the output data
-    and the resolved output null value (``out_data == null_value``, or
-    ``np.isnan(out_data)`` for NaN nulls) -- write the sentinel
-    only at cells you want masked. Cells your func happens to leave
-    equal to the sentinel will appear masked even if you didn't
-    intend them to; cells you wanted masked but didn't write the
-    sentinel to will not. This is true regardless of the input
-    rasters' masks: input masks do **not** carry through unchanged.
-    To set the output mask explicitly instead -- decoupling nullness
+    By default the output Raster's mask is rebuilt from the output data and the
+    resolved output null value (``out_data == null_value``, or
+    ``np.isnan(out_data)`` for NaN nulls) -- write the sentinel only at cells
+    you want masked. Cells your func happens to leave equal to the sentinel
+    will appear masked even if you didn't intend them to; cells you wanted
+    masked but didn't write the sentinel to will not. This is true regardless
+    of the input rasters' masks: input masks do **not** carry through
+    unchanged. To set the output mask explicitly instead -- decoupling nullness
     from the data values and avoiding both failure modes above -- pass
-    ``return_mask=True`` and have ``func`` return a ``(data, mask)``
-    pair; see ``return_mask`` below.
+    ``return_mask=True`` and have ``func`` return a ``(data, mask)`` pair; see
+    ``return_mask`` below.
 
     Always passed positionally:
 
         func(*input_data, **kwargs)
 
-    where ``input_data`` is a tuple of N NumPy blocks, one per input
-    raster, in caller order.
+    where ``input_data`` is a tuple of N NumPy blocks, one per input raster, in
+    caller order.
 
-    The user can also opt in to receive per-block extras by including
-    named parameters in ``func``'s signature. Detection mirrors dask's
-    own ``block_info=`` / ``block_id=`` mechanism and uses
+    The user can also opt in to receive per-block extras by including named
+    parameters in ``func``'s signature. Detection mirrors dask's own
+    ``block_info=`` / ``block_id=`` mechanism and uses
     :func:`inspect.signature` (via :func:`dask.utils.has_keyword`).
     Recognized names:
 
-    - ``input_masks`` -- tuple of N ``np.ndarray`` (bool) per-block
-      mask arrays, parallel to ``input_data``.
-    - ``input_null_values`` -- tuple of N scalars, each input
-      raster's ``null_value`` (``None`` if unset).
+    - ``input_masks`` -- tuple of N ``np.ndarray`` (bool) per-block mask
+      arrays, parallel to ``input_data``.
+    - ``input_null_values`` -- tuple of N scalars, each input raster's
+      ``null_value`` (``None`` if unset).
     - ``block_info`` -- dask's standard per-block info dict (see
       :func:`dask.array.map_blocks`).
-    - ``block_id`` -- dask's standard per-block index tuple: the
-      block's ``chunk-location`` (equivalently
-      ``block_info[None]["chunk-location"]``). ``None`` during the
-      meta inference call.
-    - ``out_null_value`` -- scalar; the resolved output null value
-      the wrapper will use to derive the output mask. Write this
-      sentinel at cells you want masked. See "Output null value
-      resolution" in Notes below.
+    - ``block_id`` -- dask's standard per-block index tuple: the block's
+      ``chunk-location`` (equivalently ``block_info[None]["chunk-location"]``).
+      ``None`` during the meta inference call.
+    - ``out_null_value`` -- scalar; the resolved output null value the wrapper
+      will use to derive the output mask. Write this sentinel at cells you want
+      masked. See "Output null value resolution" in Notes below.
 
-    A function whose only kwargs absorber is ``**kwargs`` (e.g.
-    ``def f(*args, **kwargs):``) does NOT trigger any of these
-    injections -- ``inspect.signature`` only sees explicit parameter
-    names. Name the kwargs you want.
+    A function whose only kwargs absorber is ``**kwargs`` (e.g. ``def f(*args,
+    **kwargs):``) does NOT trigger any of these injections --
+    ``inspect.signature`` only sees explicit parameter names. Name the kwargs
+    you want.
 
     Reserved kwargs
     ---------------
-    ``input_masks``, ``input_null_values``, ``block_info``,
-    ``block_id``, and ``out_null_value`` are reserved. Passing any of
-    them via ``map_blocks``'s own ``**kwargs`` raises ``ValueError`` --
-    otherwise the wrapper's injection would silently clobber the
-    caller's value.
+    ``input_masks``, ``input_null_values``, ``block_info``, ``block_id``, and
+    ``out_null_value`` are reserved. Passing any of them via ``map_blocks``'s
+    own ``**kwargs`` raises ``ValueError`` -- otherwise the wrapper's injection
+    would silently clobber the caller's value.
 
     Parameters
     ----------
     func : callable
-        Per-block function. See "Per-block contract" above for the
-        full signature rules. Must return either an
-        :class:`xarray.DataArray` (its ``.data`` is extracted,
-        preserving the underlying backend) or any array-like that
-        dask can ingest (NumPy ndarray, cupy ndarray, sparse array,
-        etc.) with the same shape as a single input data block. For
-        non-numpy backends, also pass ``meta=`` so dask's output
-        meta is correct.
+        Per-block function. See "Per-block contract" above for the full
+        signature rules. Must return either an :class:`xarray.DataArray` (its
+        ``.data`` is extracted, preserving the underlying backend) or any
+        array-like that dask can ingest (NumPy ndarray, cupy ndarray, sparse
+        array, etc.) with the same shape as a single input data block. For
+        non-numpy backends, also pass ``meta=`` so dask's output meta is
+        correct.
     *rasters : Raster or str
-        One or more aligned input rasters. Path strings are accepted.
-        Only the 3D shape is validated; CRS and affine are *not*
-        checked (mirroring ``gdal_calc.py``'s default behavior). The
-        caller is responsible for aligning inputs -- typically via
-        ``r2.reproject(r1.geobox)``. Inputs are auto-rechunked to the
-        first input's chunk structure, so same-shape inputs with
-        differing chunking are handled. For a geo-aware variant that
-        strictly requires matching grids, see :func:`geo_map_blocks`.
+        One or more aligned input rasters. Path strings are accepted. Only the
+        3D shape is validated; CRS and affine are *not* checked. The caller is
+        responsible for aligning inputs -- typically via
+        ``r2.reproject(r1.geobox)``. Inputs are auto-rechunked to the first
+        input's chunk structure, so same-shape inputs with differing chunking
+        are handled. For a geo-aware variant that strictly requires matching
+        grids, see :func:`geo_map_blocks`.
     dtype : dtype-like, optional
-        Output dtype. When ``None`` (default), dask infers the dtype
-        by calling ``func`` on tiny meta samples (matches NumPy
-        promotion for the typical elementwise case, and reflects any
-        in-func cast such as ``.astype``).
+        Output dtype. When ``None`` (default), dask infers the dtype by calling
+        ``func`` on tiny meta samples (matches NumPy promotion for the typical
+        elementwise case, and reflects any in-func cast such as ``.astype``).
     null_value : scalar, optional
         Output null value.
 
-        - ``None`` (default): if there is exactly one input raster and
-          the output dtype matches its dtype, the output inherits
-          that input's null value (preserves the sentinel for
-          identity-like single-input ops). Otherwise, the value is
-          a dtype-appropriate default from
-          :func:`raster_tools.masking.get_default_null_value` against
-          the resolved output dtype -- always representable, never
-          overflows when the dtype changes.
+        - ``None`` (default): if there is exactly one input raster and the
+          output dtype matches its dtype, the output inherits that input's null
+          value (preserves the sentinel for identity-like single-input ops).
+          Otherwise, the value is a dtype-appropriate default from
+          :func:`raster_tools.masking.get_default_null_value` against the
+          resolved output dtype -- always representable, never overflows when
+          the dtype changes.
         - scalar: used as-is.
-        - strings (including the previously-supported ``"default"``)
-          are no longer accepted.
 
-        To force inherit-from-first-input across other cases, pass
-        the value explicitly: ``null_value=r1.null_value``.
+        To force inherit-from-first-input across other cases, pass the value
+        explicitly: ``null_value=r1.null_value``.
     meta : array-like, optional
-        Empty array with the desired output array type (e.g.
-        ``np.empty((), dtype=np.float32)``, or a CuPy / sparse
-        equivalent). Forwarded to :func:`dask.array.map_blocks`. When
-        provided, dask uses this as the output meta and skips the
-        0-shape sample call it would otherwise make to derive one --
-        useful when ``func`` cannot tolerate 0-shape input. When
-        ``None`` (default), dask derives a NumPy meta by calling
-        ``func`` on 0-shape inputs.
+        Empty array with the desired output array type (e.g. ``np.array((),
+        dtype=np.float32)``, or a CuPy / sparse equivalent). Forwarded to
+        :func:`dask.array.map_blocks`. When provided, dask uses this as the
+        output meta and skips the 0-shape sample call it would otherwise make
+        to derive one -- useful when ``func`` cannot tolerate 0-shape input.
+        When ``None`` (default), dask derives a NumPy meta by calling ``func``
+        on 0-shape inputs.
     out_bands : int, optional
-        Number of bands in the output. ``None`` (default) is
-        shape-preserving: the output has the same band count as the
-        input and ``func`` returns same-shape blocks. A positive integer
-        lets ``func`` change the band count (the y/x grid is unchanged),
-        e.g. ``out_bands=3`` to emit three per-pixel statistics from a
-        1-band input, or ``out_bands=1`` to collapse a multi-band stack.
-        ``func`` must return exactly ``out_bands`` bands per block (a
-        mismatch raises ``ValueError``). Consequences when set:
+        Number of bands in the output. ``None`` (default) is shape-preserving:
+        the output has the same band count as the input and ``func`` returns
+        same-shape blocks. A positive integer lets ``func`` change the band
+        count (the y/x grid is unchanged), e.g. ``out_bands=3`` to emit three
+        per-pixel statistics from a 1-band input, or ``out_bands=1`` to
+        collapse a multi-band stack. ``func`` must return exactly ``out_bands``
+        bands per block (a mismatch raises ``ValueError``). Consequences when
+        set:
 
-        - The input band axis is collapsed to a **single chunk** so
-          ``func`` sees every band of a spatial tile at once, and the
-          y/x tiles are transparently re-sized so a block holds roughly
-          one ``dask`` ``array.chunk-size`` worth of data -- so ``func``
-          may see different spatial tile sizes than the input's native
-          chunking.
+        - The input band axis is collapsed to a **single chunk** so ``func``
+          sees every band of a spatial tile at once, and the y/x tiles are
+          transparently re-sized so a block holds roughly one ``dask``
+          ``array.chunk-size`` worth of data -- so ``func`` may see different
+          spatial tile sizes than the input's native chunking.
         - The output Raster is restored to the input's **original** y/x
           chunking, with per-band band chunks and band coord
           ``np.arange(out_bands) + 1``.
-        - Passing ``dtype=`` or ``meta=`` is recommended, since dask's
-          0-shape meta call still runs and a band-reshaping ``func`` may
-          not produce the right dtype/shape at 0-shape.
+        - Passing ``dtype=`` or ``meta=`` is recommended, since dask's 0-shape
+          meta call still runs and a band-reshaping ``func`` may not produce
+          the right dtype/shape at 0-shape.
     return_mask : bool, optional
-        If ``True``, ``func`` returns a ``(data, mask)`` pair instead of
-        a single array, and the returned ``mask`` -- not a sentinel
-        comparison -- defines the output Raster's null cells. ``mask`` is
-        a boolean array the same shape as ``data``; masked cells are set
-        to the resolved output null value (burned in). Use this to
-        decouple *which* cells are null from *what value* they hold,
-        avoiding the sentinel-collision pitfalls described above. The
-        default is ``False`` (sentinel-derived mask). Notes:
+        If ``True``, ``func`` must return a ``(data, mask)`` pair instead of a
+        single array. The returned ``mask`` -- not a sentinel comparison --
+        defines the output Raster's null cells. ``mask`` is a boolean array the
+        same shape as ``data``; masked cells are set to the resolved output
+        null value (burned in). Use this to decouple *which* cells are null
+        from *what value* they hold, avoiding the sentinel-collision pitfalls
+        described above. The default is ``False`` (sentinel-derived mask).
+        Notes:
 
-        - The two arrays are carried through dask packed into a single
-          NumPy structured-dtype block, then split apart again -- an
-          internal detail; ``func`` just returns the plain pair.
-        - Passing ``dtype=`` (or ``meta=``) describing the **data**
-          dtype is recommended: it lets dask skip its 0-shape probe
-          entirely. Without a hint the func must tolerate that probe
-          (same caveat as ``out_bands``).
-        - Requires NumPy-backed blocks (the structured-dtype carrier is
-          a NumPy concept); cupy / sparse outputs are not supported with
-          ``return_mask``. Composes with ``out_bands`` (the returned
-          ``mask`` must also have ``out_bands`` bands).
-        - ``out_null_value`` injection is unnecessary (though harmless)
-          when ``return_mask=True``.
+        - The two arrays are carried through dask packed into a single NumPy
+          structured-dtype block, then split apart again -- an internal detail;
+          ``func`` just returns the plain pair.
+        - Passing ``dtype=`` (or ``meta=``) describing the **data** dtype is
+          recommended: it lets dask skip its 0-shape probe entirely. Without a
+          hint the func must tolerate that probe (same caveat as
+          ``out_bands``).
+        - Requires NumPy-backed blocks (the structured-dtype carrier is a NumPy
+          concept); cupy / sparse outputs are not supported with
+          ``return_mask``. Composes with ``out_bands`` (the returned ``mask``
+          must also have ``out_bands`` bands).
+        - ``out_null_value`` injection is unnecessary (though harmless) when
+          ``return_mask=True``.
     **kwargs
-        Extra keyword arguments forwarded per-block to ``func``. The
-        reserved names listed above are not allowed here.
+        Extra keyword arguments forwarded per-block to ``func``. The reserved
+        names listed above are not allowed here.
 
     Returns
     -------
     Raster
-        A new lazy Raster on the first input's grid (with ``out_bands``
-        bands when that argument is set).
+        A new lazy Raster on the first input's grid (with ``out_bands`` bands
+        when that argument is set).
 
     Notes
     -----
-    Cross-input CRS or affine mismatches are not validated; the caller
-    is responsible.
+    Cross-input CRS or affine mismatches are not validated; the caller is
+    responsible.
 
-    The output mask is all-False if no null value is set (see the
-    per-block contract above for how the mask is built when one is).
-    To write the output mask directly, pass ``return_mask=True`` and
-    return a ``(data, mask)`` pair from ``func`` (see ``return_mask``).
+    The output mask is all-False if no null value is set (see the per-block
+    contract above for how the mask is built when one is). To write the output
+    mask directly, pass ``return_mask=True`` and return a ``(data, mask)`` pair
+    from ``func`` (see ``return_mask``).
 
-    Dask invokes ``func`` once on 0-shape inputs to derive the output
-    array meta -- this happens whether or not ``dtype=`` is provided.
-    Pass ``meta=`` to skip the call entirely; ``dtype=`` only skips
-    the additional sample call dask would otherwise make to infer the
-    output dtype, not the 0-shape meta call. (Exception: with
-    ``return_mask=True``, ``dtype=`` is folded into a structured
-    ``meta=`` and so *does* skip the 0-shape meta call -- see
-    ``return_mask``.) Most NumPy ops handle 0-shape inputs fine. If
-    dask raises ``dtype inference failed in map_blocks. Please specify
-    the dtype explicitly using the dtype kwarg``, that's the sample
-    call -- ``dtype=`` per dask's hint is usually enough; pass
-    ``meta=`` instead if your func also can't tolerate 0-shape inputs
-    (dask silently swallows that crash, but your downstream output
-    meta will be wrong).
+    Dask invokes ``func`` once on 0-shape inputs to derive the output array
+    meta -- this happens whether or not ``dtype=`` is provided. Pass ``meta=``
+    to skip the call entirely; ``dtype=`` only skips the additional sample call
+    dask would otherwise make to infer the output dtype, not the 0-shape meta
+    call. (Exception: with ``return_mask=True``, ``dtype=`` is folded into a
+    structured ``meta=`` and so *does* skip the 0-shape meta call -- see
+    ``return_mask``.) Most NumPy ops handle 0-shape inputs fine. If dask raises
+    ``dtype inference failed in map_blocks. Please specify the dtype explicitly
+    using the dtype kwarg``, that's the sample call -- ``dtype=`` per dask's
+    hint is usually enough; pass ``meta=`` instead if your func also can't
+    tolerate 0-shape inputs (dask silently swallows that crash, but your
+    downstream output meta will be wrong).
 
     Output null value resolution
     ----------------------------
-    When ``func`` opts in to ``out_null_value``, the wrapper resolves
-    the scalar per-chunk without an extra dtype-inference pass:
+    When ``func`` opts in to ``out_null_value``, the wrapper resolves the
+    scalar per-chunk without an extra dtype-inference pass:
 
     - With ``meta=`` or ``dtype=`` set, from that hint (dask leaves
-      ``block_info[None]["dtype"]`` as ``None`` whenever ``meta=`` is
-      set, which is why the hint is consulted first).
+      ``block_info[None]["dtype"]`` as ``None`` whenever ``meta=`` is set,
+      which is why the hint is consulted first).
     - Otherwise, from ``block_info[None]["dtype"]``.
 
-    During dask's meta inference call (where ``block_info`` is
-    ``None``), ``out_null_value`` is a typed zero of the first
-    input's dtype so funcs like ``np.where(m, out_null_value, d)``
-    infer the same dtype as their input rather than collapsing to
-    object. If your func's *output dtype* depends on the specific
-    ``out_null_value`` scalar, pass ``meta=`` to skip dask's 0-shape
-    meta call entirely; ``dtype=`` skips only the additional sample
+    During dask's meta inference call (where ``block_info`` is ``None``),
+    ``out_null_value`` is a typed zero of the first input's dtype so funcs like
+    ``np.where(m, out_null_value, d)`` infer the same dtype as their input
+    rather than collapsing to object. If your func's *output dtype* depends on
+    the specific ``out_null_value`` scalar, pass ``meta=`` to skip dask's
+    0-shape meta call entirely; ``dtype=`` skips only the additional sample
     call, not the meta call.
 
     Examples
@@ -676,8 +661,8 @@ def map_blocks(
     ...     return d * 2
     >>> doubled = map_blocks(double, r)              # doctest: +SKIP
 
-    Mask-aware multi-input -- write the null sentinel where either
-    input was masked:
+    Mask-aware multi-input -- write the null sentinel where either input was
+    masked:
 
     >>> def add_skip_nulls(a, b, *, input_masks, **kwargs):
     ...     ma, mb = input_masks
@@ -736,7 +721,7 @@ def map_blocks(
         # mis-describe the structured output. A structured meta also
         # skips dask's 0-shape probe entirely.
         struct_meta = (
-            np.empty(
+            np.array(
                 (), dtype=np.dtype([("data", data_hint), ("mask", np.bool_)])
             )
             if data_hint is not None
@@ -1236,170 +1221,154 @@ def map_overlap(
 ):
     """Apply ``func`` block-wise with overlap across one or more rasters.
 
-    Thin wrapper over :func:`dask.array.overlap.map_overlap`. Each call
-    to ``func`` receives one block from each input raster, in the same
-    order as ``*rasters``, with ``depth`` extra cells of overlap on
-    each side. dask trims the overlap from the result before it's
-    wrapped back into a Raster on the input's grid, so the user
-    function returns same-shape (overlap-included) blocks and doesn't
-    need to trim itself.
+    Thin wrapper over :func:`dask.array.overlap.map_overlap`. Each call to
+    ``func`` receives one block from each input raster, in the same order as
+    ``*rasters``, with ``depth`` extra cells of overlap on each side. dask
+    trims the overlap from the result before it's wrapped back into a Raster on
+    the input's grid, so the user function returns same-shape
+    (overlap-included) blocks and doesn't need to trim itself.
 
     Per-block contract
     ------------------
     Per-block kwargs (opt-in): ``input_masks``, ``input_null_values``,
-    ``block_info``, ``block_id``, ``out_null_value``. Name any of these
-    in ``func``'s signature to receive them per chunk; see below.
+    ``block_info``, ``block_id``, ``out_null_value``. Name any of these in
+    ``func``'s signature to receive them per chunk; see below.
 
-    By default the output Raster's mask is rebuilt from the output data
-    and the resolved output null value (``out_data == null_value``, or
-    ``np.isnan(out_data)`` for NaN nulls) -- write the sentinel
-    only at cells you want masked. Cells your func happens to leave
-    equal to the sentinel will appear masked even if you didn't
-    intend them to; cells you wanted masked but didn't write the
-    sentinel to will not. This is true regardless of the input
-    rasters' masks: input masks do **not** carry through unchanged.
-    To set the output mask explicitly instead -- decoupling nullness
-    from the data values -- pass ``return_mask=True`` and have ``func``
-    return a ``(data, mask)`` pair (both overlap-included); see
-    ``return_mask`` below.
+    By default the output Raster's mask is rebuilt from the output data and the
+    resolved output null value (``out_data == null_value``, or
+    ``np.isnan(out_data)`` for NaN nulls) -- write the sentinel only at cells
+    you want masked. Cells your func happens to leave equal to the sentinel
+    will appear masked even if you didn't intend them to; cells you wanted
+    masked but didn't write the sentinel to will not. This is true regardless
+    of the input rasters' masks: input masks do **not** carry through
+    unchanged. To set the output mask explicitly instead -- decoupling nullness
+    from the data values -- pass ``return_mask=True`` and have ``func`` return
+    a ``(data, mask)`` pair (both overlap-included); see ``return_mask`` below.
 
     Always passed positionally:
 
         func(*input_data, **kwargs)
 
-    where ``input_data`` is a tuple of N NumPy blocks, one per input
-    raster, in caller order. Each block already includes the overlap
-    region.
+    where ``input_data`` is a tuple of N NumPy blocks, one per input raster, in
+    caller order. Each block already includes the overlap region.
 
-    The user can also opt in to receive per-block extras by including
-    named parameters in ``func``'s signature. Detection mirrors dask's
-    own ``block_info=`` / ``block_id=`` mechanism and uses
-    :func:`inspect.signature` (via :func:`dask.utils.has_keyword`).
-    Recognized names (same set as :func:`map_blocks`):
+    The user can also opt in to receive per-block extras by including named
+    parameters in ``func``'s signature. Detection mirrors dask's own
+    ``block_info=`` / ``block_id=`` mechanism and uses
+    :func:`inspect.signature` (via :func:`dask.utils.has_keyword`). Recognized
+    names (same set as :func:`map_blocks`):
 
-    - ``input_masks`` -- tuple of N ``np.ndarray`` (bool) per-block
-      mask arrays, parallel to ``input_data`` and overlap-included.
-    - ``input_null_values`` -- tuple of N scalars, each input
-      raster's ``null_value`` (``None`` if unset).
+    - ``input_masks`` -- tuple of N ``np.ndarray`` (bool) per-block mask
+      arrays, parallel to ``input_data`` and overlap-included.
+    - ``input_null_values`` -- tuple of N scalars, each input raster's
+      ``null_value`` (``None`` if unset).
     - ``block_info`` -- dask's standard per-block info dict.
-    - ``block_id`` -- dask's standard per-block index tuple: the
-      block's ``chunk-location`` (equivalently
-      ``block_info[None]["chunk-location"]``). ``None`` during the
-      meta inference call.
-    - ``out_null_value`` -- scalar; the resolved output null value
-      the wrapper will use to derive the output mask. Write this
-      sentinel at cells you want masked. See "Output null value
-      resolution" in Notes below.
+    - ``block_id`` -- dask's standard per-block index tuple: the block's
+      ``chunk-location`` (equivalently ``block_info[None]["chunk-location"]``).
+      ``None`` during the meta inference call.
+    - ``out_null_value`` -- scalar; the resolved output null value the wrapper
+      will use to derive the output mask. Write this sentinel at cells you want
+      masked. See "Output null value resolution" in Notes below.
 
-    A function whose only kwargs absorber is ``**kwargs`` does NOT
-    trigger any of these injections -- name the kwargs you want.
+    A function whose only kwargs absorber is ``**kwargs`` does NOT trigger any
+    of these injections -- name the kwargs you want.
 
     Reserved kwargs
     ---------------
-    ``input_masks``, ``input_null_values``, ``block_info``,
-    ``block_id``, and ``out_null_value`` are reserved. Passing any of
-    them via ``map_overlap``'s own ``**kwargs`` raises ``ValueError``.
+    ``input_masks``, ``input_null_values``, ``block_info``, ``block_id``, and
+    ``out_null_value`` are reserved. Passing any of them via ``map_overlap``'s
+    own ``**kwargs`` raises ``ValueError``.
 
     Parameters
     ----------
     func : callable
-        Per-block function. See "Per-block contract" above. Must
-        return either an :class:`xarray.DataArray` (its ``.data`` is
-        extracted, preserving backend) or any array-like that dask
-        can ingest (NumPy ndarray, cupy ndarray, sparse array, etc.)
-        with the same shape as a single (overlap-included) data
-        block. For non-numpy backends, also pass ``meta=``.
+        Per-block function. See "Per-block contract" above. Must return either
+        an :class:`xarray.DataArray` (its ``.data`` is extracted, preserving
+        backend) or any array-like that dask can ingest (NumPy ndarray, cupy
+        ndarray, sparse array, etc.) with the same shape as a single
+        (overlap-included) data block. For non-numpy backends, also pass
+        ``meta=``.
     *rasters : Raster or str
-        One or more aligned input rasters. Path strings are accepted.
-        Only the 3D shape is validated; CRS and affine are *not*
-        checked. The caller is responsible for aligning inputs --
-        typically via ``r2.reproject(r1.geobox)``. Inputs are
-        auto-rechunked to the first input's chunk structure, so
-        same-shape inputs with differing chunking are handled. For a
-        geo-aware variant that strictly requires matching grids, see
-        :func:`geo_map_overlap`.
+        One or more aligned input rasters. Path strings are accepted. Only the
+        3D shape is validated; CRS and affine are *not* checked. The caller is
+        responsible for aligning inputs -- typically via
+        ``r2.reproject(r1.geobox)``. Inputs are auto-rechunked to the first
+        input's chunk structure, so same-shape inputs with differing chunking
+        are handled. For a geo-aware variant that strictly requires matching
+        grids, see :func:`geo_map_overlap`.
     depth : int, tuple of int, or dict
-        Number of overlap cells per spatial axis. ``int`` applies to
-        both ``y`` and ``x`` (band axis fixed at 0).
-        ``(dy, dx)`` sets per-spatial-axis depth.
-        ``dict`` maps axis index to depth (or to a ``(top, bottom)`` /
-        ``(left, right)`` tuple for asymmetric depths). Asymmetric
-        depths require ``boundary=None`` or ``boundary="none"`` per
-        dask's restriction.
+        Number of overlap cells per spatial axis. ``int`` applies to both ``y``
+        and ``x`` (band axis fixed at 0). ``(dy, dx)`` sets per-spatial-axis
+        depth. ``dict`` maps axis index to depth (or to a ``(top, bottom)`` /
+        ``(left, right)`` tuple for asymmetric depths). Asymmetric depths
+        require ``boundary=None`` or ``boundary="none"`` per dask's
+        restriction.
     boundary : optional
         How to fill cells outside the array's edges. Choices:
 
         - ``None`` (default): no padding (matches dask).
-        - ``"null"`` / ``"null_value"`` / ``"nodata"`` (case-insensitive,
-          so ``"NODATA"`` / ``"NoData"`` also work): fill with the
-          input raster's null value (or
-          :func:`get_default_null_value(dtype) <
+        - ``"null"`` / ``"null_value"`` / ``"nodata"`` (case-insensitive, so
+          ``"NODATA"`` / ``"NoData"`` also work): fill with the input raster's
+          null value (or :func:`get_default_null_value(dtype) <
           raster_tools.masking.get_default_null_value>` if unset). The
           corresponding mask cells are set to ``True``.
-        - a numeric scalar: fill with that value. If the value matches
-          the raster's null value, mask cells are set to ``True``;
-          otherwise they're set to ``False``.
-        - ``"reflect"`` / ``"periodic"`` / ``"nearest"``: dask's
-          standard padding modes. The mask is padded the same way so
-          reflected/wrapped/copied data and mask stay in sync at the
-          source cell.
+        - a numeric scalar: fill with that value. If the value matches the
+          raster's null value, mask cells are set to ``True``; otherwise
+          they're set to ``False``.
+        - ``"reflect"`` / ``"periodic"`` / ``"nearest"``: dask's standard
+          padding modes. The mask is padded the same way so
+          reflected/wrapped/copied data and mask stay in sync at the source
+          cell.
         - ``"none"``: explicit no-padding (same as ``None``).
 
-        For multi-input, each raster's null value is consulted
-        independently.
+        For multi-input, each raster's null value is consulted independently.
 
-        The boundary -> mask rule only affects what the user's function
-        sees in the mask block when it opts in to ``input_masks=``.
-        The output Raster's mask is built independently from the
-        output data (see Returns / Notes below); padded cells are
-        trimmed off before the user sees them.
+        The boundary -> mask rule only affects what the user's function sees in
+        the mask block when it opts in to ``input_masks=``. The output Raster's
+        mask is built independently from the output data (see Returns / Notes
+        below); padded cells are trimmed off before the user sees them.
     dtype : dtype-like, optional
-        Output dtype. When ``None`` (default), dask infers the dtype
-        by calling ``func`` on tiny meta samples.
+        Output dtype. When ``None`` (default), dask infers the dtype by calling
+        ``func`` on tiny meta samples.
     null_value : scalar, optional
         Output null value.
 
-        - ``None`` (default): if there is exactly one input raster and
-          the output dtype matches its dtype, the output inherits
-          that input's null value. Otherwise, the value is a
-          dtype-appropriate default from
+        - ``None`` (default): if there is exactly one input raster and the
+          output dtype matches its dtype, the output inherits that input's null
+          value. Otherwise, the value is a dtype-appropriate default from
           :func:`raster_tools.masking.get_default_null_value`.
         - scalar: used as-is.
-        - strings (including the previously-supported ``"default"``)
-          are no longer accepted.
+
     meta : array-like, optional
         Empty array with the desired output array type. Forwarded to
-        :func:`dask.array.overlap.map_overlap`. When provided, dask
-        uses this as the output meta and skips the 0-shape sample
-        call it would otherwise make to derive one -- useful when
-        ``func`` cannot tolerate 0-shape input. When ``None``
-        (default), dask derives a NumPy meta by calling ``func`` on
-        0-shape inputs.
+        :func:`dask.array.overlap.map_overlap`. When provided, dask uses this
+        as the output meta and skips the 0-shape sample call it would otherwise
+        make to derive one -- useful when ``func`` cannot tolerate 0-shape
+        input. When ``None`` (default), dask derives a NumPy meta by calling
+        ``func`` on 0-shape inputs.
     return_mask : bool, optional
-        If ``True``, ``func`` returns a ``(data, mask)`` pair instead of
-        a single array, and the returned ``mask`` -- not a sentinel
-        comparison -- defines the output Raster's null cells. ``mask`` is
-        a boolean array the same shape as ``data`` (both
-        overlap-included; dask trims them together). Masked cells are set
-        to the resolved output null value (burned in). Use this to
-        decouple *which* cells are null from *what value* they hold,
-        avoiding the sentinel-collision pitfalls described above. The
-        default is ``False`` (sentinel-derived mask). Notes:
+        If ``True``, ``func`` must return a ``(data, mask)`` pair instead of a
+        single array. The returned ``mask`` -- not a sentinel comparison --
+        defines the output Raster's null cells. ``mask`` is a boolean array the
+        same shape as ``data`` (both overlap-included; dask trims them
+        together). Masked cells are set to the resolved output null value
+        (burned in). Use this to decouple *which* cells are null from *what
+        value* they hold, avoiding the sentinel-collision pitfalls described
+        above. The default is ``False`` (sentinel-derived mask). Notes:
 
-        - The two arrays are carried through dask packed into a single
-          NumPy structured-dtype block, then split apart again -- an
-          internal detail; ``func`` just returns the plain pair.
-        - Passing ``dtype=`` (or ``meta=``) describing the **data**
-          dtype is recommended: it lets dask skip its 0-shape probe.
-          Without a hint the func must tolerate that probe.
-        - Requires NumPy-backed blocks (the structured-dtype carrier is
-          a NumPy concept). Composes with ``input_masks`` and every
-          ``boundary`` mode.
-        - ``out_null_value`` injection is unnecessary (though harmless)
-          when ``return_mask=True``.
+        - The two arrays are carried through dask packed into a single NumPy
+          structured-dtype block, then split apart again -- an internal detail;
+          ``func`` just returns the plain pair.
+        - Passing ``dtype=`` (or ``meta=``) describing the **data** dtype is
+          recommended: it lets dask skip its 0-shape probe. Without a hint the
+          func must tolerate that probe.
+        - Requires NumPy-backed blocks (the structured-dtype carrier is a NumPy
+          concept). Composes with ``input_masks`` and every ``boundary`` mode.
+        - ``out_null_value`` injection is unnecessary (though harmless) when
+          ``return_mask=True``.
     **kwargs
-        Extra keyword arguments forwarded per-block to ``func``. The
-        reserved names listed above are not allowed here.
+        Extra keyword arguments forwarded per-block to ``func``. The reserved
+        names listed above are not allowed here.
 
     Returns
     -------
@@ -1408,52 +1377,48 @@ def map_overlap(
 
     Notes
     -----
-    The wrapper always trims overlap before returning so the result
-    matches the input grid. If you need un-trimmed output, call
-    :func:`dask.array.overlap.map_overlap` directly on
-    ``raster.data``.
+    The wrapper always trims overlap before returning so the result matches the
+    input grid. If you need un-trimmed output, call
+    :func:`dask.array.overlap.map_overlap` directly on ``raster.data``.
 
-    The output mask is all-False if no null value is set (see the
-    per-block contract above for how the mask is built when one is).
-    To write the output mask directly, pass ``return_mask=True`` and
-    return a ``(data, mask)`` pair from ``func`` (see ``return_mask``).
+    The output mask is all-False if no null value is set (see the per-block
+    contract above for how the mask is built when one is). To write the output
+    mask directly, pass ``return_mask=True`` and return a ``(data, mask)`` pair
+    from ``func`` (see ``return_mask``).
 
     Asymmetric per-side depths are only supported with no padding
     (``boundary=None`` or ``"none"``).
 
-    Dask invokes ``func`` once on 0-shape inputs to derive the output
-    array meta -- this happens whether or not ``dtype=`` is provided.
-    Pass ``meta=`` to skip the call entirely; ``dtype=`` only skips
-    the additional sample call dask would otherwise make to infer the
-    output dtype, not the 0-shape meta call. (Exception: with
-    ``return_mask=True``, ``dtype=`` is folded into a structured
-    ``meta=`` and so *does* skip the 0-shape meta call -- see
-    ``return_mask``.) Most NumPy ops handle 0-shape inputs fine. If
-    dask raises ``dtype inference failed in map_blocks. Please specify
-    the dtype explicitly using the dtype kwarg``, that's the sample
-    call (dask routes overlap through its inner map_blocks, so the
-    message says map_blocks even from this function) -- ``dtype=`` per
-    dask's hint is usually enough; pass ``meta=`` instead if your func
-    also can't tolerate 0-shape inputs (dask silently swallows that
-    crash, but your downstream output meta will be wrong).
+    Dask invokes ``func`` once on 0-shape inputs to derive the output array
+    meta -- this happens whether or not ``dtype=`` is provided. Pass ``meta=``
+    to skip the call entirely; ``dtype=`` only skips the additional sample call
+    dask would otherwise make to infer the output dtype, not the 0-shape meta
+    call. (Exception: with ``return_mask=True``, ``dtype=`` is folded into a
+    structured ``meta=`` and so *does* skip the 0-shape meta call -- see
+    ``return_mask``.) Most NumPy ops handle 0-shape inputs fine. If dask raises
+    ``dtype inference failed in map_blocks. Please specify the dtype explicitly
+    using the dtype kwarg``, that's the sample call (dask routes overlap
+    through its inner map_blocks, so the message says map_blocks even from this
+    function) -- ``dtype=`` per dask's hint is usually enough; pass ``meta=``
+    instead if your func also can't tolerate 0-shape inputs (dask silently
+    swallows that crash, but your downstream output meta will be wrong).
 
     Output null value resolution
     ----------------------------
-    When ``func`` opts in to ``out_null_value``, the wrapper resolves
-    the scalar per-chunk without an extra dtype-inference pass:
+    When ``func`` opts in to ``out_null_value``, the wrapper resolves the
+    scalar per-chunk without an extra dtype-inference pass:
 
     - With ``meta=`` or ``dtype=`` set, from that hint (dask leaves
-      ``block_info[None]["dtype"]`` as ``None`` whenever ``meta=`` is
-      set, which is why the hint is consulted first).
+      ``block_info[None]["dtype"]`` as ``None`` whenever ``meta=`` is set,
+      which is why the hint is consulted first).
     - Otherwise, from ``block_info[None]["dtype"]``.
 
-    During dask's meta inference call (where ``block_info`` is
-    ``None``), ``out_null_value`` is a typed zero of the first
-    input's dtype so funcs like ``np.where(m, out_null_value, d)``
-    infer the same dtype as their input rather than collapsing to
-    object. If your func's *output dtype* depends on the specific
-    ``out_null_value`` scalar, pass ``meta=`` to skip dask's 0-shape
-    meta call entirely; ``dtype=`` skips only the additional sample
+    During dask's meta inference call (where ``block_info`` is ``None``),
+    ``out_null_value`` is a typed zero of the first input's dtype so funcs like
+    ``np.where(m, out_null_value, d)`` infer the same dtype as their input
+    rather than collapsing to object. If your func's *output dtype* depends on
+    the specific ``out_null_value`` scalar, pass ``meta=`` to skip dask's
+    0-shape meta call entirely; ``dtype=`` skips only the additional sample
     call, not the meta call.
 
     Examples
@@ -1509,7 +1474,7 @@ def map_overlap(
         # structured meta rather than forwarding them raw. dask trims the
         # structured block's overlap rim like any other array.
         struct_meta = (
-            np.empty(
+            np.array(
                 (), dtype=np.dtype([("data", data_hint), ("mask", np.bool_)])
             )
             if data_hint is not None
@@ -1814,71 +1779,65 @@ def geo_map_blocks(
     return_mask=False,
     **kwargs,
 ):
-    """Apply ``func`` block-wise across one or more aligned rasters,
-    handing it georeferenced :class:`xarray.DataArray` blocks.
+    """Apply ``func`` block-wise across one or more aligned rasters, handing it
+    georeferenced :class:`xarray.DataArray` blocks.
 
-    Same shape and contract as :func:`map_blocks`, but each raster's
-    data block is wrapped in a georeferenced ``xr.DataArray`` (with
-    ``band`` / ``y`` / ``x`` coords from the block's geobox, the
-    raster's CRS, and the raster's null value attached as ``nodata``)
-    via :meth:`GeoBlockInfo.to_dataarray` before being passed to
-    ``func``. Useful when the per-block function wants to operate in
-    xarray-land (rio accessors, xr.where, etc.) without having to
+    Same shape and contract as :func:`map_blocks`, but each raster's data block
+    is wrapped in a georeferenced ``xr.DataArray`` (with ``band`` / ``y`` /
+    ``x`` coords from the block's geobox, the raster's CRS, and the raster's
+    null value attached as ``nodata``) via :meth:`GeoBlockInfo.to_dataarray`
+    before being passed to ``func``. Useful when the per-block function wants
+    to operate in xarray-land (rio accessors, xr.where, etc.) without having to
     rebuild coordinates itself.
 
     Per-block contract
     ------------------
     Per-block kwargs (opt-in): ``input_masks``, ``input_null_values``,
-    ``block_info``, ``block_id``, ``out_null_value``, ``geo_block_info``.
-    Name any of these in ``func``'s signature to receive them per chunk;
-    see below.
+    ``block_info``, ``block_id``, ``out_null_value``, ``geo_block_info``. Name
+    any of these in ``func``'s signature to receive them per chunk; see below.
 
-    By default the output Raster's mask is rebuilt from the output data
-    and the resolved output null value (``out_data == null_value``, or
-    ``np.isnan(out_data)`` for NaN nulls) -- write the sentinel
-    only at cells you want masked. Cells your func happens to leave
-    equal to the sentinel will appear masked even if you didn't
-    intend them to; cells you wanted masked but didn't write the
-    sentinel to will not. This is true regardless of the input
-    rasters' masks: input masks do **not** carry through unchanged.
-    To set the output mask explicitly instead -- decoupling nullness
-    from the data values -- pass ``return_mask=True`` and have ``func``
-    return a ``(data, mask)`` pair; see ``return_mask`` below.
+    By default the output Raster's mask is rebuilt from the output data and the
+    resolved output null value (``out_data == null_value``, or
+    ``np.isnan(out_data)`` for NaN nulls) -- write the sentinel only at cells
+    you want masked. Cells your func happens to leave equal to the sentinel
+    will appear masked even if you didn't intend them to; cells you wanted
+    masked but didn't write the sentinel to will not. This is true regardless
+    of the input rasters' masks: input masks do **not** carry through
+    unchanged. To set the output mask explicitly instead -- decoupling nullness
+    from the data values -- pass ``return_mask=True`` and have ``func`` return
+    a ``(data, mask)`` pair; see ``return_mask`` below.
 
     Always passed positionally:
 
         func(*data_dataarrays, **kwargs)
 
     where ``data_dataarrays`` is a tuple of N georeferenced
-    :class:`xarray.DataArray` blocks, one per input raster, in caller
-    order.
+    :class:`xarray.DataArray` blocks, one per input raster, in caller order.
 
-    The user can also opt in to receive per-block extras by including
-    named parameters in ``func``'s signature. Detection mirrors dask's
-    ``block_info=`` mechanism (via :func:`dask.utils.has_keyword`).
-    Recognized names:
+    The user can also opt in to receive per-block extras by including named
+    parameters in ``func``'s signature. Detection mirrors dask's
+    ``block_info=`` mechanism (via :func:`dask.utils.has_keyword`). Recognized
+    names:
 
-    - ``input_masks`` -- tuple of N ``xr.DataArray`` (bool) per-block
-      mask arrays, parallel to the data DataArrays. Same name as
-      :func:`map_blocks`, but elements are ``xr.DataArray`` here
-      (vs. ``np.ndarray`` in :func:`map_blocks`).
-    - ``input_null_values`` -- tuple of N scalars, each input's
-      ``null_value`` (``None`` if unset).
+    - ``input_masks`` -- tuple of N ``xr.DataArray`` (bool) per-block mask
+      arrays, parallel to the data DataArrays. Same name as :func:`map_blocks`,
+      but elements are ``xr.DataArray`` here (vs. ``np.ndarray`` in
+      :func:`map_blocks`).
+    - ``input_null_values`` -- tuple of N scalars, each input's ``null_value``
+      (``None`` if unset).
     - ``block_info`` -- dask's standard per-block info dict.
-    - ``block_id`` -- dask's standard per-block index tuple: the
-      block's ``chunk-location`` (equivalently
-      ``block_info[None]["chunk-location"]``). ``None`` during the
-      meta inference call.
-    - ``out_null_value`` -- scalar; the resolved output null value
-      the wrapper will use to derive the output mask. Write this
-      sentinel at cells you want masked. See "Output null value
-      resolution" in Notes below.
-    - ``geo_block_info`` -- the per-chunk :class:`GeoBlockInfo`
-      (the geo-aware analog of dask's ``block_info``). ``None``
-      during the meta inference call.
+    - ``block_id`` -- dask's standard per-block index tuple: the block's
+      ``chunk-location`` (equivalently ``block_info[None]["chunk-location"]``).
+      ``None`` during the meta inference call.
+    - ``out_null_value`` -- scalar; the resolved output null value the wrapper
+      will use to derive the output mask. Write this sentinel at cells you want
+      masked. See "Output null value resolution" in Notes below.
+    - ``geo_block_info`` -- the per-chunk :class:`GeoBlockInfo` (the geo-aware
+      analog of dask's ``block_info``). ``None`` during the meta inference
+      call.
 
-    A function whose only kwargs absorber is ``**kwargs`` does NOT
-    trigger any of these injections -- name the kwargs you want.
+    A function whose only kwargs absorber is ``**kwargs`` does NOT trigger any
+    of these injections -- name the kwargs you want.
 
     Reserved kwargs
     ---------------
@@ -1890,80 +1849,73 @@ def geo_map_blocks(
     Parameters
     ----------
     func : callable
-        Per-block function. See "Per-block contract" above. May
-        return either an :class:`xarray.DataArray` (its ``.data`` is
-        extracted, preserving backend) or any array-like that dask
-        can ingest (NumPy ndarray, cupy ndarray, sparse array, etc.)
-        with the same shape as a single data block. For non-numpy
-        backends, also pass ``meta=``.
+        Per-block function. See "Per-block contract" above. May return either
+        an :class:`xarray.DataArray` (its ``.data`` is extracted, preserving
+        backend) or any array-like that dask can ingest (NumPy ndarray, cupy
+        ndarray, sparse array, etc.) with the same shape as a single data
+        block. For non-numpy backends, also pass ``meta=``.
     *rasters : Raster or str
-        One or more input rasters. Path strings are accepted. All
-        inputs must be on the same grid (CRS, affine, shape) within
-        the established sub-pixel tolerance; mismatched inputs raise
-        ``ValueError``. Use ``r2.reproject(r1.geobox)`` to align
-        inputs first if needed. Inputs are then auto-rechunked to the
-        first input's chunk structure (``reproject`` does not adopt
-        the target's chunking), so the output stays on the first
+        One or more input rasters. Path strings are accepted. All inputs must
+        be on the same grid (CRS, affine, shape) within the established
+        sub-pixel tolerance; mismatched inputs raise ``ValueError``. Use
+        ``r2.reproject(r1.geobox)`` to align inputs first if needed. Inputs are
+        then auto-rechunked to the first input's chunk structure (``reproject``
+        does not adopt the target's chunking), so the output stays on the first
         input's grid and chunking.
     dtype : dtype-like, optional
-        Output dtype. When ``None`` (default), dask infers the dtype
-        by calling ``func`` on tiny meta samples.
+        Output dtype. When ``None`` (default), dask infers the dtype by calling
+        ``func`` on tiny meta samples.
     null_value : scalar, optional
         Output null value.
 
-        - ``None`` (default): if there is exactly one input raster and
-          the output dtype matches its dtype, the output inherits
-          that input's null value. Otherwise, a dtype-appropriate
-          default from
+        - ``None`` (default): if there is exactly one input raster and the
+          output dtype matches its dtype, the output inherits that input's null
+          value. Otherwise, a dtype-appropriate default from
           :func:`raster_tools.masking.get_default_null_value`.
         - scalar: used as-is.
-        - strings (including the previously-supported ``"default"``)
-          are no longer accepted.
+
     meta : array-like, optional
         Empty array with the desired output array type. Forwarded to
-        :func:`dask.array.map_blocks`. When provided, dask uses this
-        as the output meta and skips the 0-shape sample call it
-        would otherwise make to derive one -- useful when ``func``
-        cannot tolerate 0-shape DataArray inputs. The wrapper extracts
-        ``.data`` from any returned :class:`xarray.DataArray`, so
-        ``meta`` describes the wrapper's array output (whatever
-        backend the user's func produces). When ``None`` (default),
-        dask derives a NumPy
-        meta by calling ``func`` on 0-shape inputs.
+        :func:`dask.array.map_blocks`. When provided, dask uses this as the
+        output meta and skips the 0-shape sample call it would otherwise make
+        to derive one -- useful when ``func`` cannot tolerate 0-shape DataArray
+        inputs. The wrapper extracts ``.data`` from any returned
+        :class:`xarray.DataArray`, so ``meta`` describes the wrapper's array
+        output (whatever backend the user's func produces). When ``None``
+        (default), dask derives a NumPy meta by calling ``func`` on 0-shape
+        inputs.
     out_bands : int, optional
-        Number of bands in the output. ``None`` (default) is
-        shape-preserving. A positive integer lets ``func`` change the
-        band count (the y/x grid is unchanged); ``func`` must return
-        exactly ``out_bands`` bands per block (a mismatch raises
-        ``ValueError``). See :func:`map_blocks` for the full semantics:
-        the input band axis is collapsed to a single chunk (so ``func``
-        sees all bands of a spatial tile, on possibly re-sized y/x
-        tiles), the output is restored to the input's original y/x
-        chunking with band coord ``np.arange(out_bands) + 1``, and
-        passing ``dtype=`` / ``meta=`` is recommended.
+        Number of bands in the output. ``None`` (default) is shape-preserving.
+        A positive integer lets ``func`` change the band count (the y/x grid is
+        unchanged); ``func`` must return exactly ``out_bands`` bands per block
+        (a mismatch raises ``ValueError``). See :func:`map_blocks` for the full
+        semantics: the input band axis is collapsed to a single chunk (so
+        ``func`` sees all bands of a spatial tile, on possibly re-sized y/x
+        tiles), the output is restored to the input's original y/x chunking
+        with band coord ``np.arange(out_bands) + 1``, and passing ``dtype=`` /
+        ``meta=`` is recommended.
     return_mask : bool, optional
-        If ``True``, ``func`` returns a ``(data, mask)`` pair instead of
-        a single array/DataArray, and the returned ``mask`` -- not a
-        sentinel comparison -- defines the output Raster's null cells.
-        ``mask`` is a boolean array the same shape as ``data``; masked
-        cells are set to the resolved output null value (burned in). Use
-        this to decouple *which* cells are null from *what value* they
-        hold, avoiding the sentinel-collision pitfalls described above.
-        The default is ``False`` (sentinel-derived mask). Notes:
+        If ``True``, ``func`` must return a ``(data, mask)`` pair instead of a
+        single array/DataArray. The returned ``mask`` -- not a sentinel
+        comparison -- defines the output Raster's null cells. ``mask`` is a
+        boolean array the same shape as ``data``; masked cells are set to the
+        resolved output null value (burned in). Use this to decouple *which*
+        cells are null from *what value* they hold, avoiding the
+        sentinel-collision pitfalls described above. The default is ``False``
+        (sentinel-derived mask). Notes:
 
-        - Each element of the pair may be an :class:`xarray.DataArray`
-          or a bare array; the wrapper uses each element's ``.data``
-          (any coords / CRS are discarded, same as for the data block).
-        - The two arrays are carried through dask packed into a single
-          NumPy structured-dtype block, then split apart again -- an
-          internal detail; ``func`` just returns the plain pair.
-        - Passing ``dtype=`` (or ``meta=``) describing the **data**
-          dtype is recommended: it lets dask skip its 0-shape probe.
-          Without a hint the func must tolerate that probe.
+        - Each element of the pair may be an :class:`xarray.DataArray` or a
+          bare array; the wrapper uses each element's ``.data`` (any coords /
+          CRS are discarded, same as for the data block).
+        - The two arrays are carried through dask packed into a single NumPy
+          structured-dtype block, then split apart again -- an internal detail;
+          ``func`` just returns the plain pair.
+        - Passing ``dtype=`` (or ``meta=``) describing the **data** dtype is
+          recommended: it lets dask skip its 0-shape probe. Without a hint the
+          func must tolerate that probe.
         - Requires NumPy-backed blocks. Composes with ``out_bands``,
-          ``input_masks``, and ``geo_block_info``. ``out_null_value``
-          injection is unnecessary (though harmless) when
-          ``return_mask=True``.
+          ``input_masks``, and ``geo_block_info``. ``out_null_value`` injection
+          is unnecessary (though harmless) when ``return_mask=True``.
     **kwargs
         Extra keyword arguments forwarded per-block to ``func``. The
         reserved names listed above are not allowed here.
@@ -1971,71 +1923,66 @@ def geo_map_blocks(
     Returns
     -------
     Raster
-        A new lazy Raster on the first input's grid (with ``out_bands``
-        bands when that argument is set).
+        A new lazy Raster on the first input's grid (with ``out_bands`` bands
+        when that argument is set).
 
     Notes
     -----
     .. warning::
-       ``func`` must not alter the grid. The output Raster lands on
-       the **input** grid (``rasters[0]``'s CRS / affine / x / y),
-       regardless of any coords / CRS / nodata your func sets on a
-       returned DataArray -- the wrapper extracts ``.data`` and
-       discards everything else. Operations that change the grid
-       (reproject, clip, coarsen, sel, manual coord assignment,
-       etc.) will silently produce a Raster whose values were
-       computed on a different grid than the one it claims, with no
-       error at construction time. Use :meth:`Raster.reproject` /
-       :meth:`Raster.clip` / etc. before or after this call instead.
+       ``func`` must not alter the grid. The output Raster lands on the
+       **input** grid (``rasters[0]``'s CRS / affine / x / y), regardless of
+       any coords / CRS / nodata your func sets on a returned DataArray -- the
+       wrapper extracts ``.data`` and discards everything else. Operations that
+       change the grid (reproject, clip, coarsen, sel, manual coord assignment,
+       etc.) will silently produce a Raster whose values were computed on a
+       different grid than the one it claims, with no error at construction
+       time. Use :meth:`Raster.reproject` / :meth:`Raster.clip` / etc. before
+       or after this call instead.
 
-    The output mask is all-False if no null value is set (see the
-    per-block contract above for how the mask is built when one is).
-    To write the output mask directly, pass ``return_mask=True`` and
-    return a ``(data, mask)`` pair from ``func`` (see ``return_mask``).
+    The output mask is all-False if no null value is set (see the per-block
+    contract above for how the mask is built when one is). To write the output
+    mask directly, pass ``return_mask=True`` and return a ``(data, mask)`` pair
+    from ``func`` (see ``return_mask``).
 
-    Dask invokes ``func`` once on 0-shape DataArrays (with
-    zero-filled placeholder coords, not real geocoordinates) to
-    derive the output array meta -- this happens whether or not
-    ``dtype=`` is provided. Passing ``dtype=`` only skips the
-    additional sample call dask would otherwise make to infer the
-    output dtype; it does not skip the 0-shape meta call. (Exception:
-    with ``return_mask=True``, ``dtype=`` is folded into a structured
-    ``meta=`` and so *does* skip the 0-shape meta call -- see
-    ``return_mask``.) During the meta call ``geo_block_info`` is
-    ``None`` if the func opts in. Most NumPy / xarray ops handle
-    0-shape inputs fine. If dask raises ``dtype inference failed in
-    map_blocks. Please specify the dtype explicitly using the dtype
-    kwarg``, that's the sample call -- ``dtype=`` per dask's hint is
-    usually enough; pass ``meta=`` instead if your func also can't
-    tolerate 0-shape inputs (dask silently swallows that crash, but
-    your downstream output meta will be wrong).
+    Dask invokes ``func`` once on 0-shape DataArrays (with zero-filled
+    placeholder coords, not real geocoordinates) to derive the output array
+    meta -- this happens whether or not ``dtype=`` is provided. Passing
+    ``dtype=`` only skips the additional sample call dask would otherwise make
+    to infer the output dtype; it does not skip the 0-shape meta call.
+    (Exception: with ``return_mask=True``, ``dtype=`` is folded into a
+    structured ``meta=`` and so *does* skip the 0-shape meta call -- see
+    ``return_mask``.) During the meta call ``geo_block_info`` is ``None`` if
+    the func opts in. Most NumPy / xarray ops handle 0-shape inputs fine. If
+    dask raises ``dtype inference failed in map_blocks. Please specify the
+    dtype explicitly using the dtype kwarg``, that's the sample call --
+    ``dtype=`` per dask's hint is usually enough; pass ``meta=`` instead if
+    your func also can't tolerate 0-shape inputs (dask silently swallows that
+    crash, but your downstream output meta will be wrong).
 
     Output null value resolution
     ----------------------------
-    When ``func`` opts in to ``out_null_value``, the wrapper resolves
-    the scalar per-chunk without an extra dtype-inference pass:
+    When ``func`` opts in to ``out_null_value``, the wrapper resolves the
+    scalar per-chunk without an extra dtype-inference pass:
 
     - With ``meta=`` or ``dtype=`` set, from that hint (dask leaves
-      ``block_info[None]["dtype"]`` as ``None`` whenever ``meta=`` is
-      set, which is why the hint is consulted first).
+      ``block_info[None]["dtype"]`` as ``None`` whenever ``meta=`` is set,
+      which is why the hint is consulted first).
     - Otherwise, from ``block_info[None]["dtype"]``.
 
-    During dask's meta inference call (where ``block_info`` is
-    ``None``), ``out_null_value`` is a typed zero of the first
-    input's dtype so funcs like ``np.where(m, out_null_value, d)``
-    infer the same dtype as their input rather than collapsing to
-    object. If your func's *output dtype* depends on the specific
-    ``out_null_value`` scalar, pass ``meta=`` to skip dask's 0-shape
-    meta call entirely; ``dtype=`` skips only the additional sample
+    During dask's meta inference call (where ``block_info`` is ``None``),
+    ``out_null_value`` is a typed zero of the first input's dtype so funcs like
+    ``np.where(m, out_null_value, d)`` infer the same dtype as their input
+    rather than collapsing to object. If your func's *output dtype* depends on
+    the specific ``out_null_value`` scalar, pass ``meta=`` to skip dask's
+    0-shape meta call entirely; ``dtype=`` skips only the additional sample
     call, not the meta call.
 
     Examples
     --------
-    Use the per-chunk geobox to clip a vector layer and rasterize
-    into the chunk. The output dtype is uint8, not the input's
-    float32 -- pass ``meta=`` so dask uses the right dtype and
-    skips the 0-shape meta call entirely (no ``geo_block_info is
-    None`` guard needed):
+    Use the per-chunk geobox to clip a vector layer and rasterize into the
+    chunk. The output dtype is uint8, not the input's float32 -- pass ``meta=``
+    so dask uses the right dtype and skips the 0-shape meta call entirely (no
+    ``geo_block_info is None`` guard needed):
 
     >>> def clip_and_rasterize(xda, *, geo_block_info, gdf):
     ...     bbox = geo_block_info.bbox
@@ -2043,12 +1990,12 @@ def geo_map_blocks(
     ...     return burned_uint8
     >>> out = geo_map_blocks(                            # doctest: +SKIP
     ...     clip_and_rasterize, r,
-    ...     meta=np.empty((), dtype=np.uint8),
+    ...     meta=np.array((), dtype=np.uint8),
     ...     gdf=lines_gdf,
     ... )
 
-    For dtype-preserving funcs (output dtype equals input dtype),
-    you can skip ``meta=`` and guard on the meta call instead:
+    For dtype-preserving funcs (output dtype equals input dtype), you can skip
+    ``meta=`` and guard on the meta call instead:
 
     >>> def scale(xda, *, geo_block_info=None):          # doctest: +SKIP
     ...     if geo_block_info is None:
@@ -2104,7 +2051,7 @@ def geo_map_blocks(
         # map_blocks); fold the user's data-side dtype=/meta= into a
         # structured meta rather than forwarding them raw.
         struct_meta = (
-            np.empty(
+            np.array(
                 (), dtype=np.dtype([("data", data_hint), ("mask", np.bool_)])
             )
             if data_hint is not None
@@ -2156,95 +2103,83 @@ def geo_map_overlap(
     """Apply ``func`` block-wise with overlap, handing it georeferenced
     :class:`xarray.DataArray` blocks.
 
-    Same shape and contract as :func:`geo_map_blocks` but adds the
-    overlap machinery from :func:`map_overlap` (``depth``,
-    ``boundary``, the data/mask boundary correspondence rule). Each
-    ``xr.DataArray`` block includes the overlap region, and its
-    coords reflect the overlapped extent (top-left corner shifted
-    outward by the per-side pad).
+    Same shape and contract as :func:`geo_map_blocks` but adds the overlap
+    machinery from :func:`map_overlap` (``depth``, ``boundary``, the data/mask
+    boundary correspondence rule). Each ``xr.DataArray`` block includes the
+    overlap region, and its coords reflect the overlapped extent (top-left
+    corner shifted outward by the per-side pad).
 
     Per-block contract
     ------------------
     Per-block kwargs (opt-in): ``input_masks``, ``input_null_values``,
-    ``block_info``, ``block_id``, ``out_null_value``, ``geo_block_info``.
-    Name any of these in ``func``'s signature to receive them per chunk;
-    see below.
+    ``block_info``, ``block_id``, ``out_null_value``, ``geo_block_info``. Name
+    any of these in ``func``'s signature to receive them per chunk; see below.
 
-    By default the output Raster's mask is rebuilt from the output data
-    and the resolved output null value (``out_data == null_value``, or
-    ``np.isnan(out_data)`` for NaN nulls) -- write the sentinel
-    only at cells you want masked. Cells your func happens to leave
-    equal to the sentinel will appear masked even if you didn't
-    intend them to; cells you wanted masked but didn't write the
-    sentinel to will not. This is true regardless of the input
-    rasters' masks: input masks do **not** carry through unchanged.
-    To set the output mask explicitly instead -- decoupling nullness
-    from the data values -- pass ``return_mask=True`` and have ``func``
-    return a ``(data, mask)`` pair (both overlap-included); see
-    ``return_mask`` below.
+    By default the output Raster's mask is rebuilt from the output data and the
+    resolved output null value (``out_data == null_value``, or
+    ``np.isnan(out_data)`` for NaN nulls) -- write the sentinel only at cells
+    you want masked. Cells your func happens to leave equal to the sentinel
+    will appear masked even if you didn't intend them to; cells you wanted
+    masked but didn't write the sentinel to will not. This is true regardless
+    of the input rasters' masks: input masks do **not** carry through
+    unchanged. To set the output mask explicitly instead -- decoupling nullness
+    from the data values -- pass ``return_mask=True`` and have ``func`` return
+    a ``(data, mask)`` pair (both overlap-included); see ``return_mask`` below.
 
     Always passed positionally:
 
         func(*data_dataarrays, **kwargs)
 
     where ``data_dataarrays`` is a tuple of N georeferenced
-    :class:`xarray.DataArray` blocks, one per input raster, in caller
-    order. Each block already includes the overlap region; the
-    wrapper trims it after the function returns so the result lands
-    on the input's grid.
+    :class:`xarray.DataArray` blocks, one per input raster, in caller order.
+    Each block already includes the overlap region; the wrapper trims it after
+    the function returns so the result lands on the input's grid.
 
-    The user can opt in to receive per-block extras by including
-    named parameters in ``func``'s signature. Same set as
-    :func:`geo_map_blocks`:
+    The user can opt in to receive per-block extras by including named
+    parameters in ``func``'s signature. Same set as :func:`geo_map_blocks`:
 
-    - ``input_masks`` -- tuple of N ``xr.DataArray`` (bool) per-block
-      mask arrays, parallel to and overlap-included with the data
-      DataArrays.
-    - ``input_null_values`` -- tuple of N scalars, each input's
-      ``null_value`` (``None`` if unset).
+    - ``input_masks`` -- tuple of N ``xr.DataArray`` (bool) per-block mask
+      arrays, parallel to and overlap-included with the data DataArrays.
+    - ``input_null_values`` -- tuple of N scalars, each input's ``null_value``
+      (``None`` if unset).
     - ``block_info`` -- dask's standard per-block info dict.
-    - ``block_id`` -- dask's standard per-block index tuple: the
-      block's ``chunk-location`` (equivalently
-      ``block_info[None]["chunk-location"]``). ``None`` during the
-      meta inference call.
-    - ``out_null_value`` -- scalar; the resolved output null value
-      the wrapper will use to derive the output mask. Write this
-      sentinel at cells you want masked. See "Output null value
-      resolution" in Notes below.
-    - ``geo_block_info`` -- the per-chunk :class:`GeoBlockInfo`,
-      reflecting the **overlapped** extent: ``shape`` matches the
-      data block (including overlap), ``geobox`` extends to cover
-      the overlap region, and ``row_slice`` / ``col_slice`` may have
-      negative starts for top/left edge chunks. ``None`` during the
-      meta call.
+    - ``block_id`` -- dask's standard per-block index tuple: the block's
+      ``chunk-location`` (equivalently ``block_info[None]["chunk-location"]``).
+      ``None`` during the meta inference call.
+    - ``out_null_value`` -- scalar; the resolved output null value the wrapper
+      will use to derive the output mask. Write this sentinel at cells you want
+      masked. See "Output null value resolution" in Notes below.
+    - ``geo_block_info`` -- the per-chunk :class:`GeoBlockInfo`, reflecting the
+      **overlapped** extent: ``shape`` matches the data block (including
+      overlap), ``geobox`` extends to cover the overlap region, and
+      ``row_slice`` / ``col_slice`` may have negative starts for top/left edge
+      chunks. ``None`` during the meta call.
 
-    A function whose only kwargs absorber is ``**kwargs`` does NOT
-    trigger any of these injections -- name the kwargs you want.
+    A function whose only kwargs absorber is ``**kwargs`` does NOT trigger any
+    of these injections -- name the kwargs you want.
 
     Reserved kwargs
     ---------------
-    ``input_masks``, ``input_null_values``, ``block_info``,
-    ``block_id``, ``out_null_value``, and ``geo_block_info`` are
-    reserved. Passing any of them via ``geo_map_overlap``'s own
-    ``**kwargs`` raises ``ValueError``.
+    ``input_masks``, ``input_null_values``, ``block_info``, ``block_id``,
+    ``out_null_value``, and ``geo_block_info`` are reserved. Passing any of
+    them via ``geo_map_overlap``'s own ``**kwargs`` raises ``ValueError``.
 
     Parameters
     ----------
     func : callable
-        Per-block function. See "Per-block contract" above. May
-        return either an :class:`xarray.DataArray` (its ``.data``
-        is extracted, preserving backend) or any array-like that
-        dask can ingest (NumPy ndarray, cupy ndarray, sparse array,
-        etc.) with the same shape as a single (overlap-included)
-        data block. For non-numpy backends, also pass ``meta=``.
+        Per-block function. See "Per-block contract" above. May return either
+        an :class:`xarray.DataArray` (its ``.data`` is extracted, preserving
+        backend) or any array-like that dask can ingest (NumPy ndarray, cupy
+        ndarray, sparse array, etc.) with the same shape as a single
+        (overlap-included) data block. For non-numpy backends, also pass
+        ``meta=``.
     *rasters : Raster or str
-        One or more input rasters. Path strings are accepted. All
-        inputs must be on the same grid (CRS, affine, shape) within
-        the established sub-pixel tolerance; mismatched inputs raise
-        ``ValueError``. Use ``r2.reproject(r1.geobox)`` to align
-        inputs first if needed. Inputs are then auto-rechunked to the
-        first input's chunk structure (``reproject`` does not adopt
-        the target's chunking), so the output stays on the first
+        One or more input rasters. Path strings are accepted. All inputs must
+        be on the same grid (CRS, affine, shape) within the established
+        sub-pixel tolerance; mismatched inputs raise ``ValueError``. Use
+        ``r2.reproject(r1.geobox)`` to align inputs first if needed. Inputs are
+        then auto-rechunked to the first input's chunk structure (``reproject``
+        does not adopt the target's chunking), so the output stays on the first
         input's grid and chunking.
     depth : int, tuple of int, or dict
         Same semantics as :func:`map_overlap`.
@@ -2253,57 +2188,53 @@ def geo_map_overlap(
         ``"null"`` / ``"null_value"`` / ``"nodata"`` /
         ``"reflect"`` / ``"periodic"`` / ``"nearest"`` / ``"none"``).
     dtype : dtype-like, optional
-        Output dtype. When ``None`` (default), dask infers the dtype
-        by calling ``func`` on tiny meta samples.
+        Output dtype. When ``None`` (default), dask infers the dtype by calling
+        ``func`` on tiny meta samples.
     null_value : scalar, optional
         Output null value.
 
-        - ``None`` (default): if there is exactly one input raster and
-          the output dtype matches its dtype, the output inherits
-          that input's null value. Otherwise, a dtype-appropriate
-          default from
+        - ``None`` (default): if there is exactly one input raster and the
+          output dtype matches its dtype, the output inherits that input's null
+          value. Otherwise, a dtype-appropriate default from
           :func:`raster_tools.masking.get_default_null_value`.
         - scalar: used as-is.
-        - strings (including the previously-supported ``"default"``)
-          are no longer accepted.
+
     meta : array-like, optional
         Empty array with the desired output array type. Forwarded to
-        :func:`dask.array.overlap.map_overlap`. When provided, dask
-        uses this as the output meta and skips the 0-shape sample
-        call it would otherwise make to derive one -- useful when
-        ``func`` cannot tolerate 0-shape DataArray inputs. The
-        wrapper extracts ``.data`` from any returned
-        :class:`xarray.DataArray`, so ``meta`` describes the
-        wrapper's array output (whatever backend the user's func
-        produces). When ``None`` (default), dask derives a NumPy
-        meta by calling ``func`` on 0-shape inputs.
+        :func:`dask.array.overlap.map_overlap`. When provided, dask uses this
+        as the output meta and skips the 0-shape sample call it would otherwise
+        make to derive one -- useful when ``func`` cannot tolerate 0-shape
+        DataArray inputs. The wrapper extracts ``.data`` from any returned
+        :class:`xarray.DataArray`, so ``meta`` describes the wrapper's array
+        output (whatever backend the user's func produces). When ``None``
+        (default), dask derives a NumPy meta by calling ``func`` on 0-shape
+        inputs.
     return_mask : bool, optional
-        If ``True``, ``func`` returns a ``(data, mask)`` pair instead of
-        a single array/DataArray, and the returned ``mask`` -- not a
-        sentinel comparison -- defines the output Raster's null cells.
-        ``mask`` is a boolean array the same shape as ``data`` (both
-        overlap-included; dask trims them together). Masked cells are set
-        to the resolved output null value (burned in). Use this to
-        decouple *which* cells are null from *what value* they hold,
-        avoiding the sentinel-collision pitfalls described above. The
-        default is ``False`` (sentinel-derived mask). Notes:
+        If ``True``, ``func`` must return a ``(data, mask)`` pair instead of a
+        single array/DataArray. The returned ``mask`` -- not a sentinel
+        comparison -- defines the output Raster's null cells. ``mask`` is a
+        boolean array the same shape as ``data`` (both overlap-included; dask
+        trims them together). Masked cells are set to the resolved output null
+        value (burned in). Use this to decouple *which* cells are null from
+        *what value* they hold, avoiding the sentinel-collision pitfalls
+        described above. The default is ``False`` (sentinel-derived mask).
+        Notes:
 
-        - Each element of the pair may be an :class:`xarray.DataArray`
-          or a bare array; the wrapper uses each element's ``.data``
-          (any coords / CRS are discarded, same as for the data block).
-        - The two arrays are carried through dask packed into a single
-          NumPy structured-dtype block, then split apart again -- an
-          internal detail; ``func`` just returns the plain pair.
-        - Passing ``dtype=`` (or ``meta=``) describing the **data**
-          dtype is recommended: it lets dask skip its 0-shape probe.
-          Without a hint the func must tolerate that probe.
+        - Each element of the pair may be an :class:`xarray.DataArray` or a
+          bare array; the wrapper uses each element's ``.data`` (any coords /
+          CRS are discarded, same as for the data block).
+        - The two arrays are carried through dask packed into a single NumPy
+          structured-dtype block, then split apart again -- an internal detail;
+          ``func`` just returns the plain pair.
+        - Passing ``dtype=`` (or ``meta=``) describing the **data** dtype is
+          recommended: it lets dask skip its 0-shape probe. Without a hint the
+          func must tolerate that probe.
         - Requires NumPy-backed blocks. Composes with ``input_masks``,
-          ``geo_block_info``, and every ``boundary`` mode.
-          ``out_null_value`` injection is unnecessary (though harmless)
-          when ``return_mask=True``.
+          ``geo_block_info``, and every ``boundary`` mode. ``out_null_value``
+          injection is unnecessary (though harmless) when ``return_mask=True``.
     **kwargs
-        Extra keyword arguments forwarded per-block to ``func``. The
-        reserved names listed above are not allowed here.
+        Extra keyword arguments forwarded per-block to ``func``. The reserved
+        names listed above are not allowed here.
 
     Returns
     -------
@@ -2313,75 +2244,68 @@ def geo_map_overlap(
     Notes
     -----
     .. warning::
-       ``func`` must not alter the grid. The output Raster lands on
-       the **input** grid (``rasters[0]``'s CRS / affine / x / y),
-       regardless of any coords / CRS / nodata your func sets on a
-       returned DataArray -- the wrapper extracts ``.data`` and
-       discards everything else. Operations that change the grid
-       (reproject, clip, coarsen, sel, manual coord assignment,
-       etc.) will silently produce a Raster whose values were
-       computed on a different grid than the one it claims, with no
-       error at construction time. Use :meth:`Raster.reproject` /
-       :meth:`Raster.clip` / etc. before or after this call instead.
+       ``func`` must not alter the grid. The output Raster lands on the
+       **input** grid (``rasters[0]``'s CRS / affine / x / y), regardless of
+       any coords / CRS / nodata your func sets on a returned DataArray -- the
+       wrapper extracts ``.data`` and discards everything else. Operations that
+       change the grid (reproject, clip, coarsen, sel, manual coord assignment,
+       etc.) will silently produce a Raster whose values were computed on a
+       different grid than the one it claims, with no error at construction
+       time. Use :meth:`Raster.reproject` / :meth:`Raster.clip` / etc. before
+       or after this call instead.
 
-    The wrapper always trims overlap before returning so the result
-    matches the input grid. If you need un-trimmed output, call
-    :func:`dask.array.overlap.map_overlap` directly on
-    ``raster.data``.
+    The wrapper always trims overlap before returning so the result matches the
+    input grid. If you need un-trimmed output, call
+    :func:`dask.array.overlap.map_overlap` directly on ``raster.data``.
 
-    The output mask is all-False if no null value is set (see the
-    per-block contract above for how the mask is built when one is).
-    To write the output mask directly, pass ``return_mask=True`` and
-    return a ``(data, mask)`` pair from ``func`` (see ``return_mask``).
+    The output mask is all-False if no null value is set (see the per-block
+    contract above for how the mask is built when one is). To write the output
+    mask directly, pass ``return_mask=True`` and return a ``(data, mask)`` pair
+    from ``func`` (see ``return_mask``).
 
-    The data/mask boundary correspondence rule from :func:`map_overlap`
-    applies (``"null"`` -> mask True; reflect/periodic/nearest -> mask
-    same; constant matching null_value -> mask True; other constants
-    -> mask False). This affects what ``func`` sees in the mask block
-    when it opts in to ``input_masks=``; it does not affect how the
-    *output* mask is built.
+    The data/mask boundary correspondence rule from :func:`map_overlap` applies
+    (``"null"`` -> mask True; reflect/periodic/nearest -> mask same; constant
+    matching null_value -> mask True; other constants -> mask False). This
+    affects what ``func`` sees in the mask block when it opts in to
+    ``input_masks=``; it does not affect how the *output* mask is built.
 
-    Dask invokes ``func`` once on 0-shape DataArrays (with
-    zero-filled placeholder coords, not real geocoordinates) to
-    derive the output array meta -- this happens whether or not
-    ``dtype=`` is provided. Pass ``meta=`` to skip the call entirely.
-    (Exception: with ``return_mask=True``, ``dtype=`` is folded into a
-    structured ``meta=`` and so *does* skip the 0-shape meta call --
-    see ``return_mask``.) During the meta call ``geo_block_info`` is
-    ``None`` if the func opts in. Most NumPy / xarray ops handle
-    0-shape inputs fine. If dask raises ``dtype inference failed in
-    map_blocks. Please specify the dtype explicitly using the dtype
-    kwarg``, that's the sample call (dask routes overlap through its
-    inner map_blocks, so the message says map_blocks even from this
-    function) -- ``dtype=`` per dask's hint is usually enough; pass
-    ``meta=`` instead if your func also can't tolerate 0-shape inputs
-    (dask silently swallows that crash, but your downstream output
-    meta will be wrong).
+    Dask invokes ``func`` once on 0-shape DataArrays (with zero-filled
+    placeholder coords, not real geocoordinates) to derive the output array
+    meta -- this happens whether or not ``dtype=`` is provided. Pass ``meta=``
+    to skip the call entirely. (Exception: with ``return_mask=True``,
+    ``dtype=`` is folded into a structured ``meta=`` and so *does* skip the
+    0-shape meta call -- see ``return_mask``.) During the meta call
+    ``geo_block_info`` is ``None`` if the func opts in. Most NumPy / xarray ops
+    handle 0-shape inputs fine. If dask raises ``dtype inference failed in
+    map_blocks. Please specify the dtype explicitly using the dtype kwarg``,
+    that's the sample call (dask routes overlap through its inner map_blocks,
+    so the message says map_blocks even from this function) -- ``dtype=`` per
+    dask's hint is usually enough; pass ``meta=`` instead if your func also
+    can't tolerate 0-shape inputs (dask silently swallows that crash, but your
+    downstream output meta will be wrong).
 
-    With ``boundary=None`` or ``"none"``, edge chunks aren't padded on
-    the array-boundary side. The per-side overlap split is computed
-    from actual block shape vs base chunk shape and distributed
-    symmetrically; for those edge cases the ``geo_block_info`` extent
-    may be slightly off-position. For interior chunks and all
-    non-``"none"`` boundaries this is exact.
+    With ``boundary=None`` or ``"none"``, edge chunks aren't padded on the
+    array-boundary side. The per-side overlap split is computed from actual
+    block shape vs base chunk shape and distributed symmetrically; for those
+    edge cases the ``geo_block_info`` extent may be slightly off-position. For
+    interior chunks and all non-``"none"`` boundaries this is exact.
 
     Output null value resolution
     ----------------------------
-    When ``func`` opts in to ``out_null_value``, the wrapper resolves
-    the scalar per-chunk without an extra dtype-inference pass:
+    When ``func`` opts in to ``out_null_value``, the wrapper resolves the
+    scalar per-chunk without an extra dtype-inference pass:
 
     - With ``meta=`` or ``dtype=`` set, from that hint (dask leaves
-      ``block_info[None]["dtype"]`` as ``None`` whenever ``meta=`` is
-      set, which is why the hint is consulted first).
+      ``block_info[None]["dtype"]`` as ``None`` whenever ``meta=`` is set,
+      which is why the hint is consulted first).
     - Otherwise, from ``block_info[None]["dtype"]``.
 
-    During dask's meta inference call (where ``block_info`` is
-    ``None``), ``out_null_value`` is a typed zero of the first
-    input's dtype so funcs like ``np.where(m, out_null_value, d)``
-    infer the same dtype as their input rather than collapsing to
-    object. If your func's *output dtype* depends on the specific
-    ``out_null_value`` scalar, pass ``meta=`` to skip dask's 0-shape
-    meta call entirely; ``dtype=`` skips only the additional sample
+    During dask's meta inference call (where ``block_info`` is ``None``),
+    ``out_null_value`` is a typed zero of the first input's dtype so funcs like
+    ``np.where(m, out_null_value, d)`` infer the same dtype as their input
+    rather than collapsing to object. If your func's *output dtype* depends on
+    the specific ``out_null_value`` scalar, pass ``meta=`` to skip dask's
+    0-shape meta call entirely; ``dtype=`` skips only the additional sample
     call, not the meta call.
 
     Examples
@@ -2396,7 +2320,7 @@ def geo_map_overlap(
     ...     return out_arr_float32
     >>> out = geo_map_overlap(                           # doctest: +SKIP
     ...     length_chunk, r, depth=10, boundary=0,
-    ...     meta=np.empty((), dtype=np.float32),
+    ...     meta=np.array((), dtype=np.float32),
     ...     gdf=lines_df, radius=radius,
     ... )
 
@@ -2460,7 +2384,7 @@ def geo_map_overlap(
         # structured meta. dask trims the structured block's overlap rim
         # like any other array.
         struct_meta = (
-            np.empty(
+            np.array(
                 (), dtype=np.dtype([("data", data_hint), ("mask", np.bool_)])
             )
             if data_hint is not None
