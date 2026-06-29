@@ -579,6 +579,12 @@ def map_blocks(
         - Passing ``dtype=`` or ``meta=`` is recommended, since dask's 0-shape
           meta call still runs and a band-reshaping ``func`` may not produce
           the right dtype/shape at 0-shape.
+
+        Setting ``out_bands`` to the input's band count is a valid way to give
+        ``func`` an all-bands view of each spatial tile: the default per-band
+        blocking calls ``func`` once per band, whereas the band collapse above
+        hands it every band of a tile at once. The count is unchanged, but the
+        exact-``out_bands`` return guard and the y/x re-tile still apply.
     return_mask : bool, optional
         If ``True``, ``func`` must return a ``(data, mask)`` pair instead of a
         single array. The returned ``mask`` -- not a sentinel comparison --
@@ -1893,7 +1899,9 @@ def geo_map_blocks(
         ``func`` sees all bands of a spatial tile, on possibly re-sized y/x
         tiles), the output is restored to the input's original y/x chunking
         with band coord ``np.arange(out_bands) + 1``, and passing ``dtype=`` /
-        ``meta=`` is recommended.
+        ``meta=`` is recommended. Setting ``out_bands`` to the input band count
+        gives ``func`` an all-bands view of each tile (vs the default per-band
+        blocks) without changing the count; see :func:`map_blocks`.
     return_mask : bool, optional
         If ``True``, ``func`` must return a ``(data, mask)`` pair instead of a
         single array/DataArray. The returned ``mask`` -- not a sentinel
