@@ -725,8 +725,8 @@ def map_blocks(
         # mis-describe the structured output. A structured meta also
         # skips dask's 0-shape probe entirely.
         struct_meta = (
-            np.array(
-                (), dtype=np.dtype([("data", data_hint), ("mask", np.bool_)])
+            np.empty(
+                0, dtype=np.dtype([("data", data_hint), ("mask", np.bool_)])
             )
             if data_hint is not None
             else None
@@ -1474,8 +1474,8 @@ def map_overlap(
         # structured meta rather than forwarding them raw. dask trims the
         # structured block's overlap rim like any other array.
         struct_meta = (
-            np.array(
-                (), dtype=np.dtype([("data", data_hint), ("mask", np.bool_)])
+            np.empty(
+                0, dtype=np.dtype([("data", data_hint), ("mask", np.bool_)])
             )
             if data_hint is not None
             else None
@@ -2069,8 +2069,8 @@ def geo_map_blocks(
         # map_blocks); fold the user's data-side dtype=/meta= into a
         # structured meta rather than forwarding them raw.
         struct_meta = (
-            np.array(
-                (), dtype=np.dtype([("data", data_hint), ("mask", np.bool_)])
+            np.empty(
+                0, dtype=np.dtype([("data", data_hint), ("mask", np.bool_)])
             )
             if data_hint is not None
             else None
@@ -2402,8 +2402,8 @@ def geo_map_overlap(
         # structured meta. dask trims the structured block's overlap rim
         # like any other array.
         struct_meta = (
-            np.array(
-                (), dtype=np.dtype([("data", data_hint), ("mask", np.bool_)])
+            np.empty(
+                0, dtype=np.dtype([("data", data_hint), ("mask", np.bool_)])
             )
             if data_hint is not None
             else None
