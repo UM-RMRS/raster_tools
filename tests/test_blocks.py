@@ -1852,34 +1852,6 @@ def test_dask_kwargs_leakage_rejected(fn, name):
         fn(r, **{name: object()})
 
 
-# ---------------------------------------------------------------------------
-# DataArray return preservation
-# ---------------------------------------------------------------------------
-
-
-def test_map_blocks_dataarray_return_extracted():
-    r = make_raster(shape=(1, 100, 100), dtype=np.float32)
-
-    def f(d):
-        # Wrap in a DataArray; wrapper should extract .data.
-        return xr.DataArray(d * 2, dims=("band", "y", "x"))
-
-    out = map_blocks(f, r)
-    np.testing.assert_allclose(out.data.compute(), r.data.compute() * 2)
-
-
-def test_map_overlap_dataarray_return_extracted():
-    r = make_raster(
-        shape=(1, 100, 100), dtype=np.float32, chunksize=(1, 50, 50)
-    )
-
-    def f(d):
-        return xr.DataArray(d * 3, dims=("band", "y", "x"))
-
-    out = map_overlap(f, r, depth=0, boundary="reflect")
-    np.testing.assert_allclose(out.data.compute(), r.data.compute() * 3)
-
-
 def test_geo_map_blocks_meta_skips_zero_shape_call():
     # meta= forwards to dask's map_blocks. The user's func must not
     # be invoked with 0-shape DataArrays.

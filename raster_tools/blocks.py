@@ -518,12 +518,10 @@ def map_blocks(
     ----------
     func : callable
         Per-block function. See "Per-block contract" above for the full
-        signature rules. Must return either an :class:`xarray.DataArray` (its
-        ``.data`` is extracted, preserving the underlying backend) or any
-        array-like that dask can ingest (NumPy ndarray, cupy ndarray, sparse
-        array, etc.) with the same shape as a single input data block. For
-        non-numpy backends, also pass ``meta=`` so dask's output meta is
-        correct.
+        signature rules. Must return an array-like that dask can ingest
+        (NumPy ndarray, cupy ndarray, sparse array, etc.) with the same
+        shape as a single input data block. For non-numpy backends, also
+        pass ``meta=`` so dask's output meta is correct.
     *rasters : Raster or str
         One or more aligned input rasters. Path strings are accepted. Only the
         3D shape is validated; CRS and affine are *not* checked. The caller is
@@ -883,7 +881,6 @@ def _build_map_blocks_wrapper(
             return _pack_data_mask(
                 result, block_info, out_bands, out_data_dtype
             )
-        arr = result.data if isinstance(result, xr.DataArray) else result
         # Skip the check during dask's 0-shape meta call (block_info is
         # None): a raise there is swallowed and re-surfaced as dask's
         # opaque "dtype inference failed" message. The explicit chunks=
@@ -893,13 +890,13 @@ def _build_map_blocks_wrapper(
         if (
             out_bands is not None
             and block_info is not None
-            and arr.shape[0] != out_bands
+            and result.shape[0] != out_bands
         ):
             raise ValueError(
-                f"func returned {arr.shape[0]} band(s) but out_bands="
+                f"func returned {result.shape[0]} band(s) but out_bands="
                 f"{out_bands} was requested"
             )
-        return arr
+        return result
 
     return _wrapper, inputs
 
@@ -915,6 +912,9 @@ def _pack_data_mask(result, block_info, out_bands, out_data_dtype):
     assignment casts ``data`` to the struct's data dtype and ``mask`` to
     bool.
 
+    ``data`` and ``mask`` must be raw arrays; the geo wrappers strip any
+    ``xr.DataArray`` to its ``.data`` before calling.
+
     Validation runs only on real blocks (``block_info`` is ``None``
     during dask's 0-shape meta call, where a raise is swallowed and
     re-surfaced as an opaque message).
@@ -924,10 +924,6 @@ def _pack_data_mask(result, block_info, out_bands, out_data_dtype):
             "func must return a (data, mask) pair when return_mask=True"
         )
     data, mask = result
-    if isinstance(data, xr.DataArray):
-        data = data.data
-    if isinstance(mask, xr.DataArray):
-        mask = mask.data
     if block_info is not None:
         if out_bands is not None and data.shape[0] != out_bands:
             raise ValueError(
@@ -1288,12 +1284,10 @@ def map_overlap(
     Parameters
     ----------
     func : callable
-        Per-block function. See "Per-block contract" above. Must return either
-        an :class:`xarray.DataArray` (its ``.data`` is extracted, preserving
-        backend) or any array-like that dask can ingest (NumPy ndarray, cupy
-        ndarray, sparse array, etc.) with the same shape as a single
-        (overlap-included) data block. For non-numpy backends, also pass
-        ``meta=``.
+        Per-block function. See "Per-block contract" above. Must return an
+        array-like that dask can ingest (NumPy ndarray, cupy ndarray, sparse
+        array, etc.) with the same shape as a single (overlap-included) data
+        block. For non-numpy backends, also pass ``meta=``.
     *rasters : Raster or str
         One or more aligned input rasters. Path strings are accepted. Only the
         3D shape is validated; CRS and affine are *not* checked. The caller is
@@ -1577,6 +1571,17 @@ def _resolve_gbi_with_overlap_pad(block_info, block_args, gbi_lookup):
     return gbi
 
 
+def _as_array(x):
+    """Extract ``.data`` from an ``xr.DataArray``, else return ``x``.
+
+    The geo wrappers hand ``func`` georeferenced DataArrays and accept a
+    DataArray (or bare array) back; this strips the xarray wrapper so the
+    plumbing downstream sees a raw array. The non-geo wrappers are
+    array-only and do not use this.
+    """
+    return x.data if isinstance(x, xr.DataArray) else x
+
+
 def _build_geo_wrapper(
     func,
     rasters,
@@ -1705,10 +1710,15 @@ def _build_geo_wrapper(
 
         result = func(*data_das, **inner_kwargs)
         if return_mask:
+            # _pack_data_mask is array-only; strip any DataArray pair
+            # elements here (the geo path's xarray support lives in the
+            # wrappers). A non-pair return falls through to its raise.
+            if isinstance(result, (tuple, list)) and len(result) == 2:
+                result = (_as_array(result[0]), _as_array(result[1]))
             return _pack_data_mask(
                 result, block_info, out_bands, out_data_dtype
             )
-        arr = result.data if isinstance(result, xr.DataArray) else result
+        arr = _as_array(result)
         # See _build_map_blocks_wrapper: only check real blocks
         # (block_info is None during dask's 0-shape meta call).
         if (
