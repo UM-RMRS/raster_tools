@@ -5,6 +5,8 @@ import raster_tools as rts  # noqa: F401
 
 # isort: on
 
+import inspect
+
 import dask
 import dask.array as da
 import numpy as np
@@ -1805,6 +1807,14 @@ def test_geo_map_blocks_null_value_invalid_string():
         lambda r, **kw: geo_map_overlap(
             lambda xda, **k: xda, r, depth=0, boundary="reflect", **kw
         ),
+        lambda r, **kw: r.map_blocks(lambda d: d, **kw),
+        lambda r, **kw: r.map_overlap(
+            lambda d: d, depth=0, boundary="reflect", **kw
+        ),
+        lambda r, **kw: r.geo_map_blocks(lambda xda, **k: xda, **kw),
+        lambda r, **kw: r.geo_map_overlap(
+            lambda xda, **k: xda, depth=0, boundary="reflect", **kw
+        ),
     ],
 )
 def test_meta_dtype_mismatch_raises(fn):
@@ -2510,6 +2520,14 @@ def test_geo_map_overlap_out_null_value_with_meta_skips_meta_call():
         lambda r1, r2: geo_map_blocks(lambda a, b, **k: a + b, r1, r2),
         lambda r1, r2: geo_map_overlap(
             lambda a, b, **k: a + b, r1, r2, depth=1, boundary="reflect"
+        ),
+        lambda r1, r2: r1.map_blocks(lambda a, b: a + b, r2),
+        lambda r1, r2: r1.map_overlap(
+            lambda a, b: a + b, r2, depth=1, boundary="reflect"
+        ),
+        lambda r1, r2: r1.geo_map_blocks(lambda a, b, **k: a + b, r2),
+        lambda r1, r2: r1.geo_map_overlap(
+            lambda a, b, **k: a + b, r2, depth=1, boundary="reflect"
         ),
     ],
 )
@@ -3715,3 +3733,152 @@ def test_geo_map_overlap_return_mask_false_is_unchanged():
         out_default.data.compute(), out_false.data.compute()
     )
     assert not out_default.mask.compute().any()
+
+
+# ---------------------------------------------------------------------------
+# Raster method delegation
+# ---------------------------------------------------------------------------
+
+
+_BLOCK_FNS = {
+    "geo_map_blocks": geo_map_blocks,
+    "geo_map_overlap": geo_map_overlap,
+    "map_blocks": map_blocks,
+    "map_overlap": map_overlap,
+}
+
+
+@pytest.mark.parametrize("name", sorted(_BLOCK_FNS))
+def test_raster_method_docstring_shared(name):
+    fn = _BLOCK_FNS[name]
+    method = getattr(rts.Raster, name)
+    assert method.__doc__
+    assert method.__doc__ is fn.__doc__
+
+
+@pytest.mark.parametrize("name", sorted(_BLOCK_FNS))
+def test_raster_method_signature_mirrors_function(name):
+    fn = _BLOCK_FNS[name]
+    method = getattr(rts.Raster, name)
+    fn_params = list(inspect.signature(fn).parameters.values())
+    method_params = list(inspect.signature(method).parameters.values())
+    assert method_params[0].name == "self"
+    assert method_params[1:] == fn_params
+
+
+@pytest.mark.parametrize(
+    "fn",
+    [
+        lambda r1, r2: r1.map_blocks(lambda a, b: a - b, r2),
+        lambda r1, r2: r1.map_overlap(
+            lambda a, b: a - b, r2, depth=1, boundary="reflect"
+        ),
+        lambda r1, r2: r1.geo_map_blocks(lambda a, b, **k: a - b, r2),
+        lambda r1, r2: r1.geo_map_overlap(
+            lambda a, b, **k: a - b, r2, depth=1, boundary="reflect"
+        ),
+    ],
+)
+def test_raster_method_self_is_first_input(fn):
+    r1 = make_raster(shape=(1, 40, 40), dtype=np.float32)
+    r2 = r1 * 3
+    out = fn(r1, r2)
+    # self - other == 1 - 3; would be +2 if the method appended self
+    # instead of prepending it.
+    np.testing.assert_allclose(out.data.compute(), -2.0)
+
+
+@pytest.mark.parametrize(
+    "pair",
+    [
+        (
+            lambda r, **kw: r.map_blocks(lambda d: d * 2, **kw),
+            lambda r, **kw: map_blocks(lambda d: d * 2, r, **kw),
+        ),
+        (
+            lambda r, **kw: r.map_overlap(
+                lambda d: d * 2, depth=1, boundary="reflect", **kw
+            ),
+            lambda r, **kw: map_overlap(
+                lambda d: d * 2, r, depth=1, boundary="reflect", **kw
+            ),
+        ),
+        (
+            lambda r, **kw: r.geo_map_blocks(lambda xda, **k: xda * 2, **kw),
+            lambda r, **kw: geo_map_blocks(lambda xda, **k: xda * 2, r, **kw),
+        ),
+        (
+            lambda r, **kw: r.geo_map_overlap(
+                lambda xda, **k: xda * 2, depth=1, boundary="reflect", **kw
+            ),
+            lambda r, **kw: geo_map_overlap(
+                lambda xda, **k: xda * 2,
+                r,
+                depth=1,
+                boundary="reflect",
+                **kw,
+            ),
+        ),
+    ],
+)
+def test_raster_method_matches_function(pair):
+    method_fn, module_fn = pair
+    r = make_raster(
+        content="arange", shape=(1, 40, 40), dtype=np.float32, null=-1.0
+    )
+    out_m = method_fn(r, null_value=-9.0)
+    out_f = module_fn(r, null_value=-9.0)
+    np.testing.assert_array_equal(out_m.data.compute(), out_f.data.compute())
+    np.testing.assert_array_equal(out_m.mask.compute(), out_f.mask.compute())
+    assert out_m.null_value == out_f.null_value
+
+
+def test_raster_map_blocks_out_bands_forwarded():
+    r = make_raster(shape=(1, 40, 40), dtype=np.float32)
+    out = r.map_blocks(
+        lambda d: np.concatenate([d] * 3, axis=0),
+        out_bands=3,
+        dtype=np.float32,
+    )
+    assert out.nbands == 3
+    np.testing.assert_allclose(out.data.compute(), 1.0)
+
+
+def test_raster_map_blocks_user_kwargs_forwarded():
+    r = make_raster(shape=(1, 40, 40), dtype=np.float32)
+    out = r.map_blocks(lambda d, factor: d * factor, factor=3.0)
+    np.testing.assert_allclose(out.data.compute(), 3.0)
+
+
+def test_raster_geo_map_blocks_return_mask_forwarded():
+    r = make_raster(
+        content="arange", shape=(1, 40, 40), dtype=np.float32, null=-1.0
+    )
+    out = r.geo_map_blocks(lambda xda, **k: (xda, xda > 5), return_mask=True)
+    np.testing.assert_array_equal(out.mask.compute(), r.data.compute() > 5)
+
+
+@pytest.mark.parametrize("name", ["geo_map_overlap", "map_overlap"])
+def test_raster_overlap_method_depth_required(name):
+    r = make_raster(shape=(1, 40, 40), dtype=np.float32)
+    with pytest.raises(TypeError, match="depth"):
+        getattr(r, name)(lambda d, **k: d)
+
+
+@pytest.mark.parametrize(
+    "fn",
+    [
+        lambda r, **kw: r.map_blocks(lambda d: d, **kw),
+        lambda r, **kw: r.map_overlap(
+            lambda d: d, depth=0, boundary="reflect", **kw
+        ),
+        lambda r, **kw: r.geo_map_blocks(lambda xda, **k: xda, **kw),
+        lambda r, **kw: r.geo_map_overlap(
+            lambda xda, **k: xda, depth=0, boundary="reflect", **kw
+        ),
+    ],
+)
+def test_raster_method_reserved_kwargs_rejected(fn):
+    r = make_raster(shape=(1, 40, 40), dtype=np.float32)
+    with pytest.raises(ValueError, match="reserved"):
+        fn(r, block_id=1)

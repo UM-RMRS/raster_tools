@@ -2350,6 +2350,122 @@ class Raster(_RasterBase):
 
         return reclassify(self, remapping, unmapped_to_null=unmapped_to_null)
 
+    def map_blocks(
+        self,
+        func,
+        *rasters,
+        dtype=None,
+        null_value=None,
+        meta=None,
+        out_bands=None,
+        return_mask=False,
+        **kwargs,
+    ):
+        # Local import to avoid a circular import. The docstring is
+        # shared with blocks.map_blocks and attached at the bottom of
+        # raster_tools/blocks.py.
+        from raster_tools.blocks import map_blocks
+
+        return map_blocks(
+            func,
+            self,
+            *rasters,
+            dtype=dtype,
+            null_value=null_value,
+            meta=meta,
+            out_bands=out_bands,
+            return_mask=return_mask,
+            **kwargs,
+        )
+
+    def map_overlap(
+        self,
+        func,
+        *rasters,
+        depth,
+        boundary=None,
+        dtype=None,
+        null_value=None,
+        meta=None,
+        return_mask=False,
+        **kwargs,
+    ):
+        # Local import to avoid a circular import. The docstring is
+        # shared with blocks.map_overlap and attached at the bottom of
+        # raster_tools/blocks.py.
+        from raster_tools.blocks import map_overlap
+
+        return map_overlap(
+            func,
+            self,
+            *rasters,
+            depth=depth,
+            boundary=boundary,
+            dtype=dtype,
+            null_value=null_value,
+            meta=meta,
+            return_mask=return_mask,
+            **kwargs,
+        )
+
+    def geo_map_blocks(
+        self,
+        func,
+        *rasters,
+        dtype=None,
+        null_value=None,
+        meta=None,
+        out_bands=None,
+        return_mask=False,
+        **kwargs,
+    ):
+        # Local import to avoid a circular import. The docstring is
+        # shared with blocks.geo_map_blocks and attached at the bottom
+        # of raster_tools/blocks.py.
+        from raster_tools.blocks import geo_map_blocks
+
+        return geo_map_blocks(
+            func,
+            self,
+            *rasters,
+            dtype=dtype,
+            null_value=null_value,
+            meta=meta,
+            out_bands=out_bands,
+            return_mask=return_mask,
+            **kwargs,
+        )
+
+    def geo_map_overlap(
+        self,
+        func,
+        *rasters,
+        depth,
+        boundary=None,
+        dtype=None,
+        null_value=None,
+        meta=None,
+        return_mask=False,
+        **kwargs,
+    ):
+        # Local import to avoid a circular import. The docstring is
+        # shared with blocks.geo_map_overlap and attached at the bottom
+        # of raster_tools/blocks.py.
+        from raster_tools.blocks import geo_map_overlap
+
+        return geo_map_overlap(
+            func,
+            self,
+            *rasters,
+            depth=depth,
+            boundary=boundary,
+            dtype=dtype,
+            null_value=null_value,
+            meta=meta,
+            return_mask=return_mask,
+            **kwargs,
+        )
+
     def round(self, decimals=0):  # noqa: A003
         """Evenly round to the given number of decimals
 

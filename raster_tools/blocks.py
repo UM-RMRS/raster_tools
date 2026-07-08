@@ -4,7 +4,10 @@ Provides :func:`map_blocks` and :func:`map_overlap` as thin wrappers over
 the corresponding ``dask.array`` functions, plus :func:`geo_map_blocks`
 and :func:`geo_map_overlap` which hand each user callback georeferenced
 :class:`xarray.DataArray` blocks (with band/y/x coords, CRS, nodata)
-instead of raw NumPy blocks.
+instead of raw NumPy blocks. All four are also available as
+:class:`~raster_tools.Raster` methods (``r.map_blocks(func, ...)``); the
+calling raster is the first input and the method docstrings are shared
+verbatim with the functions.
 
 These are **shape-preserving** by default: ``func`` must return an
 array-like of the same shape as a single input data block (the
@@ -37,7 +40,7 @@ from raster_tools._grids import are_all_grids_same
 from raster_tools.dask_utils import chunks_to_array_locations
 from raster_tools.dtypes import is_int
 from raster_tools.masking import get_default_null_value
-from raster_tools.raster import data_to_raster_like, get_raster
+from raster_tools.raster import Raster, data_to_raster_like, get_raster
 from raster_tools.utils import nan_equal
 
 __all__ = [
@@ -452,11 +455,16 @@ def map_blocks(
     """Apply ``func`` block-wise across one or more aligned rasters.
 
     Thin wrapper over :func:`dask.array.map_blocks`. Each call to ``func``
-    receives one block from each input raster, in the same order as
-    ``*rasters``. The output :class:`~raster_tools.Raster` adopts its CRS,
-    affine, and x/y coords from the first input; its mask is derived from the
-    output data by default, or set explicitly by ``func`` via ``return_mask``
-    (see Notes).
+    receives one block from each input raster, in input order. The output
+    :class:`~raster_tools.Raster` adopts its CRS, affine, and x/y coords
+    from the first input; its mask is derived from the output data by
+    default, or set explicitly by ``func`` via ``return_mask`` (see Notes).
+
+    Available both as a module function and as a
+    :class:`~raster_tools.Raster` method: ``r1.map_blocks(func, r2, ...)``
+    is equivalent to ``map_blocks(func, r1, r2, ...)`` -- in the method
+    form the calling raster is the first input. References to the "first
+    input" below mean ``r1`` in either spelling.
 
     Per-block contract
     ------------------
@@ -481,7 +489,7 @@ def map_blocks(
         func(*input_data, **kwargs)
 
     where ``input_data`` is a tuple of N NumPy blocks, one per input raster, in
-    caller order.
+    input order.
 
     The user can also opt in to receive per-block extras by including named
     parameters in ``func``'s signature. Detection mirrors dask's own
@@ -523,13 +531,15 @@ def map_blocks(
         shape as a single input data block. For non-numpy backends, also
         pass ``meta=`` so dask's output meta is correct.
     *rasters : Raster or str
-        One or more aligned input rasters. Path strings are accepted. Only the
-        3D shape is validated; CRS and affine are *not* checked. The caller is
-        responsible for aligning inputs -- typically via
+        The input rasters. In the method form the calling raster is the
+        first input and ``*rasters`` holds any additional ones; in the
+        function form at least one is required. Path strings are accepted.
+        Only the 3D shape is validated; CRS and affine are *not* checked.
+        The caller is responsible for aligning inputs -- typically via
         ``r2.reproject(r1.geobox)``. Inputs are auto-rechunked to the first
-        input's chunk structure, so same-shape inputs with differing chunking
-        are handled. For a geo-aware variant that strictly requires matching
-        grids, see :func:`geo_map_blocks`.
+        input's chunk structure, so same-shape inputs with differing
+        chunking are handled. For a geo-aware variant that strictly
+        requires matching grids, see :func:`~raster_tools.geo_map_blocks`.
     dtype : dtype-like, optional
         Output dtype. When ``None`` (default), dask infers the dtype by calling
         ``func`` on tiny meta samples (matches NumPy promotion for the typical
@@ -546,8 +556,8 @@ def map_blocks(
           the dtype changes.
         - scalar: used as-is.
 
-        To force inherit-from-first-input across other cases, pass the value
-        explicitly: ``null_value=r1.null_value``.
+        To force inheriting the first input's null value across other
+        cases, pass it explicitly: ``null_value=r1.null_value``.
     meta : array-like, optional
         Empty array with the desired output array type (e.g. ``np.array((),
         dtype=np.float32)``, or a CuPy / sparse equivalent). Forwarded to
@@ -663,7 +673,7 @@ def map_blocks(
 
     >>> def double(d):
     ...     return d * 2
-    >>> doubled = map_blocks(double, r)              # doctest: +SKIP
+    >>> doubled = r.map_blocks(double)               # doctest: +SKIP
 
     Mask-aware multi-input -- write the null sentinel where either input was
     masked:
@@ -685,8 +695,8 @@ def map_blocks(
 
     See Also
     --------
-    geo_map_blocks : Geo-aware variant that requires matching grids
-        and hands ``func`` georeferenced ``xr.DataArray`` blocks.
+    raster_tools.geo_map_blocks : Geo-aware variant that requires matching
+        grids and hands ``func`` georeferenced ``xr.DataArray`` blocks.
     raster_tools.Raster.reproject : Per-input alignment to a target
         grid; pass ``r1.geobox`` to align ``r2`` to ``r1``.
     """
@@ -1224,11 +1234,17 @@ def map_overlap(
     """Apply ``func`` block-wise with overlap across one or more rasters.
 
     Thin wrapper over :func:`dask.array.overlap.map_overlap`. Each call to
-    ``func`` receives one block from each input raster, in the same order as
-    ``*rasters``, with ``depth`` extra cells of overlap on each side. dask
-    trims the overlap from the result before it's wrapped back into a Raster on
-    the input's grid, so the user function returns same-shape
+    ``func`` receives one block from each input raster, in input order,
+    with ``depth`` extra cells of overlap on each side. dask trims the
+    overlap from the result before it's wrapped back into a Raster on the
+    first input's grid, so the user function returns same-shape
     (overlap-included) blocks and doesn't need to trim itself.
+
+    Available both as a module function and as a
+    :class:`~raster_tools.Raster` method: ``r1.map_overlap(func, r2,
+    depth=1)`` is equivalent to ``map_overlap(func, r1, r2, depth=1)`` --
+    in the method form the calling raster is the first input. References
+    to the "first input" below mean ``r1`` in either spelling.
 
     Per-block contract
     ------------------
@@ -1252,13 +1268,13 @@ def map_overlap(
         func(*input_data, **kwargs)
 
     where ``input_data`` is a tuple of N NumPy blocks, one per input raster, in
-    caller order. Each block already includes the overlap region.
+    input order. Each block already includes the overlap region.
 
     The user can also opt in to receive per-block extras by including named
     parameters in ``func``'s signature. Detection mirrors dask's own
     ``block_info=`` / ``block_id=`` mechanism and uses
     :func:`inspect.signature` (via :func:`dask.utils.has_keyword`). Recognized
-    names (same set as :func:`map_blocks`):
+    names (same set as :func:`~raster_tools.map_blocks`):
 
     - ``input_masks`` -- tuple of N ``np.ndarray`` (bool) per-block mask
       arrays, parallel to ``input_data`` and overlap-included.
@@ -1289,13 +1305,15 @@ def map_overlap(
         array, etc.) with the same shape as a single (overlap-included) data
         block. For non-numpy backends, also pass ``meta=``.
     *rasters : Raster or str
-        One or more aligned input rasters. Path strings are accepted. Only the
-        3D shape is validated; CRS and affine are *not* checked. The caller is
-        responsible for aligning inputs -- typically via
+        The input rasters. In the method form the calling raster is the
+        first input and ``*rasters`` holds any additional ones; in the
+        function form at least one is required. Path strings are accepted.
+        Only the 3D shape is validated; CRS and affine are *not* checked.
+        The caller is responsible for aligning inputs -- typically via
         ``r2.reproject(r1.geobox)``. Inputs are auto-rechunked to the first
-        input's chunk structure, so same-shape inputs with differing chunking
-        are handled. For a geo-aware variant that strictly requires matching
-        grids, see :func:`geo_map_overlap`.
+        input's chunk structure, so same-shape inputs with differing
+        chunking are handled. For a geo-aware variant that strictly
+        requires matching grids, see :func:`~raster_tools.geo_map_overlap`.
     depth : int, tuple of int, or dict
         Number of overlap cells per spatial axis. ``int`` applies to both ``y``
         and ``x`` (band axis fixed at 0). ``(dy, dx)`` sets per-spatial-axis
@@ -1430,15 +1448,16 @@ def map_overlap(
     ...     out = np.zeros_like(pad, dtype=np.float32)
     ...     ... # convolve and write to out[1:-1, 1:-1]
     ...     return out[None]
-    >>> smoothed = map_overlap(
-    ...     mean_3x3, r, depth=1, boundary="reflect",
+    >>> smoothed = r.map_overlap(
+    ...     mean_3x3, depth=1, boundary="reflect",
     ... )                                                # doctest: +SKIP
 
     See Also
     --------
-    map_blocks : Block-wise without overlap; same per-block contract.
-    geo_map_overlap : Geo-aware variant that hands ``func`` georeferenced
-        ``xr.DataArray`` blocks.
+    raster_tools.map_blocks : Block-wise without overlap; same per-block
+        contract.
+    raster_tools.geo_map_overlap : Geo-aware variant that hands ``func``
+        georeferenced ``xr.DataArray`` blocks.
     """
     if not rasters:
         raise ValueError("map_overlap requires at least one raster")
@@ -1798,13 +1817,20 @@ def geo_map_blocks(
     """Apply ``func`` block-wise across one or more aligned rasters, handing it
     georeferenced :class:`xarray.DataArray` blocks.
 
-    Same shape and contract as :func:`map_blocks`, but each raster's data block
-    is wrapped in a georeferenced ``xr.DataArray`` (with ``band`` / ``y`` /
-    ``x`` coords from the block's geobox, the raster's CRS, and the raster's
-    null value attached as ``nodata``) via :meth:`GeoBlockInfo.to_dataarray`
-    before being passed to ``func``. Useful when the per-block function wants
-    to operate in xarray-land (rio accessors, xr.where, etc.) without having to
-    rebuild coordinates itself.
+    Same shape and contract as :func:`~raster_tools.map_blocks`, but each
+    raster's data block is wrapped in a georeferenced ``xr.DataArray``
+    (with ``band`` / ``y`` / ``x`` coords from the block's geobox, the
+    raster's CRS, and the raster's null value attached as ``nodata``) via
+    :meth:`~raster_tools.blocks.GeoBlockInfo.to_dataarray` before being
+    passed to ``func``. Useful when the per-block function wants to
+    operate in xarray-land (rio accessors, xr.where, etc.) without having
+    to rebuild coordinates itself.
+
+    Available both as a module function and as a
+    :class:`~raster_tools.Raster` method: ``r1.geo_map_blocks(func, r2,
+    ...)`` is equivalent to ``geo_map_blocks(func, r1, r2, ...)`` -- in
+    the method form the calling raster is the first input. References to
+    the "first input" below mean ``r1`` in either spelling.
 
     Per-block contract
     ------------------
@@ -1828,7 +1854,7 @@ def geo_map_blocks(
         func(*data_dataarrays, **kwargs)
 
     where ``data_dataarrays`` is a tuple of N georeferenced
-    :class:`xarray.DataArray` blocks, one per input raster, in caller order.
+    :class:`xarray.DataArray` blocks, one per input raster, in input order.
 
     The user can also opt in to receive per-block extras by including named
     parameters in ``func``'s signature. Detection mirrors dask's
@@ -1836,9 +1862,9 @@ def geo_map_blocks(
     names:
 
     - ``input_masks`` -- tuple of N ``xr.DataArray`` (bool) per-block mask
-      arrays, parallel to the data DataArrays. Same name as :func:`map_blocks`,
-      but elements are ``xr.DataArray`` here (vs. ``np.ndarray`` in
-      :func:`map_blocks`).
+      arrays, parallel to the data DataArrays. Same name as
+      :func:`~raster_tools.map_blocks`, but elements are ``xr.DataArray``
+      here (vs. ``np.ndarray`` there).
     - ``input_null_values`` -- tuple of N scalars, each input's ``null_value``
       (``None`` if unset).
     - ``block_info`` -- dask's standard per-block info dict.
@@ -1848,9 +1874,9 @@ def geo_map_blocks(
     - ``out_null_value`` -- scalar; the resolved output null value the wrapper
       will use to derive the output mask. Write this sentinel at cells you want
       masked. See "Output null value resolution" in Notes below.
-    - ``geo_block_info`` -- the per-chunk :class:`GeoBlockInfo` (the geo-aware
-      analog of dask's ``block_info``). ``None`` during the meta inference
-      call.
+    - ``geo_block_info`` -- the per-chunk
+      :class:`~raster_tools.blocks.GeoBlockInfo` (the geo-aware analog of
+      dask's ``block_info``). ``None`` during the meta inference call.
 
     A function whose only kwargs absorber is ``**kwargs`` does NOT trigger any
     of these injections -- name the kwargs you want.
@@ -1871,13 +1897,16 @@ def geo_map_blocks(
         ndarray, sparse array, etc.) with the same shape as a single data
         block. For non-numpy backends, also pass ``meta=``.
     *rasters : Raster or str
-        One or more input rasters. Path strings are accepted. All inputs must
-        be on the same grid (CRS, affine, shape) within the established
-        sub-pixel tolerance; mismatched inputs raise ``ValueError``. Use
-        ``r2.reproject(r1.geobox)`` to align inputs first if needed. Inputs are
-        then auto-rechunked to the first input's chunk structure (``reproject``
-        does not adopt the target's chunking), so the output stays on the first
-        input's grid and chunking.
+        The input rasters. In the method form the calling raster is the
+        first input and ``*rasters`` holds any additional ones; in the
+        function form at least one is required. Path strings are accepted.
+        All inputs must be on the same grid (CRS, affine, shape) within the
+        established sub-pixel tolerance; mismatched inputs raise
+        ``ValueError``. Use ``r2.reproject(r1.geobox)`` to align inputs
+        first if needed. Inputs are then auto-rechunked to the first
+        input's chunk structure (``reproject`` does not adopt the target's
+        chunking), so the output stays on the first input's grid and
+        chunking.
     dtype : dtype-like, optional
         Output dtype. When ``None`` (default), dask infers the dtype by calling
         ``func`` on tiny meta samples.
@@ -1904,14 +1933,16 @@ def geo_map_blocks(
         Number of bands in the output. ``None`` (default) is shape-preserving.
         A positive integer lets ``func`` change the band count (the y/x grid is
         unchanged); ``func`` must return exactly ``out_bands`` bands per block
-        (a mismatch raises ``ValueError``). See :func:`map_blocks` for the full
-        semantics: the input band axis is collapsed to a single chunk (so
-        ``func`` sees all bands of a spatial tile, on possibly re-sized y/x
-        tiles), the output is restored to the input's original y/x chunking
-        with band coord ``np.arange(out_bands) + 1``, and passing ``dtype=`` /
-        ``meta=`` is recommended. Setting ``out_bands`` to the input band count
-        gives ``func`` an all-bands view of each tile (vs the default per-band
-        blocks) without changing the count; see :func:`map_blocks`.
+        (a mismatch raises ``ValueError``). See
+        :func:`~raster_tools.map_blocks` for the full semantics: the input
+        band axis is collapsed to a single chunk (so ``func`` sees all
+        bands of a spatial tile, on possibly re-sized y/x tiles), the
+        output is restored to the input's original y/x chunking with band
+        coord ``np.arange(out_bands) + 1``, and passing ``dtype=`` /
+        ``meta=`` is recommended. Setting ``out_bands`` to the input band
+        count gives ``func`` an all-bands view of each tile (vs the
+        default per-band blocks) without changing the count; see
+        :func:`~raster_tools.map_blocks`.
     return_mask : bool, optional
         If ``True``, ``func`` must return a ``(data, mask)`` pair instead of a
         single array/DataArray. The returned ``mask`` -- not a sentinel
@@ -1948,7 +1979,7 @@ def geo_map_blocks(
     -----
     .. warning::
        ``func`` must not alter the grid. The output Raster lands on the
-       **input** grid (``rasters[0]``'s CRS / affine / x / y), regardless of
+       **first input's** grid (its CRS / affine / x / y), regardless of
        any coords / CRS / nodata your func sets on a returned DataArray -- the
        wrapper extracts ``.data`` and discards everything else. Operations that
        change the grid (reproject, clip, coarsen, sel, manual coord assignment,
@@ -2006,8 +2037,8 @@ def geo_map_blocks(
     ...     bbox = geo_block_info.bbox
     ...     ...                                          # doctest: +SKIP
     ...     return burned_uint8
-    >>> out = geo_map_blocks(                            # doctest: +SKIP
-    ...     clip_and_rasterize, r,
+    >>> out = r.geo_map_blocks(                          # doctest: +SKIP
+    ...     clip_and_rasterize,
     ...     meta=np.array((), dtype=np.uint8),
     ...     gdf=lines_gdf,
     ... )
@@ -2022,8 +2053,9 @@ def geo_map_blocks(
 
     See Also
     --------
-    map_blocks : Non-geo variant; permissive (shape-only check).
-    geo_map_overlap : Geo-aware variant with overlap.
+    raster_tools.map_blocks : Non-geo variant; permissive (shape-only
+        check).
+    raster_tools.geo_map_overlap : Geo-aware variant with overlap.
     raster_tools.Raster.reproject : Per-input alignment to a target
         grid; pass ``r1.geobox`` to align ``r2`` to ``r1``.
     """
@@ -2121,11 +2153,19 @@ def geo_map_overlap(
     """Apply ``func`` block-wise with overlap, handing it georeferenced
     :class:`xarray.DataArray` blocks.
 
-    Same shape and contract as :func:`geo_map_blocks` but adds the overlap
-    machinery from :func:`map_overlap` (``depth``, ``boundary``, the data/mask
-    boundary correspondence rule). Each ``xr.DataArray`` block includes the
-    overlap region, and its coords reflect the overlapped extent (top-left
-    corner shifted outward by the per-side pad).
+    Same shape and contract as :func:`~raster_tools.geo_map_blocks` but
+    adds the overlap machinery from :func:`~raster_tools.map_overlap`
+    (``depth``, ``boundary``, the data/mask boundary correspondence rule).
+    Each ``xr.DataArray`` block includes the overlap region, and its
+    coords reflect the overlapped extent (top-left corner shifted outward
+    by the per-side pad).
+
+    Available both as a module function and as a
+    :class:`~raster_tools.Raster` method: ``r1.geo_map_overlap(func, r2,
+    depth=1)`` is equivalent to ``geo_map_overlap(func, r1, r2,
+    depth=1)`` -- in the method form the calling raster is the first
+    input. References to the "first input" below mean ``r1`` in either
+    spelling.
 
     Per-block contract
     ------------------
@@ -2149,12 +2189,13 @@ def geo_map_overlap(
         func(*data_dataarrays, **kwargs)
 
     where ``data_dataarrays`` is a tuple of N georeferenced
-    :class:`xarray.DataArray` blocks, one per input raster, in caller order.
+    :class:`xarray.DataArray` blocks, one per input raster, in input order.
     Each block already includes the overlap region; the wrapper trims it after
-    the function returns so the result lands on the input's grid.
+    the function returns so the result lands on the first input's grid.
 
     The user can opt in to receive per-block extras by including named
-    parameters in ``func``'s signature. Same set as :func:`geo_map_blocks`:
+    parameters in ``func``'s signature. Same set as
+    :func:`~raster_tools.geo_map_blocks`:
 
     - ``input_masks`` -- tuple of N ``xr.DataArray`` (bool) per-block mask
       arrays, parallel to and overlap-included with the data DataArrays.
@@ -2167,7 +2208,8 @@ def geo_map_overlap(
     - ``out_null_value`` -- scalar; the resolved output null value the wrapper
       will use to derive the output mask. Write this sentinel at cells you want
       masked. See "Output null value resolution" in Notes below.
-    - ``geo_block_info`` -- the per-chunk :class:`GeoBlockInfo`, reflecting the
+    - ``geo_block_info`` -- the per-chunk
+      :class:`~raster_tools.blocks.GeoBlockInfo`, reflecting the
       **overlapped** extent: ``shape`` matches the data block (including
       overlap), ``geobox`` extends to cover the overlap region, and
       ``row_slice`` / ``col_slice`` may have negative starts for top/left edge
@@ -2192,17 +2234,20 @@ def geo_map_overlap(
         (overlap-included) data block. For non-numpy backends, also pass
         ``meta=``.
     *rasters : Raster or str
-        One or more input rasters. Path strings are accepted. All inputs must
-        be on the same grid (CRS, affine, shape) within the established
-        sub-pixel tolerance; mismatched inputs raise ``ValueError``. Use
-        ``r2.reproject(r1.geobox)`` to align inputs first if needed. Inputs are
-        then auto-rechunked to the first input's chunk structure (``reproject``
-        does not adopt the target's chunking), so the output stays on the first
-        input's grid and chunking.
+        The input rasters. In the method form the calling raster is the
+        first input and ``*rasters`` holds any additional ones; in the
+        function form at least one is required. Path strings are accepted.
+        All inputs must be on the same grid (CRS, affine, shape) within the
+        established sub-pixel tolerance; mismatched inputs raise
+        ``ValueError``. Use ``r2.reproject(r1.geobox)`` to align inputs
+        first if needed. Inputs are then auto-rechunked to the first
+        input's chunk structure (``reproject`` does not adopt the target's
+        chunking), so the output stays on the first input's grid and
+        chunking.
     depth : int, tuple of int, or dict
-        Same semantics as :func:`map_overlap`.
+        Same semantics as :func:`~raster_tools.map_overlap`.
     boundary : optional
-        Same semantics as :func:`map_overlap` (None / scalar /
+        Same semantics as :func:`~raster_tools.map_overlap` (None / scalar /
         ``"null"`` / ``"null_value"`` / ``"nodata"`` /
         ``"reflect"`` / ``"periodic"`` / ``"nearest"`` / ``"none"``).
     dtype : dtype-like, optional
@@ -2263,7 +2308,7 @@ def geo_map_overlap(
     -----
     .. warning::
        ``func`` must not alter the grid. The output Raster lands on the
-       **input** grid (``rasters[0]``'s CRS / affine / x / y), regardless of
+       **first input's** grid (its CRS / affine / x / y), regardless of
        any coords / CRS / nodata your func sets on a returned DataArray -- the
        wrapper extracts ``.data`` and discards everything else. Operations that
        change the grid (reproject, clip, coarsen, sel, manual coord assignment,
@@ -2281,7 +2326,8 @@ def geo_map_overlap(
     mask directly, pass ``return_mask=True`` and return a ``(data, mask)`` pair
     from ``func`` (see ``return_mask``).
 
-    The data/mask boundary correspondence rule from :func:`map_overlap` applies
+    The data/mask boundary correspondence rule from
+    :func:`~raster_tools.map_overlap` applies
     (``"null"`` -> mask True; reflect/periodic/nearest -> mask same; constant
     matching null_value -> mask True; other constants -> mask False). This
     affects what ``func`` sees in the mask block when it opts in to
@@ -2336,8 +2382,8 @@ def geo_map_overlap(
     ...     xc, yc = geo_block_info.x, geo_block_info.y
     ...     ...                                          # doctest: +SKIP
     ...     return out_arr_float32
-    >>> out = geo_map_overlap(                           # doctest: +SKIP
-    ...     length_chunk, r, depth=10, boundary=0,
+    >>> out = r.geo_map_overlap(                         # doctest: +SKIP
+    ...     length_chunk, depth=10, boundary=0,
     ...     meta=np.array((), dtype=np.float32),
     ...     gdf=lines_df, radius=radius,
     ... )
@@ -2352,8 +2398,9 @@ def geo_map_overlap(
 
     See Also
     --------
-    geo_map_blocks : No-overlap variant.
-    map_overlap : Non-geo variant; permissive (shape-only check).
+    raster_tools.geo_map_blocks : No-overlap variant.
+    raster_tools.map_overlap : Non-geo variant; permissive (shape-only
+        check).
     raster_tools.Raster.reproject : Per-input alignment to a target
         grid; pass ``r1.geobox`` to align ``r2`` to ``r1``.
     """
@@ -2440,3 +2487,15 @@ def geo_map_overlap(
     return data_to_raster_like(
         out_data, ref, mask=out_mask, nv=out_nv, burn=return_mask
     )
+
+
+# The four public map functions above are mirrored as Raster methods.
+# The methods are defined without docstrings in raster.py: raster.py
+# cannot import this module at load time (this module imports raster.py
+# at the top), so the shared docstrings are attached here instead. The
+# top-of-module import fully loads raster.py first, so Raster and its
+# methods always exist by the time these lines run.
+Raster.map_blocks.__doc__ = map_blocks.__doc__
+Raster.map_overlap.__doc__ = map_overlap.__doc__
+Raster.geo_map_blocks.__doc__ = geo_map_blocks.__doc__
+Raster.geo_map_overlap.__doc__ = geo_map_overlap.__doc__

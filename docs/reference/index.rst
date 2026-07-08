@@ -9,6 +9,7 @@ API Reference
 
    top_level
    raster
+   blocks
    vector
    distance
    clipping
