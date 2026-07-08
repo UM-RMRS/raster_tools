@@ -101,6 +101,17 @@ Reorganizing
 
    Raster.chunk
 
+Block Mapping
+-------------
+
+.. autosummary::
+   :toctree: generated/
+
+   Raster.geo_map_blocks
+   Raster.geo_map_overlap
+   Raster.map_blocks
+   Raster.map_overlap
+
 Extracting
 ----------
 

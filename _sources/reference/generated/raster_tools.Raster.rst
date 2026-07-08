@@ -23,12 +23,16 @@
       ~Raster.copy
       ~Raster.eval
       ~Raster.explore
+      ~Raster.geo_map_blocks
+      ~Raster.geo_map_overlap
       ~Raster.get_bands
       ~Raster.get_chunk_bounding_boxes
       ~Raster.get_chunk_rasters
       ~Raster.get_chunked_coords
       ~Raster.index
       ~Raster.load
+      ~Raster.map_blocks
+      ~Raster.map_overlap
       ~Raster.max
       ~Raster.mean
       ~Raster.min
@@ -75,8 +79,8 @@
       ~Raster.crs
       ~Raster.data
       ~Raster.dtype
+      ~Raster.geo_block_infos
       ~Raster.geobox
-      ~Raster.geochunks
       ~Raster.mask
       ~Raster.nbands
       ~Raster.null_value

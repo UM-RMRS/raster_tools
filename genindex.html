@@ -137,6 +137,10 @@
 <li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.zeros_like.html">raster_tools.zeros_like</a></li>
 <li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.reclassify.html">raster_tools.reclassify</a></li>
 <li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.remap_range.html">raster_tools.remap_range</a></li>
+<li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.geo_map_blocks.html">raster_tools.geo_map_blocks</a></li>
+<li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.geo_map_overlap.html">raster_tools.geo_map_overlap</a></li>
+<li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.map_blocks.html">raster_tools.map_blocks</a></li>
+<li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.map_overlap.html">raster_tools.map_overlap</a></li>
 <li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.pad.html">raster_tools.pad</a></li>
 <li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.Vector.html">raster_tools.Vector</a></li>
 <li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.count_layer_features.html">raster_tools.count_layer_features</a></li>
@@ -175,6 +179,10 @@
 <li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.Raster.sum.html">raster_tools.Raster.sum</a></li>
 <li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.Raster.var.html">raster_tools.Raster.var</a></li>
 <li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.Raster.chunk.html">raster_tools.Raster.chunk</a></li>
+<li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.Raster.geo_map_blocks.html">raster_tools.Raster.geo_map_blocks</a></li>
+<li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.Raster.geo_map_overlap.html">raster_tools.Raster.geo_map_overlap</a></li>
+<li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.Raster.map_blocks.html">raster_tools.Raster.map_blocks</a></li>
+<li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.Raster.map_overlap.html">raster_tools.Raster.map_overlap</a></li>
 <li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.Raster.get_bands.html">raster_tools.Raster.get_bands</a></li>
 <li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.Raster.get_chunk_rasters.html">raster_tools.Raster.get_chunk_rasters</a></li>
 <li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.Raster.to_quadrants.html">raster_tools.Raster.to_quadrants</a></li>
@@ -208,7 +216,13 @@
 <li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.Raster.model_predict.html">raster_tools.Raster.model_predict</a></li>
 </ul>
 </li>
-<li class="toctree-l2 has-children"><a class="reference internal" href="reference/vector.html">Vector Objects</a><input class="toctree-checkbox" id="toctree-checkbox-4" name="toctree-checkbox-4" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-4"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="reference/blocks.html">Block Metadata</a><input class="toctree-checkbox" id="toctree-checkbox-4" name="toctree-checkbox-4" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-4"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.blocks.GeoBlockInfo.html">raster_tools.blocks.GeoBlockInfo</a></li>
+<li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.blocks.geo_block_infos.html">raster_tools.blocks.geo_block_infos</a></li>
+<li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.blocks.geo_block_infos_as_dask.html">raster_tools.blocks.geo_block_infos_as_dask</a></li>
+</ul>
+</li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="reference/vector.html">Vector Objects</a><input class="toctree-checkbox" id="toctree-checkbox-5" name="toctree-checkbox-5" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-5"><i class="fa-solid fa-chevron-down"></i></label><ul>
 <li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.open_vectors.html">raster_tools.open_vectors</a></li>
 <li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.Vector.bounds.html">raster_tools.Vector.bounds</a></li>
 <li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.Vector.crs.html">raster_tools.Vector.crs</a></li>
@@ -234,7 +248,7 @@
 <li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.Vector.simplify.html">raster_tools.Vector.simplify</a></li>
 </ul>
 </li>
-<li class="toctree-l2 has-children"><a class="reference internal" href="reference/distance.html">Distance Analysis</a><input class="toctree-checkbox" id="toctree-checkbox-5" name="toctree-checkbox-5" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-5"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="reference/distance.html">Distance Analysis</a><input class="toctree-checkbox" id="toctree-checkbox-6" name="toctree-checkbox-6" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-6"><i class="fa-solid fa-chevron-down"></i></label><ul>
 <li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.distance.cost_distance_analysis.html">raster_tools.distance.cost_distance_analysis</a></li>
 <li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.distance.cda_allocation.html">raster_tools.distance.cda_allocation</a></li>
 <li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.distance.cda_cost_distance.html">raster_tools.distance.cda_cost_distance</a></li>
@@ -245,7 +259,7 @@
 <li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.distance.pa_proximity.html">raster_tools.distance.pa_proximity</a></li>
 </ul>
 </li>
-<li class="toctree-l2 has-children"><a class="reference internal" href="reference/clipping.html">Clipping Operations</a><input class="toctree-checkbox" id="toctree-checkbox-6" name="toctree-checkbox-6" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-6"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="reference/clipping.html">Clipping Operations</a><input class="toctree-checkbox" id="toctree-checkbox-7" name="toctree-checkbox-7" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-7"><i class="fa-solid fa-chevron-down"></i></label><ul>
 <li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.clipping.clip.html">raster_tools.clipping.clip</a></li>
 <li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.clipping.clip_box.html">raster_tools.clipping.clip_box</a></li>
 <li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.clipping.envelope.html">raster_tools.clipping.envelope</a></li>
@@ -253,7 +267,7 @@
 <li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.clipping.mask.html">raster_tools.clipping.mask</a></li>
 </ul>
 </li>
-<li class="toctree-l2 has-children"><a class="reference internal" href="reference/focal.html">Focal Operations</a><input class="toctree-checkbox" id="toctree-checkbox-7" name="toctree-checkbox-7" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-7"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="reference/focal.html">Focal Operations</a><input class="toctree-checkbox" id="toctree-checkbox-8" name="toctree-checkbox-8" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-8"><i class="fa-solid fa-chevron-down"></i></label><ul>
 <li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.focal.focal.html">raster_tools.focal.focal</a></li>
 <li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.focal.correlate.html">raster_tools.focal.correlate</a></li>
 <li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.focal.convolve.html">raster_tools.focal.convolve</a></li>
@@ -261,7 +275,7 @@
 <li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.focal.get_focal_window.html">raster_tools.focal.get_focal_window</a></li>
 </ul>
 </li>
-<li class="toctree-l2 has-children"><a class="reference internal" href="reference/general.html">General Purpose Operations</a><input class="toctree-checkbox" id="toctree-checkbox-8" name="toctree-checkbox-8" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-8"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="reference/general.html">General Purpose Operations</a><input class="toctree-checkbox" id="toctree-checkbox-9" name="toctree-checkbox-9" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-9"><i class="fa-solid fa-chevron-down"></i></label><ul>
 <li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.general.ModelPredictAdaptor.html">raster_tools.general.ModelPredictAdaptor</a></li>
 <li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.general.aggregate.html">raster_tools.general.aggregate</a></li>
 <li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.general.band_concat.html">raster_tools.general.band_concat</a></li>
@@ -276,11 +290,11 @@
 <li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.general.where.html">raster_tools.general.where</a></li>
 </ul>
 </li>
-<li class="toctree-l2 has-children"><a class="reference internal" href="reference/rasterize.html">Rasterize</a><input class="toctree-checkbox" id="toctree-checkbox-9" name="toctree-checkbox-9" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-9"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="reference/rasterize.html">Rasterize</a><input class="toctree-checkbox" id="toctree-checkbox-10" name="toctree-checkbox-10" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-10"><i class="fa-solid fa-chevron-down"></i></label><ul>
 <li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.rasterize.rasterize.html">raster_tools.rasterize.rasterize</a></li>
 </ul>
 </li>
-<li class="toctree-l2 has-children"><a class="reference internal" href="reference/surface.html">Surface Operations</a><input class="toctree-checkbox" id="toctree-checkbox-10" name="toctree-checkbox-10" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-10"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="reference/surface.html">Surface Operations</a><input class="toctree-checkbox" id="toctree-checkbox-11" name="toctree-checkbox-11" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-11"><i class="fa-solid fa-chevron-down"></i></label><ul>
 <li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.surface.aspect.html">raster_tools.surface.aspect</a></li>
 <li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.surface.curvature.html">raster_tools.surface.curvature</a></li>
 <li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.surface.easting.html">raster_tools.surface.easting</a></li>
@@ -291,19 +305,19 @@
 <li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.surface.tpi.html">raster_tools.surface.tpi</a></li>
 </ul>
 </li>
-<li class="toctree-l2 has-children"><a class="reference internal" href="reference/warp.html">Warp Operations</a><input class="toctree-checkbox" id="toctree-checkbox-11" name="toctree-checkbox-11" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-11"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="reference/warp.html">Warp Operations</a><input class="toctree-checkbox" id="toctree-checkbox-12" name="toctree-checkbox-12" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-12"><i class="fa-solid fa-chevron-down"></i></label><ul>
 <li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.warp.reproject.html">raster_tools.warp.reproject</a></li>
 </ul>
 </li>
-<li class="toctree-l2 has-children"><a class="reference internal" href="reference/zonal.html">Zonal Operations</a><input class="toctree-checkbox" id="toctree-checkbox-12" name="toctree-checkbox-12" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-12"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="reference/zonal.html">Zonal Operations</a><input class="toctree-checkbox" id="toctree-checkbox-13" name="toctree-checkbox-13" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-13"><i class="fa-solid fa-chevron-down"></i></label><ul>
 <li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.zonal.extract_points_eager.html">raster_tools.zonal.extract_points_eager</a></li>
 <li class="toctree-l3"><a class="reference internal" href="reference/generated/raster_tools.zonal.zonal_stats.html">raster_tools.zonal.zonal_stats</a></li>
 </ul>
 </li>
 </ul>
 </li>
-<li class="toctree-l1 has-children"><a class="reference internal" href="modules.html">raster_tools</a><input class="toctree-checkbox" id="toctree-checkbox-13" name="toctree-checkbox-13" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-13"><i class="fa-solid fa-chevron-down"></i></label><ul>
-<li class="toctree-l2 has-children"><a class="reference internal" href="raster_tools.html">raster_tools package</a><input class="toctree-checkbox" id="toctree-checkbox-14" name="toctree-checkbox-14" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-14"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l1 has-children"><a class="reference internal" href="modules.html">raster_tools</a><input class="toctree-checkbox" id="toctree-checkbox-14" name="toctree-checkbox-14" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-14"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="raster_tools.html">raster_tools package</a><input class="toctree-checkbox" id="toctree-checkbox-15" name="toctree-checkbox-15" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-15"><i class="fa-solid fa-chevron-down"></i></label><ul>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.distance.html">raster_tools.distance package</a></li>
 </ul>
 </li>
@@ -442,9 +456,11 @@ document.write(`
 <h2 id="_">_</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="reference/generated/raster_tools.general.ModelPredictAdaptor.html#raster_tools.general.ModelPredictAdaptor.__init__">__init__() (raster_tools.general.ModelPredictAdaptor method)</a>
+      <li><a href="reference/generated/raster_tools.blocks.GeoBlockInfo.html#raster_tools.blocks.GeoBlockInfo.__init__">__init__() (raster_tools.blocks.GeoBlockInfo method)</a>
 
       <ul>
+        <li><a href="reference/generated/raster_tools.general.ModelPredictAdaptor.html#raster_tools.general.ModelPredictAdaptor.__init__">(raster_tools.general.ModelPredictAdaptor method)</a>
+</li>
         <li><a href="reference/generated/raster_tools.Raster.html#raster_tools.Raster.__init__">(raster_tools.Raster method)</a>
 </li>
         <li><a href="reference/generated/raster_tools.Vector.html#raster_tools.Vector.__init__">(raster_tools.Vector method)</a>
@@ -503,8 +519,6 @@ document.write(`
       <li><a href="raster_tools.html#raster_tools.Raster.band">band (raster_tools.Raster property)</a>
 
       <ul>
-        <li><a href="raster_tools.html#raster_tools.raster.GeoChunk.band">(raster_tools.raster.GeoChunk property)</a>
-</li>
         <li><a href="raster_tools.html#raster_tools.raster.Raster.band">(raster_tools.raster.Raster property)</a>
 </li>
       </ul></li>
@@ -822,20 +836,38 @@ document.write(`
 <h2 id="G">G</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="raster_tools.html#raster_tools.Raster.geo_block_infos">geo_block_infos (raster_tools.Raster property)</a>
+
+      <ul>
+        <li><a href="raster_tools.html#raster_tools.raster.Raster.geo_block_infos">(raster_tools.raster.Raster property)</a>
+</li>
+      </ul></li>
+      <li><a href="reference/generated/raster_tools.blocks.geo_block_infos.html#raster_tools.blocks.geo_block_infos">geo_block_infos() (in module raster_tools.blocks)</a>
+</li>
+      <li><a href="reference/generated/raster_tools.blocks.geo_block_infos_as_dask.html#raster_tools.blocks.geo_block_infos_as_dask">geo_block_infos_as_dask() (in module raster_tools.blocks)</a>
+</li>
+      <li><a href="raster_tools.html#raster_tools.geo_map_blocks">geo_map_blocks() (in module raster_tools)</a>, <a href="reference/generated/raster_tools.geo_map_blocks.html#raster_tools.geo_map_blocks">[1]</a>
+
+      <ul>
+        <li><a href="raster_tools.html#raster_tools.Raster.geo_map_blocks">(raster_tools.Raster method)</a>, <a href="reference/generated/raster_tools.Raster.geo_map_blocks.html#raster_tools.Raster.geo_map_blocks">[1]</a>
+</li>
+        <li><a href="raster_tools.html#raster_tools.raster.Raster.geo_map_blocks">(raster_tools.raster.Raster method)</a>
+</li>
+      </ul></li>
+      <li><a href="raster_tools.html#raster_tools.geo_map_overlap">geo_map_overlap() (in module raster_tools)</a>, <a href="reference/generated/raster_tools.geo_map_overlap.html#raster_tools.geo_map_overlap">[1]</a>
+
+      <ul>
+        <li><a href="raster_tools.html#raster_tools.Raster.geo_map_overlap">(raster_tools.Raster method)</a>, <a href="reference/generated/raster_tools.Raster.geo_map_overlap.html#raster_tools.Raster.geo_map_overlap">[1]</a>
+</li>
+        <li><a href="raster_tools.html#raster_tools.raster.Raster.geo_map_overlap">(raster_tools.raster.Raster method)</a>
+</li>
+      </ul></li>
+      <li><a href="reference/generated/raster_tools.blocks.GeoBlockInfo.html#raster_tools.blocks.GeoBlockInfo">GeoBlockInfo (class in raster_tools.blocks)</a>
+</li>
       <li><a href="raster_tools.html#raster_tools.Raster.geobox">geobox (raster_tools.Raster property)</a>
 
       <ul>
         <li><a href="raster_tools.html#raster_tools.raster.Raster.geobox">(raster_tools.raster.Raster property)</a>
-</li>
-      </ul></li>
-      <li><a href="raster_tools.html#raster_tools.raster.GeoChunk">GeoChunk (class in raster_tools.raster)</a>
-</li>
-      <li><a href="raster_tools.html#raster_tools.raster.GeoChunkArray">GeoChunkArray (class in raster_tools.raster)</a>
-</li>
-      <li><a href="raster_tools.html#raster_tools.Raster.geochunks">geochunks (raster_tools.Raster property)</a>
-
-      <ul>
-        <li><a href="raster_tools.html#raster_tools.raster.Raster.geochunks">(raster_tools.raster.Raster property)</a>
 </li>
       </ul></li>
       <li><a href="raster_tools.html#raster_tools.Vector.geometry">geometry (raster_tools.Vector property)</a>, <a href="reference/generated/raster_tools.Vector.geometry.html#raster_tools.Vector.geometry">[1]</a>
@@ -850,6 +882,8 @@ document.write(`
         <li><a href="raster_tools.html#raster_tools.raster.Raster.get_bands">(raster_tools.raster.Raster method)</a>
 </li>
       </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="raster_tools.html#raster_tools.Raster.get_chunk_bounding_boxes">get_chunk_bounding_boxes() (raster_tools.Raster method)</a>, <a href="reference/generated/raster_tools.Raster.get_chunk_bounding_boxes.html#raster_tools.Raster.get_chunk_bounding_boxes">[1]</a>
 
       <ul>
@@ -862,8 +896,6 @@ document.write(`
         <li><a href="raster_tools.html#raster_tools.raster.Raster.get_chunk_rasters">(raster_tools.raster.Raster method)</a>
 </li>
       </ul></li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="raster_tools.html#raster_tools.Raster.get_chunked_coords">get_chunked_coords() (raster_tools.Raster method)</a>, <a href="reference/generated/raster_tools.Raster.get_chunked_coords.html#raster_tools.Raster.get_chunked_coords">[1]</a>
 
       <ul>
@@ -976,8 +1008,22 @@ document.write(`
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="raster_tools.html#raster_tools.raster.make_raster_ds">make_raster_ds() (in module raster_tools.raster)</a>
 </li>
-      <li><a href="raster_tools.html#raster_tools.raster.GeoChunkArray.map">map() (raster_tools.raster.GeoChunkArray method)</a>
+      <li><a href="raster_tools.html#raster_tools.map_blocks">map_blocks() (in module raster_tools)</a>, <a href="reference/generated/raster_tools.map_blocks.html#raster_tools.map_blocks">[1]</a>
+
+      <ul>
+        <li><a href="raster_tools.html#raster_tools.Raster.map_blocks">(raster_tools.Raster method)</a>, <a href="reference/generated/raster_tools.Raster.map_blocks.html#raster_tools.Raster.map_blocks">[1]</a>
 </li>
+        <li><a href="raster_tools.html#raster_tools.raster.Raster.map_blocks">(raster_tools.raster.Raster method)</a>
+</li>
+      </ul></li>
+      <li><a href="raster_tools.html#raster_tools.map_overlap">map_overlap() (in module raster_tools)</a>, <a href="reference/generated/raster_tools.map_overlap.html#raster_tools.map_overlap">[1]</a>
+
+      <ul>
+        <li><a href="raster_tools.html#raster_tools.Raster.map_overlap">(raster_tools.Raster method)</a>, <a href="reference/generated/raster_tools.Raster.map_overlap.html#raster_tools.Raster.map_overlap">[1]</a>
+</li>
+        <li><a href="raster_tools.html#raster_tools.raster.Raster.map_overlap">(raster_tools.raster.Raster method)</a>
+</li>
+      </ul></li>
       <li><a href="raster_tools.html#raster_tools.Raster.mask">mask (raster_tools.Raster property)</a>, <a href="reference/generated/raster_tools.Raster.mask.html#raster_tools.Raster.mask">[1]</a>
 
       <ul>
@@ -1022,6 +1068,8 @@ document.write(`
 </li>
       <li><a href="raster_tools.html#raster_tools.general.model_predict_vector">model_predict_vector() (in module raster_tools.general)</a>, <a href="reference/generated/raster_tools.general.model_predict_vector.html#raster_tools.general.model_predict_vector">[1]</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="raster_tools.html#raster_tools.general.ModelPredictAdaptor">ModelPredictAdaptor (class in raster_tools.general)</a>, <a href="reference/generated/raster_tools.general.ModelPredictAdaptor.html#raster_tools.general.ModelPredictAdaptor">[1]</a>
 </li>
       <li>
@@ -1073,8 +1121,6 @@ document.write(`
         <li><a href="raster_tools.html#module-raster_tools.zonal">raster_tools.zonal</a>
 </li>
       </ul></li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="raster_tools.html#raster_tools.mosaic">mosaic() (in module raster_tools)</a>, <a href="reference/generated/raster_tools.mosaic.html#raster_tools.mosaic">[1]</a>
 </li>
   </ul></td>
@@ -1196,19 +1242,13 @@ document.write(`
       <ul>
         <li><a href="raster_tools.html#raster_tools.Raster.pad">(raster_tools.Raster method)</a>, <a href="reference/generated/raster_tools.Raster.pad.html#raster_tools.Raster.pad">[1]</a>
 </li>
-        <li><a href="raster_tools.html#raster_tools.raster.GeoChunk.pad">(raster_tools.raster.GeoChunk method)</a>
-</li>
         <li><a href="raster_tools.html#raster_tools.raster.Raster.pad">(raster_tools.raster.Raster method)</a>
 </li>
       </ul></li>
-      <li><a href="raster_tools.html#raster_tools.raster.GeoChunk.pad_cols">pad_cols() (raster_tools.raster.GeoChunk method)</a>
-</li>
-      <li><a href="raster_tools.html#raster_tools.raster.GeoChunk.pad_rows">pad_rows() (raster_tools.raster.GeoChunk method)</a>
+      <li><a href="raster_tools.html#raster_tools.batch.parse_batch_script">parse_batch_script() (in module raster_tools.batch)</a>
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="raster_tools.html#raster_tools.batch.parse_batch_script">parse_batch_script() (in module raster_tools.batch)</a>
-</li>
       <li><a href="raster_tools.html#raster_tools.Raster.plot">plot() (raster_tools.Raster method)</a>, <a href="reference/generated/raster_tools.Raster.plot.html#raster_tools.Raster.plot">[1]</a>
 
       <ul>
@@ -1417,8 +1457,6 @@ document.write(`
 </li>
       <li><a href="raster_tools.html#raster_tools.raster.RasterQuadrantsResult">RasterQuadrantsResult (class in raster_tools.raster)</a>
 </li>
-      <li><a href="raster_tools.html#raster_tools.raster.GeoChunkArray.ravel">ravel() (raster_tools.raster.GeoChunkArray method)</a>
-</li>
       <li><a href="raster_tools.html#raster_tools.reclassify">reclassify() (in module raster_tools)</a>, <a href="reference/generated/raster_tools.reclassify.html#raster_tools.reclassify">[1]</a>
 
       <ul>
@@ -1459,8 +1497,6 @@ document.write(`
         <li><a href="raster_tools.html#raster_tools.raster.Raster.reproject">(raster_tools.raster.Raster method)</a>
 </li>
       </ul></li>
-      <li><a href="raster_tools.html#raster_tools.raster.GeoChunk.resize_dim">resize_dim() (raster_tools.raster.GeoChunk method)</a>
-</li>
       <li><a href="raster_tools.html#raster_tools.Raster.resolution">resolution (raster_tools.Raster property)</a>, <a href="reference/generated/raster_tools.Raster.resolution.html#raster_tools.Raster.resolution">[1]</a>
 
       <ul>
@@ -1522,8 +1558,6 @@ document.write(`
       <li><a href="raster_tools.html#raster_tools.Raster.shape">shape (raster_tools.Raster property)</a>, <a href="reference/generated/raster_tools.Raster.shape.html#raster_tools.Raster.shape">[1]</a>
 
       <ul>
-        <li><a href="raster_tools.html#raster_tools.raster.GeoChunkArray.shape">(raster_tools.raster.GeoChunkArray property)</a>
-</li>
         <li><a href="raster_tools.html#raster_tools.raster.Raster.shape">(raster_tools.raster.Raster property)</a>
 </li>
         <li><a href="raster_tools.html#raster_tools.Vector.shape">(raster_tools.Vector property)</a>, <a href="reference/generated/raster_tools.Vector.shape.html#raster_tools.Vector.shape">[1]</a>
@@ -1531,16 +1565,10 @@ document.write(`
         <li><a href="raster_tools.html#raster_tools.vector.Vector.shape">(raster_tools.vector.Vector property)</a>
 </li>
       </ul></li>
-      <li><a href="raster_tools.html#raster_tools.raster.GeoChunk.shift">shift() (raster_tools.raster.GeoChunk method)</a>
-</li>
-      <li><a href="raster_tools.html#raster_tools.raster.GeoChunk.shift_cols">shift_cols() (raster_tools.raster.GeoChunk method)</a>
-</li>
-      <li><a href="raster_tools.html#raster_tools.raster.GeoChunk.shift_rows">shift_rows() (raster_tools.raster.GeoChunk method)</a>
+      <li><a href="raster_tools.html#raster_tools.dtypes.should_promote_to_fit">should_promote_to_fit() (in module raster_tools.dtypes)</a>
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="raster_tools.html#raster_tools.dtypes.should_promote_to_fit">should_promote_to_fit() (in module raster_tools.dtypes)</a>
-</li>
       <li><a href="raster_tools.html#raster_tools.Vector.simplify">simplify() (raster_tools.Vector method)</a>, <a href="reference/generated/raster_tools.Vector.simplify.html#raster_tools.Vector.simplify">[1]</a>
 
       <ul>
@@ -1552,8 +1580,6 @@ document.write(`
       <li><a href="raster_tools.html#raster_tools.Raster.size">size (raster_tools.Raster property)</a>
 
       <ul>
-        <li><a href="raster_tools.html#raster_tools.raster.GeoChunkArray.size">(raster_tools.raster.GeoChunkArray property)</a>
-</li>
         <li><a href="raster_tools.html#raster_tools.raster.Raster.size">(raster_tools.raster.Raster property)</a>
 </li>
         <li><a href="raster_tools.html#raster_tools.Vector.size">(raster_tools.Vector property)</a>, <a href="reference/generated/raster_tools.Vector.size.html#raster_tools.Vector.size">[1]</a>
@@ -1621,11 +1647,9 @@ document.write(`
         <li><a href="raster_tools.html#raster_tools.vector.Vector.to_crs">(raster_tools.vector.Vector method)</a>
 </li>
       </ul></li>
-      <li><a href="raster_tools.html#raster_tools.raster.GeoChunkArray.to_dask">to_dask() (raster_tools.raster.GeoChunkArray method)</a>
+      <li><a href="raster_tools.html#raster_tools.Vector.to_dask">to_dask() (raster_tools.Vector method)</a>, <a href="reference/generated/raster_tools.Vector.to_dask.html#raster_tools.Vector.to_dask">[1]</a>
 
       <ul>
-        <li><a href="raster_tools.html#raster_tools.Vector.to_dask">(raster_tools.Vector method)</a>, <a href="reference/generated/raster_tools.Vector.to_dask.html#raster_tools.Vector.to_dask">[1]</a>
-</li>
         <li><a href="raster_tools.html#raster_tools.vector.Vector.to_dask">(raster_tools.vector.Vector method)</a>
 </li>
       </ul></li>
@@ -1653,16 +1677,14 @@ document.write(`
         <li><a href="raster_tools.html#raster_tools.raster.Raster.to_null_mask">(raster_tools.raster.Raster method)</a>
 </li>
       </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="raster_tools.html#raster_tools.Raster.to_numpy">to_numpy() (raster_tools.Raster method)</a>, <a href="reference/generated/raster_tools.Raster.to_numpy.html#raster_tools.Raster.to_numpy">[1]</a>
 
       <ul>
-        <li><a href="raster_tools.html#raster_tools.raster.GeoChunkArray.to_numpy">(raster_tools.raster.GeoChunkArray method)</a>
-</li>
         <li><a href="raster_tools.html#raster_tools.raster.Raster.to_numpy">(raster_tools.raster.Raster method)</a>
 </li>
       </ul></li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="raster_tools.html#raster_tools.Raster.to_points">to_points() (raster_tools.Raster method)</a>
 
       <ul>
@@ -1700,20 +1722,6 @@ document.write(`
 </li>
       </ul></li>
       <li><a href="raster_tools.html#raster_tools.surface.tpi">tpi() (in module raster_tools.surface)</a>, <a href="reference/generated/raster_tools.surface.tpi.html#raster_tools.surface.tpi">[1]</a>
-</li>
-      <li><a href="raster_tools.html#raster_tools.raster.GeoChunk.trim">trim() (raster_tools.raster.GeoChunk method)</a>
-</li>
-      <li><a href="raster_tools.html#raster_tools.raster.GeoChunk.trim_bottom">trim_bottom() (raster_tools.raster.GeoChunk method)</a>
-</li>
-      <li><a href="raster_tools.html#raster_tools.raster.GeoChunk.trim_cols">trim_cols() (raster_tools.raster.GeoChunk method)</a>
-</li>
-      <li><a href="raster_tools.html#raster_tools.raster.GeoChunk.trim_left">trim_left() (raster_tools.raster.GeoChunk method)</a>
-</li>
-      <li><a href="raster_tools.html#raster_tools.raster.GeoChunk.trim_right">trim_right() (raster_tools.raster.GeoChunk method)</a>
-</li>
-      <li><a href="raster_tools.html#raster_tools.raster.GeoChunk.trim_rows">trim_rows() (raster_tools.raster.GeoChunk method)</a>
-</li>
-      <li><a href="raster_tools.html#raster_tools.raster.GeoChunk.trim_top">trim_top() (raster_tools.raster.GeoChunk method)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -1774,8 +1782,6 @@ document.write(`
       <li><a href="raster_tools.html#raster_tools.Raster.x">x (raster_tools.Raster property)</a>, <a href="reference/generated/raster_tools.Raster.x.html#raster_tools.Raster.x">[1]</a>
 
       <ul>
-        <li><a href="raster_tools.html#raster_tools.raster.GeoChunk.x">(raster_tools.raster.GeoChunk property)</a>
-</li>
         <li><a href="raster_tools.html#raster_tools.raster.Raster.x">(raster_tools.raster.Raster property)</a>
 </li>
       </ul></li>
@@ -1818,8 +1824,6 @@ document.write(`
       <li><a href="raster_tools.html#raster_tools.Raster.y">y (raster_tools.Raster property)</a>, <a href="reference/generated/raster_tools.Raster.y.html#raster_tools.Raster.y">[1]</a>
 
       <ul>
-        <li><a href="raster_tools.html#raster_tools.raster.GeoChunk.y">(raster_tools.raster.GeoChunk property)</a>
-</li>
         <li><a href="raster_tools.html#raster_tools.raster.Raster.y">(raster_tools.raster.Raster property)</a>
 </li>
       </ul></li>

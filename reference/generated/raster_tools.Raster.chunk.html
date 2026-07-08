@@ -44,7 +44,7 @@
     <script>DOCUMENTATION_OPTIONS.pagename = 'reference/generated/raster_tools.Raster.chunk';</script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
-    <link rel="next" title="raster_tools.Raster.get_bands" href="raster_tools.Raster.get_bands.html" />
+    <link rel="next" title="raster_tools.Raster.geo_map_blocks" href="raster_tools.Raster.geo_map_blocks.html" />
     <link rel="prev" title="raster_tools.Raster.var" href="raster_tools.Raster.var.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="None"/>
@@ -140,6 +140,10 @@
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.zeros_like.html">raster_tools.zeros_like</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.reclassify.html">raster_tools.reclassify</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.remap_range.html">raster_tools.remap_range</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.geo_map_blocks.html">raster_tools.geo_map_blocks</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.geo_map_overlap.html">raster_tools.geo_map_overlap</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.map_blocks.html">raster_tools.map_blocks</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.map_overlap.html">raster_tools.map_overlap</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.pad.html">raster_tools.pad</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.Vector.html">raster_tools.Vector</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.count_layer_features.html">raster_tools.count_layer_features</a></li>
@@ -178,6 +182,10 @@
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.sum.html">raster_tools.Raster.sum</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.var.html">raster_tools.Raster.var</a></li>
 <li class="toctree-l3 current active"><a class="current reference internal" href="#">raster_tools.Raster.chunk</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.geo_map_blocks.html">raster_tools.Raster.geo_map_blocks</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.geo_map_overlap.html">raster_tools.Raster.geo_map_overlap</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.map_blocks.html">raster_tools.Raster.map_blocks</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.map_overlap.html">raster_tools.Raster.map_overlap</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.get_bands.html">raster_tools.Raster.get_bands</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.get_chunk_rasters.html">raster_tools.Raster.get_chunk_rasters</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.to_quadrants.html">raster_tools.Raster.to_quadrants</a></li>
@@ -211,7 +219,13 @@
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.model_predict.html">raster_tools.Raster.model_predict</a></li>
 </ul>
 </li>
-<li class="toctree-l2 has-children"><a class="reference internal" href="../vector.html">Vector Objects</a><input class="toctree-checkbox" id="toctree-checkbox-4" name="toctree-checkbox-4" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-4"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../blocks.html">Block Metadata</a><input class="toctree-checkbox" id="toctree-checkbox-4" name="toctree-checkbox-4" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-4"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.blocks.GeoBlockInfo.html">raster_tools.blocks.GeoBlockInfo</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.blocks.geo_block_infos.html">raster_tools.blocks.geo_block_infos</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.blocks.geo_block_infos_as_dask.html">raster_tools.blocks.geo_block_infos_as_dask</a></li>
+</ul>
+</li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../vector.html">Vector Objects</a><input class="toctree-checkbox" id="toctree-checkbox-5" name="toctree-checkbox-5" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-5"><i class="fa-solid fa-chevron-down"></i></label><ul>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.open_vectors.html">raster_tools.open_vectors</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.Vector.bounds.html">raster_tools.Vector.bounds</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.Vector.crs.html">raster_tools.Vector.crs</a></li>
@@ -237,7 +251,7 @@
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.Vector.simplify.html">raster_tools.Vector.simplify</a></li>
 </ul>
 </li>
-<li class="toctree-l2 has-children"><a class="reference internal" href="../distance.html">Distance Analysis</a><input class="toctree-checkbox" id="toctree-checkbox-5" name="toctree-checkbox-5" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-5"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../distance.html">Distance Analysis</a><input class="toctree-checkbox" id="toctree-checkbox-6" name="toctree-checkbox-6" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-6"><i class="fa-solid fa-chevron-down"></i></label><ul>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.distance.cost_distance_analysis.html">raster_tools.distance.cost_distance_analysis</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.distance.cda_allocation.html">raster_tools.distance.cda_allocation</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.distance.cda_cost_distance.html">raster_tools.distance.cda_cost_distance</a></li>
@@ -248,7 +262,7 @@
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.distance.pa_proximity.html">raster_tools.distance.pa_proximity</a></li>
 </ul>
 </li>
-<li class="toctree-l2 has-children"><a class="reference internal" href="../clipping.html">Clipping Operations</a><input class="toctree-checkbox" id="toctree-checkbox-6" name="toctree-checkbox-6" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-6"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../clipping.html">Clipping Operations</a><input class="toctree-checkbox" id="toctree-checkbox-7" name="toctree-checkbox-7" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-7"><i class="fa-solid fa-chevron-down"></i></label><ul>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.clipping.clip.html">raster_tools.clipping.clip</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.clipping.clip_box.html">raster_tools.clipping.clip_box</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.clipping.envelope.html">raster_tools.clipping.envelope</a></li>
@@ -256,7 +270,7 @@
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.clipping.mask.html">raster_tools.clipping.mask</a></li>
 </ul>
 </li>
-<li class="toctree-l2 has-children"><a class="reference internal" href="../focal.html">Focal Operations</a><input class="toctree-checkbox" id="toctree-checkbox-7" name="toctree-checkbox-7" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-7"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../focal.html">Focal Operations</a><input class="toctree-checkbox" id="toctree-checkbox-8" name="toctree-checkbox-8" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-8"><i class="fa-solid fa-chevron-down"></i></label><ul>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.focal.focal.html">raster_tools.focal.focal</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.focal.correlate.html">raster_tools.focal.correlate</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.focal.convolve.html">raster_tools.focal.convolve</a></li>
@@ -264,7 +278,7 @@
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.focal.get_focal_window.html">raster_tools.focal.get_focal_window</a></li>
 </ul>
 </li>
-<li class="toctree-l2 has-children"><a class="reference internal" href="../general.html">General Purpose Operations</a><input class="toctree-checkbox" id="toctree-checkbox-8" name="toctree-checkbox-8" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-8"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../general.html">General Purpose Operations</a><input class="toctree-checkbox" id="toctree-checkbox-9" name="toctree-checkbox-9" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-9"><i class="fa-solid fa-chevron-down"></i></label><ul>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.general.ModelPredictAdaptor.html">raster_tools.general.ModelPredictAdaptor</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.general.aggregate.html">raster_tools.general.aggregate</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.general.band_concat.html">raster_tools.general.band_concat</a></li>
@@ -279,11 +293,11 @@
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.general.where.html">raster_tools.general.where</a></li>
 </ul>
 </li>
-<li class="toctree-l2 has-children"><a class="reference internal" href="../rasterize.html">Rasterize</a><input class="toctree-checkbox" id="toctree-checkbox-9" name="toctree-checkbox-9" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-9"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../rasterize.html">Rasterize</a><input class="toctree-checkbox" id="toctree-checkbox-10" name="toctree-checkbox-10" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-10"><i class="fa-solid fa-chevron-down"></i></label><ul>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.rasterize.rasterize.html">raster_tools.rasterize.rasterize</a></li>
 </ul>
 </li>
-<li class="toctree-l2 has-children"><a class="reference internal" href="../surface.html">Surface Operations</a><input class="toctree-checkbox" id="toctree-checkbox-10" name="toctree-checkbox-10" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-10"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../surface.html">Surface Operations</a><input class="toctree-checkbox" id="toctree-checkbox-11" name="toctree-checkbox-11" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-11"><i class="fa-solid fa-chevron-down"></i></label><ul>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.surface.aspect.html">raster_tools.surface.aspect</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.surface.curvature.html">raster_tools.surface.curvature</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.surface.easting.html">raster_tools.surface.easting</a></li>
@@ -294,19 +308,19 @@
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.surface.tpi.html">raster_tools.surface.tpi</a></li>
 </ul>
 </li>
-<li class="toctree-l2 has-children"><a class="reference internal" href="../warp.html">Warp Operations</a><input class="toctree-checkbox" id="toctree-checkbox-11" name="toctree-checkbox-11" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-11"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../warp.html">Warp Operations</a><input class="toctree-checkbox" id="toctree-checkbox-12" name="toctree-checkbox-12" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-12"><i class="fa-solid fa-chevron-down"></i></label><ul>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.warp.reproject.html">raster_tools.warp.reproject</a></li>
 </ul>
 </li>
-<li class="toctree-l2 has-children"><a class="reference internal" href="../zonal.html">Zonal Operations</a><input class="toctree-checkbox" id="toctree-checkbox-12" name="toctree-checkbox-12" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-12"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../zonal.html">Zonal Operations</a><input class="toctree-checkbox" id="toctree-checkbox-13" name="toctree-checkbox-13" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-13"><i class="fa-solid fa-chevron-down"></i></label><ul>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.zonal.extract_points_eager.html">raster_tools.zonal.extract_points_eager</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.zonal.zonal_stats.html">raster_tools.zonal.zonal_stats</a></li>
 </ul>
 </li>
 </ul>
 </li>
-<li class="toctree-l1 has-children"><a class="reference internal" href="../../modules.html">raster_tools</a><input class="toctree-checkbox" id="toctree-checkbox-13" name="toctree-checkbox-13" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-13"><i class="fa-solid fa-chevron-down"></i></label><ul>
-<li class="toctree-l2 has-children"><a class="reference internal" href="../../raster_tools.html">raster_tools package</a><input class="toctree-checkbox" id="toctree-checkbox-14" name="toctree-checkbox-14" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-14"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../modules.html">raster_tools</a><input class="toctree-checkbox" id="toctree-checkbox-14" name="toctree-checkbox-14" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-14"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../raster_tools.html">raster_tools package</a><input class="toctree-checkbox" id="toctree-checkbox-15" name="toctree-checkbox-15" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-15"><i class="fa-solid fa-chevron-down"></i></label><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../raster_tools.distance.html">raster_tools.distance package</a></li>
 </ul>
 </li>
@@ -505,11 +519,11 @@ order). Must be a 3-tuple.</p>
       </div>
     </a>
     <a class="right-next"
-       href="raster_tools.Raster.get_bands.html"
+       href="raster_tools.Raster.geo_map_blocks.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">raster_tools.Raster.get_bands</p>
+        <p class="prev-next-title">raster_tools.Raster.geo_map_blocks</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>

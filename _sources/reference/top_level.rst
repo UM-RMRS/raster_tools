@@ -46,6 +46,17 @@ Remapping Rasters
    reclassify
    remap_range
 
+Mapping Functions Over Blocks
+=============================
+
+.. autosummary::
+   :toctree: generated/
+
+   geo_map_blocks
+   geo_map_overlap
+   map_blocks
+   map_overlap
+
 Padding Rasters
 ===============
 
