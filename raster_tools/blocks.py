@@ -466,8 +466,8 @@ def map_blocks(
     form the calling raster is the first input. References to the "first
     input" below mean ``r1`` in either spelling.
 
-    Per-block contract
-    ------------------
+    **Per-block contract**
+
     Per-block kwargs (opt-in): ``input_masks``, ``input_null_values``,
     ``block_info``, ``block_id``, ``out_null_value``. Name any of these in
     ``func``'s signature to receive them per chunk; see below.
@@ -484,7 +484,7 @@ def map_blocks(
     ``return_mask=True`` and have ``func`` return a ``(data, mask)`` pair; see
     ``return_mask`` below.
 
-    Always passed positionally:
+    Always passed positionally::
 
         func(*input_data, **kwargs)
 
@@ -515,8 +515,8 @@ def map_blocks(
     ``inspect.signature`` only sees explicit parameter names. Name the kwargs
     you want.
 
-    Reserved kwargs
-    ---------------
+    **Reserved kwargs**
+
     ``input_masks``, ``input_null_values``, ``block_info``, ``block_id``, and
     ``out_null_value`` are reserved. Passing any of them via ``map_blocks``'s
     own ``**kwargs`` raises ``ValueError`` -- otherwise the wrapper's injection
@@ -649,8 +649,8 @@ def map_blocks(
     tolerate 0-shape inputs (dask silently swallows that crash, but your
     downstream output meta will be wrong).
 
-    Output null value resolution
-    ----------------------------
+    **Output null value resolution**
+
     When ``func`` opts in to ``out_null_value``, the wrapper resolves the
     scalar per-chunk without an extra dtype-inference pass:
 
@@ -1246,8 +1246,8 @@ def map_overlap(
     in the method form the calling raster is the first input. References
     to the "first input" below mean ``r1`` in either spelling.
 
-    Per-block contract
-    ------------------
+    **Per-block contract**
+
     Per-block kwargs (opt-in): ``input_masks``, ``input_null_values``,
     ``block_info``, ``block_id``, ``out_null_value``. Name any of these in
     ``func``'s signature to receive them per chunk; see below.
@@ -1263,7 +1263,7 @@ def map_overlap(
     from the data values -- pass ``return_mask=True`` and have ``func`` return
     a ``(data, mask)`` pair (both overlap-included); see ``return_mask`` below.
 
-    Always passed positionally:
+    Always passed positionally::
 
         func(*input_data, **kwargs)
 
@@ -1291,8 +1291,8 @@ def map_overlap(
     A function whose only kwargs absorber is ``**kwargs`` does NOT trigger any
     of these injections -- name the kwargs you want.
 
-    Reserved kwargs
-    ---------------
+    **Reserved kwargs**
+
     ``input_masks``, ``input_null_values``, ``block_info``, ``block_id``, and
     ``out_null_value`` are reserved. Passing any of them via ``map_overlap``'s
     own ``**kwargs`` raises ``ValueError``.
@@ -1421,8 +1421,8 @@ def map_overlap(
     instead if your func also can't tolerate 0-shape inputs (dask silently
     swallows that crash, but your downstream output meta will be wrong).
 
-    Output null value resolution
-    ----------------------------
+    **Output null value resolution**
+
     When ``func`` opts in to ``out_null_value``, the wrapper resolves the
     scalar per-chunk without an extra dtype-inference pass:
 
@@ -1832,8 +1832,8 @@ def geo_map_blocks(
     the method form the calling raster is the first input. References to
     the "first input" below mean ``r1`` in either spelling.
 
-    Per-block contract
-    ------------------
+    **Per-block contract**
+
     Per-block kwargs (opt-in): ``input_masks``, ``input_null_values``,
     ``block_info``, ``block_id``, ``out_null_value``, ``geo_block_info``. Name
     any of these in ``func``'s signature to receive them per chunk; see below.
@@ -1849,7 +1849,7 @@ def geo_map_blocks(
     from the data values -- pass ``return_mask=True`` and have ``func`` return
     a ``(data, mask)`` pair; see ``return_mask`` below.
 
-    Always passed positionally:
+    Always passed positionally::
 
         func(*data_dataarrays, **kwargs)
 
@@ -1881,8 +1881,8 @@ def geo_map_blocks(
     A function whose only kwargs absorber is ``**kwargs`` does NOT trigger any
     of these injections -- name the kwargs you want.
 
-    Reserved kwargs
-    ---------------
+    **Reserved kwargs**
+
     ``input_masks``, ``input_null_values``, ``block_info``,
     ``block_id``, ``out_null_value``, and ``geo_block_info`` are
     reserved. Passing any of them via ``geo_map_blocks``'s own
@@ -2008,8 +2008,8 @@ def geo_map_blocks(
     your func also can't tolerate 0-shape inputs (dask silently swallows that
     crash, but your downstream output meta will be wrong).
 
-    Output null value resolution
-    ----------------------------
+    **Output null value resolution**
+
     When ``func`` opts in to ``out_null_value``, the wrapper resolves the
     scalar per-chunk without an extra dtype-inference pass:
 
@@ -2167,8 +2167,8 @@ def geo_map_overlap(
     input. References to the "first input" below mean ``r1`` in either
     spelling.
 
-    Per-block contract
-    ------------------
+    **Per-block contract**
+
     Per-block kwargs (opt-in): ``input_masks``, ``input_null_values``,
     ``block_info``, ``block_id``, ``out_null_value``, ``geo_block_info``. Name
     any of these in ``func``'s signature to receive them per chunk; see below.
@@ -2184,7 +2184,7 @@ def geo_map_overlap(
     from the data values -- pass ``return_mask=True`` and have ``func`` return
     a ``(data, mask)`` pair (both overlap-included); see ``return_mask`` below.
 
-    Always passed positionally:
+    Always passed positionally::
 
         func(*data_dataarrays, **kwargs)
 
@@ -2218,8 +2218,8 @@ def geo_map_overlap(
     A function whose only kwargs absorber is ``**kwargs`` does NOT trigger any
     of these injections -- name the kwargs you want.
 
-    Reserved kwargs
-    ---------------
+    **Reserved kwargs**
+
     ``input_masks``, ``input_null_values``, ``block_info``, ``block_id``,
     ``out_null_value``, and ``geo_block_info`` are reserved. Passing any of
     them via ``geo_map_overlap``'s own ``**kwargs`` raises ``ValueError``.
@@ -2354,8 +2354,8 @@ def geo_map_overlap(
     edge cases the ``geo_block_info`` extent may be slightly off-position. For
     interior chunks and all non-``"none"`` boundaries this is exact.
 
-    Output null value resolution
-    ----------------------------
+    **Output null value resolution**
+
     When ``func`` opts in to ``out_null_value``, the wrapper resolves the
     scalar per-chunk without an extra dtype-inference pass:
 
