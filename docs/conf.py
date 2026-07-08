@@ -13,8 +13,6 @@
 import os
 import sys
 
-from sphinx.domains.python import PythonDomain
-
 sys.path.insert(0, os.path.abspath(".."))
 
 import raster_tools  # noqa: E402
@@ -55,31 +53,9 @@ templates_path = ["_templates"]
 exclude_patterns = ["_build"]
 
 
-# The following class and function are needed in order to silence sphinx's
-# warnings about multiple cross-references.
-class PatchedPythonDomain(PythonDomain):
-    def resolve_xref(
-        self, env, fromdocname, builder, typ, target, node, contnode
-    ):
-        if "refspecific" in node:
-            del node["refspecific"]
-        return super(PatchedPythonDomain, self).resolve_xref(
-            env, fromdocname, builder, typ, target, node, contnode
-        )
-
-
-def setup(sphinx):
-    sphinx.add_domain(PatchedPythonDomain, override=True)
-
-
 # -- Options for HTML output -------------------------------------------------
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
 html_theme = "sphinx_book_theme"
-
-# Add any paths that contain custom static files (such as style sheets) here,
-# relative to this directory. They are copied after the builtin static files,
-# so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ["_static"]
