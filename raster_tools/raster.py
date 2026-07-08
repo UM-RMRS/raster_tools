@@ -3164,6 +3164,30 @@ def _shapes_delayed(chunk, mask, neighbors, transform, band, crs):
 
 
 def get_raster(src, strict=True, null_to_nan=False):
+    """Coerce the input to a Raster.
+
+    Parameters
+    ----------
+    src : Raster or str or os.PathLike
+        A Raster, which is returned as-is, or a path to a raster file,
+        which is opened as a new Raster.
+    strict : bool, optional
+        If ``True`` (default), inputs other than Rasters and paths raise
+        ``TypeError``. If ``False``, an attempt is made to convert other
+        inputs to a Raster; ``ValueError`` is raised if the conversion
+        fails.
+    null_to_nan : bool, optional
+        If ``True`` and the raster has null values, a copy is returned
+        with the null cells replaced by NaN. The dtype is promoted to a
+        float type, if needed, to hold the NaNs. The default is
+        ``False``.
+
+    Returns
+    -------
+    Raster
+        The resulting raster.
+
+    """
     rs = None
     if isinstance(src, Raster):
         rs = src
