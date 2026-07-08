@@ -826,11 +826,12 @@ def _erosion_or_dilation_filter(raster, footprint, op):
 def dilate(raster, size):
     """Perform dilation on a raster
 
-    Dilation increases the thickness of raster features. Features with higher
-    values will cover features with lower values. At each cell, the miximum
-    value within a window, defined by `size`, is stored in the output location.
-    This is very similar to the max focal filter except that raster features
-    are dilated (expanded) into null regions. Dilation is performed on each
+    Dilation increases the thickness of raster features [1]_. Features with
+    higher values will cover features with lower values. At each cell, the
+    maximum value within a window, defined by `size`, is stored in the
+    output location. This is very similar to the max focal filter except
+    that raster features are dilated (expanded) into null regions. Dilation
+    is a mathematical morphology operation [2]_ and is performed on each
     band separately.
 
     Parameters
@@ -868,11 +869,12 @@ def dilate(raster, size):
 def erode(raster, size):
     """Perform erosion on a raster
 
-    Erosion increases the thickness of raster features. Features with higher
-    values will cover features with lower values. At each cell, the miximum
-    value within a window, defined by `size`, is stored in the output location.
-    This is very similar to the max focal filter except that raster features
-    are eroded (contracted) into null regions. Erosion is performed on each
+    Erosion decreases the thickness of raster features [1]_. Features with
+    lower values will cover features with higher values. At each cell, the
+    minimum value within a window, defined by `size`, is stored in the
+    output location. This is very similar to the min focal filter except
+    that raster features are eroded (contracted) into null regions. Erosion
+    is a mathematical morphology operation [2]_ and is performed on each
     band separately.
 
     Parameters
