@@ -295,9 +295,12 @@ def cost_distance_analysis_numpy(
     The second array contains the traceback values for the solution. At each
     pixel, the stored value indicates the neighbor to move to in order to get
     closer to the cost-relative nearest source. The numbering is as follows:
+    ::
+
         5  6  7
         4  X  0
         3  2  1
+
     Here, X indicates the current pixel and the numbers are the neighbor
     pixel positions. 0 indicates the neighbor immediately to the right and
     6 indicates the neighbor immediately above. In terms of rows and columns,

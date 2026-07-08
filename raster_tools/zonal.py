@@ -556,7 +556,7 @@ def extract_points_eager(
     -------
     dask.dataframe.DataFrame
         The columns names depend on the value of axis and are based on the
-        "band" and `column_name variable. If axis = 0, the output band column
+        "band" and `column_name` variable. If axis = 0, the output band column
         within the dataframe identifies the band the value was extracted from.
         The values within the column named after the column name variable are
         the extracted values from the given band. Otherwise, the column names
