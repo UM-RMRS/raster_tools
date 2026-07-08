@@ -15,6 +15,8 @@ API Reference
    clipping
    focal
    general
+   line_stats
+   masking
    rasterize
    surface
    warp
