@@ -15,13 +15,11 @@ import shapely
 import xarray as xr
 from affine import Affine
 from numba import jit
-from odc.geo.geobox import GeoBox
 from shapely.geometry import box
 
 from raster_tools._compat import NUMPY_GE_2, NUMPY_GE_2_2, PY_VER_310_PLUS
 from raster_tools._grids import build_x_coord, build_y_coord
 from raster_tools.dask_utils import (
-    chunks_to_array_locations,
     dask_nanmax,
     dask_nanmin,
 )
@@ -1531,35 +1529,15 @@ class Raster(_RasterBase):
         return get_raster(self, null_to_nan=True)._ds.raster
 
     @property
-    def geochunks(self):
+    def geo_block_infos(self):
+        """Chunksize-1 dask array of :class:`GeoBlockInfo` objects.
+
+        Each element corresponds 1:1 with a block in :attr:`data`. Suitable
+        as a side-input to :func:`dask.array.map_blocks`.
         """
-        Produce an array of GeoChunks that correspond to the underlying chunks
-        in the data.
-        """
-        affine = self.affine
-        data = self.data
-        chunks = data.chunks
-        chunks_shape = data.numblocks
-        geochunks = np.empty(chunks_shape, dtype=object)
-        band_locations = chunks_to_array_locations(chunks[0])
-        y_locations = chunks_to_array_locations(chunks[1])
-        x_locations = chunks_to_array_locations(chunks[2])
-        chunk_rasters = self.get_chunk_rasters()
-        for bi, yi, xi in np.ndindex(chunks_shape):
-            chunk_raster = chunk_rasters[bi, yi, xi]
-            geochunks[bi, yi, xi] = GeoChunk(
-                chunk_raster.shape,
-                chunk_raster.geobox,
-                affine,
-                self.shape,
-                [
-                    band_locations[bi],
-                    y_locations[yi],
-                    x_locations[xi],
-                ],
-                (bi, yi, xi),
-            )
-        return GeoChunkArray(geochunks)
+        from raster_tools.blocks import geo_block_infos_as_dask
+
+        return geo_block_infos_as_dask(self)
 
     def chunk(self, chunks):
         """Rechunk the underlying raster
@@ -2372,6 +2350,122 @@ class Raster(_RasterBase):
 
         return reclassify(self, remapping, unmapped_to_null=unmapped_to_null)
 
+    def map_blocks(
+        self,
+        func,
+        *rasters,
+        dtype=None,
+        null_value=None,
+        meta=None,
+        out_bands=None,
+        return_mask=False,
+        **kwargs,
+    ):
+        # Local import to avoid a circular import. The docstring is
+        # shared with blocks.map_blocks and attached at the bottom of
+        # raster_tools/blocks.py.
+        from raster_tools.blocks import map_blocks
+
+        return map_blocks(
+            func,
+            self,
+            *rasters,
+            dtype=dtype,
+            null_value=null_value,
+            meta=meta,
+            out_bands=out_bands,
+            return_mask=return_mask,
+            **kwargs,
+        )
+
+    def map_overlap(
+        self,
+        func,
+        *rasters,
+        depth,
+        boundary=None,
+        dtype=None,
+        null_value=None,
+        meta=None,
+        return_mask=False,
+        **kwargs,
+    ):
+        # Local import to avoid a circular import. The docstring is
+        # shared with blocks.map_overlap and attached at the bottom of
+        # raster_tools/blocks.py.
+        from raster_tools.blocks import map_overlap
+
+        return map_overlap(
+            func,
+            self,
+            *rasters,
+            depth=depth,
+            boundary=boundary,
+            dtype=dtype,
+            null_value=null_value,
+            meta=meta,
+            return_mask=return_mask,
+            **kwargs,
+        )
+
+    def geo_map_blocks(
+        self,
+        func,
+        *rasters,
+        dtype=None,
+        null_value=None,
+        meta=None,
+        out_bands=None,
+        return_mask=False,
+        **kwargs,
+    ):
+        # Local import to avoid a circular import. The docstring is
+        # shared with blocks.geo_map_blocks and attached at the bottom
+        # of raster_tools/blocks.py.
+        from raster_tools.blocks import geo_map_blocks
+
+        return geo_map_blocks(
+            func,
+            self,
+            *rasters,
+            dtype=dtype,
+            null_value=null_value,
+            meta=meta,
+            out_bands=out_bands,
+            return_mask=return_mask,
+            **kwargs,
+        )
+
+    def geo_map_overlap(
+        self,
+        func,
+        *rasters,
+        depth,
+        boundary=None,
+        dtype=None,
+        null_value=None,
+        meta=None,
+        return_mask=False,
+        **kwargs,
+    ):
+        # Local import to avoid a circular import. The docstring is
+        # shared with blocks.geo_map_overlap and attached at the bottom
+        # of raster_tools/blocks.py.
+        from raster_tools.blocks import geo_map_overlap
+
+        return geo_map_overlap(
+            func,
+            self,
+            *rasters,
+            depth=depth,
+            boundary=boundary,
+            dtype=dtype,
+            null_value=null_value,
+            meta=meta,
+            return_mask=return_mask,
+            **kwargs,
+        )
+
     def round(self, decimals=0):  # noqa: A003
         """Evenly round to the given number of decimals
 
@@ -2680,16 +2774,20 @@ class Raster(_RasterBase):
         Raster.to_vector
 
         """
+        from raster_tools.blocks import geo_block_infos
+
         xrs = self._ds.raster
         mask = self._ds.mask.data
         data_delayed = xrs.data.to_delayed()
         data_delayed = data_delayed.ravel()
         mask_delayed = mask.to_delayed().ravel()
-        geochunks = self.geochunks.ravel()
+        block_infos = list(geo_block_infos(self).ravel())
 
         # See issue for inspiration: https://github.com/dask/dask/issues/7589
         # Group chunk data with corresponding coordinate data
-        chunks = list(zip(data_delayed, mask_delayed, geochunks, strict=True))
+        chunks = list(
+            zip(data_delayed, mask_delayed, block_infos, strict=True)
+        )
 
         meta = gpd.GeoDataFrame(
             {
@@ -3063,236 +3161,6 @@ def _shapes_delayed(chunk, mask, neighbors, transform, band, crs):
         },
         crs=crs,
     )
-
-
-class GeoChunk:
-    """Object representing a geo-located chunk.
-
-    A GeoChunk contains information needed to geo-locate a chunk and locate it
-    within the parent array. It also has helper methods for manipulating that
-    information. It is meant to be used to provide information to raster
-    functions inside dask map operations.
-
-    """
-
-    def __init__(
-        self,
-        shape,
-        geobox,
-        parent_affine,
-        parent_shape,
-        array_location,
-        chunk_location,
-    ):
-        self.shape = shape
-        self.geobox = geobox
-        self.parent_affine = parent_affine
-        self.affine = geobox.affine
-        self.crs = geobox.crs
-        self.bbox = geobox.extent.geom
-        self.parent_shape = parent_shape
-        self.array_location = array_location
-        self.chunk_location = chunk_location
-
-    def __repr__(self):
-        return (
-            f"<{GeoChunk.__module__}.{GeoChunk.__name__}"
-            f" shape: {self.shape}, chunk_location: {self.chunk_location})>"
-        )
-
-    @property
-    def x(self):
-        return build_x_coord(self.affine, self.shape)
-
-    @property
-    def y(self):
-        return build_y_coord(self.affine, self.shape)
-
-    @property
-    def band(self):
-        return np.arange(*self.array_location[0])
-
-    def resize_dim(self, left, right, dim):
-        """Resize the given dimension in the left and right directions.
-
-        Parameters
-        ----------
-        left : int
-            if negative, the dimension is trimmed by the given value on its
-            left-hand or top side. If positive the dimension is expanded on its
-            left-hand or top side.
-        right : int
-            if negative, the dimension is trimmed by the given value on its
-            right-hand or bottom side. If positive the dimension is expanded on
-            its left-hand or bottom side.
-        dim : int {0, 1}
-            Can be 0 or 1. 0 indicates the y or row dimension. 1 indicates the
-            x or colomn dimension.
-
-        Returns
-        -------
-        GeoChunk
-            The resized GeoChunk.
-
-        """
-        if not is_int(left) or not is_int(right):
-            raise TypeError(
-                f"Cannot resize by a non-integer value: {left}, {right}"
-            )
-        dim += 1
-        assert dim > 0
-        new_shape = tuple(
-            self.shape[d] if d != dim else self.shape[d] + left + right
-            for d in range(len(self.shape))
-        )
-        new_affine = self.affine
-        if left != 0:
-            # translation(col, row) aka translation(xoffset, yoffset)
-            if dim == 1:
-                translation = Affine.translation(0, -left)
-            else:
-                translation = Affine.translation(-left, 0)
-            new_affine *= translation
-        new_geobox = GeoBox(new_shape[1:], new_affine, self.crs)
-        new_location = []
-        for i, loc in enumerate(self.array_location):
-            if i == dim:
-                nloc = (loc[0] - left, loc[1] + right)
-                new_location.append(nloc)
-            else:
-                new_location.append(loc)
-        return GeoChunk(
-            new_shape,
-            new_geobox,
-            self.parent_affine,
-            self.shape,
-            new_location,
-            self.chunk_location,
-        )
-
-    def pad_rows(self, nrows):
-        """Pad both sides of the chunk in the row dimension."""
-        return self.resize_dim(nrows, nrows, 0)
-
-    def pad_cols(self, ncols):
-        """Pad both sides of the chunk in the column dimension."""
-        return self.resize_dim(ncols, ncols, 1)
-
-    def pad(self, nrows, ncols=None):
-        """Pad both sides of the chunk in the x and y directions.
-
-        The size of the chunk along a given axis will grow by twice the
-        specified number because both sides of the chunk are padded.
-
-        """
-        if ncols is None:
-            ncols = nrows
-        return self.pad_rows(nrows).pad_cols(ncols)
-
-    def trim_left(self, ncols):
-        """Trim the chunk's left most columns by `ncols`."""
-        return self.resize_dim(-ncols, 0, 0)
-
-    def trim_right(self, ncols):
-        """Trim the chunk's right most columns by `ncols`."""
-        return self.resize_dim(0, -ncols, 0)
-
-    def trim_top(self, nrows):
-        """Trim the chunk's top rows by `nrows`."""
-        return self.resize_dim(-nrows, 0, 1)
-
-    def trim_bottom(self, nrows):
-        """Trim the chunk's bottom rows by `nrows`."""
-        return self.resize_dim(0, -nrows, 1)
-
-    def trim_rows(self, nrows):
-        """Trim the chunk's rows on both sides by `nrows`."""
-        return self.resize_dim(-nrows, -nrows, 0)
-
-    def trim_cols(self, ncols):
-        """Trim the chunk's columns on both sides by `ncols`."""
-        return self.resize_dim(-ncols, -ncols, 1)
-
-    def trim(self, nrows, ncols=None):
-        """
-        Trim the chunk's columns and rows on both sides by `nrows` and `ncols`.
-        """
-        if ncols is None:
-            ncols = nrows
-        return self.trim_rows(nrows).trim_cols(ncols)
-
-    def shift_rows(self, nrows):
-        """Shift the chunk up or down.
-
-        Negative values shift the chunk up.
-
-        """
-        return self.resize_dim(-nrows, nrows, 0)
-
-    def shift_cols(self, ncols):
-        """Shift the chunk left or right.
-
-        Negative values shift the chunk left.
-
-        """
-        return self.resize_dim(-ncols, ncols, 1)
-
-    def shift(self, nrows, ncols=None):
-        """Shift the chunk in both row and column dimensions."""
-        if ncols is None:
-            ncols = nrows
-        return self.shift_rows(nrows).shift_cols(ncols)
-
-
-class GeoChunkArray:
-    def __init__(self, geochunks):
-        self._array = geochunks
-
-    def __getitem__(self, idx):
-        result = self._array[idx]
-        if isinstance(result, GeoChunk):
-            return result
-        else:
-            return GeoChunkArray(result)
-
-    def __eq__(self, other):
-        if isinstance(other, GeoChunkArray):
-            return self._array is other._array
-        return NotImplemented
-
-    def __array__(self):
-        return self._array
-
-    def __repr__(self):
-        return (
-            f"<{GeoChunkArray.__module__}.{GeoChunkArray.__name__}"
-            f" (shape: {self.shape})>"
-        )
-
-    @property
-    def size(self):
-        return self._array.size
-
-    @property
-    def shape(self):
-        return self._array.shape
-
-    def ravel(self):
-        """Return the array as a flattened list of geochunks."""
-        return list(self._array.ravel())
-
-    def map(self, func, *args, **kwargs):
-        new = np.empty(self.shape, dtype=object)
-        for idx in np.ndindex(self.shape):
-            new[idx] = func(self._array[idx], *args, **kwargs)
-        return GeoChunkArray(new)
-
-    def to_numpy(self):
-        return self._array
-
-    def to_dask(self):
-        """Return as a dask array with chunksize of 1."""
-        return da.from_array(self.to_numpy(), chunks=1)
 
 
 def get_raster(src, strict=True, null_to_nan=False):

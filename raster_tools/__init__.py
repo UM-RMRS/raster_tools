@@ -4,6 +4,12 @@ from raster_tools._mosaic import mosaic
 from raster_tools._padding import pad
 from raster_tools._stack import split_bands, stack_bands
 from raster_tools._version import __version__  # noqa
+from raster_tools.blocks import (
+    geo_map_blocks,
+    geo_map_overlap,
+    map_blocks,
+    map_overlap,
+)
 from raster_tools.creation import (
     constant_raster,
     empty_like,
@@ -55,9 +61,13 @@ __all__ = [
     "empty_like",
     "focal",
     "full_like",
+    "geo_map_blocks",
+    "geo_map_overlap",
     "get_raster",
     "line_stats",
     "list_layers",
+    "map_blocks",
+    "map_overlap",
     "mosaic",
     "ones_like",
     "open_dataset",
