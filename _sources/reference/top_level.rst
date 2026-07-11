@@ -37,6 +37,23 @@ Creating Rasters from a Template
    random_raster
    zeros_like
 
+Constructing Rasters from Data
+==============================
+
+.. autosummary::
+   :toctree: generated/
+
+   data_to_raster
+   data_to_raster_like
+   data_to_xr_raster
+   data_to_xr_raster_ds
+   data_to_xr_raster_ds_like
+   data_to_xr_raster_like
+   dataarray_to_raster
+   dataarray_to_xr_raster
+   dataarray_to_xr_raster_ds
+   get_raster
+
 Remapping Rasters
 =================
 

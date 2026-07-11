@@ -17,7 +17,6 @@ Welcome to raster_tools' documentation!
    :caption: Contents:
 
    reference/index
-   modules
    GitHub <https://github.com/UM-RMRS/raster_tools>
 
 
@@ -25,5 +24,4 @@ Indices and tables
 ==================
 
 * :ref:`genindex`
-* :ref:`modindex`
 * :ref:`search`
