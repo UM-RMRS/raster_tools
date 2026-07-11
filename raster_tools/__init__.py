@@ -1,5 +1,8 @@
+import importlib
+from typing import TYPE_CHECKING
+
 import raster_tools._compat  # noqa: F401
-from raster_tools import clipping, distance, focal, line_stats, surface, zonal
+from raster_tools import clipping, focal, line_stats, surface, zonal
 from raster_tools._mosaic import mosaic
 from raster_tools._padding import pad
 from raster_tools._stack import split_bands, stack_bands
@@ -40,6 +43,27 @@ from raster_tools.vector import (
     open_vectors,
 )
 from raster_tools.warp import reproject
+
+if TYPE_CHECKING:
+    from raster_tools import distance
+
+# Importing distance eagerly compiles its explicitly-signed numba
+# functions, adding seconds to import. Load it lazily (PEP 562) so only
+# code that uses it pays that cost.
+_LAZY_SUBMODULES = frozenset(("distance",))
+
+
+def __getattr__(name):
+    if name in _LAZY_SUBMODULES:
+        module = importlib.import_module(f"raster_tools.{name}")
+        globals()[name] = module
+        return module
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+def __dir__():
+    return sorted(set(globals()) | _LAZY_SUBMODULES)
+
 
 __all__ = [
     "Raster",
