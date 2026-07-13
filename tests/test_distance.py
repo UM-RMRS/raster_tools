@@ -3,8 +3,14 @@ import unittest
 import numpy as np
 import pytest
 from affine import Affine
+from scipy.sparse import coo_matrix
+from scipy.sparse.csgraph import dijkstra
 
 from raster_tools import Raster, distance
+from raster_tools.distance.cost_distance import (
+    _get_strides,
+    cost_distance_analysis_numpy,
+)
 from tests import testdata
 from tests.utils import assert_valid_raster
 
@@ -244,3 +250,264 @@ def test_cost_distance_analysis_crs():
     assert cd.crs == rs.crs
     assert tr.crs == rs.crs
     assert al.crs == rs.crs
+
+
+# ---------------------------------------------------------------------------
+# Regression tests for findings F1, F3, F5, and F5b
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "shape", [(6, 6), (3, 5), (7, 13), (2, 3, 4), (5, 6, 7)]
+)
+def test_get_strides_matches_numpy(shape):
+    # F1: _mult_accumulate must build a true cumulative product so that
+    # _get_strides returns numpy's own C-contiguous element strides. Covers
+    # both the 2D and 3D declared signatures.
+    itemsize = np.dtype(np.int64).itemsize
+    expected = tuple(
+        s // itemsize for s in np.empty(shape, dtype=np.int64).strides
+    )
+    assert tuple(_get_strides(shape)) == expected
+
+
+def test_cost_distance_1x1_with_source():
+    # F3: a 1x1 grid whose single cell is the source. The heap capacity clamp
+    # (max(size - 1, 1)) must let this run and return a trivial solution.
+    costs = np.array([[3.0]])
+    sources = np.array([[7]], dtype=np.int64)
+    cd, tb, al = cost_distance_analysis_numpy(costs, sources, -1)
+    assert np.array_equal(cd, np.array([[0.0]]))
+    assert np.array_equal(tb, np.array([[-1]]))
+    assert np.array_equal(al, np.array([[7]]))
+
+
+def test_cost_distance_1x1_no_source():
+    # F3: a 1x1 grid with no source (all-null sources) must not raise and
+    # should report the cell as unreached.
+    costs = np.array([[3.0]])
+    sources = np.array([[-1]], dtype=np.int64)
+    cd, tb, al = cost_distance_analysis_numpy(costs, sources, -1)
+    assert np.isinf(cd[0, 0])
+    assert tb[0, 0] == -2
+    assert al[0, 0] == -1
+
+
+def test_source_on_barrier_cost_does_not_propagate():
+    # F5b: a source placed on a barrier-cost (-1) cell must not propagate. The
+    # buggy version used the -1 fill as the popped cell's own cost, producing
+    # edge weights L * 0.5 * (-1 + new_cost) that were zero or negative. Here
+    # the neighbors have cost 0.5, so the buggy weight was -0.25 * L < 0.
+    costs = np.full((3, 3), 0.5)
+    costs[1, 1] = -1.0
+    sources = np.full((3, 3), -1, dtype=np.int64)
+    sources[1, 1] = 0
+    cd, tb, al = cost_distance_analysis_numpy(costs, sources, -1)
+    # Only the source cell is reached; neighbors stay unreached.
+    assert cd[1, 1] == 0.0
+    neighbors = [
+        (0, 0),
+        (0, 1),
+        (0, 2),
+        (1, 0),
+        (1, 2),
+        (2, 0),
+        (2, 1),
+        (2, 2),
+    ]
+    for r, c in neighbors:
+        assert np.isinf(cd[r, c])
+    # No negative cost distances anywhere.
+    assert not (cd[np.isfinite(cd)] < 0).any()
+
+
+def test_barrier_source_alongside_valid_source_no_negatives():
+    # F5b: when a barrier-cost source coexists with a valid source, the valid
+    # source drives propagation and no negative cost distances appear.
+    costs = np.full((3, 3), 1.0)
+    costs[0, 0] = -1.0
+    sources = np.full((3, 3), -1, dtype=np.int64)
+    sources[0, 0] = 0  # source sitting on the barrier cell
+    sources[2, 2] = 1  # valid source
+    cd, tb, al = cost_distance_analysis_numpy(costs, sources, -1)
+    finite = cd[np.isfinite(cd)]
+    assert not (finite < 0).any()
+    # The barrier source keeps its own zero cumcost but does not seed
+    # neighbors; those are reached from the valid source instead.
+    assert cd[0, 0] == 0.0
+    assert al[0, 1] == 1
+    assert al[1, 0] == 1
+
+
+def test_source_on_null_elevation_does_not_propagate():
+    # F5: with elevation, a source on a null-elevation cell must not
+    # propagate. The buggy version used the elevation null fill in dz,
+    # inflating outgoing edge lengths instead of skipping the cell.
+    costs = np.full((3, 3), 1.0)
+    elevation = np.full((3, 3), 10.0)
+    elev_null = -9999.0
+    elevation[1, 1] = elev_null
+    sources = np.full((3, 3), -1, dtype=np.int64)
+    sources[1, 1] = 0
+    cd, tb, al = cost_distance_analysis_numpy(
+        costs,
+        sources,
+        -1,
+        elevation=elevation,
+        elevation_null_value=elev_null,
+    )
+    assert cd[1, 1] == 0.0
+    neighbors = [
+        (0, 0),
+        (0, 1),
+        (0, 2),
+        (1, 0),
+        (1, 2),
+        (2, 0),
+        (2, 1),
+        (2, 2),
+    ]
+    for r, c in neighbors:
+        assert np.isinf(cd[r, c])
+    assert not (cd[np.isfinite(cd)] < 0).any()
+
+
+def test_cost_distance_source_on_masked_cost_no_negatives():
+    # F5b at the Raster level: a source located on a masked (null) cost cell
+    # must not yield negative cost distances in the unmasked output.
+    costs_arr = np.full((5, 5), 1.0)
+    costs_arr[2, 2] = -1.0  # becomes a masked / barrier cell
+    src_arr = np.zeros((5, 5), dtype=np.int64)
+    src_arr[2, 2] = 5  # source on the masked cost cell
+    src_arr[0, 0] = 1  # a valid source
+    costs = Raster(costs_arr).set_null_value(-1)
+    srcs = Raster(src_arr).set_null_value(0)
+    cd, tb, al = distance.cost_distance_analysis(costs, srcs)
+    # The masked cost cell is masked out of the output (it holds the source's
+    # own zero cumcost), so only the unmasked cells are inspected here.
+    data = cd.to_numpy()
+    mask = cd.mask.compute()
+    valid = data[~mask]
+    assert not (valid < 0).any()
+
+
+# ---------------------------------------------------------------------------
+# scipy-oracle property test for cost_distance_analysis_numpy
+# ---------------------------------------------------------------------------
+
+# Move order matching _MOVES in cost_distance.py: (drow, dcol).
+_ORACLE_MOVES = [
+    (0, -1),
+    (-1, -1),
+    (-1, 0),
+    (-1, 1),
+    (0, 1),
+    (1, 1),
+    (1, 0),
+    (1, -1),
+]
+
+
+def _oracle_cost_distance(costs, sources, scaling, elevation, elev_null):
+    """Ground-truth cost distance via scipy Dijkstra on the grid graph.
+
+    Nodes are non-barrier (and, with elevation, non-null) cells. The
+    undirected edge weight between neighbors i and j is
+    ``L * 0.5 * (cost_i + cost_j)`` where ``L`` is the scaled, optionally
+    elevation-aware, move length.
+    """
+    rows, cols = costs.shape
+    if np.isscalar(scaling):
+        sr = sc = float(scaling)
+    else:
+        sr, sc = float(scaling[0]), float(scaling[1])
+    n = rows * cols
+
+    def valid(r, c):
+        if costs[r, c] < 0 or not np.isfinite(costs[r, c]):
+            return False
+        return not (elevation is not None and elevation[r, c] == elev_null)
+
+    edge_rows, edge_cols, data = [], [], []
+    for r in range(rows):
+        for c in range(cols):
+            if not valid(r, c):
+                continue
+            i = r * cols + c
+            for dr, dc in _ORACLE_MOVES:
+                nr, nc = r + dr, c + dc
+                if not (0 <= nr < rows and 0 <= nc < cols):
+                    continue
+                if not valid(nr, nc):
+                    continue
+                planar_sq = (sr * dr) ** 2 + (sc * dc) ** 2
+                if elevation is not None:
+                    dz = elevation[nr, nc] - elevation[r, c]
+                    length = np.sqrt(planar_sq + dz * dz)
+                else:
+                    length = np.sqrt(planar_sq)
+                edge_rows.append(i)
+                edge_cols.append(nr * cols + nc)
+                data.append(length * 0.5 * (costs[r, c] + costs[nr, nc]))
+    graph = coo_matrix((data, (edge_rows, edge_cols)), shape=(n, n)).tocsr()
+    src_cells = np.flatnonzero(sources.ravel() != -1)
+    dist = dijkstra(graph, directed=False, indices=src_cells, min_only=True)
+    return dist.reshape(rows, cols)
+
+
+def _random_case(seed, barrier_frac, use_elevation, n_sources):
+    rng = np.random.default_rng(seed)
+    rows = int(rng.integers(12, 17))
+    cols = int(rng.integers(12, 17))
+    costs = rng.uniform(0.5, 10.0, (rows, cols))
+    if barrier_frac > 0:
+        costs[rng.random((rows, cols)) < barrier_frac] = -1.0
+    elevation = None
+    elev_null = -9999.0
+    if use_elevation:
+        elevation = rng.uniform(0.0, 50.0, (rows, cols))
+        elevation[rng.random((rows, cols)) < 0.1] = elev_null
+    valid_mask = costs >= 0
+    if use_elevation:
+        valid_mask &= elevation != elev_null
+    valid_cells = np.argwhere(valid_mask)
+    rng.shuffle(valid_cells)
+    sources = np.full((rows, cols), -1, dtype=np.int64)
+    for k in range(min(n_sources, len(valid_cells))):
+        r, c = valid_cells[k]
+        sources[r, c] = k
+    return costs, sources, elevation, elev_null
+
+
+# category -> (barrier_frac, scaling, use_elevation, n_sources)
+_ORACLE_CATEGORIES = {
+    "no_barriers_isotropic": (0.0, 1.0, False, 1),
+    "barriers_isotropic": (0.15, 1.0, False, 1),
+    "barriers_anisotropic": (0.15, (2.0, 0.5), False, 1),
+    "multisource_barriers": (0.15, 1.0, False, 4),
+    "elevation_isotropic": (0.15, 1.0, True, 1),
+    "elevation_anisotropic": (0.15, (2.0, 0.5), True, 2),
+}
+
+
+@pytest.mark.parametrize("seed", [0, 1, 2])
+@pytest.mark.parametrize("category", list(_ORACLE_CATEGORIES))
+def test_cost_distance_matches_scipy_oracle(category, seed):
+    barrier_frac, scaling, use_elevation, n_sources = _ORACLE_CATEGORIES[
+        category
+    ]
+    costs, sources, elevation, elev_null = _random_case(
+        seed, barrier_frac, use_elevation, n_sources
+    )
+    cd, _, _ = cost_distance_analysis_numpy(
+        costs,
+        sources,
+        -1,
+        elevation=elevation,
+        elevation_null_value=(elev_null if use_elevation else 0),
+        scaling=scaling,
+    )
+    ref = _oracle_cost_distance(costs, sources, scaling, elevation, elev_null)
+    reached = np.isfinite(cd)
+    assert np.array_equal(reached, np.isfinite(ref))
+    assert np.allclose(cd[reached], ref[reached], rtol=1e-12, atol=0.0)

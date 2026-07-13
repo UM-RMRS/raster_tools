@@ -31,7 +31,8 @@ def _mult_accumulate(x):
     out = np.empty(len(x), dtype=I64)
     c = 1
     for i in range(len(x)):
-        out[i] = c * x[i]
+        c *= x[i]
+        out[i] = c
     return out
 
 
@@ -164,7 +165,7 @@ def _cost_distance_analysis_core(
     # A heap for storing pixels and their accumulated cost as the algorithm
     # explores the cost landscape.
     heap_keys, heap_values, heap_xrefs, heap_state = init_heap_data(
-        128, size - 1
+        128, max(size - 1, 1)
     )
 
     costs_shape_m1[0] = shape[0] - 1
@@ -203,6 +204,21 @@ def _cost_distance_analysis_core(
         # We have now found the minimum cost to this pixel so store it
         flat_cost_distance[index] = cumcost
 
+        # The popped cell's own cost/elevation must be valid before we expand
+        # its neighbors. Non-source cells are only pushed after their own
+        # validity is checked as a neighbor below, but a source placed on a
+        # barrier-cost or null-elevation cell reaches here unchecked. Such a
+        # cell would propagate using fill values (-1 for a masked cost, the
+        # elevation null fill for elevation), producing zero/negative or
+        # inflated edge weights that violate Dijkstra's invariant. Skip
+        # neighbor expansion for it. Its own cumcost (0 for a source) is kept
+        # and gets masked out at the Raster level via the costs mask.
+        cost = flat_costs[index]
+        if cost < 0 or cost == np.inf or np.isnan(cost):
+            continue
+        if use_elevation and flat_elev[index] == elevation_null_value:
+            continue
+
         # Convert to 2d index for bounds checking
         index2d[0] = (index // strides[0]) % shape[0]
         index2d[1] = (index // strides[1]) % shape[1]
@@ -231,7 +247,6 @@ def _cost_distance_analysis_core(
             # optimal path to it previously and can skip it.
             if flat_cost_distance[new_index] != np.inf:
                 continue
-            cost = flat_costs[index]
             new_cost = flat_costs[new_index]
             # If the cost at this point is a barrier, skip
             # TODO: may be able consolidate into a single sentinel check if
