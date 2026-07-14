@@ -521,13 +521,13 @@ def cost_distance_analysis(costs, sources, elevation=None):
     """  # noqa: E501
     if not isinstance(costs, Raster):
         costs = Raster(costs)
-        if costs.shape[0] != 1:
-            raise ValueError("Costs raster cannot be multibanded")
+    if costs.shape[0] != 1:
+        raise ValueError("Costs raster cannot be multibanded")
     if elevation is not None:
         if not isinstance(elevation, Raster):
             elevation = Raster(elevation)
-            if elevation.shape[0] != 1:
-                raise ValueError("Elevation raster cannot be multibanded")
+        if elevation.shape[0] != 1:
+            raise ValueError("Elevation raster cannot be multibanded")
         if costs.shape != elevation.shape:
             raise ValueError(
                 "Costs and elevation rasters must have the same shape"
@@ -562,6 +562,16 @@ def cost_distance_analysis(costs, sources, elevation=None):
                 raise ValueError("Sources must be an (M, 2) shaped array")
             if np.unique(sources, axis=0).shape != sources.shape:
                 raise ValueError("Sources must not contain duplicates")
+            nrows, ncols = costs.shape[1:]
+            if (
+                (sources[:, 0] < 0).any()
+                or (sources[:, 0] >= nrows).any()
+                or (sources[:, 1] < 0).any()
+                or (sources[:, 1] >= ncols).any()
+            ):
+                raise ValueError(
+                    "Source indices are out of bounds for the costs raster"
+                )
             sources_null_value = -1
             src_idxs = sources
             srcs = np.full(costs.shape[1:], sources_null_value, dtype=I64)
@@ -579,7 +589,9 @@ def cost_distance_analysis(costs, sources, elevation=None):
         edata = None
         elevation_null_value = 0
 
-    scaling = np.abs(costs.resolution)
+    # resolution is (xres, yres) but the numpy core scales [row, col] moves,
+    # so reverse it to (yres, xres) before passing it down.
+    scaling = np.abs(costs.resolution)[::-1]
     results = cost_distance_analysis_numpy(
         data,
         srcs,
