@@ -507,14 +507,21 @@ def test_cost_distance_chunked_costs_input():
     cd_c, tr_c, al_c = distance.cost_distance_analysis(
         cs_c, Raster(SOURCES).set_null_value(0)
     )
-    # The core collapses to numpy internally, so a chunked input must give the
-    # same values. (The output data is single-chunk while its mask inherits
-    # the input chunking, so both sides are rechunked to a single block before
-    # comparing.)
+    # Outputs must preserve the input chunking, with data and mask chunk
+    # grids in agreement.
+    for out in (cd_c, tr_c, al_c):
+        assert_valid_raster(out)
+        assert out.data.chunks == cs_c.data.chunks
+        assert out.mask.chunks == cs_c.data.chunks
+    # The core collapses to numpy internally, so a chunked input must give
+    # the same values.
     single = (1, -1, -1)
     assert_rasters_equal(cd_c.chunk(single), cd_s.chunk(single))
     assert_rasters_equal(tr_c.chunk(single), tr_s.chunk(single))
     assert_rasters_equal(al_c.chunk(single), al_s.chunk(single))
+    # Block-zipping consumers were the user-visible breakage when the chunk
+    # grids disagreed; smoke-check one.
+    cd_c.to_vector().compute()
 
 
 def test_cost_distance_all_null_sources():

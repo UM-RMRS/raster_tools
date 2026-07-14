@@ -600,8 +600,13 @@ def cost_distance_analysis(costs, sources, elevation=None):
         elevation_null_value=elevation_null_value,
         scaling=scaling,
     )
-    # Make lazy and add band dim
-    cd, tr, al = [da.from_array(r[None]) for r in results]
+    # Make lazy and add band dim. Chunk to match the costs raster so the
+    # data and mask chunk grids agree; the masks below are copies of the
+    # costs mask and keep its chunking.
+    cd, tr, al = [
+        da.from_array(r[None], chunks=((1,), *costs.data.chunks[1:]))
+        for r in results
+    ]
     # Convert to DataArrays using same coordinate system as costs
     xcosts = costs.xdata
     xcd, xtr, xal = [
