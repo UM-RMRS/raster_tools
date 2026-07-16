@@ -17,36 +17,88 @@ from tests import testdata
 from tests.utils import assert_rasters_similar, assert_valid_raster
 
 
-def test_rasterize_spatial_aware_reduces_operations(mocker):
+def test_rasterize_partition_chunk_matches():
+    like = testdata.raster.dem.chunk((1, 500, 500))
+    features = dgpd.read_file(
+        "tests/data/vector/pods.shp", chunksize=40
+    ).to_crs(like.crs)
+    features.calculate_spatial_partitions()
+
+    matches = rasterize._compute_partition_chunk_matches(features, like)
+
+    chunk_boxes = [
+        shapely.geometry.box(*rast.bounds)
+        for rast in like.get_chunk_rasters().ravel()
+    ]
+    expected_pairs = {
+        (ipart, ichunk)
+        for ipart, g in enumerate(
+            features.spatial_partitions.geometry.to_numpy()
+        )
+        for ichunk, bbox in enumerate(chunk_boxes)
+        if g.intersects(bbox)
+    }
+    actual_pairs = set(
+        zip(
+            matches.part_idx.to_numpy(),
+            matches.flat_idx.to_numpy(),
+            strict=True,
+        )
+    )
+    assert actual_pairs == expected_pairs
+    # Spatial awareness must actually prune pairs on this data
+    assert len(actual_pairs) < features.npartitions * len(chunk_boxes)
+
+
+def test_rasterize_spatial_matches_builds_one_task_per_match():
+    like = testdata.raster.dem.chunk((1, 500, 500)).get_bands(1)
+    features = dgpd.read_file(
+        "tests/data/vector/pods.shp", chunksize=40
+    ).to_crs(like.crs)
+    features.calculate_spatial_partitions()
+
+    matches = rasterize._compute_partition_chunk_matches(features, like)
+    chunk_rasters = list(like.get_chunk_rasters().ravel())
+    out_chunks = rasterize._rasterize_spatial_matches(
+        matches,
+        features,
+        chunk_rasters,
+        all_touched=True,
+        fill=0,
+        target_dtype=np.dtype("uint8"),
+        overlap_resolve_method="last",
+    )
+    # One rasterization array per match, each in its matched chunk's slot
+    n_arrays = sum(len(oc) for oc in out_chunks if oc is not None)
+    assert n_arrays == len(matches)
+    touched = {i for i, oc in enumerate(out_chunks) if oc is not None}
+    assert touched == set(matches.flat_idx)
+
+
+def test_rasterize_spatial_aware_routing(mocker):
     like = testdata.raster.dem.chunk((1, 500, 500))
     features = dgpd.read_file(
         "tests/data/vector/pods.shp", chunksize=40
     ).to_crs(like.crs)
 
-    chunk_func_spy = mocker.spy(rasterize, "_rasterize_onto_chunk")
-    result = rasterize.rasterize(features, like)
-    result.xdata.compute()
-    # Every partiton gets mapped to every chunk
-    n_naive = features.npartitions * np.prod(like.data.blocks.shape)
-    assert chunk_func_spy.call_count == n_naive
-    mocker.stop(chunk_func_spy)
+    # The naive path handles a frame with no spatial partitions by fabricating
+    # full-extent partitions and delegating to the spatial-aware path, so the
+    # aware function fires on both branches. The naive function fires only when
+    # spatial partitions are absent, making it the branch marker.
+    naive_spy = mocker.spy(rasterize, "_rasterize_spatial_naive")
+    aware_spy = mocker.spy(rasterize, "_rasterize_spatial_aware")
 
-    # Test that spatial awareness reduces number of chunk operations
+    # No spatial partitions: dispatched through the naive path.
+    rasterize.rasterize(features, like)
+    assert naive_spy.call_count == 1
+    assert aware_spy.call_count == 1
+
+    # Spatial partitions present: dispatched straight to the aware path,
+    # bypassing the naive path entirely.
     features.calculate_spatial_partitions()
-    chunk_rasters = list(like.get_chunk_rasters().ravel())
-    # Partitions only get mapped to chunks they touch based on bounding polygon
-    n_aware = 0
-    for g in features.spatial_partitions.geometry.to_numpy():
-        for rast in chunk_rasters:
-            bbox = shapely.geometry.box(*rast.bounds)
-            n_aware += int(g.intersects(bbox))
-    assert n_aware < n_naive
-
-    chunk_func_spy = mocker.spy(rasterize, "_rasterize_onto_chunk")
-    result = rasterize.rasterize(features, like)
-    result.xdata.compute()
-    assert chunk_func_spy.call_count == n_aware
-    mocker.stop(chunk_func_spy)
+    rasterize.rasterize(features, like)
+    assert naive_spy.call_count == 1
+    assert aware_spy.call_count == 2
 
 
 def calc_spatial_parts(x):
@@ -139,7 +191,7 @@ def rasterize_helper(
 # the variant that has spatial partitions pre-calculated, since that is the
 # only case where spatial-aware dispatch structurally differs from the naive
 # path. The structural reduction in chunk ops from spatial awareness is
-# covered separately by test_rasterize_spatial_aware_reduces_operations.
+# covered separately by the partition/chunk match tests.
 _PARTITIONING_CASES = [
     pytest.param(
         testdata.vector.test_circles_small,

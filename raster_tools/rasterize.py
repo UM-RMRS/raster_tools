@@ -312,6 +312,22 @@ def _reduce_stacked_feature_rasters(
     return chunk
 
 
+def _compute_partition_chunk_matches(dgdf, like):
+    """Match vector partitions to the like-raster chunks they intersect.
+
+    Returns a dataframe with one row per intersecting (partition, chunk)
+    pair. part_idx indexes the vector partitions and flat_idx indexes the
+    flattened grid of like-raster chunks. Rows are sorted so that
+    partition order is preserved, which allows later partitions to take
+    precedence over earlier partitions downstream.
+    """
+    sparts = dgdf.spatial_partitions.to_frame("geometry")
+    sparts["part_idx"] = np.arange(dgdf.npartitions)
+    chunk_gdf = like.get_chunk_bounding_boxes()
+    chunk_gdf["flat_idx"] = chunk_gdf.index
+    return sparts.sjoin(chunk_gdf).sort_values("part_idx")
+
+
 def _rasterize_spatial_matches(
     matches,
     dgdf,
@@ -429,7 +445,10 @@ def _rasterize_spatial_aware(
         # Only need one band
         like = like.get_bands(1)
 
-    sparts = dgdf.spatial_partitions.to_frame("geometry")
+    matches = _compute_partition_chunk_matches(dgdf, like)
+    # Split the like raster up into sub rasters. One for each chunk.
+    # Flatten into a 1D list of rasters.
+    like_chunk_rasters = list(like.get_chunk_rasters().ravel())
     # The null value can be different from the fill value when mask=True so set
     # a separate variable.
     nv = fill
@@ -452,18 +471,6 @@ def _rasterize_spatial_aware(
             dgdf = dgdf[[field, "geometry"]].rename(columns={field: "values"})
         else:
             dgdf = dgdf.geometry.to_frame("geometry")
-    sparts["part_idx"] = np.arange(dgdf.npartitions)
-    chunk_gdf = like.get_chunk_bounding_boxes()
-    chunk_gdf["flat_idx"] = chunk_gdf.index
-    # Split the like raster up into sub rasters. One for each chunk. Flatten
-    # into a 1D list of rasters.
-    like_chunk_rasters = list(like.get_chunk_rasters().ravel())
-    # Perform a spatial join between the vector partition bounding polygons and
-    # the chunk extents from the like raster. This produces a dataframe with a
-    # row for each intersection. It is sorted so that partition order is
-    # preserved. This sorting allows later partitions to take precedence over
-    # earlier partitions.
-    matches = sparts.sjoin(chunk_gdf).sort_values("part_idx")
     # Each element is either None or a list of 2D dask arrays
     raw_chunk_list = _rasterize_spatial_matches(
         matches,
