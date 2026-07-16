@@ -24,7 +24,6 @@ dependencies:
   - pyogrio
   - pyproj
   - pytest
-  - pytest-mock
   - pytest-xdist
   - python-build
   - rasterio

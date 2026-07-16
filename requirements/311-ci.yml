@@ -19,7 +19,6 @@ dependencies:
   - pyproj
   - pytest
   - pytest-xdist
-  - pytest-mock
   - rasterio
   - rioxarray
   - scipy

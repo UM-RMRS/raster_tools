@@ -75,30 +75,40 @@ def test_rasterize_spatial_matches_builds_one_task_per_match():
     assert touched == set(matches.flat_idx)
 
 
-def test_rasterize_spatial_aware_routing(mocker):
+def test_rasterize_spatial_aware_routing(monkeypatch):
     like = testdata.raster.dem.chunk((1, 500, 500))
     features = dgpd.read_file(
         "tests/data/vector/pods.shp", chunksize=40
     ).to_crs(like.crs)
 
+    calls = {"naive": 0, "aware": 0}
+    real_naive = rasterize._rasterize_spatial_naive
+    real_aware = rasterize._rasterize_spatial_aware
+
+    def naive_wrapper(*args, **kwargs):
+        calls["naive"] += 1
+        return real_naive(*args, **kwargs)
+
+    def aware_wrapper(*args, **kwargs):
+        calls["aware"] += 1
+        return real_aware(*args, **kwargs)
+
     # The naive path handles a frame with no spatial partitions by fabricating
     # full-extent partitions and delegating to the spatial-aware path, so the
     # aware function fires on both branches. The naive function fires only when
     # spatial partitions are absent, making it the branch marker.
-    naive_spy = mocker.spy(rasterize, "_rasterize_spatial_naive")
-    aware_spy = mocker.spy(rasterize, "_rasterize_spatial_aware")
+    monkeypatch.setattr(rasterize, "_rasterize_spatial_naive", naive_wrapper)
+    monkeypatch.setattr(rasterize, "_rasterize_spatial_aware", aware_wrapper)
 
     # No spatial partitions: dispatched through the naive path.
     rasterize.rasterize(features, like)
-    assert naive_spy.call_count == 1
-    assert aware_spy.call_count == 1
+    assert calls == {"naive": 1, "aware": 1}
 
     # Spatial partitions present: dispatched straight to the aware path,
     # bypassing the naive path entirely.
     features.calculate_spatial_partitions()
     rasterize.rasterize(features, like)
-    assert naive_spy.call_count == 1
-    assert aware_spy.call_count == 2
+    assert calls == {"naive": 1, "aware": 2}
 
 
 def calc_spatial_parts(x):
