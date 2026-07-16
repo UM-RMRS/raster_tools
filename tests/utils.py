@@ -392,7 +392,7 @@ def assert_raster_dataset_data_equal_any_nv(left, right, dtype_match=True):
     if dtype_match:
         assert left.raster.dtype == right.raster.dtype
     assert np.allclose(left.mask.to_numpy(), right.mask.to_numpy())
-    assert (right.raster.rio.nodata is not None) == (
+    assert (left.raster.rio.nodata is not None) == (
         right.raster.rio.nodata is not None
     )
     ldata = left.raster.data.compute()
@@ -477,7 +477,7 @@ def assert_datasets_similar(left, right, check_nbands=True, check_chunks=True):
     if left is right:
         return
 
-    assert sorted(left.data_vars) == sorted(right.data_Vars)
+    assert sorted(left.data_vars) == sorted(right.data_vars)
     for v in list(left.data_vars):
         assert_dataarrays_similar(
             left.data_vars[v],

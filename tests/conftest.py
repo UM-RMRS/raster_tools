@@ -24,26 +24,6 @@ def xdem_small():
 
 
 @pytest.fixture
-def dem_clipped():
-    return testdata.raster.dem_small
-
-
-@pytest.fixture
-def xdem_clipped():
-    return testdata.raster.dem_small.xdata
-
-
-@pytest.fixture
-def dem_clipped_small():
-    return testdata.raster.dem_small
-
-
-@pytest.fixture
-def xdem_clipped_small():
-    return testdata.raster.dem_small.xdata
-
-
-@pytest.fixture
 def pods():
     return testdata.vector.pods
 
