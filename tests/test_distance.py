@@ -1,6 +1,7 @@
 import unittest
 
 import numpy as np
+import pytest
 from affine import Affine
 
 from raster_tools import Raster, distance
@@ -220,6 +221,17 @@ class TestCostDist(unittest.TestCase):
         self.assertTrue(
             np.allclose(cost_dist.to_numpy(), CD_TRUTH_SCALE_5, equal_nan=True)
         )
+
+
+def test_cost_distance_sources_float_error_message():
+    dem_path = "tests/data/raster/dem_small.tif"
+    with pytest.raises(TypeError) as exc:
+        distance.cost_distance_analysis(dem_path, dem_path)
+    msg = str(exc.value)
+    assert "integer type" in msg
+    assert str(Raster(dem_path).dtype) in msg
+    assert "GeoTIFF" in msg
+    assert "astype" in msg
 
 
 def test_cost_distance_analysis_crs():

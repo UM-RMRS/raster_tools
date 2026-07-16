@@ -1011,6 +1011,17 @@ def test_where_both_none():
         general.where(cond, None, None)
 
 
+def test_where_float_condition_error_message():
+    cond = make_raster("arange", dtype="float32", shape=(1, 4, 4))
+    with pytest.raises(TypeError) as exc:
+        general.where(cond, 1, 0)
+    msg = str(exc.value)
+    assert "boolean or integer raster" in msg
+    assert "float32" in msg
+    assert "GeoTIFF" in msg
+    assert "astype" in msg
+
+
 @pytest.mark.parametrize("unmapped_to_null", [True, False])
 @pytest.mark.parametrize(
     "raster,mapping,expected_out_dtype",

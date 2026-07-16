@@ -42,6 +42,7 @@ from raster_tools.dtypes import (
     U64,
     get_common_dtype,
     is_bool,
+    is_float,
     is_int,
     is_scalar,
     is_str,
@@ -1181,9 +1182,17 @@ def where(condition, true_rast, false_rast):
     """
     condition = get_raster(condition)
     if not is_bool(condition.dtype) and not is_int(condition.dtype):
-        raise TypeError(
-            "Condition argument must be a boolean or integer raster"
+        msg = (
+            "Condition argument must be a boolean or integer raster, "
+            f"got {condition.dtype}"
         )
+        if is_float(condition.dtype):
+            msg += (
+                ". Saving integer rasters to GeoTIFF on older GDAL casts"
+                " them to float64; use .astype(...) to convert back to an"
+                " integer type."
+            )
+        raise TypeError(msg)
     args = []
     for r, name in [(true_rast, "true_rast"), (false_rast, "false_rast")]:
         if not is_scalar(r) and r is not None:

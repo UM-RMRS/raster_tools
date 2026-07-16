@@ -10,7 +10,7 @@ import numba as nb
 import numpy as np
 import pandas as pd
 
-from raster_tools.dtypes import F64, I64, is_int, is_str
+from raster_tools.dtypes import F64, I64, is_float, is_int, is_str
 from raster_tools.raster import Raster, get_raster
 from raster_tools.utils import version_to_tuple
 from raster_tools.vector import Vector, get_vector
@@ -417,7 +417,17 @@ def zonal_stats(
             features = features.calculate_spatial_partitions()
     elif isinstance(features, Raster):
         if not is_int(features.dtype):
-            raise TypeError("Feature raster must be an integer type.")
+            msg = (
+                "Feature raster must be an integer type, got "
+                f"{features.dtype}."
+            )
+            if is_float(features.dtype):
+                msg += (
+                    " Saving integer rasters to GeoTIFF on older GDAL"
+                    " casts them to float64; use .astype(...) to convert"
+                    " back to an integer type."
+                )
+            raise TypeError(msg)
         if features.shape[0] > 1:
             raise ValueError("Feature raster must have only 1 band.")
     else:

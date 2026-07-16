@@ -233,6 +233,18 @@ def test_zonal_stats_long_format(raster):
     assert truth.equals(zdf)
 
 
+def test_zonal_float_feature_raster_error_message():
+    features = make_raster("arange", dtype="float32", shape=(1, 6, 6))
+    data_raster = make_raster("arange", dtype="float32", shape=(1, 6, 6))
+    with pytest.raises(TypeError) as exc:
+        zonal_stats(features, data_raster, "mean")
+    msg = str(exc.value)
+    assert "Feature raster must be an integer type" in msg
+    assert "float32" in msg
+    assert "GeoTIFF" in msg
+    assert "astype" in msg
+
+
 def test_zonal_stats_handle_overlap():
     # 4 rectangles that overlap to form 4x4 square
     features = gpd.GeoSeries(

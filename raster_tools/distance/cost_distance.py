@@ -525,7 +525,17 @@ def cost_distance_analysis(costs, sources, elevation=None):
         if sources.shape != costs.shape:
             raise ValueError("Cost and sources raster shapes must match")
         if sources.dtype.kind not in ("u", "i"):
-            raise TypeError("Sources raster must be an integer type")
+            msg = (
+                "Sources raster must be an integer type, got "
+                f"{sources.dtype}"
+            )
+            if is_float(sources.dtype):
+                msg += (
+                    ". Saving integer rasters to GeoTIFF on older GDAL"
+                    " casts them to float64; use .astype(...) to convert"
+                    " back to an integer type."
+                )
+            raise TypeError(msg)
         if not sources._masked:
             raise ValueError("Sources raster must have a null value set")
         sources_null_value = sources.null_value

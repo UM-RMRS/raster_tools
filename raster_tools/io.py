@@ -169,6 +169,26 @@ def _resolve_driver(path, driver):
     return _EXT_TO_DRIVER.get(_get_extension(path))
 
 
+# Drivers that support native Int64/UInt64 rasters on a capable GDAL.
+# The COG writer stages through a temporary GTiff, so it inherits GTiff's
+# support.
+_DRIVERS_WITH_INT64 = frozenset({"GTiff", "COG"})
+
+
+def _supports_native_int64(driver):
+    """Whether native int64 writes work for the resolved ``driver``.
+
+    GDAL added native Int64/UInt64 GeoTIFF support in 3.5;
+    ``check_dtype`` reflects the running GDAL's global dtype support.
+    A resolved driver outside the known-good set (including ``None``,
+    which means GDAL would infer the driver from an unmapped extension)
+    is treated conservatively as unsupported.
+    """
+    from rasterio.dtypes import check_dtype
+
+    return driver in _DRIVERS_WITH_INT64 and check_dtype("int64")
+
+
 def _gtiff_translate(opts):
     out = {}
     tiled = opts.get("tiled")
@@ -341,16 +361,51 @@ def write_raster(
             f"Writing files with extension {ext!r} is not supported"
         )
 
+    resolved_driver = _resolve_driver(path, driver)
+
     rio_is_bool = False
     if xrs.dtype == I64:
-        # GDAL doesn't support I64; cast up to F64 so to_raster won't reject.
-        xrs = xrs.astype(F64)
+        nv = xrs.rio.nodata
+        # GDAL stores a GeoTIFF nodata value as a C double. Its Int64
+        # nodata handling is only reliable for magnitudes up to 2**53;
+        # larger sentinels (including int64's default null, -2**63) are
+        # mangled on write, which would silently drop the null mask on
+        # reload. Treat such a null as unpreservable by a native write.
+        null_preservable = nv is None or -(2**53) <= nv <= 2**53
+        if not _supports_native_int64(resolved_driver):
+            # Older GDAL builds lack native int64 raster support; cast up
+            # to F64 so to_raster won't reject the array.
+            warnings.warn(
+                "This GDAL build lacks native int64 raster support; the"
+                " array will be written as float64. Values above 2**53"
+                " may lose precision, and the file will read back as"
+                " float64 (cast it back with .astype('int64') after"
+                " loading if needed).",
+                UserWarning,
+                stacklevel=2,
+            )
+            xrs = xrs.astype(F64)
+        elif not null_preservable:
+            # Native int64 is available, but GeoTIFF's float nodata
+            # field cannot hold this null value, so a native write would
+            # lose the mask. Cast to F64, which stores the null exactly
+            # as a double and keeps the mask intact.
+            warnings.warn(
+                "The int64 null value cannot be represented in a"
+                " GeoTIFF nodata field; the array will be written as"
+                " float64 to preserve the null mask. Values above 2**53"
+                " may lose precision, and the file will read back as"
+                " float64 (cast it back with .astype('int64') after"
+                " loading if needed).",
+                UserWarning,
+                stacklevel=2,
+            )
+            xrs = xrs.astype(F64)
     elif is_bool(xrs.dtype):
         # GDAL doesn't support bool; encode as uint8.
         rio_is_bool = True
         xrs = xrs.astype(U8)
 
-    resolved_driver = _resolve_driver(path, driver)
     translator = _DRIVER_TRANSLATORS.get(resolved_driver)
     creation_opts = {}
     if translator is not None:

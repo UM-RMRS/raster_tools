@@ -8,7 +8,12 @@ from affine import Affine
 import raster_tools as rts
 from raster_tools._mosaic import mosaic
 from raster_tools.batch import _batch_parse_save, _BatchScripParserState
-from raster_tools.io import _auto_overview_factors, write_raster
+from raster_tools.io import (
+    _auto_overview_factors,
+    _supports_native_int64,
+    write_raster,
+)
+from raster_tools.masking import get_default_null_value
 from tests.utils import make_raster
 
 
@@ -57,13 +62,87 @@ def test_save_roundtrip_bool(out_tif):
     assert (reloaded.to_numpy() != 0).all()
 
 
-def test_save_roundtrip_i64(out_tif):
-    src = make_raster("arange", dtype="int64", shape=(1, 4, 4))
+def test_save_roundtrip_i64_native(out_tif):
+    if not _supports_native_int64("GTiff"):
+        pytest.skip("GDAL build lacks native int64 raster support")
+    sentinel = get_default_null_value(np.dtype("int64"))
+    assert sentinel == -(2**63)
+    # A value above 2**53 and the int64 min sentinel cannot survive a
+    # float64 detour; the native write must preserve every cell exactly.
+    data = np.array([[[2**53 + 1, 5, sentinel, 7]]], dtype="int64")
+    src = make_raster(data, dtype="int64")
     src.save(out_tif)
+    with _open(out_tif) as ds:
+        assert ds.dtypes[0] == "int64"
+    reloaded = rts.Raster(out_tif)
+    assert reloaded.dtype == np.dtype("int64")
+    assert reloaded.to_numpy()[0, 0, 0] == 2**53 + 1
+    assert np.array_equal(reloaded.to_numpy(), data)
+
+
+def test_save_roundtrip_i64_native_preserves_null(out_tif):
+    if not _supports_native_int64("GTiff"):
+        pytest.skip("GDAL build lacks native int64 raster support")
+    # A value above 2**53 alongside a masked cell: the native write keeps
+    # both the large value and the null mask, which a float64 cast could
+    # not do for the large value.
+    data = np.array([[[2**53 + 1, 5, -9999, 7]]], dtype="int64")
+    src = make_raster(data, dtype="int64", null=-9999)
+    src.save(out_tif)
+    with _open(out_tif) as ds:
+        assert ds.dtypes[0] == "int64"
+        assert ds.nodata == -9999
+    reloaded = rts.Raster(out_tif)
+    assert reloaded.dtype == np.dtype("int64")
+    assert reloaded.null_value == -9999
+    assert reloaded.to_numpy()[0, 0, 0] == 2**53 + 1
+    assert np.array_equal(reloaded.mask.compute(), src.mask.compute())
+
+
+def test_save_roundtrip_i64_default_sentinel_null_preserves_mask(out_tif):
+    if not _supports_native_int64("GTiff"):
+        pytest.skip("GDAL build lacks native int64 raster support")
+    # int64's default null (-2**63) cannot survive GeoTIFF's float nodata
+    # field, so a native write would silently drop the mask. The writer
+    # must fall back to float64 (with a warning) and keep the mask intact.
+    sentinel = get_default_null_value(np.dtype("int64"))
+    assert sentinel == -(2**63)
+    data = np.array([[[10, 5, sentinel, 7]]], dtype="int64")
+    src = make_raster(data, dtype="int64", null=sentinel)
+    assert np.array_equal(
+        src.mask.compute(), np.array([[[False, False, True, False]]])
+    )
+    with pytest.warns(UserWarning, match="float64"):
+        src.save(out_tif)
+    with _open(out_tif) as ds:
+        assert ds.dtypes[0] == "float64"
+    reloaded = rts.Raster(out_tif)
+    assert np.array_equal(reloaded.mask.compute(), src.mask.compute())
+
+
+def test_save_roundtrip_i64_fallback(out_tif, monkeypatch):
+    monkeypatch.setattr(
+        "raster_tools.io._supports_native_int64", lambda driver: False
+    )
+    src = make_raster("arange", dtype="int64", shape=(1, 4, 4))
+    with pytest.warns(UserWarning, match="int64"):
+        src.save(out_tif)
     with _open(out_tif) as ds:
         assert ds.dtypes[0] == "float64"
     reloaded = rts.Raster(out_tif)
     assert np.allclose(reloaded.to_numpy(), src.to_numpy().astype("float64"))
+
+
+def test_save_roundtrip_u64(out_tif):
+    if not rasterio.dtypes.check_dtype("uint64"):
+        pytest.skip("GDAL build lacks native uint64 raster support")
+    src = make_raster("arange", dtype="uint64", shape=(1, 4, 4))
+    src.save(out_tif)
+    with _open(out_tif) as ds:
+        assert ds.dtypes[0] == "uint64"
+    reloaded = rts.Raster(out_tif)
+    assert reloaded.dtype == np.dtype("uint64")
+    assert np.array_equal(reloaded.to_numpy(), src.to_numpy())
 
 
 def test_save_roundtrip_with_nulls(out_tif):
