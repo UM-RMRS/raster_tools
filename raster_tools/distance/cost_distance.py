@@ -20,6 +20,7 @@ from raster_tools.dtypes import (
     is_scalar,
     is_str,
 )
+from raster_tools.masking import get_default_null_value
 from raster_tools.raster import Raster, dataarray_to_xr_raster_ds
 
 JIT_KWARGS = {"nopython": True, "nogil": True}
@@ -460,7 +461,9 @@ def cost_distance_analysis(costs, sources, elevation=None):
     diagonal moves. The `costs` raster's resolution informs the actual scaling
     to use. Source locations have a cost of 0. If `elevation` provided, the
     length calculation incorporates the elevation data to make the algorithm 3D
-    aware.
+    aware. Cells that cannot be reached by any source, along with cells that
+    are null in `costs`, are null in all three output rasters. This matches
+    the convention used by other GIS tools such as ESRI and GRASS.
 
     The second raster contains the traceback values for the solution. At each
     pixel, the stored value indicates the neighbor to move to in order to get
@@ -505,7 +508,8 @@ def cost_distance_analysis(costs, sources, elevation=None):
     -------
     cost_distance : Raster
         The accumulated cost distance solution. This is the same shape as the
-        `costs` input Raster and has the same null value.
+        `costs` input Raster and has the same null value, or the default
+        null value for float64 if `costs` has none set.
     traceback : Raster
         The traceback result. This is the same shape as the `costs` input
         Raster.
@@ -601,12 +605,27 @@ def cost_distance_analysis(costs, sources, elevation=None):
         scaling=scaling,
     )
     # Make lazy and add band dim. Chunk to match the costs raster so the
-    # data and mask chunk grids agree; the masks below are copies of the
-    # costs mask and keep its chunking.
+    # data and mask chunk grids agree.
     cd, tr, al = [
         da.from_array(r[None], chunks=((1,), *costs.data.chunks[1:]))
         for r in results
     ]
+    # Cells that no source can reach are null in all three outputs,
+    # matching the convention used by other GIS tools (e.g. ESRI, GRASS).
+    # The mask also keeps any nulls from the costs raster, which covers
+    # sources placed on masked cost cells; their values are replaced with
+    # the null fills like any other masked cell.
+    nv = costs.null_value
+    if nv is None:
+        # The outputs need a null value to represent unreachable cells even
+        # when the costs raster has none set.
+        nv = get_default_null_value(F64)
+    mask = costs.mask | ~da.isfinite(cd)
+    cd = da.where(mask, nv, cd)
+    tr = da.where(mask, _TRACEBACK_NOT_REACHED, tr).astype(I8)
+    al = da.where(mask, sources_null_value, al).astype(I64)
+    # Add 1 to match ESRI 0-8 scale
+    tr = tr + 1
     # Convert to DataArrays using same coordinate system as costs
     xcosts = costs.xdata
     xcd, xtr, xal = [
@@ -615,18 +634,14 @@ def cost_distance_analysis(costs, sources, elevation=None):
         )
         for r in (cd, tr, al)
     ]
-    xcd = xcd.where(np.isfinite(xcd), costs.null_value)
-    # Add 1 to match ESRI 0-8 scale
-    xtr += 1
+    xmask = xr.DataArray(mask, coords=xcosts.coords, dims=xcosts.dims)
 
-    cd_ds = dataarray_to_xr_raster_ds(
-        xcd.rio.write_nodata(costs.null_value), costs.xmask.copy()
-    )
+    cd_ds = dataarray_to_xr_raster_ds(xcd.rio.write_nodata(nv), xmask)
     tr_ds = dataarray_to_xr_raster_ds(
-        xtr.rio.write_nodata(_TRACEBACK_NOT_REACHED + 1), costs.xmask.copy()
+        xtr.rio.write_nodata(_TRACEBACK_NOT_REACHED + 1), xmask.copy()
     )
     al_ds = dataarray_to_xr_raster_ds(
-        xal.rio.write_nodata(sources_null_value), costs.xmask.copy()
+        xal.rio.write_nodata(sources_null_value), xmask.copy()
     )
     if costs.crs is not None:
         cd_ds = cd_ds.rio.write_crs(costs.crs)

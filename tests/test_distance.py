@@ -426,8 +426,9 @@ def test_cost_distance_elevation_happy_path():
 
 
 def test_cost_distance_elevation_masked_cells():
-    # A nan-null elevation cell becomes a barrier: unreached-filled but NOT
-    # masked at the Raster level (the output mask tracks costs, not elevation).
+    # A nan-null elevation cell becomes a barrier: it cannot be reached, so
+    # it is null and masked in the output even though the costs raster is
+    # valid there.
     cs = Raster(COST_SURF).set_null_value(-1)
     elev = np.arange(36, dtype=np.float64).reshape(6, 6)
     elev[2, 4] = np.nan
@@ -442,7 +443,7 @@ def test_cost_distance_elevation_masked_cells():
     assert np.allclose(data[reached], ref_cd[reached], rtol=1e-9)
     assert not reached[2, 4]
     assert data[2, 4] == cd.null_value
-    assert not mask[2, 4]
+    assert mask[2, 4]
 
 
 def test_cost_distance_accepts_file_paths(tmp_path):
@@ -529,27 +530,31 @@ def test_cost_distance_all_null_sources():
     cs = Raster(COST_SURF).set_null_value(-1)
     srcs = Raster(np.zeros((6, 6), dtype=np.int64)).set_null_value(0)
     cd, tr, al = distance.cost_distance_analysis(cs, srcs)
-    # ESRI unreached traceback is -1; allocation is the source null everywhere.
+    # ESRI unreached traceback is -1; allocation is the source null
+    # everywhere. With no reachable cells at all, the outputs are fully
+    # masked.
     assert np.all(tr.to_numpy()[0] == -1)
     assert np.all(al.to_numpy()[0] == 0)
-    mask = cd.mask.compute()[0]
-    data = cd.to_numpy()[0]
-    assert np.all(data[~mask] == cd.null_value)
+    assert np.all(cd.mask.compute())
+    assert np.all(cd.to_numpy()[0] == cd.null_value)
 
 
-def test_cost_distance_unreached_valid_cell_filled_not_masked():
+def test_cost_distance_unreached_valid_cells_masked():
     # A full-height barrier column isolates the right side of the grid.
     arr = np.ones((3, 5), dtype=np.float64)
     arr[:, 2] = -1.0
     cs = Raster(arr[None]).set_null_value(-1)
-    cd, _, _ = distance.cost_distance_analysis(cs, np.array([[0, 0]]))
-    data = cd.to_numpy()[0]
-    mask = cd.mask.compute()[0]
-    # The far-side valid cell is unreachable: filled with the null value but
-    # NOT masked. Masking unreached-but-valid cells is a deliberate
-    # out-of-scope follow-up.
-    assert data[0, 4] == cd.null_value
-    assert not mask[0, 4]
+    cd, tr, al = distance.cost_distance_analysis(cs, np.array([[0, 0]]))
+    # Cells that no source can reach are null in all three outputs,
+    # matching the ESRI/GRASS convention.
+    for out in (cd, tr, al):
+        assert_valid_raster(out)
+        data = out.to_numpy()[0]
+        mask = out.mask.compute()[0]
+        assert mask[0, 4]
+        assert data[0, 4] == out.null_value
+    # The reachable side of the barrier stays valid.
+    assert not cd.mask.compute()[0][0, 0]
 
 
 def test_cost_distance_unsigned_sources():
@@ -706,10 +711,13 @@ def test_cost_distance_source_on_masked_cost_no_negatives():
     costs = Raster(costs_arr).set_null_value(-1)
     srcs = Raster(src_arr).set_null_value(0)
     cd, tb, al = distance.cost_distance_analysis(costs, srcs)
-    # The masked cost cell is masked out of the output (it holds the source's
-    # own zero cumcost), so only the unmasked cells are inspected here.
+    # The masked cost cell stays masked in the output and its zero source
+    # cumcost is replaced by the null fill; only the unmasked cells are
+    # inspected for negatives.
     data = cd.to_numpy()
     mask = cd.mask.compute()
+    assert mask[0][2, 2]
+    assert data[0][2, 2] == cd.null_value
     valid = data[~mask]
     assert not (valid < 0).any()
 
