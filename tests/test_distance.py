@@ -447,8 +447,9 @@ def test_cost_distance_elevation_masked_cells():
 
 def test_cost_distance_accepts_file_paths(tmp_path):
     # Save as float64 costs/elevation and int32 sources so the GeoTIFF
-    # round-trip preserves dtypes (int64 would reload as float64 and fail the
-    # integer check).
+    # round-trip preserves dtypes regardless of GDAL version (int64 only
+    # writes natively on GDAL 3.5+; older builds cast it to float64, which
+    # the sources integer check rejects).
     cs = data_to_raster(
         COST_SURF.astype(np.float64)[None],
         affine=Affine(1, 0, 0, 0, -1, 6),
