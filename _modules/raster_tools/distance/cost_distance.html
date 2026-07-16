@@ -963,7 +963,17 @@ document.write(`
         <span class="k">if</span> <span class="n">sources</span><span class="o">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="n">costs</span><span class="o">.</span><span class="n">shape</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Cost and sources raster shapes must match&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">sources</span><span class="o">.</span><span class="n">dtype</span><span class="o">.</span><span class="n">kind</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;u&quot;</span><span class="p">,</span> <span class="s2">&quot;i&quot;</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Sources raster must be an integer type&quot;</span><span class="p">)</span>
+            <span class="n">msg</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="s2">&quot;Sources raster must be an integer type, got &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">sources</span><span class="o">.</span><span class="n">dtype</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="n">is_float</span><span class="p">(</span><span class="n">sources</span><span class="o">.</span><span class="n">dtype</span><span class="p">):</span>
+                <span class="n">msg</span> <span class="o">+=</span> <span class="p">(</span>
+                    <span class="s2">&quot;. Saving integer rasters to GeoTIFF on older GDAL&quot;</span>
+                    <span class="s2">&quot; casts them to float64; use .astype(...) to convert&quot;</span>
+                    <span class="s2">&quot; back to an integer type.&quot;</span>
+                <span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">sources</span><span class="o">.</span><span class="n">_masked</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Sources raster must have a null value set&quot;</span><span class="p">)</span>
         <span class="n">sources_null_value</span> <span class="o">=</span> <span class="n">sources</span><span class="o">.</span><span class="n">null_value</span>

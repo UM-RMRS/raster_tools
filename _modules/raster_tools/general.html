@@ -480,6 +480,7 @@ document.write(`
     <span class="n">U64</span><span class="p">,</span>
     <span class="n">get_common_dtype</span><span class="p">,</span>
     <span class="n">is_bool</span><span class="p">,</span>
+    <span class="n">is_float</span><span class="p">,</span>
     <span class="n">is_int</span><span class="p">,</span>
     <span class="n">is_scalar</span><span class="p">,</span>
     <span class="n">is_str</span><span class="p">,</span>
@@ -1619,9 +1620,17 @@ document.write(`
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">condition</span> <span class="o">=</span> <span class="n">get_raster</span><span class="p">(</span><span class="n">condition</span><span class="p">)</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">is_bool</span><span class="p">(</span><span class="n">condition</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">is_int</span><span class="p">(</span><span class="n">condition</span><span class="o">.</span><span class="n">dtype</span><span class="p">):</span>
-        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
-            <span class="s2">&quot;Condition argument must be a boolean or integer raster&quot;</span>
+        <span class="n">msg</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="s2">&quot;Condition argument must be a boolean or integer raster, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;got </span><span class="si">{</span><span class="n">condition</span><span class="o">.</span><span class="n">dtype</span><span class="si">}</span><span class="s2">&quot;</span>
         <span class="p">)</span>
+        <span class="k">if</span> <span class="n">is_float</span><span class="p">(</span><span class="n">condition</span><span class="o">.</span><span class="n">dtype</span><span class="p">):</span>
+            <span class="n">msg</span> <span class="o">+=</span> <span class="p">(</span>
+                <span class="s2">&quot;. Saving integer rasters to GeoTIFF on older GDAL casts&quot;</span>
+                <span class="s2">&quot; them to float64; use .astype(...) to convert back to an&quot;</span>
+                <span class="s2">&quot; integer type.&quot;</span>
+            <span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
     <span class="n">args</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="k">for</span> <span class="n">r</span><span class="p">,</span> <span class="n">name</span> <span class="ow">in</span> <span class="p">[(</span><span class="n">true_rast</span><span class="p">,</span> <span class="s2">&quot;true_rast&quot;</span><span class="p">),</span> <span class="p">(</span><span class="n">false_rast</span><span class="p">,</span> <span class="s2">&quot;false_rast&quot;</span><span class="p">)]:</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">is_scalar</span><span class="p">(</span><span class="n">r</span><span class="p">)</span> <span class="ow">and</span> <span class="n">r</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>

@@ -750,6 +750,22 @@ document.write(`
     <span class="k">return</span> <span class="n">chunk</span>
 
 
+<span class="k">def</span><span class="w"> </span><span class="nf">_compute_partition_chunk_matches</span><span class="p">(</span><span class="n">dgdf</span><span class="p">,</span> <span class="n">like</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Match vector partitions to the like-raster chunks they intersect.</span>
+
+<span class="sd">    Returns a dataframe with one row per intersecting (partition, chunk)</span>
+<span class="sd">    pair. part_idx indexes the vector partitions and flat_idx indexes the</span>
+<span class="sd">    flattened grid of like-raster chunks. Rows are sorted so that</span>
+<span class="sd">    partition order is preserved, which allows later partitions to take</span>
+<span class="sd">    precedence over earlier partitions downstream.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">sparts</span> <span class="o">=</span> <span class="n">dgdf</span><span class="o">.</span><span class="n">spatial_partitions</span><span class="o">.</span><span class="n">to_frame</span><span class="p">(</span><span class="s2">&quot;geometry&quot;</span><span class="p">)</span>
+    <span class="n">sparts</span><span class="p">[</span><span class="s2">&quot;part_idx&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">dgdf</span><span class="o">.</span><span class="n">npartitions</span><span class="p">)</span>
+    <span class="n">chunk_gdf</span> <span class="o">=</span> <span class="n">like</span><span class="o">.</span><span class="n">get_chunk_bounding_boxes</span><span class="p">()</span>
+    <span class="n">chunk_gdf</span><span class="p">[</span><span class="s2">&quot;flat_idx&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">chunk_gdf</span><span class="o">.</span><span class="n">index</span>
+    <span class="k">return</span> <span class="n">sparts</span><span class="o">.</span><span class="n">sjoin</span><span class="p">(</span><span class="n">chunk_gdf</span><span class="p">)</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="s2">&quot;part_idx&quot;</span><span class="p">)</span>
+
+
 <span class="k">def</span><span class="w"> </span><span class="nf">_rasterize_spatial_matches</span><span class="p">(</span>
     <span class="n">matches</span><span class="p">,</span>
     <span class="n">dgdf</span><span class="p">,</span>
@@ -867,7 +883,10 @@ document.write(`
         <span class="c1"># Only need one band</span>
         <span class="n">like</span> <span class="o">=</span> <span class="n">like</span><span class="o">.</span><span class="n">get_bands</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
 
-    <span class="n">sparts</span> <span class="o">=</span> <span class="n">dgdf</span><span class="o">.</span><span class="n">spatial_partitions</span><span class="o">.</span><span class="n">to_frame</span><span class="p">(</span><span class="s2">&quot;geometry&quot;</span><span class="p">)</span>
+    <span class="n">matches</span> <span class="o">=</span> <span class="n">_compute_partition_chunk_matches</span><span class="p">(</span><span class="n">dgdf</span><span class="p">,</span> <span class="n">like</span><span class="p">)</span>
+    <span class="c1"># Split the like raster up into sub rasters. One for each chunk.</span>
+    <span class="c1"># Flatten into a 1D list of rasters.</span>
+    <span class="n">like_chunk_rasters</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">like</span><span class="o">.</span><span class="n">get_chunk_rasters</span><span class="p">()</span><span class="o">.</span><span class="n">ravel</span><span class="p">())</span>
     <span class="c1"># The null value can be different from the fill value when mask=True so set</span>
     <span class="c1"># a separate variable.</span>
     <span class="n">nv</span> <span class="o">=</span> <span class="n">fill</span>
@@ -890,18 +909,6 @@ document.write(`
             <span class="n">dgdf</span> <span class="o">=</span> <span class="n">dgdf</span><span class="p">[[</span><span class="n">field</span><span class="p">,</span> <span class="s2">&quot;geometry&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">{</span><span class="n">field</span><span class="p">:</span> <span class="s2">&quot;values&quot;</span><span class="p">})</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">dgdf</span> <span class="o">=</span> <span class="n">dgdf</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">to_frame</span><span class="p">(</span><span class="s2">&quot;geometry&quot;</span><span class="p">)</span>
-    <span class="n">sparts</span><span class="p">[</span><span class="s2">&quot;part_idx&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">dgdf</span><span class="o">.</span><span class="n">npartitions</span><span class="p">)</span>
-    <span class="n">chunk_gdf</span> <span class="o">=</span> <span class="n">like</span><span class="o">.</span><span class="n">get_chunk_bounding_boxes</span><span class="p">()</span>
-    <span class="n">chunk_gdf</span><span class="p">[</span><span class="s2">&quot;flat_idx&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">chunk_gdf</span><span class="o">.</span><span class="n">index</span>
-    <span class="c1"># Split the like raster up into sub rasters. One for each chunk. Flatten</span>
-    <span class="c1"># into a 1D list of rasters.</span>
-    <span class="n">like_chunk_rasters</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">like</span><span class="o">.</span><span class="n">get_chunk_rasters</span><span class="p">()</span><span class="o">.</span><span class="n">ravel</span><span class="p">())</span>
-    <span class="c1"># Perform a spatial join between the vector partition bounding polygons and</span>
-    <span class="c1"># the chunk extents from the like raster. This produces a dataframe with a</span>
-    <span class="c1"># row for each intersection. It is sorted so that partition order is</span>
-    <span class="c1"># preserved. This sorting allows later partitions to take precedence over</span>
-    <span class="c1"># earlier partitions.</span>
-    <span class="n">matches</span> <span class="o">=</span> <span class="n">sparts</span><span class="o">.</span><span class="n">sjoin</span><span class="p">(</span><span class="n">chunk_gdf</span><span class="p">)</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="s2">&quot;part_idx&quot;</span><span class="p">)</span>
     <span class="c1"># Each element is either None or a list of 2D dask arrays</span>
     <span class="n">raw_chunk_list</span> <span class="o">=</span> <span class="n">_rasterize_spatial_matches</span><span class="p">(</span>
         <span class="n">matches</span><span class="p">,</span>

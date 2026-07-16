@@ -607,6 +607,26 @@ document.write(`
     <span class="k">return</span> <span class="n">_EXT_TO_DRIVER</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">_get_extension</span><span class="p">(</span><span class="n">path</span><span class="p">))</span>
 
 
+<span class="c1"># Drivers that support native Int64/UInt64 rasters on a capable GDAL.</span>
+<span class="c1"># The COG writer stages through a temporary GTiff, so it inherits GTiff&#39;s</span>
+<span class="c1"># support.</span>
+<span class="n">_DRIVERS_WITH_INT64</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="s2">&quot;GTiff&quot;</span><span class="p">,</span> <span class="s2">&quot;COG&quot;</span><span class="p">})</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_supports_native_int64</span><span class="p">(</span><span class="n">driver</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Whether native int64 writes work for the resolved ``driver``.</span>
+
+<span class="sd">    GDAL added native Int64/UInt64 GeoTIFF support in 3.5;</span>
+<span class="sd">    ``check_dtype`` reflects the running GDAL&#39;s global dtype support.</span>
+<span class="sd">    A resolved driver outside the known-good set (including ``None``,</span>
+<span class="sd">    which means GDAL would infer the driver from an unmapped extension)</span>
+<span class="sd">    is treated conservatively as unsupported.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">rasterio.dtypes</span><span class="w"> </span><span class="kn">import</span> <span class="n">check_dtype</span>
+
+    <span class="k">return</span> <span class="n">driver</span> <span class="ow">in</span> <span class="n">_DRIVERS_WITH_INT64</span> <span class="ow">and</span> <span class="n">check_dtype</span><span class="p">(</span><span class="s2">&quot;int64&quot;</span><span class="p">)</span>
+
+
 <span class="k">def</span><span class="w"> </span><span class="nf">_gtiff_translate</span><span class="p">(</span><span class="n">opts</span><span class="p">):</span>
     <span class="n">out</span> <span class="o">=</span> <span class="p">{}</span>
     <span class="n">tiled</span> <span class="o">=</span> <span class="n">opts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;tiled&quot;</span><span class="p">)</span>
@@ -779,16 +799,51 @@ document.write(`
             <span class="sa">f</span><span class="s2">&quot;Writing files with extension </span><span class="si">{</span><span class="n">ext</span><span class="si">!r}</span><span class="s2"> is not supported&quot;</span>
         <span class="p">)</span>
 
+    <span class="n">resolved_driver</span> <span class="o">=</span> <span class="n">_resolve_driver</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">driver</span><span class="p">)</span>
+
     <span class="n">rio_is_bool</span> <span class="o">=</span> <span class="kc">False</span>
     <span class="k">if</span> <span class="n">xrs</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">I64</span><span class="p">:</span>
-        <span class="c1"># GDAL doesn&#39;t support I64; cast up to F64 so to_raster won&#39;t reject.</span>
-        <span class="n">xrs</span> <span class="o">=</span> <span class="n">xrs</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">F64</span><span class="p">)</span>
+        <span class="n">nv</span> <span class="o">=</span> <span class="n">xrs</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">nodata</span>
+        <span class="c1"># GDAL stores a GeoTIFF nodata value as a C double. Its Int64</span>
+        <span class="c1"># nodata handling is only reliable for magnitudes up to 2**53;</span>
+        <span class="c1"># larger sentinels (including int64&#39;s default null, -2**63) are</span>
+        <span class="c1"># mangled on write, which would silently drop the null mask on</span>
+        <span class="c1"># reload. Treat such a null as unpreservable by a native write.</span>
+        <span class="n">null_preservable</span> <span class="o">=</span> <span class="n">nv</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="o">-</span><span class="p">(</span><span class="mi">2</span><span class="o">**</span><span class="mi">53</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">nv</span> <span class="o">&lt;=</span> <span class="mi">2</span><span class="o">**</span><span class="mi">53</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">_supports_native_int64</span><span class="p">(</span><span class="n">resolved_driver</span><span class="p">):</span>
+            <span class="c1"># Older GDAL builds lack native int64 raster support; cast up</span>
+            <span class="c1"># to F64 so to_raster won&#39;t reject the array.</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                <span class="s2">&quot;This GDAL build lacks native int64 raster support; the&quot;</span>
+                <span class="s2">&quot; array will be written as float64. Values above 2**53&quot;</span>
+                <span class="s2">&quot; may lose precision, and the file will read back as&quot;</span>
+                <span class="s2">&quot; float64 (cast it back with .astype(&#39;int64&#39;) after&quot;</span>
+                <span class="s2">&quot; loading if needed).&quot;</span><span class="p">,</span>
+                <span class="ne">UserWarning</span><span class="p">,</span>
+                <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">xrs</span> <span class="o">=</span> <span class="n">xrs</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">F64</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="ow">not</span> <span class="n">null_preservable</span><span class="p">:</span>
+            <span class="c1"># Native int64 is available, but GeoTIFF&#39;s float nodata</span>
+            <span class="c1"># field cannot hold this null value, so a native write would</span>
+            <span class="c1"># lose the mask. Cast to F64, which stores the null exactly</span>
+            <span class="c1"># as a double and keeps the mask intact.</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                <span class="s2">&quot;The int64 null value cannot be represented in a&quot;</span>
+                <span class="s2">&quot; GeoTIFF nodata field; the array will be written as&quot;</span>
+                <span class="s2">&quot; float64 to preserve the null mask. Values above 2**53&quot;</span>
+                <span class="s2">&quot; may lose precision, and the file will read back as&quot;</span>
+                <span class="s2">&quot; float64 (cast it back with .astype(&#39;int64&#39;) after&quot;</span>
+                <span class="s2">&quot; loading if needed).&quot;</span><span class="p">,</span>
+                <span class="ne">UserWarning</span><span class="p">,</span>
+                <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">xrs</span> <span class="o">=</span> <span class="n">xrs</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">F64</span><span class="p">)</span>
     <span class="k">elif</span> <span class="n">is_bool</span><span class="p">(</span><span class="n">xrs</span><span class="o">.</span><span class="n">dtype</span><span class="p">):</span>
         <span class="c1"># GDAL doesn&#39;t support bool; encode as uint8.</span>
         <span class="n">rio_is_bool</span> <span class="o">=</span> <span class="kc">True</span>
         <span class="n">xrs</span> <span class="o">=</span> <span class="n">xrs</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">U8</span><span class="p">)</span>
 
-    <span class="n">resolved_driver</span> <span class="o">=</span> <span class="n">_resolve_driver</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">driver</span><span class="p">)</span>
     <span class="n">translator</span> <span class="o">=</span> <span class="n">_DRIVER_TRANSLATORS</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">resolved_driver</span><span class="p">)</span>
     <span class="n">creation_opts</span> <span class="o">=</span> <span class="p">{}</span>
     <span class="k">if</span> <span class="n">translator</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
