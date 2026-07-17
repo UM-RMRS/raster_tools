@@ -44,7 +44,9 @@ def init_heap_data(capacity: I64, max_value: I64):
     # be passed around in these functions.
     heap = np.zeros(1, dtype=HEAP_DT)
     heap[0].max_value = max_value
-    heap[0].levels = 0
+    # Enforce a minimum of 1 level. A capacity-1 request would otherwise get
+    # levels=0, a keys array of length 2, and an out-of-bounds read in pop.
+    heap[0].levels = 1
     while 2 ** heap[0].levels < capacity:
         heap[0].levels += 1
     heap[0].min_levels = heap[0].levels
@@ -226,6 +228,6 @@ def pop(keys, values, crossrefs, heap):
     ii = i - ((1 << heap[0].levels) - 1)
     popped_key = keys[i]
     popped_value = values[ii]
-    if heap.count:
+    if heap[0].count > 0:
         keys, values = _remove(keys, values, crossrefs, heap, i)
     return keys, values, crossrefs, heap, popped_key, popped_value
