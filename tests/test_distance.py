@@ -398,27 +398,70 @@ def test_cost_distance_nonsquare_matches_numpy():
 # ---------------------------------------------------------------------------
 
 
+def _contested_costs():
+    # Uniform unit costs so path cost equals geometric path length. The
+    # null cell sits away from any path contested between the sources.
+    surf = np.ones((3, 6))
+    surf[0, 5] = -1
+    return Raster(surf).set_null_value(-1)
+
+
+def _make_contested_sources(kind):
+    # Sources at (0, 0) and (2, 5) for either source kind. Cell (2, 2) is
+    # 2 * sqrt(2) from (0, 0) via diagonal moves but 4 via orthogonal
+    # moves, while (2, 5) is 3 away either way, so the cell's nearest
+    # source flips when diagonal moves are disabled and all three outputs
+    # differ between connectivity 4 and 8.
+    if kind == "raster":
+        srcs = np.zeros((3, 6), dtype=np.int64)
+        srcs[0, 0] = 1
+        srcs[2, 5] = 2
+        return Raster(srcs).set_null_value(0)
+    return [[0, 0], [2, 5]]
+
+
+@pytest.mark.parametrize("kind", ["raster", "index"])
+def test_connectivity_changes_contested_outputs(kind):
+    # Guard for the wrapper forwarding tests below: a wrapper that drops
+    # the connectivity argument is only detectable while the two
+    # connectivities disagree on every output for this cost surface.
+    outputs = {
+        conn: distance.cost_distance_analysis(
+            _contested_costs(),
+            _make_contested_sources(kind),
+            connectivity=conn,
+        )
+        for conn in (4, 8)
+    }
+    al4 = outputs[4][2].to_numpy()
+    al8 = outputs[8][2].to_numpy()
+    assert al4[0, 2, 2] != al8[0, 2, 2]
+    for r4, r8 in zip(outputs[4], outputs[8], strict=True):
+        assert not np.array_equal(r4.to_numpy(), r8.to_numpy())
+
+
 @pytest.mark.parametrize("connectivity", [8, 4])
 @pytest.mark.parametrize("kind", ["raster", "index"])
-def test_cda_wrappers_match_full(costs, kind, connectivity):
+def test_cda_wrappers_match_full(kind, connectivity):
+    costs = _contested_costs()
     cd, tr, al = distance.cost_distance_analysis(
-        costs, _make_sources(kind), connectivity=connectivity
+        costs, _make_contested_sources(kind), connectivity=connectivity
     )
     assert_rasters_equal(
         distance.cda_cost_distance(
-            costs, _make_sources(kind), connectivity=connectivity
+            costs, _make_contested_sources(kind), connectivity=connectivity
         ),
         cd,
     )
     assert_rasters_equal(
         distance.cda_traceback(
-            costs, _make_sources(kind), connectivity=connectivity
+            costs, _make_contested_sources(kind), connectivity=connectivity
         ),
         tr,
     )
     assert_rasters_equal(
         distance.cda_allocation(
-            costs, _make_sources(kind), connectivity=connectivity
+            costs, _make_contested_sources(kind), connectivity=connectivity
         ),
         al,
     )
