@@ -122,6 +122,7 @@ def _cost_distance_analysis_core(
     flat_elev,
     elevation_null_value,
     use_elevation,
+    use_diagonals,
 ):
     size: int64 = flat_costs.size
     # The cumulative cost distance to every pixel from the sources
@@ -231,7 +232,10 @@ def _cost_distance_analysis_core(
         is_at_edge = top or bottom or left or right
 
         # Look at neighborhood
-        for i in range(8):
+        # Diagonal moves live at the odd indices of the move table, so
+        # stepping by 2 visits only the four orthogonal neighbors.
+        step = 1 if use_diagonals else 2
+        for i in range(0, 8, step):
             if is_at_edge:
                 move = _MOVES[i]
                 bad_move = (
@@ -292,13 +296,15 @@ def cost_distance_analysis_numpy(
     elevation=None,
     elevation_null_value=0,
     scaling=1.0,
+    connectivity=8,
 ):
     """
     Calculate accumulated cost distance, traceback, and allocation.
 
     This function uses Dijkstra's algorithm to compute the many-sources
     shortest-paths solution for a given cost surface. Valid moves are from a
-    given pixel to its 8 nearest neighbors. This produces 3 2D arrays. The
+    given pixel to its 8 nearest neighbors (or, with ``connectivity=4``, to
+    the 4 orthogonal neighbors only). This produces 3 2D arrays. The
     first is the accumulated cost distance, which contains the
     distance-weighted accumulated minimum cost to each pixel. The cost to move
     from one pixel to the next is ``length * mean(costs[i], costs[i+1])``,
@@ -322,7 +328,9 @@ def cost_distance_analysis_numpy(
     6 indicates the neighbor immediately above. In terms of rows and columns,
     these are the neighbor one column over and one row above, respectively. a
     value of -1 indicates that the current pixel is a source pixel and -2
-    indicates that the pixel was not traversed (no data or a barrier).
+    indicates that the pixel was not traversed (no data or a barrier). With
+    ``connectivity=4`` only the orthogonal neighbor values {0, 2, 4, 6}
+    (right, down, left, up neighbors) can appear.
 
     The third array contians the source allocation for each pixel. Each pixel
     is labeled based on the source location that is closest in terms of cost
@@ -346,6 +354,10 @@ def cost_distance_analysis_numpy(
     scaling : scalar or 1D sequence, optional
         The scaling to use in each direction. For a grid with 30m scale, this
         would be 30. Default is 1.
+    connectivity : int, optional
+        The number of neighbor moves to allow. 8 (default) permits moves to
+        all 8 neighbors; 4 restricts moves to the 4 orthogonal neighbors.
+        Any other value raises a `ValueError`.
 
     Returns
     -------
@@ -393,6 +405,10 @@ def cost_distance_analysis_numpy(
     if any(scaling <= 0):
         raise ValueError("Scaling values must be greater than 0")
 
+    if connectivity not in (4, 8):
+        raise ValueError(f"connectivity must be 4 or 8, got {connectivity!r}")
+    use_diagonals = connectivity == 8
+
     flat_costs = costs.ravel()
     flat_elev = elevation.ravel()
     flat_sources = sources.ravel()
@@ -419,6 +435,7 @@ def cost_distance_analysis_numpy(
         flat_elev,
         elevation_null_value,
         use_elevation,
+        use_diagonals,
     )
     cost_distance = flat_cost_distance.reshape(shape)
     traceback = flat_traceback.reshape(shape)
@@ -448,12 +465,13 @@ def _normalize_raster_data(rs, missing=-1):
 _TRACEBACK_NOT_REACHED = -2
 
 
-def cost_distance_analysis(costs, sources, elevation=None):
+def cost_distance_analysis(costs, sources, elevation=None, connectivity=8):
     """Calculate accumulated cost distance, traceback, and allocation.
 
     This function uses Dijkstra's algorithm to compute the many-sources
     shortest-paths solution for a given cost surface. Valid moves are from a
-    given pixel to its 8 nearest neighbors. This produces 3 rasters. The
+    given pixel to its 8 nearest neighbors (or, with ``connectivity=4``, to
+    the 4 orthogonal neighbors only). This produces 3 rasters. The
     first is the accumulated cost distance, which contains the
     distance-weighted accumulated minimum cost to each pixel. The cost to move
     from one pixel to the next is ``length * mean(costs[i], costs[i+1])``,
@@ -479,7 +497,10 @@ def cost_distance_analysis(costs, sources, elevation=None):
     7 indicates the neighbor immediately above. In terms of rows and columns,
     these are the neighbor +1 column over and +1 row above, respectively. a
     value of 0 indicates that the current pixel is a source pixel and -1
-    indicates that the pixel was not traversed due to a null value.
+    indicates that the pixel was not traversed due to a null value. With
+    ``connectivity=4`` only the orthogonal codes {1, 3, 5, 7} (1=right,
+    3=down, 5=left, 7=up) appear. 4-connectivity prevents paths from
+    corner-cutting diagonally between adjacent barrier or null cells.
 
     The third raster contains the source allocation for each pixel. Each pixel
     is labeled based on the source location that is closest in terms of cost
@@ -503,6 +524,11 @@ def cost_distance_analysis(costs, sources, elevation=None):
         A raster containing elevation values on the same grid as `costs`. If
         provided, the elevation values are used when calculating the travel
         distance between pixels. This makes the algorithm 3D aware.
+    connectivity : int, optional
+        The number of neighbor moves to allow. 8 (default) permits moves to
+        all 8 neighbors; 4 restricts moves to the 4 orthogonal neighbors,
+        which prevents paths from corner-cutting diagonally between adjacent
+        barrier or null cells. Any other value raises a `ValueError`.
 
     Returns
     -------
@@ -603,6 +629,7 @@ def cost_distance_analysis(costs, sources, elevation=None):
         elevation=edata,
         elevation_null_value=elevation_null_value,
         scaling=scaling,
+        connectivity=connectivity,
     )
     # Make lazy and add band dim. Chunk to match the costs raster so the
     # data and mask chunk grids agree.
@@ -653,7 +680,7 @@ def cost_distance_analysis(costs, sources, elevation=None):
     return cd, tr, al
 
 
-def cda_cost_distance(costs, sources, elevation=None):
+def cda_cost_distance(costs, sources, elevation=None, connectivity=8):
     """Calculate just the cost distance for a cost surface
 
     See cost_distance_analysis for a full description.
@@ -675,6 +702,10 @@ def cda_cost_distance(costs, sources, elevation=None):
         A raster containing elevation values on the same grid as `costs`. If
         provided, the elevation values are used when calculating the travel
         distance between pixels. This makes the algorithm 3D aware.
+    connectivity : int, optional
+        The number of neighbor moves to allow. 8 (default) permits moves to
+        all 8 neighbors; 4 restricts moves to the 4 orthogonal neighbors. Any
+        other value raises a `ValueError`.
 
     Returns
     -------
@@ -687,11 +718,13 @@ def cda_cost_distance(costs, sources, elevation=None):
     cost_distance_analysis : Full cost distance solution
 
     """
-    cost_dist, _, _ = cost_distance_analysis(costs, sources, elevation)
+    cost_dist, _, _ = cost_distance_analysis(
+        costs, sources, elevation, connectivity
+    )
     return cost_dist
 
 
-def cda_traceback(costs, sources, elevation=None):
+def cda_traceback(costs, sources, elevation=None, connectivity=8):
     """Calculate just the cost distance traceback for a cost surface.
 
     See cost_distance_analysis for a full description.
@@ -713,6 +746,10 @@ def cda_traceback(costs, sources, elevation=None):
         A raster containing elevation values on the same grid as `costs`. If
         provided, the elevation values are used when calculating the travel
         distance between pixels. This makes the algorithm 3D aware.
+    connectivity : int, optional
+        The number of neighbor moves to allow. 8 (default) permits moves to
+        all 8 neighbors; 4 restricts moves to the 4 orthogonal neighbors. Any
+        other value raises a `ValueError`.
 
     Returns
     -------
@@ -725,11 +762,11 @@ def cda_traceback(costs, sources, elevation=None):
     cost_distance_analysis : Full cost distance solution
 
     """
-    _, trb, _ = cost_distance_analysis(costs, sources, elevation)
+    _, trb, _ = cost_distance_analysis(costs, sources, elevation, connectivity)
     return trb
 
 
-def cda_allocation(costs, sources, elevation=None):
+def cda_allocation(costs, sources, elevation=None, connectivity=8):
     """Calculate just the cost distance allocation for a cost surface.
 
     See cost_distance_analysis for a full description.
@@ -751,6 +788,10 @@ def cda_allocation(costs, sources, elevation=None):
         A raster containing elevation values on the same grid as `costs`. If
         provided, the elevation values are used when calculating the travel
         distance between pixels. This makes the algorithm 3D aware.
+    connectivity : int, optional
+        The number of neighbor moves to allow. 8 (default) permits moves to
+        all 8 neighbors; 4 restricts moves to the 4 orthogonal neighbors. Any
+        other value raises a `ValueError`.
 
     Returns
     -------
@@ -763,5 +804,7 @@ def cda_allocation(costs, sources, elevation=None):
     cost_distance_analysis : Full cost distance solution
 
     """
-    _, _, alloc = cost_distance_analysis(costs, sources, elevation)
+    _, _, alloc = cost_distance_analysis(
+        costs, sources, elevation, connectivity
+    )
     return alloc

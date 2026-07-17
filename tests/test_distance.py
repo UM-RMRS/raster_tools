@@ -262,6 +262,36 @@ def test_cost_distance_analysis_errors(name):
         distance.cost_distance_analysis(cs, srcs, elev)
 
 
+@pytest.mark.parametrize("connectivity", [0, 1, 5, 16, -8])
+def test_cost_distance_analysis_connectivity_invalid_raises(connectivity):
+    # The Raster function validates eagerly, so the numpy-level ValueError
+    # surfaces at call time here too.
+    cs = Raster(COST_SURF).set_null_value(-1)
+    srcs = Raster(SOURCES).set_null_value(0)
+    with pytest.raises(ValueError, match="connectivity must be 4 or 8"):
+        distance.cost_distance_analysis(cs, srcs, connectivity=connectivity)
+
+
+def test_cost_distance_analysis_connectivity_4_masks_unreachable():
+    # The source's only orthogonal neighbors are barriers, so under 4-conn
+    # the rest of the grid is unreachable; under 8-conn the source corner-cuts
+    # diagonally through the gap and reaches everything.
+    arr = np.ones((4, 4), dtype=np.float64)
+    arr[0, 1] = -1.0
+    arr[1, 0] = -1.0
+    cs = Raster(arr[None]).set_null_value(-1)
+    srcs = np.array([[0, 0]])
+    cd8, tr8, al8 = distance.cost_distance_analysis(cs, srcs, connectivity=8)
+    assert not cd8.mask.compute()[0][3, 3]
+    cd4, tr4, al4 = distance.cost_distance_analysis(cs, srcs, connectivity=4)
+    for out in (cd4, tr4, al4):
+        assert_valid_raster(out)
+        data = out.to_numpy()[0]
+        mask = out.mask.compute()[0]
+        assert mask[3, 3]
+        assert data[3, 3] == out.null_value
+
+
 def test_cost_distance_analysis_scale_isotropic():
     # 5m isotropic resolution via a real affine (no private _ds surgery).
     cs = data_to_raster(
@@ -368,17 +398,29 @@ def test_cost_distance_nonsquare_matches_numpy():
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.parametrize("connectivity", [8, 4])
 @pytest.mark.parametrize("kind", ["raster", "index"])
-def test_cda_wrappers_match_full(costs, kind):
-    cd, tr, al = distance.cost_distance_analysis(costs, _make_sources(kind))
-    assert_rasters_equal(
-        distance.cda_cost_distance(costs, _make_sources(kind)), cd
+def test_cda_wrappers_match_full(costs, kind, connectivity):
+    cd, tr, al = distance.cost_distance_analysis(
+        costs, _make_sources(kind), connectivity=connectivity
     )
     assert_rasters_equal(
-        distance.cda_traceback(costs, _make_sources(kind)), tr
+        distance.cda_cost_distance(
+            costs, _make_sources(kind), connectivity=connectivity
+        ),
+        cd,
     )
     assert_rasters_equal(
-        distance.cda_allocation(costs, _make_sources(kind)), al
+        distance.cda_traceback(
+            costs, _make_sources(kind), connectivity=connectivity
+        ),
+        tr,
+    )
+    assert_rasters_equal(
+        distance.cda_allocation(
+            costs, _make_sources(kind), connectivity=connectivity
+        ),
+        al,
     )
 
 
@@ -754,12 +796,15 @@ def _scaling_pair(scaling):
     return float(scaling[0]), float(scaling[1])
 
 
-def _build_oracle_graph(costs, scaling, elevation, elev_null):
+def _build_oracle_graph(
+    costs, scaling, elevation, elev_null, moves=_ORACLE_MOVES
+):
     """Build the scipy grid graph and the shared 'valid cell' predicate.
 
     A cell is a node iff it is non-barrier (cost >= 0 and finite) and, with
     elevation, non-null. The undirected edge weight between neighbors i and j
-    is ``L * 0.5 * (cost_i + cost_j)``.
+    is ``L * 0.5 * (cost_i + cost_j)``. `moves` selects the neighbor set so
+    the oracle can mirror 4- or 8-connectivity.
     """
     rows, cols = costs.shape
     sr, sc = _scaling_pair(scaling)
@@ -776,7 +821,7 @@ def _build_oracle_graph(costs, scaling, elevation, elev_null):
             if not valid(r, c):
                 continue
             i = r * cols + c
-            for dr, dc in _ORACLE_MOVES:
+            for dr, dc in moves:
                 nr, nc = r + dr, c + dc
                 if not (0 <= nr < rows and 0 <= nc < cols):
                     continue
@@ -790,16 +835,20 @@ def _build_oracle_graph(costs, scaling, elevation, elev_null):
     return graph, valid
 
 
-def _oracle_cost_distance(costs, sources, scaling, elevation, elev_null):
+def _oracle_cost_distance(
+    costs, sources, scaling, elevation, elev_null, moves=_ORACLE_MOVES
+):
     """Ground-truth cost distance via scipy Dijkstra on the grid graph."""
     rows, cols = costs.shape
-    graph, _ = _build_oracle_graph(costs, scaling, elevation, elev_null)
+    graph, _ = _build_oracle_graph(costs, scaling, elevation, elev_null, moves)
     src_cells = np.flatnonzero(sources.ravel() != -1)
     dist = dijkstra(graph, directed=False, indices=src_cells, min_only=True)
     return dist.reshape(rows, cols)
 
 
-def _assert_output_structure(cd, tr, al, sources, snull):
+def _assert_output_structure(
+    cd, tr, al, sources, snull, allowed_tracebacks=None
+):
     """Vectorized structural invariants shared by every oracle case."""
     assert cd.dtype == np.float64
     assert tr.dtype == np.int8
@@ -817,6 +866,8 @@ def _assert_output_structure(cd, tr, al, sources, snull):
     reached_ns = (~src_mask) & (tr != -2)
     assert np.all(tr[reached_ns] >= 0)
     assert np.all(tr[reached_ns] <= 7)
+    if allowed_tracebacks is not None:
+        assert np.all(np.isin(tr[reached_ns], sorted(allowed_tracebacks)))
     assert np.all(al[reached_ns] != snull)
     assert np.all(np.isfinite(cd[reached_ns]))
 
@@ -994,9 +1045,10 @@ _ORACLE_CATEGORIES = {
 }
 
 
+@pytest.mark.parametrize("connectivity", [8, 4])
 @pytest.mark.parametrize("seed", [0, 1, 2])
 @pytest.mark.parametrize("category", list(_ORACLE_CATEGORIES))
-def test_cost_distance_analysis_matches_oracle(category, seed):
+def test_cost_distance_analysis_matches_oracle(category, seed, connectivity):
     params = dict(_ORACLE_CATEGORIES[category])
     scaling = params.pop("scaling")
     costs, sources, elevation, elev_null = _random_case(seed, **params)
@@ -1007,8 +1059,19 @@ def test_cost_distance_analysis_matches_oracle(category, seed):
         elevation=elevation,
         elevation_null_value=(elev_null if elevation is not None else 0),
         scaling=scaling,
+        connectivity=connectivity,
     )
-    ref = _oracle_cost_distance(costs, sources, scaling, elevation, elev_null)
+    # Even indices of _ORACLE_MOVES are exactly the orthogonal moves, so the
+    # subset is derived, never hand-typed, and cannot drift from _ORACLE_MOVES.
+    if connectivity == 4:
+        oracle_moves = _ORACLE_MOVES[0::2]
+        allowed = {0, 2, 4, 6}
+    else:
+        oracle_moves = _ORACLE_MOVES
+        allowed = None
+    ref = _oracle_cost_distance(
+        costs, sources, scaling, elevation, elev_null, oracle_moves
+    )
     reached = np.isfinite(cd)
     assert np.array_equal(reached, np.isfinite(ref))
     # rtol=1e-12, atol=0.0 is safe even for zero_cost: path costs are either
@@ -1016,7 +1079,7 @@ def test_cost_distance_analysis_matches_oracle(category, seed):
     # smallest nonzero edge at these parameters). If the cost range is ever
     # widened toward 0, atol must become nonzero.
     assert np.allclose(cd[reached], ref[reached], rtol=1e-12, atol=0.0)
-    _assert_output_structure(cd, tr, al, sources, -1)
+    _assert_output_structure(cd, tr, al, sources, -1, allowed)
     _assert_traceback_consistent(
         cd, tr, al, costs, scaling, elevation, elev_null, -1
     )
@@ -1154,3 +1217,53 @@ def test_all_null_sources_unreached():
     assert np.all(np.isinf(cd))
     assert np.all(tr == -2)
     assert np.all(al == -1)
+
+
+# ---------------------------------------------------------------------------
+# Directed 4-connectivity tests (numpy level)
+# ---------------------------------------------------------------------------
+
+
+def test_cost_distance_connectivity_4_orthogonal_path():
+    # All-ones 3x3 with a single corner source. Under 8-conn the diagonal
+    # neighbor costs sqrt(2); under 4-conn it must be reached via two
+    # orthogonal moves for a cost of exactly 2.0, and only orthogonal
+    # traceback values may appear.
+    costs = np.ones((3, 3))
+    sources = _single_source((3, 3))
+    cd8, _, _ = cost_distance_analysis_numpy(
+        costs, sources, -1, connectivity=8
+    )
+    assert np.isclose(cd8[1, 1], np.sqrt(2.0))
+    cd4, tr4, _ = cost_distance_analysis_numpy(
+        costs, sources, -1, connectivity=4
+    )
+    assert np.isclose(cd4[1, 1], 2.0)
+    assert np.all(np.isin(tr4, [-2, -1, 0, 2, 4, 6]))
+
+
+def test_cost_distance_connectivity_4_diagonal_gap_unreachable():
+    # A 2x2 grid where the source and the far corner touch only diagonally,
+    # with the two orthogonal neighbors as barriers. 8-conn corner-cuts
+    # through the gap; 4-conn cannot, leaving the far corner unreached.
+    costs = np.array([[1.0, -1.0], [-1.0, 1.0]])
+    sources = np.array([[0, -1], [-1, -1]], dtype=np.int64)
+    cd8, _, _ = cost_distance_analysis_numpy(
+        costs, sources, -1, connectivity=8
+    )
+    assert np.isfinite(cd8[1, 1])
+    cd4, tr4, al4 = cost_distance_analysis_numpy(
+        costs, sources, -1, connectivity=4
+    )
+    assert np.isinf(cd4[1, 1])
+    assert tr4[1, 1] == -2
+    assert al4[1, 1] == -1
+
+
+@pytest.mark.parametrize("connectivity", [0, 1, 5, 16, -8])
+def test_cost_distance_connectivity_invalid_raises(connectivity):
+    costs = np.ones((4, 4))
+    with pytest.raises(ValueError, match="connectivity must be 4 or 8"):
+        cost_distance_analysis_numpy(
+            costs, _single_source((4, 4)), -1, connectivity=connectivity
+        )
