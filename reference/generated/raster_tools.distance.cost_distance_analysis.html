@@ -490,11 +490,12 @@ document.write(`
 <h1>raster_tools.distance.cost_distance_analysis<a class="headerlink" href="#raster-tools-distance-cost-distance-analysis" title="Permalink to this headline">#</a></h1>
 <dl class="py function">
 <dt class="sig sig-object py" id="raster_tools.distance.cost_distance_analysis">
-<span class="sig-prename descclassname"><span class="pre">raster_tools.distance.</span></span><span class="sig-name descname"><span class="pre">cost_distance_analysis</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">costs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sources</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">elevation</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/raster_tools/distance/cost_distance.html#cost_distance_analysis"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.distance.cost_distance_analysis" title="Permalink to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">raster_tools.distance.</span></span><span class="sig-name descname"><span class="pre">cost_distance_analysis</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">costs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sources</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">elevation</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">connectivity</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">8</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/raster_tools/distance/cost_distance.html#cost_distance_analysis"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.distance.cost_distance_analysis" title="Permalink to this definition">#</a></dt>
 <dd><p>Calculate accumulated cost distance, traceback, and allocation.</p>
 <p>This function uses Dijkstra’s algorithm to compute the many-sources
 shortest-paths solution for a given cost surface. Valid moves are from a
-given pixel to its 8 nearest neighbors. This produces 3 rasters. The
+given pixel to its 8 nearest neighbors (or, with <code class="docutils literal notranslate"><span class="pre">connectivity=4</span></code>, to
+the 4 orthogonal neighbors only). This produces 3 rasters. The
 first is the accumulated cost distance, which contains the
 distance-weighted accumulated minimum cost to each pixel. The cost to move
 from one pixel to the next is <code class="docutils literal notranslate"><span class="pre">length</span> <span class="pre">*</span> <span class="pre">mean(costs[i],</span> <span class="pre">costs[i+1])</span></code>,
@@ -502,7 +503,9 @@ where <code class="docutils literal notranslate"><span class="pre">length</span>
 diagonal moves. The <cite>costs</cite> raster’s resolution informs the actual scaling
 to use. Source locations have a cost of 0. If <cite>elevation</cite> provided, the
 length calculation incorporates the elevation data to make the algorithm 3D
-aware.</p>
+aware. Cells that cannot be reached by any source, along with cells that
+are null in <cite>costs</cite>, are null in all three output rasters. This matches
+the convention used by other GIS tools such as ESRI and GRASS.</p>
 <p>The second raster contains the traceback values for the solution. At each
 pixel, the stored value indicates the neighbor to move to in order to get
 closer to the cost-relative nearest source. The numbering is as follows:</p>
@@ -516,7 +519,10 @@ pixel positions. 1 indicates the neighbor immediately to the right and
 7 indicates the neighbor immediately above. In terms of rows and columns,
 these are the neighbor +1 column over and +1 row above, respectively. a
 value of 0 indicates that the current pixel is a source pixel and -1
-indicates that the pixel was not traversed due to a null value.</p>
+indicates that the pixel was not traversed due to a null value. With
+<code class="docutils literal notranslate"><span class="pre">connectivity=4</span></code> only the orthogonal codes {1, 3, 5, 7} (1=right,
+3=down, 5=left, 7=up) appear. 4-connectivity prevents paths from
+corner-cutting diagonally between adjacent barrier or null cells.</p>
 <p>The third raster contains the source allocation for each pixel. Each pixel
 is labeled based on the source location that is closest in terms of cost
 distance. The label is the value stored in the sources raster at the
@@ -536,12 +542,17 @@ the corresponding allocation value.</p></li>
 <li><p><strong>elevation</strong> (<a class="reference internal" href="raster_tools.Raster.html#raster_tools.Raster" title="raster_tools.Raster"><em>Raster</em></a><em> or </em><em>raster path</em><em>, </em><em>optional</em>) – A raster containing elevation values on the same grid as <cite>costs</cite>. If
 provided, the elevation values are used when calculating the travel
 distance between pixels. This makes the algorithm 3D aware.</p></li>
+<li><p><strong>connectivity</strong> (<em>int</em><em>, </em><em>optional</em>) – The number of neighbor moves to allow. 8 (default) permits moves to
+all 8 neighbors; 4 restricts moves to the 4 orthogonal neighbors,
+which prevents paths from corner-cutting diagonally between adjacent
+barrier or null cells. Any other value raises a <cite>ValueError</cite>.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
 <dd class="field-even"><p><ul class="simple">
 <li><p><strong>cost_distance</strong> (<em>Raster</em>) – The accumulated cost distance solution. This is the same shape as the
-<cite>costs</cite> input Raster and has the same null value.</p></li>
+<cite>costs</cite> input Raster and has the same null value, or the default
+null value for float64 if <cite>costs</cite> has none set.</p></li>
 <li><p><strong>traceback</strong> (<em>Raster</em>) – The traceback result. This is the same shape as the <cite>costs</cite> input
 Raster.</p></li>
 <li><p><strong>allocation</strong> (<em>Raster</em>) – The allocation result. This is the same shape as the <cite>costs</cite> input

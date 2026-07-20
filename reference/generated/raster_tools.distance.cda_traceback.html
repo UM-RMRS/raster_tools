@@ -490,7 +490,7 @@ document.write(`
 <h1>raster_tools.distance.cda_traceback<a class="headerlink" href="#raster-tools-distance-cda-traceback" title="Permalink to this headline">#</a></h1>
 <dl class="py function">
 <dt class="sig sig-object py" id="raster_tools.distance.cda_traceback">
-<span class="sig-prename descclassname"><span class="pre">raster_tools.distance.</span></span><span class="sig-name descname"><span class="pre">cda_traceback</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">costs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sources</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">elevation</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/raster_tools/distance/cost_distance.html#cda_traceback"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.distance.cda_traceback" title="Permalink to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">raster_tools.distance.</span></span><span class="sig-name descname"><span class="pre">cda_traceback</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">costs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sources</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">elevation</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">connectivity</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">8</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/raster_tools/distance/cost_distance.html#cda_traceback"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.distance.cda_traceback" title="Permalink to this definition">#</a></dt>
 <dd><p>Calculate just the cost distance traceback for a cost surface.</p>
 <p>See cost_distance_analysis for a full description.</p>
 <dl class="field-list simple">
@@ -508,6 +508,9 @@ the corresponding allocation value.</p></li>
 <li><p><strong>elevation</strong> (<a class="reference internal" href="raster_tools.Raster.html#raster_tools.Raster" title="raster_tools.Raster"><em>Raster</em></a><em> or </em><em>raster path</em><em>, </em><em>optional</em>) – A raster containing elevation values on the same grid as <cite>costs</cite>. If
 provided, the elevation values are used when calculating the travel
 distance between pixels. This makes the algorithm 3D aware.</p></li>
+<li><p><strong>connectivity</strong> (<em>int</em><em>, </em><em>optional</em>) – The number of neighbor moves to allow. 8 (default) permits moves to
+all 8 neighbors; 4 restricts moves to the 4 orthogonal neighbors. Any
+other value raises a <cite>ValueError</cite>.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
