@@ -1626,6 +1626,7 @@ class Raster(_RasterBase):
         path,
         null_value=None,
         *,
+        color_table=None,
         driver=None,
         tiled=True,
         blocksize=None,
@@ -1648,6 +1649,24 @@ class Raster(_RasterBase):
         null_value : scalar, optional
             A new null value to use when saving. Defaults to the raster's
             current null value.
+        color_table : dict, array-like, str, pathlib.Path, optional
+            A discrete color palette to attach to the saved raster, mapping
+            cell values to colors. This can be a ``dict`` mapping raster
+            values to ``(r, g, b)`` or ``(r, g, b, a)`` components in the
+            range 0-255, an array-like of shape ``(N, 3)`` or ``(N, 4)``
+            where row ``i`` is the color for value ``i``, or the path to an
+            existing raster to copy the color table from. Only single band
+            uint8 and uint16 rasters can carry one. The default is to write
+            no color table.
+
+            .. note::
+               This is a lookup table indexed by cell value, not a
+               continuous ramp; a matplotlib-style colormap name such as
+               ``"viridis"`` is not accepted.
+
+            .. note::
+               Alpha components are dropped when writing a GeoTIFF, whose
+               color table has no room for them.
         driver : str, optional
             The GDAL driver to use. If not given, the driver is inferred from
             the file extension.
@@ -1720,6 +1739,7 @@ class Raster(_RasterBase):
         write_raster(
             xrs,
             path,
+            color_table=color_table,
             driver=driver,
             tiled=tiled,
             blocksize=blocksize,

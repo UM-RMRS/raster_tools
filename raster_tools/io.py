@@ -10,7 +10,16 @@ import xarray as xr
 from affine import Affine
 from dask.array.core import normalize_chunks as dask_chunks
 
-from raster_tools.dtypes import F32, F64, I64, U8, is_bool, is_float, is_int
+from raster_tools.dtypes import (
+    F32,
+    F64,
+    I64,
+    U8,
+    U16,
+    is_bool,
+    is_float,
+    is_int,
+)
 from raster_tools.exceptions import (
     AffineEncodingError,
     DimensionsError,
@@ -339,10 +348,193 @@ def _auto_overview_factors(height, width, min_size=256):
     return factors
 
 
+# GDAL only supports color tables on Byte and UInt16 rasters. Other dtypes
+# accept the write call without error but store nothing, so the dtype is
+# checked up front rather than letting the palette be dropped silently.
+COLOR_TABLE_DTYPES = frozenset((U8, U16))
+
+# A GeoTIFF color table is three 16-bit planes of red, green, and blue with
+# no room for alpha. Other palette formats, such as PNG and GIF, do store it.
+_COLOR_TABLE_DRIVERS_WITHOUT_ALPHA = frozenset({"GTiff", "COG"})
+
+# Overview resampling methods that average or interpolate cell values. Applied
+# to palette indices they produce indices that do not correspond to the
+# original colors, so the overviews render as noise.
+_INTERPOLATING_RESAMPLING = frozenset(
+    {
+        "average",
+        "average_magphase",
+        "bilinear",
+        "cubic",
+        "cubic_spline",
+        "gauss",
+        "lanczos",
+        "rms",
+    }
+)
+
+
+def _read_color_table_from_file(path, band=1):
+    validate_path(path)
+    try:
+        with rio.open(path) as src:
+            return src.colormap(band)
+    except rio.errors.RasterioIOError as e:
+        raise RasterIOError(
+            f"Could not open {str(path)!r} to read a color table from."
+        ) from e
+    except ValueError as e:
+        raise RasterIOError(
+            f"Band {band} of {str(path)!r} does not have a color table."
+        ) from e
+
+
+def _color_table_spec_to_entries(color_table):
+    """Coerce a color table spec to an ``{index: components}`` mapping.
+
+    Also reports whether the entries were read from a file, since a table
+    GDAL hands back carries padding that a caller never asked for.
+    """
+    if isinstance(color_table, (str, os.PathLike)):
+        return _read_color_table_from_file(color_table), True
+    if isinstance(color_table, dict):
+        return color_table, False
+    entries = np.asarray(color_table)
+    if entries.ndim != 2 or entries.shape[-1] not in (3, 4):
+        raise ValueError(
+            "An array-like color table must have shape (N, 3) or (N, 4). Got"
+            f" shape {entries.shape}."
+        )
+    return dict(enumerate(entries.tolist())), False
+
+
+def normalize_color_table(color_table, dtype, driver=None):
+    """Validate a color table spec and return a mapping GDAL can write.
+
+    Parameters
+    ----------
+    color_table : dict, array-like, str, pathlib.Path
+        The color table to normalize. A ``dict`` maps raster values to
+        ``(r, g, b)`` or ``(r, g, b, a)`` components in the range 0-255. An
+        array-like of shape ``(N, 3)`` or ``(N, 4)`` is treated as a lookup
+        table where row ``i`` is the color for value ``i``. A path is opened
+        and the color table on its first band is used.
+    dtype : numpy.dtype
+        The dtype of the data being written. Used to bound the valid value
+        range.
+    driver : str, optional
+        The GDAL driver the color table will be written with. Used to decide
+        whether alpha components can be kept. The default assumes they can.
+
+    Returns
+    -------
+    dict
+        Maps each value to a 4-tuple of ints. Alpha is forced to 255 for
+        drivers whose palette format has no room for it.
+
+    """
+    dtype = np.dtype(dtype)
+    if dtype not in COLOR_TABLE_DTYPES:
+        raise ValueError(
+            "Color tables are only supported for uint8 and uint16 rasters."
+            f" Got dtype {str(dtype)!r}."
+        )
+    entries, from_file = _color_table_spec_to_entries(color_table)
+    if not entries:
+        raise ValueError("The given color table was empty.")
+    keeps_alpha = driver not in _COLOR_TABLE_DRIVERS_WITHOUT_ALPHA
+
+    max_value = np.iinfo(dtype).max
+    normalized = {}
+    alpha_dropped = False
+    for value, components in entries.items():
+        if not is_int(value) or not 0 <= value <= max_value:
+            if from_file:
+                # GDAL pads a table it reads out to the full index range of
+                # the source dtype, so a wider source carries entries this
+                # dtype cannot index. Those are padding, not intent.
+                continue
+            raise ValueError(
+                "Color table values must be integers in the range"
+                f" [0, {max_value}] for dtype {str(dtype)!r}. Got {value!r}."
+            )
+        try:
+            components = tuple(components)
+        except TypeError as e:
+            raise ValueError(
+                "Color table colors must be a sequence of 3 (RGB) or 4 (RGBA)"
+                f" components. Got {components!r} for value {value}."
+            ) from e
+        if len(components) not in (3, 4):
+            raise ValueError(
+                "Color table colors must have 3 (RGB) or 4 (RGBA) components."
+                f" Got {components!r} for value {value}."
+            )
+        if not all(is_int(c) and 0 <= c <= 255 for c in components):
+            raise ValueError(
+                "Color table color components must be integers in the range"
+                f" [0, 255]. Got {components!r} for value {value}."
+            )
+        alpha = components[3] if len(components) == 4 else 255
+        if not keeps_alpha and alpha != 255:
+            alpha_dropped = True
+            alpha = 255
+        normalized[int(value)] = (
+            *(int(c) for c in components[:3]),
+            int(alpha),
+        )
+
+    if not normalized:
+        raise ValueError(
+            "The given color table had no entries that a"
+            f" {str(dtype)!r} raster can index."
+        )
+    if alpha_dropped:
+        warnings.warn(
+            f"The {driver} color table cannot store alpha; the alpha"
+            " components of the given color table were dropped. Use the null"
+            " value to mark cells that should not be rendered.",
+            UserWarning,
+            stacklevel=4,
+        )
+    return normalized
+
+
+def _blends_palette_overviews(overviews, resampling, yx_shape):
+    """Whether overviews would be built by blending palette indices.
+
+    Averaging or interpolating palette indices yields indices that no longer
+    correspond to the original colors. Only reports ``True`` when overviews
+    will actually be built, so a raster too small for the auto chain does not
+    draw a warning about output that will not exist.
+    """
+    if not overviews:
+        return False
+    if str(resampling).lower() not in _INTERPOLATING_RESAMPLING:
+        return False
+    if overviews is True:
+        return bool(_auto_overview_factors(*yx_shape))
+    return bool(list(overviews))
+
+
+def _attach_color_table(path, color_table):
+    """Write `color_table` to the first band of an already written raster.
+
+    Writing the color table also switches the file's photometric
+    interpretation to palette, which is what makes strict readers honor it.
+    Requesting the palette photometric as a creation option on top of this
+    only reserves a second color table block that nothing reads, so the tag
+    is left to this call and pinned by the tests instead.
+    """
+    with rio.open(path, "r+") as ds:
+        ds.write_colormap(1, color_table)
+
+
 def write_raster(
     xrs,
     path,
     *,
+    color_table=None,
     driver=None,
     tiled=True,
     blocksize=None,
@@ -406,6 +598,30 @@ def write_raster(
         rio_is_bool = True
         xrs = xrs.astype(U8)
 
+    if color_table is not None:
+        # 2D input is a single band; only a real band dim can hold more.
+        nbands = xrs.sizes.get("band", xrs.shape[0] if xrs.ndim == 3 else 1)
+        if nbands > 1:
+            raise ValueError(
+                "A color table can only be written for a single band raster."
+                f" This raster has {nbands} bands."
+            )
+        color_table = normalize_color_table(
+            color_table, xrs.dtype, resolved_driver
+        )
+        if _blends_palette_overviews(
+            overviews, overview_resampling, xrs.shape[-2:]
+        ):
+            warnings.warn(
+                f"overview_resampling={overview_resampling!r} blends cell"
+                " values together, which is not meaningful for values that"
+                " index a color table. The overviews will not match the"
+                " colors of the full resolution data. Use 'nearest' or"
+                " 'mode' instead.",
+                UserWarning,
+                stacklevel=3,
+            )
+
     translator = _DRIVER_TRANSLATORS.get(resolved_driver)
     creation_opts = {}
     if translator is not None:
@@ -441,6 +657,11 @@ def write_raster(
             tmp_path = tmpf.name
         try:
             xrs.rio.to_raster(tmp_path, lock=True, compute=True)
+            if color_table is not None:
+                # The COG driver has no palette creation option, but the copy
+                # carries the staged file's color table and photometric tag
+                # over, so the palette has to be in place before it runs.
+                _attach_color_table(tmp_path, color_table)
             rio_copy(tmp_path, path, driver="COG", **creation_opts)
         finally:
             if os.path.exists(tmp_path):
@@ -450,6 +671,8 @@ def write_raster(
         if driver is not None:
             to_raster_kwargs["driver"] = driver
         xrs.rio.to_raster(path, **to_raster_kwargs)
+        if color_table is not None:
+            _attach_color_table(path, color_table)
 
     if overviews and resolved_driver not in _DRIVERS_WITH_INTERNAL_OVERVIEWS:
         factors = (
