@@ -55,4 +55,4 @@ jobs:
 
       - name: Test ${{ matrix.env }}
         run: |
-          pytest -v -n 2
+          pytest -v -n auto
