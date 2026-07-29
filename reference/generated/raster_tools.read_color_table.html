@@ -9,7 +9,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
 
-    <title>raster_tools.Raster.to_vector &#8212; raster_tools 0.12.0 documentation</title>
+    <title>raster_tools.read_color_table &#8212; raster_tools 0.12.0 documentation</title>
   
   
   
@@ -41,11 +41,11 @@
     <script src="../../_static/underscore.js"></script>
     <script src="../../_static/doctools.js"></script>
     <script src="../../_static/scripts/sphinx-book-theme.js?digest=5a5c038af52cf7bc1a1ec88eea08e6366ee68824"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'reference/generated/raster_tools.Raster.to_vector';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'reference/generated/raster_tools.read_color_table';</script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
-    <link rel="next" title="raster_tools.Raster.index" href="raster_tools.Raster.index.html" />
-    <link rel="prev" title="raster_tools.Raster.to_numpy" href="raster_tools.Raster.to_numpy.html" />
+    <link rel="next" title="raster_tools.band_concat" href="raster_tools.band_concat.html" />
+    <link rel="prev" title="raster_tools.open_dataset" href="raster_tools.open_dataset.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="None"/>
   </head>
@@ -125,10 +125,10 @@
         <p aria-level="2" class="caption" role="heading"><span class="caption-text">Contents:</span></p>
 <ul class="current nav bd-sidenav">
 <li class="toctree-l1 current active has-children"><a class="reference internal" href="../index.html">API Reference</a><input checked="" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-1"><i class="fa-solid fa-chevron-down"></i></label><ul class="current">
-<li class="toctree-l2 has-children"><a class="reference internal" href="../top_level.html">Top Level Functions</a><input class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-2"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l2 current active has-children"><a class="reference internal" href="../top_level.html">Top Level Functions</a><input checked="" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-2"><i class="fa-solid fa-chevron-down"></i></label><ul class="current">
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.html">raster_tools.Raster</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.open_dataset.html">raster_tools.open_dataset</a></li>
-<li class="toctree-l3"><a class="reference internal" href="raster_tools.read_color_table.html">raster_tools.read_color_table</a></li>
+<li class="toctree-l3 current active"><a class="current reference internal" href="#">raster_tools.read_color_table</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.band_concat.html">raster_tools.band_concat</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.mosaic.html">raster_tools.mosaic</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.split_bands.html">raster_tools.split_bands</a></li>
@@ -162,7 +162,7 @@
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.open_vectors.html">raster_tools.open_vectors</a></li>
 </ul>
 </li>
-<li class="toctree-l2 current active has-children"><a class="reference internal" href="../raster.html">Raster Objects</a><input checked="" class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-3"><i class="fa-solid fa-chevron-down"></i></label><ul class="current">
+<li class="toctree-l2 has-children"><a class="reference internal" href="../raster.html">Raster Objects</a><input class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-3"><i class="fa-solid fa-chevron-down"></i></label><ul>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.html">raster_tools.Raster</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.dtype.html">raster_tools.Raster.dtype</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.shape.html">raster_tools.Raster.shape</a></li>
@@ -212,7 +212,7 @@
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.copy.html">raster_tools.Raster.copy</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.to_dataset.html">raster_tools.Raster.to_dataset</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.to_numpy.html">raster_tools.Raster.to_numpy</a></li>
-<li class="toctree-l3 current active"><a class="current reference internal" href="#">raster_tools.Raster.to_vector</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.to_vector.html">raster_tools.Raster.to_vector</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.index.html">raster_tools.Raster.index</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.set_crs.html">raster_tools.Raster.set_crs</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.xy.html">raster_tools.Raster.xy</a></li>
@@ -393,7 +393,7 @@
       
       
       
-      <li><a href="../../_sources/reference/generated/raster_tools.Raster.to_vector.rst" target="_blank"
+      <li><a href="../../_sources/reference/generated/raster_tools.read_color_table.rst" target="_blank"
    class="btn btn-sm btn-download-source-button dropdown-item"
    title="Download source file"
    data-bs-placement="left" data-bs-toggle="tooltip"
@@ -473,7 +473,7 @@ document.write(`
               
 
 <div id="jb-print-docs-body" class="onlyprint">
-    <h1>raster_tools.Raster.to_vector</h1>
+    <h1>raster_tools.read_color_table</h1>
     <!-- Table of contents -->
     <div id="print-main-content">
         <div id="jb-print-toc">
@@ -487,40 +487,48 @@ document.write(`
 <div id="searchbox"></div>
                 <article class="bd-article" role="main">
                   
-  <section id="raster-tools-raster-to-vector">
-<h1>raster_tools.Raster.to_vector<a class="headerlink" href="#raster-tools-raster-to-vector" title="Permalink to this headline">#</a></h1>
-<dl class="py method">
-<dt class="sig sig-object py" id="raster_tools.Raster.to_vector">
-<span class="sig-prename descclassname"><span class="pre">Raster.</span></span><span class="sig-name descname"><span class="pre">to_vector</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">as_polygons</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">neighbors</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">4</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/raster_tools/raster.html#Raster.to_vector"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.Raster.to_vector" title="Permalink to this definition">#</a></dt>
-<dd><p>Convert the raster to a vector.</p>
+  <section id="raster-tools-read-color-table">
+<h1>raster_tools.read_color_table<a class="headerlink" href="#raster-tools-read-color-table" title="Permalink to this headline">#</a></h1>
+<dl class="py function">
+<dt class="sig sig-object py" id="raster_tools.read_color_table">
+<span class="sig-prename descclassname"><span class="pre">raster_tools.</span></span><span class="sig-name descname"><span class="pre">read_color_table</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">band</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/raster_tools/io.html#read_color_table"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.read_color_table" title="Permalink to this definition">#</a></dt>
+<dd><p>Read the color table attached to a raster file.</p>
+<p>The table is returned exactly as it is stored, which for a GeoTIFF means
+padded out to the full index range of the band’s dtype: 256 entries for
+uint8 and 65536 for uint16, with undefined entries set to opaque black.
+An eight class table therefore comes back with 256 entries.</p>
+<p>The padding cannot be filtered out reliably. An undefined entry is
+<code class="docutils literal notranslate"><span class="pre">(0,</span> <span class="pre">0,</span> <span class="pre">0,</span> <span class="pre">255)</span></code>, which is indistinguishable from a deliberate black
+entry, and a black class is common in categorical data where it marks
+background. Trim the result against the values a raster actually uses if
+a compact table is needed.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>as_polygons</strong> (<em>bool</em><em>, </em><em>optional</em>) – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, the raster is converted to polygons/multi-polygon,
-each polyon/mult-polygon is made up of like-valued cells. Null
-cells are ignored. <code class="xref py py-meth docutils literal notranslate"><span class="pre">to_polygons()</span></code> for more information. If
-<code class="docutils literal notranslate"><span class="pre">False</span></code>, the raster is converted to points. Each non-null cell is
-a point in the output. See <code class="xref py py-meth docutils literal notranslate"><span class="pre">to_points()</span></code> for more information.
-Default is <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p></li>
-<li><p><strong>neighbors</strong> (<em>{4</em><em>, </em><em>8} int</em><em>, </em><em>optional</em>) – Used when <cite>as_polygons</cite> is <code class="docutils literal notranslate"><span class="pre">True</span></code>. This determines how many
-neighboring cells to consider when joining cells together to form
-polygons. Valid values are <code class="docutils literal notranslate"><span class="pre">4</span></code> and <code class="docutils literal notranslate"><span class="pre">8</span></code>. <code class="docutils literal notranslate"><span class="pre">8</span></code> causes diagonal
-neighbors to be used. Default is <code class="docutils literal notranslate"><span class="pre">4</span></code>.</p></li>
+<li><p><strong>path</strong> (<em>str</em><em>, </em><em>pathlib.Path</em>) – The path to the raster file to read the color table from.</p></li>
+<li><p><strong>band</strong> (<em>int</em><em>, </em><em>optional</em>) – The 1-based band to read the table from. The default is the first
+band. A raster file can only carry a table on its first band.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
-<dd class="field-even"><p>A <cite>GeoDataFrame</cite>. If <cite>as_polygons</cite> is <code class="docutils literal notranslate"><span class="pre">True</span></code>, the result is a
-dataframe with columns: value, band, geometry. The geometry column
-will contain polygons. If <code class="docutils literal notranslate"><span class="pre">False</span></code>, the result has columns: value,
-band, row, col, geometry. The geometry column will contain points.</p>
+<dd class="field-even"><p>Maps each raster value to an <code class="docutils literal notranslate"><span class="pre">(r,</span> <span class="pre">g,</span> <span class="pre">b,</span> <span class="pre">a)</span></code> tuple of ints in the
+range 0-255. The result can be handed straight back to
+<a class="reference internal" href="raster_tools.Raster.save.html#raster_tools.Raster.save" title="raster_tools.Raster.save"><code class="xref py py-meth docutils literal notranslate"><span class="pre">Raster.save()</span></code></a> as its <cite>color_table</cite> argument.</p>
 </dd>
 <dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p>dask_geopandas.GeoDataFrame</p>
+<dd class="field-odd"><p>dict</p>
+</dd>
+<dt class="field-even">Raises</dt>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>raster_tools.exceptions.RasterIOError</strong> – Raised if the file cannot be opened, or if the requested band has no
+    color table.</p></li>
+<li><p><strong>IndexError</strong> – Raised if <cite>band</cite> is not a band in the file.</p></li>
+</ul>
 </dd>
 </dl>
 <div class="admonition seealso">
 <p class="admonition-title">See also</p>
-<p><code class="xref py py-obj docutils literal notranslate"><span class="pre">Raster.to_points</span></code>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">Raster.to_polygons</span></code></p>
+<p><a class="reference internal" href="raster_tools.Raster.save.html#raster_tools.Raster.save" title="raster_tools.Raster.save"><code class="xref py py-obj docutils literal notranslate"><span class="pre">raster_tools.Raster.save</span></code></a></p>
 </div>
 </dd></dl>
 
@@ -539,20 +547,20 @@ band, row, col, geometry. The geometry column will contain points.</p>
     <div class="footer-article-item"><!-- Previous / next buttons -->
 <div class="prev-next-area">
     <a class="left-prev"
-       href="raster_tools.Raster.to_numpy.html"
+       href="raster_tools.open_dataset.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">raster_tools.Raster.to_numpy</p>
+        <p class="prev-next-title">raster_tools.open_dataset</p>
       </div>
     </a>
     <a class="right-next"
-       href="raster_tools.Raster.index.html"
+       href="raster_tools.band_concat.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">raster_tools.Raster.index</p>
+        <p class="prev-next-title">raster_tools.band_concat</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>

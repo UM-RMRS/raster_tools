@@ -128,6 +128,7 @@
 <li class="toctree-l2 current active has-children"><a class="current reference internal" href="#">Top Level Functions</a><input checked="" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-2"><i class="fa-solid fa-chevron-down"></i></label><ul>
 <li class="toctree-l3"><a class="reference internal" href="generated/raster_tools.Raster.html">raster_tools.Raster</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/raster_tools.open_dataset.html">raster_tools.open_dataset</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/raster_tools.read_color_table.html">raster_tools.read_color_table</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/raster_tools.band_concat.html">raster_tools.band_concat</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/raster_tools.mosaic.html">raster_tools.mosaic</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/raster_tools.split_bands.html">raster_tools.split_bands</a></li>
@@ -485,6 +486,7 @@ document.write(`
             <nav aria-label="Page">
                 <ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#opening-rasters">Opening Rasters</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#color-tables">Color Tables</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#combining-rasters">Combining Rasters</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#creating-rasters-from-a-template">Creating Rasters from a Template</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#constructing-rasters-from-data">Constructing Rasters from Data</a></li>
@@ -518,6 +520,20 @@ document.write(`
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="generated/raster_tools.open_dataset.html#raster_tools.open_dataset" title="raster_tools.open_dataset"><code class="xref py py-obj docutils literal notranslate"><span class="pre">open_dataset</span></code></a>(path[, crs, ...])</p></td>
 <td><p>Open a netCDF or GRIB dataset.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="color-tables">
+<h2>Color Tables<a class="headerlink" href="#color-tables" title="Permalink to this headline">#</a></h2>
+<table class="autosummary longtable table autosummary">
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 90%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/raster_tools.read_color_table.html#raster_tools.read_color_table" title="raster_tools.read_color_table"><code class="xref py py-obj docutils literal notranslate"><span class="pre">read_color_table</span></code></a>(path[, band])</p></td>
+<td><p>Read the color table attached to a raster file.</p></td>
 </tr>
 </tbody>
 </table>
@@ -743,6 +759,7 @@ document.write(`
   <nav class="bd-toc-nav page-toc">
     <ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#opening-rasters">Opening Rasters</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#color-tables">Color Tables</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#combining-rasters">Combining Rasters</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#creating-rasters-from-a-template">Creating Rasters from a Template</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#constructing-rasters-from-data">Constructing Rasters from Data</a></li>

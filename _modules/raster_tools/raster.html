@@ -125,6 +125,7 @@
 <li class="toctree-l2 has-children"><a class="reference internal" href="../../reference/top_level.html">Top Level Functions</a><input class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-2"><i class="fa-solid fa-chevron-down"></i></label><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.html">raster_tools.Raster</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.open_dataset.html">raster_tools.open_dataset</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.read_color_table.html">raster_tools.read_color_table</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.band_concat.html">raster_tools.band_concat</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.mosaic.html">raster_tools.mosaic</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.split_bands.html">raster_tools.split_bands</a></li>
@@ -2064,6 +2065,7 @@ document.write(`
         <span class="n">path</span><span class="p">,</span>
         <span class="n">null_value</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
         <span class="o">*</span><span class="p">,</span>
+        <span class="n">color_table</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
         <span class="n">driver</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
         <span class="n">tiled</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
         <span class="n">blocksize</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
@@ -2086,6 +2088,24 @@ document.write(`
 <span class="sd">        null_value : scalar, optional</span>
 <span class="sd">            A new null value to use when saving. Defaults to the raster&#39;s</span>
 <span class="sd">            current null value.</span>
+<span class="sd">        color_table : dict, array-like, str, pathlib.Path, optional</span>
+<span class="sd">            A discrete color palette to attach to the saved raster, mapping</span>
+<span class="sd">            cell values to colors. This can be a ``dict`` mapping raster</span>
+<span class="sd">            values to ``(r, g, b)`` or ``(r, g, b, a)`` components in the</span>
+<span class="sd">            range 0-255, an array-like of shape ``(N, 3)`` or ``(N, 4)``</span>
+<span class="sd">            where row ``i`` is the color for value ``i``, or the path to an</span>
+<span class="sd">            existing raster to copy the color table from. Only single band</span>
+<span class="sd">            uint8 and uint16 rasters can carry one. The default is to write</span>
+<span class="sd">            no color table.</span>
+
+<span class="sd">            .. note::</span>
+<span class="sd">               This is a lookup table indexed by cell value, not a</span>
+<span class="sd">               continuous ramp; a matplotlib-style colormap name such as</span>
+<span class="sd">               ``&quot;viridis&quot;`` is not accepted.</span>
+
+<span class="sd">            .. note::</span>
+<span class="sd">               Alpha components are dropped when writing a GeoTIFF, whose</span>
+<span class="sd">               color table has no room for them.</span>
 <span class="sd">        driver : str, optional</span>
 <span class="sd">            The GDAL driver to use. If not given, the driver is inferred from</span>
 <span class="sd">            the file extension.</span>
@@ -2132,6 +2152,10 @@ document.write(`
 <span class="sd">        Raster</span>
 <span class="sd">            A raster pointing to the saved location.</span>
 
+<span class="sd">        See Also</span>
+<span class="sd">        --------</span>
+<span class="sd">        raster_tools.read_color_table</span>
+
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># TODO: warn of overwrite</span>
         <span class="k">if</span> <span class="n">no_data_value</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -2158,6 +2182,7 @@ document.write(`
         <span class="n">write_raster</span><span class="p">(</span>
             <span class="n">xrs</span><span class="p">,</span>
             <span class="n">path</span><span class="p">,</span>
+            <span class="n">color_table</span><span class="o">=</span><span class="n">color_table</span><span class="p">,</span>
             <span class="n">driver</span><span class="o">=</span><span class="n">driver</span><span class="p">,</span>
             <span class="n">tiled</span><span class="o">=</span><span class="n">tiled</span><span class="p">,</span>
             <span class="n">blocksize</span><span class="o">=</span><span class="n">blocksize</span><span class="p">,</span>

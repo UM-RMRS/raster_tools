@@ -125,6 +125,7 @@
 <li class="toctree-l2 has-children"><a class="reference internal" href="../../reference/top_level.html">Top Level Functions</a><input class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-2"><i class="fa-solid fa-chevron-down"></i></label><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.html">raster_tools.Raster</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.open_dataset.html">raster_tools.open_dataset</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.read_color_table.html">raster_tools.read_color_table</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.band_concat.html">raster_tools.band_concat</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.mosaic.html">raster_tools.mosaic</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.split_bands.html">raster_tools.split_bands</a></li>
@@ -448,7 +449,16 @@ document.write(`
 <span class="kn">from</span><span class="w"> </span><span class="nn">affine</span><span class="w"> </span><span class="kn">import</span> <span class="n">Affine</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dask.array.core</span><span class="w"> </span><span class="kn">import</span> <span class="n">normalize_chunks</span> <span class="k">as</span> <span class="n">dask_chunks</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.dtypes</span><span class="w"> </span><span class="kn">import</span> <span class="n">F32</span><span class="p">,</span> <span class="n">F64</span><span class="p">,</span> <span class="n">I64</span><span class="p">,</span> <span class="n">U8</span><span class="p">,</span> <span class="n">is_bool</span><span class="p">,</span> <span class="n">is_float</span><span class="p">,</span> <span class="n">is_int</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.dtypes</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">F32</span><span class="p">,</span>
+    <span class="n">F64</span><span class="p">,</span>
+    <span class="n">I64</span><span class="p">,</span>
+    <span class="n">U8</span><span class="p">,</span>
+    <span class="n">U16</span><span class="p">,</span>
+    <span class="n">is_bool</span><span class="p">,</span>
+    <span class="n">is_float</span><span class="p">,</span>
+    <span class="n">is_int</span><span class="p">,</span>
+<span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">AffineEncodingError</span><span class="p">,</span>
     <span class="n">DimensionsError</span><span class="p">,</span>
@@ -777,10 +787,234 @@ document.write(`
     <span class="k">return</span> <span class="n">factors</span>
 
 
+<span class="c1"># GDAL only supports color tables on Byte and UInt16 rasters. Other dtypes</span>
+<span class="c1"># accept the write call without error but store nothing, so the dtype is</span>
+<span class="c1"># checked up front rather than letting the palette be dropped silently.</span>
+<span class="n">COLOR_TABLE_DTYPES</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">((</span><span class="n">U8</span><span class="p">,</span> <span class="n">U16</span><span class="p">))</span>
+
+<span class="c1"># A GeoTIFF color table is three 16-bit planes of red, green, and blue with</span>
+<span class="c1"># no room for alpha. Other palette formats, such as PNG and GIF, do store it.</span>
+<span class="n">_COLOR_TABLE_DRIVERS_WITHOUT_ALPHA</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="s2">&quot;GTiff&quot;</span><span class="p">,</span> <span class="s2">&quot;COG&quot;</span><span class="p">})</span>
+
+<span class="c1"># Overview resampling methods that average or interpolate cell values. Applied</span>
+<span class="c1"># to palette indices they produce indices that do not correspond to the</span>
+<span class="c1"># original colors, so the overviews render as noise.</span>
+<span class="n">_INTERPOLATING_RESAMPLING</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">(</span>
+    <span class="p">{</span>
+        <span class="s2">&quot;average&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;average_magphase&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;bilinear&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;cubic&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;cubic_spline&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;gauss&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;lanczos&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;rms&quot;</span><span class="p">,</span>
+    <span class="p">}</span>
+<span class="p">)</span>
+
+
+<div class="viewcode-block" id="read_color_table"><a class="viewcode-back" href="../../reference/generated/raster_tools.read_color_table.html#raster_tools.read_color_table">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">read_color_table</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">band</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Read the color table attached to a raster file.</span>
+
+<span class="sd">    The table is returned exactly as it is stored, which for a GeoTIFF means</span>
+<span class="sd">    padded out to the full index range of the band&#39;s dtype: 256 entries for</span>
+<span class="sd">    uint8 and 65536 for uint16, with undefined entries set to opaque black.</span>
+<span class="sd">    An eight class table therefore comes back with 256 entries.</span>
+
+<span class="sd">    The padding cannot be filtered out reliably. An undefined entry is</span>
+<span class="sd">    ``(0, 0, 0, 255)``, which is indistinguishable from a deliberate black</span>
+<span class="sd">    entry, and a black class is common in categorical data where it marks</span>
+<span class="sd">    background. Trim the result against the values a raster actually uses if</span>
+<span class="sd">    a compact table is needed.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    path : str, pathlib.Path</span>
+<span class="sd">        The path to the raster file to read the color table from.</span>
+<span class="sd">    band : int, optional</span>
+<span class="sd">        The 1-based band to read the table from. The default is the first</span>
+<span class="sd">        band. A raster file can only carry a table on its first band.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    dict</span>
+<span class="sd">        Maps each raster value to an ``(r, g, b, a)`` tuple of ints in the</span>
+<span class="sd">        range 0-255. The result can be handed straight back to</span>
+<span class="sd">        :meth:`Raster.save` as its `color_table` argument.</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    raster_tools.exceptions.RasterIOError</span>
+<span class="sd">        Raised if the file cannot be opened, or if the requested band has no</span>
+<span class="sd">        color table.</span>
+<span class="sd">    IndexError</span>
+<span class="sd">        Raised if `band` is not a band in the file.</span>
+
+<span class="sd">    See Also</span>
+<span class="sd">    --------</span>
+<span class="sd">    raster_tools.Raster.save</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">validate_path</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">with</span> <span class="n">rio</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">path</span><span class="p">)</span> <span class="k">as</span> <span class="n">src</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">src</span><span class="o">.</span><span class="n">colormap</span><span class="p">(</span><span class="n">band</span><span class="p">)</span>
+    <span class="k">except</span> <span class="n">rio</span><span class="o">.</span><span class="n">errors</span><span class="o">.</span><span class="n">RasterioIOError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">RasterIOError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Could not open </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">path</span><span class="p">)</span><span class="si">!r}</span><span class="s2"> to read a color table from.&quot;</span>
+        <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
+    <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">RasterIOError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Band </span><span class="si">{</span><span class="n">band</span><span class="si">}</span><span class="s2"> of </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">path</span><span class="p">)</span><span class="si">!r}</span><span class="s2"> does not have a color table.&quot;</span>
+        <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span></div>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_color_table_spec_to_entries</span><span class="p">(</span><span class="n">color_table</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Coerce a color table spec to an ``{index: components}`` mapping.</span>
+
+<span class="sd">    Also reports whether the entries were read from a file, since a table</span>
+<span class="sd">    GDAL hands back carries padding that a caller never asked for.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">color_table</span><span class="p">,</span> <span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">PathLike</span><span class="p">)):</span>
+        <span class="k">return</span> <span class="n">read_color_table</span><span class="p">(</span><span class="n">color_table</span><span class="p">),</span> <span class="kc">True</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">color_table</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">color_table</span><span class="p">,</span> <span class="kc">False</span>
+    <span class="n">entries</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">color_table</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">entries</span><span class="o">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">2</span> <span class="ow">or</span> <span class="n">entries</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">&quot;An array-like color table must have shape (N, 3) or (N, 4). Got&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot; shape </span><span class="si">{</span><span class="n">entries</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">.&quot;</span>
+        <span class="p">)</span>
+    <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span><span class="nb">enumerate</span><span class="p">(</span><span class="n">entries</span><span class="o">.</span><span class="n">tolist</span><span class="p">())),</span> <span class="kc">False</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">normalize_color_table</span><span class="p">(</span><span class="n">color_table</span><span class="p">,</span> <span class="n">dtype</span><span class="p">,</span> <span class="n">driver</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Validate a color table spec and return a mapping GDAL can write.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    color_table : dict, array-like, str, pathlib.Path</span>
+<span class="sd">        The color table to normalize. A ``dict`` maps raster values to</span>
+<span class="sd">        ``(r, g, b)`` or ``(r, g, b, a)`` components in the range 0-255. An</span>
+<span class="sd">        array-like of shape ``(N, 3)`` or ``(N, 4)`` is treated as a lookup</span>
+<span class="sd">        table where row ``i`` is the color for value ``i``. A path is opened</span>
+<span class="sd">        and the color table on its first band is used.</span>
+<span class="sd">    dtype : numpy.dtype</span>
+<span class="sd">        The dtype of the data being written. Used to bound the valid value</span>
+<span class="sd">        range.</span>
+<span class="sd">    driver : str, optional</span>
+<span class="sd">        The GDAL driver the color table will be written with. Used to decide</span>
+<span class="sd">        whether alpha components can be kept. The default assumes they can.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    dict</span>
+<span class="sd">        Maps each value to a 4-tuple of ints. Alpha is forced to 255 for</span>
+<span class="sd">        drivers whose palette format has no room for it.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">dtype</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">dtype</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">COLOR_TABLE_DTYPES</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">&quot;Color tables are only supported for uint8 and uint16 rasters.&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot; Got dtype </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span><span class="si">!r}</span><span class="s2">.&quot;</span>
+        <span class="p">)</span>
+    <span class="n">entries</span><span class="p">,</span> <span class="n">from_file</span> <span class="o">=</span> <span class="n">_color_table_spec_to_entries</span><span class="p">(</span><span class="n">color_table</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">entries</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;The given color table was empty.&quot;</span><span class="p">)</span>
+    <span class="n">keeps_alpha</span> <span class="o">=</span> <span class="n">driver</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">_COLOR_TABLE_DRIVERS_WITHOUT_ALPHA</span>
+
+    <span class="n">max_value</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">iinfo</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span><span class="o">.</span><span class="n">max</span>
+    <span class="n">normalized</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">alpha_dropped</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="k">for</span> <span class="n">value</span><span class="p">,</span> <span class="n">components</span> <span class="ow">in</span> <span class="n">entries</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">is_int</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">value</span> <span class="o">&lt;=</span> <span class="n">max_value</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">from_file</span><span class="p">:</span>
+                <span class="c1"># GDAL pads a table it reads out to the full index range of</span>
+                <span class="c1"># the source dtype, so a wider source carries entries this</span>
+                <span class="c1"># dtype cannot index. Those are padding, not intent.</span>
+                <span class="k">continue</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Color table values must be integers in the range&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot; [0, </span><span class="si">{</span><span class="n">max_value</span><span class="si">}</span><span class="s2">] for dtype </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span><span class="si">!r}</span><span class="s2">. Got </span><span class="si">{</span><span class="n">value</span><span class="si">!r}</span><span class="s2">.&quot;</span>
+            <span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">components</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">components</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">TypeError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Color table colors must be a sequence of 3 (RGB) or 4 (RGBA)&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot; components. Got </span><span class="si">{</span><span class="n">components</span><span class="si">!r}</span><span class="s2"> for value </span><span class="si">{</span><span class="n">value</span><span class="si">}</span><span class="s2">.&quot;</span>
+            <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">components</span><span class="p">)</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Color table colors must have 3 (RGB) or 4 (RGBA) components.&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot; Got </span><span class="si">{</span><span class="n">components</span><span class="si">!r}</span><span class="s2"> for value </span><span class="si">{</span><span class="n">value</span><span class="si">}</span><span class="s2">.&quot;</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span><span class="n">is_int</span><span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="ow">and</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">c</span> <span class="o">&lt;=</span> <span class="mi">255</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">components</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;Color table color components must be integers in the range&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot; [0, 255]. Got </span><span class="si">{</span><span class="n">components</span><span class="si">!r}</span><span class="s2"> for value </span><span class="si">{</span><span class="n">value</span><span class="si">}</span><span class="s2">.&quot;</span>
+            <span class="p">)</span>
+        <span class="n">alpha</span> <span class="o">=</span> <span class="n">components</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">components</span><span class="p">)</span> <span class="o">==</span> <span class="mi">4</span> <span class="k">else</span> <span class="mi">255</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">keeps_alpha</span> <span class="ow">and</span> <span class="n">alpha</span> <span class="o">!=</span> <span class="mi">255</span><span class="p">:</span>
+            <span class="n">alpha_dropped</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="n">alpha</span> <span class="o">=</span> <span class="mi">255</span>
+        <span class="n">normalized</span><span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">value</span><span class="p">)]</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="o">*</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">components</span><span class="p">[:</span><span class="mi">3</span><span class="p">]),</span>
+            <span class="nb">int</span><span class="p">(</span><span class="n">alpha</span><span class="p">),</span>
+        <span class="p">)</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">normalized</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">&quot;The given color table had no entries that a&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot; </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span><span class="si">!r}</span><span class="s2"> raster can index.&quot;</span>
+        <span class="p">)</span>
+    <span class="k">if</span> <span class="n">alpha_dropped</span><span class="p">:</span>
+        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;The </span><span class="si">{</span><span class="n">driver</span><span class="si">}</span><span class="s2"> color table cannot store alpha; the alpha&quot;</span>
+            <span class="s2">&quot; components of the given color table were dropped. Use the null&quot;</span>
+            <span class="s2">&quot; value to mark cells that should not be rendered.&quot;</span><span class="p">,</span>
+            <span class="ne">UserWarning</span><span class="p">,</span>
+            <span class="n">stacklevel</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="k">return</span> <span class="n">normalized</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_blends_palette_overviews</span><span class="p">(</span><span class="n">overviews</span><span class="p">,</span> <span class="n">resampling</span><span class="p">,</span> <span class="n">yx_shape</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Whether overviews would be built by blending palette indices.</span>
+
+<span class="sd">    Averaging or interpolating palette indices yields indices that no longer</span>
+<span class="sd">    correspond to the original colors. Only reports ``True`` when overviews</span>
+<span class="sd">    will actually be built, so a raster too small for the auto chain does not</span>
+<span class="sd">    draw a warning about output that will not exist.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">overviews</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">False</span>
+    <span class="k">if</span> <span class="nb">str</span><span class="p">(</span><span class="n">resampling</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">_INTERPOLATING_RESAMPLING</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">False</span>
+    <span class="k">if</span> <span class="n">overviews</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">bool</span><span class="p">(</span><span class="n">_auto_overview_factors</span><span class="p">(</span><span class="o">*</span><span class="n">yx_shape</span><span class="p">))</span>
+    <span class="k">return</span> <span class="nb">bool</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">overviews</span><span class="p">))</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_attach_color_table</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">color_table</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Write `color_table` to the first band of an already written raster.</span>
+
+<span class="sd">    Writing the color table also switches the file&#39;s photometric</span>
+<span class="sd">    interpretation to palette, which is what makes strict readers honor it.</span>
+<span class="sd">    Requesting the palette photometric as a creation option on top of this</span>
+<span class="sd">    only reserves a second color table block that nothing reads, so the tag</span>
+<span class="sd">    is left to this call and pinned by the tests instead.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">with</span> <span class="n">rio</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="s2">&quot;r+&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">ds</span><span class="p">:</span>
+        <span class="n">ds</span><span class="o">.</span><span class="n">write_colormap</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">color_table</span><span class="p">)</span>
+
+
 <span class="k">def</span><span class="w"> </span><span class="nf">write_raster</span><span class="p">(</span>
     <span class="n">xrs</span><span class="p">,</span>
     <span class="n">path</span><span class="p">,</span>
     <span class="o">*</span><span class="p">,</span>
+    <span class="n">color_table</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
     <span class="n">driver</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
     <span class="n">tiled</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
     <span class="n">blocksize</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
@@ -844,6 +1078,30 @@ document.write(`
         <span class="n">rio_is_bool</span> <span class="o">=</span> <span class="kc">True</span>
         <span class="n">xrs</span> <span class="o">=</span> <span class="n">xrs</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">U8</span><span class="p">)</span>
 
+    <span class="k">if</span> <span class="n">color_table</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># 2D input is a single band; only a real band dim can hold more.</span>
+        <span class="n">nbands</span> <span class="o">=</span> <span class="n">xrs</span><span class="o">.</span><span class="n">sizes</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;band&quot;</span><span class="p">,</span> <span class="n">xrs</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="n">xrs</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">3</span> <span class="k">else</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">nbands</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;A color table can only be written for a single band raster.&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot; This raster has </span><span class="si">{</span><span class="n">nbands</span><span class="si">}</span><span class="s2"> bands.&quot;</span>
+            <span class="p">)</span>
+        <span class="n">color_table</span> <span class="o">=</span> <span class="n">normalize_color_table</span><span class="p">(</span>
+            <span class="n">color_table</span><span class="p">,</span> <span class="n">xrs</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">resolved_driver</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">_blends_palette_overviews</span><span class="p">(</span>
+            <span class="n">overviews</span><span class="p">,</span> <span class="n">overview_resampling</span><span class="p">,</span> <span class="n">xrs</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">:]</span>
+        <span class="p">):</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;overview_resampling=</span><span class="si">{</span><span class="n">overview_resampling</span><span class="si">!r}</span><span class="s2"> blends cell&quot;</span>
+                <span class="s2">&quot; values together, which is not meaningful for values that&quot;</span>
+                <span class="s2">&quot; index a color table. The overviews will not match the&quot;</span>
+                <span class="s2">&quot; colors of the full resolution data. Use &#39;nearest&#39; or&quot;</span>
+                <span class="s2">&quot; &#39;mode&#39; instead.&quot;</span><span class="p">,</span>
+                <span class="ne">UserWarning</span><span class="p">,</span>
+                <span class="n">stacklevel</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+            <span class="p">)</span>
+
     <span class="n">translator</span> <span class="o">=</span> <span class="n">_DRIVER_TRANSLATORS</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">resolved_driver</span><span class="p">)</span>
     <span class="n">creation_opts</span> <span class="o">=</span> <span class="p">{}</span>
     <span class="k">if</span> <span class="n">translator</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -879,6 +1137,11 @@ document.write(`
             <span class="n">tmp_path</span> <span class="o">=</span> <span class="n">tmpf</span><span class="o">.</span><span class="n">name</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">xrs</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">to_raster</span><span class="p">(</span><span class="n">tmp_path</span><span class="p">,</span> <span class="n">lock</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">compute</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">color_table</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="c1"># The COG driver has no palette creation option, but the copy</span>
+                <span class="c1"># carries the staged file&#39;s color table and photometric tag</span>
+                <span class="c1"># over, so the palette has to be in place before it runs.</span>
+                <span class="n">_attach_color_table</span><span class="p">(</span><span class="n">tmp_path</span><span class="p">,</span> <span class="n">color_table</span><span class="p">)</span>
             <span class="n">rio_copy</span><span class="p">(</span><span class="n">tmp_path</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">driver</span><span class="o">=</span><span class="s2">&quot;COG&quot;</span><span class="p">,</span> <span class="o">**</span><span class="n">creation_opts</span><span class="p">)</span>
         <span class="k">finally</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">tmp_path</span><span class="p">):</span>
@@ -888,6 +1151,8 @@ document.write(`
         <span class="k">if</span> <span class="n">driver</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">to_raster_kwargs</span><span class="p">[</span><span class="s2">&quot;driver&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">driver</span>
         <span class="n">xrs</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">to_raster</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="o">**</span><span class="n">to_raster_kwargs</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">color_table</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">_attach_color_table</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">color_table</span><span class="p">)</span>
 
     <span class="k">if</span> <span class="n">overviews</span> <span class="ow">and</span> <span class="n">resolved_driver</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">_DRIVERS_WITH_INTERNAL_OVERVIEWS</span><span class="p">:</span>
         <span class="n">factors</span> <span class="o">=</span> <span class="p">(</span>
