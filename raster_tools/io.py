@@ -374,7 +374,48 @@ _INTERPOLATING_RESAMPLING = frozenset(
 )
 
 
-def _read_color_table_from_file(path, band=1):
+def read_color_table(path, band=1):
+    """Read the color table attached to a raster file.
+
+    The table is returned exactly as it is stored, which for a GeoTIFF means
+    padded out to the full index range of the band's dtype: 256 entries for
+    uint8 and 65536 for uint16, with undefined entries set to opaque black.
+    An eight class table therefore comes back with 256 entries.
+
+    The padding cannot be filtered out reliably. An undefined entry is
+    ``(0, 0, 0, 255)``, which is indistinguishable from a deliberate black
+    entry, and a black class is common in categorical data where it marks
+    background. Trim the result against the values a raster actually uses if
+    a compact table is needed.
+
+    Parameters
+    ----------
+    path : str, pathlib.Path
+        The path to the raster file to read the color table from.
+    band : int, optional
+        The 1-based band to read the table from. The default is the first
+        band. A raster file can only carry a table on its first band.
+
+    Returns
+    -------
+    dict
+        Maps each raster value to an ``(r, g, b, a)`` tuple of ints in the
+        range 0-255. The result can be handed straight back to
+        :meth:`Raster.save` as its `color_table` argument.
+
+    Raises
+    ------
+    raster_tools.exceptions.RasterIOError
+        Raised if the file cannot be opened, or if the requested band has no
+        color table.
+    IndexError
+        Raised if `band` is not a band in the file.
+
+    See Also
+    --------
+    raster_tools.Raster.save
+
+    """
     validate_path(path)
     try:
         with rio.open(path) as src:
@@ -396,7 +437,7 @@ def _color_table_spec_to_entries(color_table):
     GDAL hands back carries padding that a caller never asked for.
     """
     if isinstance(color_table, (str, os.PathLike)):
-        return _read_color_table_from_file(color_table), True
+        return read_color_table(color_table), True
     if isinstance(color_table, dict):
         return color_table, False
     entries = np.asarray(color_table)

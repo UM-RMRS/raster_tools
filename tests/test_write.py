@@ -15,6 +15,7 @@ from raster_tools.io import (
     _auto_overview_factors,
     _supports_native_int64,
     normalize_color_table,
+    read_color_table,
     write_raster,
 )
 from raster_tools.masking import get_default_null_value
@@ -738,6 +739,97 @@ def test_save_color_table_non_sequence_color_raises_value_error(
 ):
     with pytest.raises(ValueError, match="must be a sequence"):
         _indexed_raster().save(out_tif, color_table={1: color})
+
+
+# --- read_color_table -------------------------------------------------------
+
+
+def test_read_color_table_returns_written_colors(out_tif):
+    _indexed_raster().save(out_tif, color_table=COLOR_TABLE)
+    result = read_color_table(out_tif)
+    for value, (r, g, b) in COLOR_TABLE.items():
+        assert result[value] == (r, g, b, 255)
+
+
+def test_read_color_table_is_exported_at_top_level():
+    assert rts.read_color_table is read_color_table
+    assert "read_color_table" in rts.__all__
+
+
+@pytest.mark.parametrize("dtype,expected", [("uint8", 256), ("uint16", 65536)])
+def test_read_color_table_includes_gdal_padding(tmp_path, dtype, expected):
+    # GDAL pads the stored table out to the band dtype's full index range.
+    # The padding cannot be filtered by value, because an undefined entry is
+    # opaque black and so is COLOR_TABLE[0]; this pins the documented shape.
+    path = str(tmp_path / f"out_{dtype}.tif")
+    _indexed_raster(dtype=dtype).save(path, color_table=COLOR_TABLE)
+    result = read_color_table(path)
+    assert len(result) == expected
+    assert result[max(result)] == (0, 0, 0, 255)
+    assert result[0] == (*COLOR_TABLE[0], 255)
+
+
+def test_read_color_table_result_round_trips_through_save(tmp_path):
+    # The docstring promises the result can be handed straight back to save.
+    source = str(tmp_path / "source.tif")
+    target = str(tmp_path / "target.tif")
+    _indexed_raster().save(source, color_table=COLOR_TABLE)
+    _indexed_raster().save(target, color_table=read_color_table(source))
+    assert read_color_table(target) == read_color_table(source)
+
+
+def test_read_color_table_after_editing_an_entry(tmp_path):
+    source = str(tmp_path / "source.tif")
+    target = str(tmp_path / "target.tif")
+    _indexed_raster().save(source, color_table=COLOR_TABLE)
+    edited = read_color_table(source)
+    edited[2] = (1, 2, 3, 255)
+    _indexed_raster().save(target, color_table=edited)
+    result = read_color_table(target)
+    assert result[2] == (1, 2, 3, 255)
+    assert result[1] == (*COLOR_TABLE[1], 255)
+
+
+def test_read_color_table_keeps_alpha_from_png(tmp_path):
+    path = str(tmp_path / "out.png")
+    color_table = {
+        0: (0, 0, 0, 0),
+        1: (1, 2, 3, 128),
+        2: (4, 5, 6, 255),
+        3: (7, 8, 9, 64),
+    }
+    _indexed_raster().save(path, color_table=color_table)
+    result = read_color_table(path)
+    for value, color in color_table.items():
+        assert result[value] == color
+
+
+def test_read_color_table_accepts_pathlib_path(tmp_path):
+    path = tmp_path / "out.tif"
+    _indexed_raster().save(str(path), color_table=COLOR_TABLE)
+    assert read_color_table(path)[1] == (*COLOR_TABLE[1], 255)
+
+
+def test_read_color_table_explicit_band(out_tif):
+    _indexed_raster().save(out_tif, color_table=COLOR_TABLE)
+    assert read_color_table(out_tif, band=1) == read_color_table(out_tif)
+
+
+def test_read_color_table_without_table_raises(out_tif):
+    _indexed_raster().save(out_tif)
+    with pytest.raises(RasterIOError, match="does not have a color table"):
+        read_color_table(out_tif)
+
+
+def test_read_color_table_missing_file_raises(tmp_path):
+    with pytest.raises(FileNotFoundError):
+        read_color_table(str(tmp_path / "nope.tif"))
+
+
+def test_read_color_table_bad_band_raises(out_tif):
+    _indexed_raster().save(out_tif, color_table=COLOR_TABLE)
+    with pytest.raises(IndexError, match="No such band index"):
+        read_color_table(out_tif, band=2)
 
 
 # --- normalize_color_table (unit) -------------------------------------------

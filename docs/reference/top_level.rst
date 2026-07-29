@@ -13,6 +13,14 @@ Opening Rasters
    Raster
    open_dataset
 
+Color Tables
+============
+
+.. autosummary::
+   :toctree: generated/
+
+   read_color_table
+
 Combining Rasters
 =================
 

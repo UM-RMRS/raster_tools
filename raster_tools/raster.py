@@ -1713,6 +1713,10 @@ class Raster(_RasterBase):
         Raster
             A raster pointing to the saved location.
 
+        See Also
+        --------
+        raster_tools.read_color_table
+
         """
         # TODO: warn of overwrite
         if no_data_value is not None:
