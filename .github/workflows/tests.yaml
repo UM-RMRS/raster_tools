@@ -7,6 +7,11 @@ on:
       - 'docs/**'
       - 'paper/**'
       - 'notebooks/**'
+  pull_request:
+    paths-ignore:
+      - 'docs/**'
+      - 'paper/**'
+      - 'notebooks/**'
   schedule:
     # Run every Wednesday, 11am UTC/6am EST
     - cron: '0 11 * * 3'
@@ -50,4 +55,4 @@ jobs:
 
       - name: Test ${{ matrix.env }}
         run: |
-          pytest -v -n 2
+          pytest -v -n auto
