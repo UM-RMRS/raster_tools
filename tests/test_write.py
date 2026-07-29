@@ -1,4 +1,5 @@
 import os
+import struct
 
 import numpy as np
 import pytest
@@ -8,9 +9,13 @@ from affine import Affine
 import raster_tools as rts
 from raster_tools._mosaic import mosaic
 from raster_tools.batch import _batch_parse_save, _BatchScripParserState
+from raster_tools.dtypes import U8, U16
+from raster_tools.exceptions import RasterIOError
 from raster_tools.io import (
     _auto_overview_factors,
     _supports_native_int64,
+    normalize_color_table,
+    read_color_table,
     write_raster,
 )
 from raster_tools.masking import get_default_null_value
@@ -406,6 +411,491 @@ def test_cog_explicit_overview_list_warns(out_tif):
         assert ds.overviews(1) != []
 
 
+# --- Color tables -----------------------------------------------------------
+
+# TIFF tag numbers and PhotometricInterpretation values used below.
+_TAG_PHOTOMETRIC = 262
+_PHOTOMETRIC_MINISBLACK = 1
+_PHOTOMETRIC_PALETTE = 3
+
+COLOR_TABLE = {
+    0: (0, 0, 0),
+    1: (34, 139, 34),
+    2: (70, 130, 180),
+    3: (210, 180, 140),
+}
+
+
+def _tiff_photometric(path):
+    """Read a classic TIFF's PhotometricInterpretation tag directly.
+
+    rasterio exposes neither ``dataset.photometric`` nor
+    ``profile["photometric"]`` for these files (both come back ``None``), and
+    ``colorinterp`` reports ``palette`` even when the tag says min-is-black.
+    The tag itself is what decides whether a strict TIFF reader honors the
+    palette, so it is read out of the first IFD by hand.
+    """
+    with open(path, "rb") as fd:
+        buf = fd.read()
+    byte_order = "<" if buf[:2] == b"II" else ">"
+    (ifd_offset,) = struct.unpack(byte_order + "I", buf[4:8])
+    (n_entries,) = struct.unpack(
+        byte_order + "H", buf[ifd_offset : ifd_offset + 2]
+    )
+    for i in range(n_entries):
+        entry = ifd_offset + 2 + (i * 12)
+        (tag,) = struct.unpack(byte_order + "H", buf[entry : entry + 2])
+        if tag == _TAG_PHOTOMETRIC:
+            # A single SHORT is left justified in the 4 byte value field.
+            (value,) = struct.unpack(
+                byte_order + "H", buf[entry + 8 : entry + 10]
+            )
+            return value
+    return None
+
+
+def _indexed_raster(dtype="uint8", shape=(1, 8, 8)):
+    """A raster whose only values are the four indices in ``COLOR_TABLE``."""
+    data = (np.arange(int(np.prod(shape))).reshape(shape) % 4).astype(dtype)
+    return make_raster(data, dtype=dtype)
+
+
+def test_save_color_table_dict(out_tif):
+    src = _indexed_raster()
+    src.save(out_tif, color_table=COLOR_TABLE)
+    with _open(out_tif) as ds:
+        written = ds.colormap(1)
+        # GDAL pads the table out to the full index range of the dtype.
+        assert len(written) == 256
+        for value, (r, g, b) in COLOR_TABLE.items():
+            assert written[value] == (r, g, b, 255)
+    assert _tiff_photometric(out_tif) == _PHOTOMETRIC_PALETTE
+    # The palette must not disturb the cell values.
+    assert np.array_equal(rts.Raster(out_tif).to_numpy(), src.to_numpy())
+
+
+def test_save_color_table_array(out_tif):
+    table = np.array([COLOR_TABLE[i] for i in range(4)])
+    _indexed_raster().save(out_tif, color_table=table)
+    with _open(out_tif) as ds:
+        for value, (r, g, b) in COLOR_TABLE.items():
+            assert ds.colormap(1)[value] == (r, g, b, 255)
+
+
+def test_save_color_table_array_with_alpha_column(out_tif):
+    table = np.array([(*COLOR_TABLE[i], 255) for i in range(4)])
+    _indexed_raster().save(out_tif, color_table=table)
+    with _open(out_tif) as ds:
+        assert ds.colormap(1)[2] == (70, 130, 180, 255)
+
+
+def test_save_color_table_from_path(tmp_path):
+    source = str(tmp_path / "source.tif")
+    target = str(tmp_path / "target.tif")
+    _indexed_raster().save(source, color_table=COLOR_TABLE)
+    _indexed_raster().save(target, color_table=source)
+    with _open(source) as src_ds, _open(target) as target_ds:
+        assert src_ds.colormap(1) == target_ds.colormap(1)
+    assert _tiff_photometric(target) == _PHOTOMETRIC_PALETTE
+
+
+def test_save_color_table_from_pathlib_path(tmp_path):
+    source = tmp_path / "source.tif"
+    target = tmp_path / "target.tif"
+    _indexed_raster().save(str(source), color_table=COLOR_TABLE)
+    _indexed_raster().save(str(target), color_table=source)
+    with _open(str(target)) as ds:
+        assert ds.colormap(1)[1] == (34, 139, 34, 255)
+
+
+def test_save_color_table_uint16(out_tif):
+    _indexed_raster(dtype="uint16").save(out_tif, color_table=COLOR_TABLE)
+    with _open(out_tif) as ds:
+        assert ds.dtypes[0] == "uint16"
+        assert len(ds.colormap(1)) == 65536
+        assert ds.colormap(1)[1] == (34, 139, 34, 255)
+    assert _tiff_photometric(out_tif) == _PHOTOMETRIC_PALETTE
+
+
+def test_save_color_table_cog(out_tif):
+    src = _indexed_raster(shape=(1, 256, 256))
+    src.save(out_tif, driver="COG", color_table=COLOR_TABLE)
+    with _open(out_tif) as ds:
+        assert ds.profile["tiled"] is True
+        assert ds.colormap(1)[1] == (34, 139, 34, 255)
+    # The COG driver has no palette creation option; the tag has to survive
+    # the copy from the staging file.
+    assert _tiff_photometric(out_tif) == _PHOTOMETRIC_PALETTE
+    assert np.array_equal(rts.Raster(out_tif).to_numpy(), src.to_numpy())
+
+
+def test_save_color_table_rgba_drops_alpha_with_warning(out_tif):
+    with pytest.warns(UserWarning, match="cannot store alpha"):
+        _indexed_raster().save(
+            out_tif, color_table={0: (0, 0, 0, 0), 1: (1, 2, 3, 7)}
+        )
+    with _open(out_tif) as ds:
+        assert ds.colormap(1)[0] == (0, 0, 0, 255)
+        assert ds.colormap(1)[1] == (1, 2, 3, 255)
+
+
+def test_save_color_table_opaque_alpha_does_not_warn(out_tif, recwarn):
+    _indexed_raster().save(out_tif, color_table={1: (1, 2, 3, 255)})
+    assert not [w for w in recwarn if "alpha" in str(w.message)]
+
+
+def test_save_without_color_table_writes_no_palette(out_tif):
+    _indexed_raster().save(out_tif)
+    with _open(out_tif) as ds, pytest.raises(ValueError):
+        ds.colormap(1)
+    assert _tiff_photometric(out_tif) == _PHOTOMETRIC_MINISBLACK
+
+
+def test_save_color_table_bool_keeps_nbits(out_tif):
+    src = make_raster("ones", dtype="float32", shape=(1, 6, 6)) > 0
+    src.save(out_tif, color_table={0: (0, 0, 0), 1: (255, 255, 255)})
+    with _open(out_tif) as ds:
+        assert ds.dtypes[0] == "uint8"
+        # A palette costs a bool raster nothing: nbits=1 is kept and GDAL
+        # sizes the table to the two indices a single bit can hold.
+        assert ds.tags(1, ns="IMAGE_STRUCTURE").get("NBITS") == "1"
+        assert len(ds.colormap(1)) == 2
+        assert ds.colormap(1)[0] == (0, 0, 0, 255)
+        assert ds.colormap(1)[1] == (255, 255, 255, 255)
+    assert _tiff_photometric(out_tif) == _PHOTOMETRIC_PALETTE
+
+
+@pytest.mark.parametrize("dtype", ["float32", "float64", "int16", "int32"])
+def test_save_color_table_unsupported_dtype_raises(out_tif, dtype):
+    with pytest.raises(ValueError, match="only supported for uint8 and"):
+        _indexed_raster(dtype=dtype).save(out_tif, color_table=COLOR_TABLE)
+
+
+def test_save_color_table_multiband_raises(out_tif):
+    src = make_raster("arange", dtype="uint8", shape=(3, 8, 8))
+    with pytest.raises(ValueError, match="single band"):
+        src.save(out_tif, color_table=COLOR_TABLE)
+
+
+@pytest.mark.parametrize(
+    "color_table,match",
+    [
+        ({}, "was empty"),
+        ({300: (1, 2, 3)}, r"integers in the range \[0, 255\]"),
+        ({-1: (1, 2, 3)}, r"integers in the range \[0, 255\]"),
+        ({1.5: (1, 2, 3)}, r"integers in the range \[0, 255\]"),
+        ({1: (1, 2)}, "3 \\(RGB\\) or 4 \\(RGBA\\)"),
+        ({1: (1, 2, 3, 4, 5)}, "3 \\(RGB\\) or 4 \\(RGBA\\)"),
+        ({1: (1, 2, 999)}, "components must be integers"),
+        ({1: (1, 2, -1)}, "components must be integers"),
+        ({1: (1.0, 2.0, 3.5)}, "components must be integers"),
+        (np.zeros((4, 5)), r"shape \(N, 3\) or \(N, 4\)"),
+        (np.zeros(4), r"shape \(N, 3\) or \(N, 4\)"),
+    ],
+)
+def test_save_color_table_invalid_spec_raises(out_tif, color_table, match):
+    with pytest.raises(ValueError, match=match):
+        _indexed_raster().save(out_tif, color_table=color_table)
+
+
+def test_save_color_table_source_without_palette_raises(tmp_path):
+    source = str(tmp_path / "source.tif")
+    _indexed_raster().save(source)
+    with pytest.raises(RasterIOError, match="does not have a color table"):
+        _indexed_raster().save(str(tmp_path / "out.tif"), color_table=source)
+
+
+def test_save_color_table_missing_source_raises(tmp_path):
+    with pytest.raises(FileNotFoundError):
+        _indexed_raster().save(
+            str(tmp_path / "out.tif"), color_table=str(tmp_path / "nope.tif")
+        )
+
+
+def test_save_color_table_interpolating_overviews_warns(out_tif):
+    src = _indexed_raster(shape=(1, 1024, 1024))
+    with pytest.warns(UserWarning, match="blends cell values"):
+        src.save(out_tif, color_table=COLOR_TABLE, overviews=True)
+
+
+def test_save_color_table_nearest_overviews_does_not_warn(out_tif, recwarn):
+    src = _indexed_raster(shape=(1, 1024, 1024))
+    src.save(
+        out_tif,
+        color_table=COLOR_TABLE,
+        overviews=True,
+        overview_resampling="nearest",
+    )
+    assert not [w for w in recwarn if "blends cell values" in str(w.message)]
+    with _open(out_tif) as ds:
+        assert ds.overviews(1) != []
+        assert ds.colormap(1)[1] == (34, 139, 34, 255)
+
+
+def test_save_color_table_without_overviews_does_not_warn(out_tif, recwarn):
+    _indexed_raster().save(out_tif, color_table=COLOR_TABLE)
+    assert not [w for w in recwarn if "blends cell values" in str(w.message)]
+
+
+def test_write_raster_direct_color_table(out_tif):
+    src = _indexed_raster()
+    write_raster(src.xdata, out_tif, color_table=COLOR_TABLE)
+    with _open(out_tif) as ds:
+        assert ds.colormap(1)[1] == (34, 139, 34, 255)
+
+
+def test_write_raster_2d_dataarray_color_table(out_tif):
+    # A 2D (y, x) DataArray is a single band. Counting bands off shape[0]
+    # would read the row count and reject it.
+    src = _indexed_raster(shape=(1, 8, 8))
+    write_raster(src.xdata[0], out_tif, color_table=COLOR_TABLE)
+    with _open(out_tif) as ds:
+        assert ds.count == 1
+        assert ds.colormap(1)[1] == (34, 139, 34, 255)
+
+
+def test_save_color_table_multiband_error_reports_band_count(out_tif):
+    src = make_raster("arange", dtype="uint8", shape=(3, 8, 8))
+    with pytest.raises(ValueError, match="has 3 bands"):
+        src.save(out_tif, color_table=COLOR_TABLE)
+
+
+def test_save_color_table_from_uint16_source_onto_uint8(tmp_path):
+    # GDAL pads a table it reads back out to the source dtype's full index
+    # range, so a uint16 source hands over 65536 entries. The ones a uint8
+    # raster cannot index are padding and must not be treated as an error.
+    source = str(tmp_path / "source16.tif")
+    target = str(tmp_path / "target8.tif")
+    _indexed_raster(dtype="uint16").save(source, color_table=COLOR_TABLE)
+    with _open(source) as ds:
+        assert len(ds.colormap(1)) == 65536
+    _indexed_raster(dtype="uint8").save(target, color_table=source)
+    with _open(target) as ds:
+        assert len(ds.colormap(1)) == 256
+        for value, (r, g, b) in COLOR_TABLE.items():
+            assert ds.colormap(1)[value] == (r, g, b, 255)
+
+
+def test_save_color_table_png_keeps_alpha(tmp_path, recwarn):
+    # A PNG palette stores alpha, so it must not be forced opaque. Every
+    # value present needs an entry; PNG palettes are not padded.
+    path = str(tmp_path / "out.png")
+    color_table = {
+        0: (0, 0, 0, 0),
+        1: (1, 2, 3, 128),
+        2: (4, 5, 6, 255),
+        3: (7, 8, 9, 64),
+    }
+    _indexed_raster().save(path, color_table=color_table)
+    with _open(path) as ds:
+        assert ds.colormap(1) == color_table
+    assert not [w for w in recwarn if "alpha" in str(w.message)]
+
+
+def test_save_color_table_gtiff_alpha_warning_names_gtiff(out_tif):
+    with pytest.warns(
+        UserWarning, match="GTiff color table cannot store alpha"
+    ):
+        _indexed_raster().save(out_tif, color_table={1: (1, 2, 3, 128)})
+
+
+def test_save_color_table_small_raster_overviews_does_not_warn(
+    out_tif, recwarn
+):
+    # The auto chain is empty at this size, so there are no overviews to be
+    # wrong about and nothing to warn on.
+    _indexed_raster(shape=(1, 8, 8)).save(
+        out_tif, color_table=COLOR_TABLE, overviews=True
+    )
+    assert not [w for w in recwarn if "blends cell values" in str(w.message)]
+    with _open(out_tif) as ds:
+        assert ds.overviews(1) == []
+
+
+def test_save_color_table_explicit_factors_small_raster_warns(out_tif):
+    # An explicit factor list is built regardless of size, so it does warn.
+    with pytest.warns(UserWarning, match="blends cell values"):
+        _indexed_raster(shape=(1, 8, 8)).save(
+            out_tif, color_table=COLOR_TABLE, overviews=[2]
+        )
+
+
+def test_save_color_table_uppercase_resampling_warns(out_tif):
+    # The COG translator lowercases the method before GDAL sees it, so the
+    # check cannot be case sensitive.
+    with pytest.warns(UserWarning, match="blends cell values"):
+        _indexed_raster(shape=(1, 2048, 2048)).save(
+            out_tif,
+            driver="COG",
+            color_table=COLOR_TABLE,
+            overviews=True,
+            overview_resampling="AVERAGE",
+        )
+
+
+@pytest.mark.parametrize("color", [5, None, 3.5])
+def test_save_color_table_non_sequence_color_raises_value_error(
+    out_tif, color
+):
+    with pytest.raises(ValueError, match="must be a sequence"):
+        _indexed_raster().save(out_tif, color_table={1: color})
+
+
+# --- read_color_table -------------------------------------------------------
+
+
+def test_read_color_table_returns_written_colors(out_tif):
+    _indexed_raster().save(out_tif, color_table=COLOR_TABLE)
+    result = read_color_table(out_tif)
+    for value, (r, g, b) in COLOR_TABLE.items():
+        assert result[value] == (r, g, b, 255)
+
+
+def test_read_color_table_is_exported_at_top_level():
+    assert rts.read_color_table is read_color_table
+    assert "read_color_table" in rts.__all__
+
+
+@pytest.mark.parametrize("dtype,expected", [("uint8", 256), ("uint16", 65536)])
+def test_read_color_table_includes_gdal_padding(tmp_path, dtype, expected):
+    # GDAL pads the stored table out to the band dtype's full index range.
+    # The padding cannot be filtered by value, because an undefined entry is
+    # opaque black and so is COLOR_TABLE[0]; this pins the documented shape.
+    path = str(tmp_path / f"out_{dtype}.tif")
+    _indexed_raster(dtype=dtype).save(path, color_table=COLOR_TABLE)
+    result = read_color_table(path)
+    assert len(result) == expected
+    assert result[max(result)] == (0, 0, 0, 255)
+    assert result[0] == (*COLOR_TABLE[0], 255)
+
+
+def test_read_color_table_result_round_trips_through_save(tmp_path):
+    # The docstring promises the result can be handed straight back to save.
+    source = str(tmp_path / "source.tif")
+    target = str(tmp_path / "target.tif")
+    _indexed_raster().save(source, color_table=COLOR_TABLE)
+    _indexed_raster().save(target, color_table=read_color_table(source))
+    assert read_color_table(target) == read_color_table(source)
+
+
+def test_read_color_table_after_editing_an_entry(tmp_path):
+    source = str(tmp_path / "source.tif")
+    target = str(tmp_path / "target.tif")
+    _indexed_raster().save(source, color_table=COLOR_TABLE)
+    edited = read_color_table(source)
+    edited[2] = (1, 2, 3, 255)
+    _indexed_raster().save(target, color_table=edited)
+    result = read_color_table(target)
+    assert result[2] == (1, 2, 3, 255)
+    assert result[1] == (*COLOR_TABLE[1], 255)
+
+
+def test_read_color_table_keeps_alpha_from_png(tmp_path):
+    path = str(tmp_path / "out.png")
+    color_table = {
+        0: (0, 0, 0, 0),
+        1: (1, 2, 3, 128),
+        2: (4, 5, 6, 255),
+        3: (7, 8, 9, 64),
+    }
+    _indexed_raster().save(path, color_table=color_table)
+    result = read_color_table(path)
+    for value, color in color_table.items():
+        assert result[value] == color
+
+
+def test_read_color_table_accepts_pathlib_path(tmp_path):
+    path = tmp_path / "out.tif"
+    _indexed_raster().save(str(path), color_table=COLOR_TABLE)
+    assert read_color_table(path)[1] == (*COLOR_TABLE[1], 255)
+
+
+def test_read_color_table_explicit_band(out_tif):
+    _indexed_raster().save(out_tif, color_table=COLOR_TABLE)
+    assert read_color_table(out_tif, band=1) == read_color_table(out_tif)
+
+
+def test_read_color_table_without_table_raises(out_tif):
+    _indexed_raster().save(out_tif)
+    with pytest.raises(RasterIOError, match="does not have a color table"):
+        read_color_table(out_tif)
+
+
+def test_read_color_table_missing_file_raises(tmp_path):
+    with pytest.raises(FileNotFoundError):
+        read_color_table(str(tmp_path / "nope.tif"))
+
+
+def test_read_color_table_bad_band_raises(out_tif):
+    _indexed_raster().save(out_tif, color_table=COLOR_TABLE)
+    with pytest.raises(IndexError, match="No such band index"):
+        read_color_table(out_tif, band=2)
+
+
+# --- normalize_color_table (unit) -------------------------------------------
+
+
+def test_normalize_color_table_returns_4_tuples():
+    result = normalize_color_table(
+        {1: (1, 2, 3), 2: (4, 5, 6, 7)}, np.dtype(U8)
+    )
+    assert result == {1: (1, 2, 3, 255), 2: (4, 5, 6, 7)}
+
+
+def test_normalize_color_table_gtiff_forces_opaque_alpha():
+    with pytest.warns(
+        UserWarning, match="GTiff color table cannot store alpha"
+    ):
+        result = normalize_color_table(
+            {1: (1, 2, 3), 2: (4, 5, 6, 0)}, np.dtype(U8), "GTiff"
+        )
+    assert result == {1: (1, 2, 3, 255), 2: (4, 5, 6, 255)}
+
+
+def test_normalize_color_table_gtiff_opaque_input_does_not_warn(recwarn):
+    result = normalize_color_table({1: (1, 2, 3, 255)}, np.dtype(U8), "GTiff")
+    assert result == {1: (1, 2, 3, 255)}
+    assert not [w for w in recwarn if "alpha" in str(w.message)]
+
+
+def test_normalize_color_table_accepts_dtype_like():
+    assert normalize_color_table({1: (1, 2, 3)}, "uint8") == {
+        1: (1, 2, 3, 255)
+    }
+
+
+@pytest.mark.parametrize("value", [5, None, 3.5])
+def test_normalize_color_table_non_sequence_color_raises_value_error(value):
+    # A bare TypeError here would escape the ValueError contract that every
+    # other malformed spec follows.
+    with pytest.raises(ValueError, match="must be a sequence"):
+        normalize_color_table({1: value}, np.dtype(U8))
+
+
+def test_normalize_color_table_accepts_numpy_scalars():
+    color_table = {np.uint8(1): (np.uint8(1), np.uint8(2), np.uint8(3))}
+    result = normalize_color_table(color_table, np.dtype(U8))
+    assert result == {1: (1, 2, 3, 255)}
+    assert all(isinstance(c, int) for c in result[1])
+
+
+def test_normalize_color_table_uint16_allows_wide_indices():
+    result = normalize_color_table({65535: (1, 2, 3)}, np.dtype(U16))
+    assert result == {65535: (1, 2, 3, 255)}
+
+
+def test_normalize_color_table_uint8_rejects_uint16_index():
+    with pytest.raises(ValueError, match=r"\[0, 255\]"):
+        normalize_color_table({256: (1, 2, 3)}, np.dtype(U8))
+
+
+def test_normalize_color_table_array_rows_are_indices():
+    result = normalize_color_table(
+        np.array([[1, 2, 3], [4, 5, 6]]), np.dtype(U8)
+    )
+    assert result == {0: (1, 2, 3, 255), 1: (4, 5, 6, 255)}
+
+
 # --- Auto chain helper (unit) ----------------------------------------------
 
 
@@ -637,6 +1127,16 @@ def test_save_chunks_save_kwargs_forwarded(tmp_path):
         assert ds.profile["compress"] == "lzw"
         assert ds.profile["blockxsize"] == 16
         assert ds.profile["blockysize"] == 16
+
+
+def test_save_chunks_color_table_forwarded(tmp_path):
+    src = _indexed_raster(shape=(1, 64, 64)).chunk((1, 32, 32))
+    src.save_chunks(str(tmp_path / "tile"), color_table=COLOR_TABLE)
+    tiles = sorted(tmp_path.glob("*.tif"))
+    assert len(tiles) == 4
+    for tile in tiles:
+        with rasterio.open(tile) as ds:
+            assert ds.colormap(1)[1] == (34, 139, 34, 255)
 
 
 def test_save_chunks_affine_per_tile(tmp_path):

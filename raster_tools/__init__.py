@@ -22,7 +22,7 @@ from raster_tools.creation import (
     zeros_like,
 )
 from raster_tools.general import band_concat, reclassify, remap_range
-from raster_tools.io import open_dataset
+from raster_tools.io import open_dataset, read_color_table
 from raster_tools.raster import (
     Raster,
     data_to_raster,
@@ -98,6 +98,7 @@ __all__ = [
     "open_vectors",
     "pad",
     "random_raster",
+    "read_color_table",
     "reclassify",
     "remap_range",
     "reproject",
