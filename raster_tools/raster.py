@@ -138,21 +138,36 @@ class _ReductionsMixin:
         return method
 
 
-# Drivers without an entry in rasterio.drivers.raster_driver_extensions
-# (e.g. COG, which writes a TIFF subset) need explicit fallbacks here.
-_DRIVER_EXT_FALLBACKS = {"COG": ".tif"}
+# Curated driver -> extension table, consulted before rasterio's reverse
+# map (rasterio.drivers.raster_driver_extensions()). GDAL drivers can
+# share file extensions, and that reverse map keeps only the last driver
+# registered for a given extension, so a newly added driver can silently
+# steal an extension from an older one (GDAL 3.13's MiraMonRaster claims
+# "img", pushing HFA out of the map). Some drivers, such as COG, are
+# absent from the map entirely. Lookup is case-insensitive because GDAL
+# driver names are case-insensitive, even though the values below use
+# rasterio's canonical casing.
+_DRIVER_EXT = {
+    "GTiff": ".tif",
+    "COG": ".tif",
+    "HFA": ".img",
+    "PNG": ".png",
+    "JPEG": ".jpg",
+}
+_DRIVER_EXT_CASEFOLDED = {k.casefold(): v for k, v in _DRIVER_EXT.items()}
 
 
 def _ext_for_driver(driver):
     """Pick a file extension for the given GDAL driver, defaulting to .tif."""
     if driver is None:
         return ".tif"
-    if driver in _DRIVER_EXT_FALLBACKS:
-        return _DRIVER_EXT_FALLBACKS[driver]
+    key = driver.casefold()
+    if key in _DRIVER_EXT_CASEFOLDED:
+        return _DRIVER_EXT_CASEFOLDED[key]
     from rasterio.drivers import raster_driver_extensions
 
     for ext, drv in raster_driver_extensions().items():
-        if drv == driver:
+        if drv.casefold() == key:
             return "." + ext
     return ".tif"
 
