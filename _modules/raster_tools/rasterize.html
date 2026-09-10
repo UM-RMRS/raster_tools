@@ -465,6 +465,18 @@ document.write(`
 <span class="p">)</span>
 
 
+<span class="c1"># rasterio converts every geometry to a GeoJSON dict of nested tuples of</span>
+<span class="c1"># Python floats before burning, then builds an OGR copy of each one. Both</span>
+<span class="c1"># copies of the whole shape list are alive at once, so the peak memory of a</span>
+<span class="c1"># single call scales with the total coordinate count. Geometries are burned</span>
+<span class="c1"># in batches whose coordinate totals stay near this budget. At roughly 100</span>
+<span class="c1"># bytes per GeoJSON coordinate, 1e6 coordinates is on the order of 100 MB.</span>
+<span class="n">RASTERIZE_COORD_BUDGET</span> <span class="o">=</span> <span class="mi">1_000_000</span>
+<span class="c1"># Fixed per-geometry cost, in coordinate equivalents, for the GeoJSON dict,</span>
+<span class="c1"># its ring/part lists, and the (geometry, value) pair rasterio builds.</span>
+<span class="n">GEOM_COORD_OVERHEAD</span> <span class="o">=</span> <span class="mi">8</span>
+
+
 <span class="k">def</span><span class="w"> </span><span class="nf">_get_rio_dtype</span><span class="p">(</span><span class="n">dtype</span><span class="p">):</span>
     <span class="k">if</span> <span class="n">dtype</span> <span class="o">==</span> <span class="n">I8</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">I16</span>
@@ -474,6 +486,33 @@ document.write(`
     <span class="k">return</span> <span class="n">dtype</span>
 
 
+<span class="k">def</span><span class="w"> </span><span class="nf">_iter_geom_batches</span><span class="p">(</span><span class="n">geometry</span><span class="p">,</span> <span class="n">budget</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Yield (start, stop) index pairs that split geometry into batches.</span>
+
+<span class="sd">    Each batch's total coordinate count stays under budget plus the size of</span>
+<span class="sd">    its first geometry. A geometry that is larger than budget on its own is</span>
+<span class="sd">    always yielded as its own batch. Batches preserve the input order.</span>
+<span class="sd">    """</span>
+    <span class="k">if</span> <span class="n">budget</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">budget</span> <span class="o">=</span> <span class="n">RASTERIZE_COORD_BUDGET</span>
+    <span class="n">budget</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">budget</span><span class="p">),</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">geometry</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">n</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span>
+    <span class="n">weights</span> <span class="o">=</span> <span class="n">shapely</span><span class="o">.</span><span class="n">get_num_coordinates</span><span class="p">(</span><span class="n">geometry</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+    <span class="n">weights</span> <span class="o">+=</span> <span class="n">GEOM_COORD_OVERHEAD</span>
+    <span class="n">csum</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">weights</span><span class="p">)</span>
+    <span class="n">total</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">csum</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+    <span class="c1"># Cut wherever the running total crosses a multiple of the budget.</span>
+    <span class="n">targets</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">budget</span><span class="p">,</span> <span class="n">total</span><span class="p">,</span> <span class="n">budget</span><span class="p">)</span>
+    <span class="n">cuts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">searchsorted</span><span class="p">(</span><span class="n">csum</span><span class="p">,</span> <span class="n">targets</span><span class="p">,</span> <span class="n">side</span><span class="o">=</span><span class="s2">"right"</span><span class="p">)</span>
+    <span class="c1"># Isolate oversized geometries so they never share a batch.</span>
+    <span class="n">big</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">flatnonzero</span><span class="p">(</span><span class="n">weights</span> <span class="o">&gt;</span> <span class="n">budget</span><span class="p">)</span>
+    <span class="n">bounds</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(([</span><span class="mi">0</span><span class="p">],</span> <span class="n">cuts</span><span class="p">,</span> <span class="n">big</span><span class="p">,</span> <span class="n">big</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="p">[</span><span class="n">n</span><span class="p">])))</span>
+    <span class="k">for</span> <span class="n">start</span><span class="p">,</span> <span class="n">stop</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">bounds</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">bounds</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="k">yield</span> <span class="nb">int</span><span class="p">(</span><span class="n">start</span><span class="p">),</span> <span class="nb">int</span><span class="p">(</span><span class="n">stop</span><span class="p">)</span>
+
+
 <span class="k">def</span><span class="w"> </span><span class="nf">_rio_rasterize_wrapper</span><span class="p">(</span>
     <span class="n">shape</span><span class="p">,</span> <span class="n">transform</span><span class="p">,</span> <span class="n">geometry</span><span class="p">,</span> <span class="n">values</span><span class="p">,</span> <span class="n">out_dtype</span><span class="p">,</span> <span class="n">fill</span><span class="p">,</span> <span class="n">all_touched</span>
 <span class="p">):</span>
@@ -481,32 +520,90 @@ document.write(`
     <span class="n">values_dtype</span> <span class="o">=</span> <span class="n">_get_rio_dtype</span><span class="p">(</span><span class="n">values</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">values_dtype</span> <span class="o">!=</span> <span class="n">values</span><span class="o">.</span><span class="n">dtype</span><span class="p">:</span>
         <span class="n">values</span> <span class="o">=</span> <span class="n">values</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">values_dtype</span><span class="p">)</span>
+    <span class="n">geometry</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">geometry</span><span class="p">)</span>
 
-    <span class="n">rast_array</span> <span class="o">=</span> <span class="n">rio_rasterize</span><span class="p">(</span>
-        <span class="nb">zip</span><span class="p">(</span><span class="n">geometry</span><span class="p">,</span> <span class="n">values</span><span class="p">,</span> <span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
-        <span class="n">out_shape</span><span class="o">=</span><span class="n">shape</span><span class="p">,</span>
-        <span class="n">transform</span><span class="o">=</span><span class="n">transform</span><span class="p">,</span>
-        <span class="n">fill</span><span class="o">=</span><span class="n">fill</span><span class="p">,</span>
-        <span class="n">all_touched</span><span class="o">=</span><span class="n">all_touched</span><span class="p">,</span>
-        <span class="n">merge_alg</span><span class="o">=</span><span class="n">MergeAlg</span><span class="o">.</span><span class="n">replace</span><span class="p">,</span>
-        <span class="n">dtype</span><span class="o">=</span><span class="n">rio_dtype</span><span class="p">,</span>
-    <span class="p">)</span>
+    <span class="c1"># Burn into one preallocated array. With out given, rasterio ignores</span>
+    <span class="c1"># fill, dtype, and out_shape, so fill and dtype are applied here. Later</span>
+    <span class="c1"># batches overwrite earlier ones the same way later shapes already do</span>
+    <span class="c1"># within a single call, so the result matches an unbatched call.</span>
+    <span class="n">out</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">shape</span><span class="p">,</span> <span class="n">fill</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">rio_dtype</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">start</span><span class="p">,</span> <span class="n">stop</span> <span class="ow">in</span> <span class="n">_iter_geom_batches</span><span class="p">(</span><span class="n">geometry</span><span class="p">):</span>
+        <span class="n">rio_rasterize</span><span class="p">(</span>
+            <span class="nb">zip</span><span class="p">(</span><span class="n">geometry</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">stop</span><span class="p">],</span> <span class="n">values</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">stop</span><span class="p">],</span> <span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
+            <span class="n">out</span><span class="o">=</span><span class="n">out</span><span class="p">,</span>
+            <span class="n">transform</span><span class="o">=</span><span class="n">transform</span><span class="p">,</span>
+            <span class="n">all_touched</span><span class="o">=</span><span class="n">all_touched</span><span class="p">,</span>
+            <span class="n">merge_alg</span><span class="o">=</span><span class="n">MergeAlg</span><span class="o">.</span><span class="n">replace</span><span class="p">,</span>
+        <span class="p">)</span>
 
     <span class="k">if</span> <span class="n">rio_dtype</span> <span class="o">!=</span> <span class="n">out_dtype</span><span class="p">:</span>
-        <span class="n">rast_array</span> <span class="o">=</span> <span class="n">rast_array</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">out_dtype</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">rast_array</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="n">out</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">out_dtype</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">out</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_rio_mask</span><span class="p">(</span><span class="n">geoms</span><span class="p">,</span> <span class="n">shape</span><span class="p">,</span> <span class="n">transform</span><span class="p">,</span> <span class="n">all_touched</span><span class="p">,</span> <span class="n">invert</span><span class="p">):</span>
     <span class="n">fill</span><span class="p">,</span> <span class="n">geom_value</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="k">if</span> <span class="n">invert</span> <span class="k">else</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">rio_rasterize</span><span class="p">(</span>
-        <span class="n">geoms</span><span class="p">,</span>
-        <span class="n">out_shape</span><span class="o">=</span><span class="n">shape</span><span class="p">,</span>
-        <span class="n">fill</span><span class="o">=</span><span class="n">fill</span><span class="p">,</span>
-        <span class="n">transform</span><span class="o">=</span><span class="n">transform</span><span class="p">,</span>
-        <span class="n">all_touched</span><span class="o">=</span><span class="n">all_touched</span><span class="p">,</span>
-        <span class="n">default_value</span><span class="o">=</span><span class="n">geom_value</span><span class="p">,</span>
+    <span class="n">geoms</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">geoms</span><span class="p">)</span>
+    <span class="n">out</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">shape</span><span class="p">,</span> <span class="n">fill</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">U8</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">start</span><span class="p">,</span> <span class="n">stop</span> <span class="ow">in</span> <span class="n">_iter_geom_batches</span><span class="p">(</span><span class="n">geoms</span><span class="p">):</span>
+        <span class="n">rio_rasterize</span><span class="p">(</span>
+            <span class="n">geoms</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">stop</span><span class="p">],</span>
+            <span class="n">out</span><span class="o">=</span><span class="n">out</span><span class="p">,</span>
+            <span class="n">transform</span><span class="o">=</span><span class="n">transform</span><span class="p">,</span>
+            <span class="n">all_touched</span><span class="o">=</span><span class="n">all_touched</span><span class="p">,</span>
+            <span class="n">default_value</span><span class="o">=</span><span class="n">geom_value</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="k">return</span> <span class="n">out</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_chunk_intersects_mask</span><span class="p">(</span><span class="n">geometry</span><span class="p">,</span> <span class="n">bounds</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Return a boolean mask marking the geometries whose bounds overlap the</span>
+<span class="sd">    chunk bounds. Missing and empty geometries have NaN bounds and fail</span>
+<span class="sd">    every comparison, so they are dropped as well.</span>
+<span class="sd">    """</span>
+    <span class="n">xmin</span><span class="p">,</span> <span class="n">ymin</span><span class="p">,</span> <span class="n">xmax</span><span class="p">,</span> <span class="n">ymax</span> <span class="o">=</span> <span class="n">bounds</span>
+    <span class="n">b</span> <span class="o">=</span> <span class="n">shapely</span><span class="o">.</span><span class="n">bounds</span><span class="p">(</span><span class="n">geometry</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">(</span>
+        <span class="p">(</span><span class="n">b</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="n">xmax</span><span class="p">)</span>
+        <span class="o">&amp;</span> <span class="p">(</span><span class="n">b</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="n">xmin</span><span class="p">)</span>
+        <span class="o">&amp;</span> <span class="p">(</span><span class="n">b</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="n">ymax</span><span class="p">)</span>
+        <span class="o">&amp;</span> <span class="p">(</span><span class="n">b</span><span class="p">[:,</span> <span class="mi">3</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="n">ymin</span><span class="p">)</span>
     <span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_clip_polygons_to_chunk</span><span class="p">(</span><span class="n">geometry</span><span class="p">,</span> <span class="n">bounds</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Clip polygons that extend past the chunk bounds. Rasterizing cost grows</span>
+<span class="sd">    with the number of vertices handed to rasterio, so cutting polygons</span>
+<span class="sd">    down to the chunk keeps large features cheap.</span>
+
+<span class="sd">    Points and lines are never clipped. GDAL walks a line from its first</span>
+<span class="sd">    vertex, so a clipped line can burn different cells than the original.</span>
+<span class="sd">    A polygon whose clip collapses to nothing or to a lower dimension is</span>
+<span class="sd">    passed through unchanged so that GDAL decides which cells it touches.</span>
+<span class="sd">    The input array is not modified.</span>
+<span class="sd">    """</span>
+    <span class="n">xmin</span><span class="p">,</span> <span class="n">ymin</span><span class="p">,</span> <span class="n">xmax</span><span class="p">,</span> <span class="n">ymax</span> <span class="o">=</span> <span class="n">bounds</span>
+    <span class="n">b</span> <span class="o">=</span> <span class="n">shapely</span><span class="o">.</span><span class="n">bounds</span><span class="p">(</span><span class="n">geometry</span><span class="p">)</span>
+    <span class="n">inside</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="p">(</span><span class="n">b</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="n">xmin</span><span class="p">)</span>
+        <span class="o">&amp;</span> <span class="p">(</span><span class="n">b</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="n">ymin</span><span class="p">)</span>
+        <span class="o">&amp;</span> <span class="p">(</span><span class="n">b</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="n">xmax</span><span class="p">)</span>
+        <span class="o">&amp;</span> <span class="p">(</span><span class="n">b</span><span class="p">[:,</span> <span class="mi">3</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="n">ymax</span><span class="p">)</span>
+    <span class="p">)</span>
+    <span class="n">to_clip</span> <span class="o">=</span> <span class="o">~</span><span class="n">inside</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">shapely</span><span class="o">.</span><span class="n">get_dimensions</span><span class="p">(</span><span class="n">geometry</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">to_clip</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
+        <span class="k">return</span> <span class="n">geometry</span>
+    <span class="n">src</span> <span class="o">=</span> <span class="n">geometry</span><span class="p">[</span><span class="n">to_clip</span><span class="p">]</span>
+    <span class="n">clipped</span> <span class="o">=</span> <span class="n">shapely</span><span class="o">.</span><span class="n">clip_by_rect</span><span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="n">xmin</span><span class="p">,</span> <span class="n">ymin</span><span class="p">,</span> <span class="n">xmax</span><span class="p">,</span> <span class="n">ymax</span><span class="p">)</span>
+    <span class="n">degenerate</span> <span class="o">=</span> <span class="n">shapely</span><span class="o">.</span><span class="n">is_empty</span><span class="p">(</span><span class="n">clipped</span><span class="p">)</span> <span class="o">|</span> <span class="p">(</span>
+        <span class="n">shapely</span><span class="o">.</span><span class="n">get_dimensions</span><span class="p">(</span><span class="n">clipped</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">2</span>
+    <span class="p">)</span>
+    <span class="n">clipped</span><span class="p">[</span><span class="n">degenerate</span><span class="p">]</span> <span class="o">=</span> <span class="n">src</span><span class="p">[</span><span class="n">degenerate</span><span class="p">]</span>
+    <span class="n">geometry</span> <span class="o">=</span> <span class="n">geometry</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="n">geometry</span><span class="p">[</span><span class="n">to_clip</span><span class="p">]</span> <span class="o">=</span> <span class="n">clipped</span>
+    <span class="k">return</span> <span class="n">geometry</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_rasterize_onto_chunk</span><span class="p">(</span>
@@ -533,29 +630,13 @@ document.write(`
             <span class="s2">" given, but it is not unique within a partition. Add a column of"</span>
             <span class="s2">" unique IDs with add_objectid_column and pass it as 'field'."</span>
         <span class="p">)</span>
-    <span class="n">valid</span> <span class="o">=</span> <span class="o">~</span><span class="p">(</span><span class="n">gdf</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">is_empty</span> <span class="o">|</span> <span class="n">gdf</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">isna</span><span class="p">())</span>
-    <span class="n">gdf</span> <span class="o">=</span> <span class="n">gdf</span><span class="p">[</span><span class="n">valid</span><span class="p">]</span>
-    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">gdf</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+    <span class="n">bounds</span> <span class="o">=</span> <span class="n">rio</span><span class="o">.</span><span class="n">transform</span><span class="o">.</span><span class="n">array_bounds</span><span class="p">(</span><span class="o">*</span><span class="n">shape_2d</span><span class="p">,</span> <span class="n">transform</span><span class="p">)</span>
+    <span class="n">keep</span> <span class="o">=</span> <span class="n">_chunk_intersects_mask</span><span class="p">(</span><span class="n">gdf</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(),</span> <span class="n">bounds</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">keep</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
         <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">shape_2d</span><span class="p">,</span> <span class="n">fill</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">out_dtype</span><span class="p">)</span>
+    <span class="n">gdf</span> <span class="o">=</span> <span class="n">gdf</span><span class="p">[</span><span class="n">keep</span><span class="p">]</span>
     <span class="k">if</span> <span class="n">use_index</span><span class="p">:</span>
         <span class="n">gdf</span> <span class="o">=</span> <span class="n">gdf</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">names</span><span class="o">=</span><span class="s2">"values"</span><span class="p">)</span>
-
-    <span class="c1"># Trim anything outside the chunk</span>
-    <span class="n">chunk_bbox</span> <span class="o">=</span> <span class="n">shapely</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">box</span><span class="p">(</span>
-        <span class="o">*</span><span class="n">rio</span><span class="o">.</span><span class="n">transform</span><span class="o">.</span><span class="n">array_bounds</span><span class="p">(</span><span class="o">*</span><span class="n">shape_2d</span><span class="p">,</span> <span class="n">transform</span><span class="p">)</span>
-    <span class="p">)</span>
-    <span class="n">geoms_bbox</span> <span class="o">=</span> <span class="n">shapely</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">box</span><span class="p">(</span><span class="o">*</span><span class="n">gdf</span><span class="o">.</span><span class="n">total_bounds</span><span class="p">)</span>
-    <span class="k">if</span> <span class="ow">not</span> <span class="n">shapely</span><span class="o">.</span><span class="n">intersects</span><span class="p">(</span><span class="n">chunk_bbox</span><span class="p">,</span> <span class="n">geoms_bbox</span><span class="p">):</span>
-        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">shape_2d</span><span class="p">,</span> <span class="n">fill</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">out_dtype</span><span class="p">)</span>
-    <span class="c1"># The clip call shuffles the dataframe. Add column that can be used to</span>
-    <span class="c1"># return the dataframe to the original order after clipping.</span>
-    <span class="c1"># ref: https://github.com/geopandas/geopandas/issues/2937</span>
-    <span class="n">gdf</span><span class="p">[</span><span class="s2">"idx"</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">gdf</span><span class="p">))</span>
-    <span class="n">gdf</span> <span class="o">=</span> <span class="n">gdf</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">chunk_bbox</span><span class="p">)</span>
-    <span class="n">gdf</span> <span class="o">=</span> <span class="n">gdf</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="n">by</span><span class="o">=</span><span class="p">[</span><span class="s2">"idx"</span><span class="p">])</span>
-    <span class="k">if</span> <span class="ow">not</span> <span class="nb">len</span><span class="p">(</span><span class="n">gdf</span><span class="p">):</span>
-        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">shape_2d</span><span class="p">,</span> <span class="n">fill</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">out_dtype</span><span class="p">)</span>
-    <span class="n">gdf</span> <span class="o">=</span> <span class="n">gdf</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="n">labels</span><span class="o">=</span><span class="s2">"idx"</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
 
     <span class="c1"># Sort the dataframe to match the specified overlap resolution method.</span>
     <span class="c1"># rasterio's raesterize function replaces cells with overlapping features</span>
@@ -583,7 +664,7 @@ document.write(`
         <span class="c1"># Sort so that larger values get rasterized last</span>
         <span class="n">gdf</span> <span class="o">=</span> <span class="n">gdf</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="n">by</span><span class="o">=</span><span class="p">[</span><span class="s2">"values"</span><span class="p">],</span> <span class="n">na_position</span><span class="o">=</span><span class="s2">"first"</span><span class="p">)</span>
 
-    <span class="n">geometry</span> <span class="o">=</span> <span class="n">gdf</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+    <span class="n">geometry</span> <span class="o">=</span> <span class="n">_clip_polygons_to_chunk</span><span class="p">(</span><span class="n">gdf</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(),</span> <span class="n">bounds</span><span class="p">)</span>
     <span class="n">values</span> <span class="o">=</span> <span class="n">gdf</span><span class="p">[</span><span class="s2">"values"</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
     <span class="k">if</span> <span class="n">use_index</span><span class="p">:</span>
         <span class="n">values</span> <span class="o">+=</span> <span class="mi">1</span>
@@ -602,20 +683,13 @@ document.write(`
 <span class="sd">    """</span>
     <span class="n">fill</span> <span class="o">=</span> <span class="mi">1</span> <span class="k">if</span> <span class="n">invert</span> <span class="k">else</span> <span class="mi">0</span>
     <span class="n">shape_2d</span> <span class="o">=</span> <span class="n">block_info</span><span class="p">[</span><span class="kc">None</span><span class="p">][</span><span class="s2">"chunk-shape"</span><span class="p">]</span>
-    <span class="c1"># Trim anything outside the chunk</span>
-    <span class="n">chunk_bbox</span> <span class="o">=</span> <span class="n">shapely</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">box</span><span class="p">(</span>
-        <span class="o">*</span><span class="n">rio</span><span class="o">.</span><span class="n">transform</span><span class="o">.</span><span class="n">array_bounds</span><span class="p">(</span><span class="o">*</span><span class="n">shape_2d</span><span class="p">,</span> <span class="n">transform</span><span class="p">)</span>
-    <span class="p">)</span>
-    <span class="n">geoms_bbox</span> <span class="o">=</span> <span class="n">shapely</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">box</span><span class="p">(</span><span class="o">*</span><span class="n">gdf</span><span class="o">.</span><span class="n">total_bounds</span><span class="p">)</span>
-    <span class="k">if</span> <span class="ow">not</span> <span class="n">shapely</span><span class="o">.</span><span class="n">intersects</span><span class="p">(</span><span class="n">chunk_bbox</span><span class="p">,</span> <span class="n">geoms_bbox</span><span class="p">):</span>
+    <span class="n">bounds</span> <span class="o">=</span> <span class="n">rio</span><span class="o">.</span><span class="n">transform</span><span class="o">.</span><span class="n">array_bounds</span><span class="p">(</span><span class="o">*</span><span class="n">shape_2d</span><span class="p">,</span> <span class="n">transform</span><span class="p">)</span>
+    <span class="n">geometry</span> <span class="o">=</span> <span class="n">gdf</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+    <span class="n">keep</span> <span class="o">=</span> <span class="n">_chunk_intersects_mask</span><span class="p">(</span><span class="n">geometry</span><span class="p">,</span> <span class="n">bounds</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">keep</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
         <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">shape_2d</span><span class="p">,</span> <span class="n">fill</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="s2">"uint8"</span><span class="p">)</span>
-    <span class="n">gdf</span> <span class="o">=</span> <span class="n">gdf</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">chunk_bbox</span><span class="p">)</span>
-    <span class="k">if</span> <span class="ow">not</span> <span class="nb">len</span><span class="p">(</span><span class="n">gdf</span><span class="p">):</span>
-        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">shape_2d</span><span class="p">,</span> <span class="n">fill</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="s2">"uint8"</span><span class="p">)</span>
-
-    <span class="k">return</span> <span class="n">_rio_mask</span><span class="p">(</span>
-        <span class="n">gdf</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(),</span> <span class="n">shape_2d</span><span class="p">,</span> <span class="n">transform</span><span class="p">,</span> <span class="n">all_touched</span><span class="p">,</span> <span class="n">invert</span>
-    <span class="p">)</span>
+    <span class="n">geometry</span> <span class="o">=</span> <span class="n">_clip_polygons_to_chunk</span><span class="p">(</span><span class="n">geometry</span><span class="p">[</span><span class="n">keep</span><span class="p">],</span> <span class="n">bounds</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">_rio_mask</span><span class="p">(</span><span class="n">geometry</span><span class="p">,</span> <span class="n">shape_2d</span><span class="p">,</span> <span class="n">transform</span><span class="p">,</span> <span class="n">all_touched</span><span class="p">,</span> <span class="n">invert</span><span class="p">)</span>
 
 
 <span class="nd">@nb</span><span class="o">.</span><span class="n">jit</span><span class="p">(</span><span class="n">nopython</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">nogil</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
