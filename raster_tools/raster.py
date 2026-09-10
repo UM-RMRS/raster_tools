@@ -138,9 +138,13 @@ class _ReductionsMixin:
         return method
 
 
-# Drivers without an entry in rasterio.drivers.raster_driver_extensions
-# (e.g. COG, which writes a TIFF subset) need explicit fallbacks here.
-_DRIVER_EXT_FALLBACKS = {"COG": ".tif"}
+# Drivers that cannot be recovered from
+# rasterio.drivers.raster_driver_extensions need explicit fallbacks here.
+# That table maps extension -> driver, so a driver with no extension of its
+# own (COG, which writes a TIFF subset) never appears in it, and when two
+# drivers share an extension only the last one GDAL registers survives (GDAL
+# 3.13 hands .img to MiraMonRaster, hiding HFA).
+_DRIVER_EXT_FALLBACKS = {"COG": ".tif", "HFA": ".img"}
 
 
 def _ext_for_driver(driver):
