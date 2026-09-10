@@ -19,6 +19,7 @@ from raster_tools.io import (
     write_raster,
 )
 from raster_tools.masking import get_default_null_value
+from raster_tools.raster import _ext_for_driver
 from tests.utils import make_raster
 
 
@@ -1054,6 +1055,40 @@ def test_save_chunks_ext_default_picks_tif_without_driver(tmp_path):
     src.save_chunks(str(tmp_path / "tile"))
     files = sorted(p.name for p in tmp_path.iterdir())
     assert all(f.endswith(".tif") for f in files)
+
+
+@pytest.mark.parametrize(
+    "driver,expected_ext",
+    [
+        ("GTiff", ".tif"),
+        ("COG", ".tif"),
+        ("HFA", ".img"),
+        ("PNG", ".png"),
+        ("JPEG", ".jpg"),
+    ],
+)
+def test_ext_for_driver_table_hits(driver, expected_ext):
+    assert _ext_for_driver(driver) == expected_ext
+
+
+@pytest.mark.parametrize(
+    "driver,expected_ext",
+    [("gtiff", ".tif"), ("hfa", ".img"), ("Png", ".png")],
+)
+def test_ext_for_driver_case_insensitive(driver, expected_ext):
+    assert _ext_for_driver(driver) == expected_ext
+
+
+def test_ext_for_driver_unlisted_falls_through_to_rasterio_map():
+    assert _ext_for_driver("BMP") == ".bmp"
+
+
+def test_ext_for_driver_unknown_driver_defaults_to_tif():
+    assert _ext_for_driver("NotARealDriver") == ".tif"
+
+
+def test_ext_for_driver_none_defaults_to_tif():
+    assert _ext_for_driver(None) == ".tif"
 
 
 @pytest.mark.parametrize(
