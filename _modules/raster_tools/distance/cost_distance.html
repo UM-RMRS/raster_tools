@@ -462,7 +462,7 @@ document.write(`
 <span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.masking</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_default_null_value</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.raster</span><span class="w"> </span><span class="kn">import</span> <span class="n">Raster</span><span class="p">,</span> <span class="n">dataarray_to_xr_raster_ds</span>
 
-<span class="n">JIT_KWARGS</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;nopython&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span> <span class="s2">&quot;nogil&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">}</span>
+<span class="n">JIT_KWARGS</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"nopython"</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span> <span class="s2">"nogil"</span><span class="p">:</span> <span class="kc">True</span><span class="p">}</span>
 <span class="n">ngjit</span> <span class="o">=</span> <span class="n">nb</span><span class="o">.</span><span class="n">jit</span><span class="p">(</span><span class="o">**</span><span class="n">JIT_KWARGS</span><span class="p">)</span>
 
 
@@ -478,8 +478,8 @@ document.write(`
 
 <span class="nd">@nb</span><span class="o">.</span><span class="n">jit</span><span class="p">(</span>
     <span class="p">[</span>
-        <span class="s2">&quot;int64[:](Tuple((int64, int64)))&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;int64[:](Tuple((int64, int64, int64)))&quot;</span><span class="p">,</span>
+        <span class="s2">"int64[:](Tuple((int64, int64)))"</span><span class="p">,</span>
+        <span class="s2">"int64[:](Tuple((int64, int64, int64)))"</span><span class="p">,</span>
     <span class="p">],</span>
     <span class="o">**</span><span class="n">JIT_KWARGS</span><span class="p">,</span>
 <span class="p">)</span>
@@ -508,7 +508,7 @@ document.write(`
 <span class="c1"># ESRI backtrace value by adding 1.</span>
 <span class="c1">#</span>
 <span class="c1"># The move direction is the direction traversed in the array during the</span>
-<span class="c1"># algorithm&#39;s exploration. The bactrace direction is the direction to move when</span>
+<span class="c1"># algorithm's exploration. The bactrace direction is the direction to move when</span>
 <span class="c1"># traveling back to the nearest source.</span>
 <span class="c1">#</span>
 <span class="c1"># +-------+------------+-------------+---------------+</span>
@@ -621,11 +621,11 @@ document.write(`
                 <span class="n">heap_keys</span><span class="p">,</span> <span class="n">heap_values</span><span class="p">,</span> <span class="n">heap_xrefs</span><span class="p">,</span> <span class="n">heap_state</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">i</span>
             <span class="p">)</span>
 
-    <span class="c1"># Main loop for Dijkstra&#39;s algorithm</span>
+    <span class="c1"># Main loop for Dijkstra's algorithm</span>
     <span class="c1"># The frontier heap contains the current known costs to pixels discovered</span>
     <span class="c1"># so far. When a pixel and its cumulative cost are popped, we have found</span>
     <span class="c1"># the minimum cost path to it and can store the cumulative cost in our</span>
-    <span class="c1"># output array. We then add/update the cost to that pixel&#39;s neighborhood.</span>
+    <span class="c1"># output array. We then add/update the cost to that pixel's neighborhood.</span>
     <span class="c1"># If a neighbor has already been popped before, we ignore it. The</span>
     <span class="c1"># cumulative cost is used as the priority in the heap. At the start, only</span>
     <span class="c1"># the sources are on the heap.</span>
@@ -645,13 +645,13 @@ document.write(`
         <span class="c1"># We have now found the minimum cost to this pixel so store it</span>
         <span class="n">flat_cost_distance</span><span class="p">[</span><span class="n">index</span><span class="p">]</span> <span class="o">=</span> <span class="n">cumcost</span>
 
-        <span class="c1"># The popped cell&#39;s own cost/elevation must be valid before we expand</span>
+        <span class="c1"># The popped cell's own cost/elevation must be valid before we expand</span>
         <span class="c1"># its neighbors. Non-source cells are only pushed after their own</span>
         <span class="c1"># validity is checked as a neighbor below, but a source placed on a</span>
         <span class="c1"># barrier-cost or null-elevation cell reaches here unchecked. Such a</span>
         <span class="c1"># cell would propagate using fill values (-1 for a masked cost, the</span>
         <span class="c1"># elevation null fill for elevation), producing zero/negative or</span>
-        <span class="c1"># inflated edge weights that violate Dijkstra&#39;s invariant. Skip</span>
+        <span class="c1"># inflated edge weights that violate Dijkstra's invariant. Skip</span>
         <span class="c1"># neighbor expansion for it. Its own cumcost (0 for a source) is kept</span>
         <span class="c1"># and gets masked out at the Raster level via the costs mask.</span>
         <span class="n">cost</span> <span class="o">=</span> <span class="n">flat_costs</span><span class="p">[</span><span class="n">index</span><span class="p">]</span>
@@ -737,10 +737,10 @@ document.write(`
     <span class="n">scaling</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
     <span class="n">connectivity</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span>
 <span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Calculate accumulated cost distance, traceback, and allocation.</span>
 
-<span class="sd">    This function uses Dijkstra&#39;s algorithm to compute the many-sources</span>
+<span class="sd">    This function uses Dijkstra's algorithm to compute the many-sources</span>
 <span class="sd">    shortest-paths solution for a given cost surface. Valid moves are from a</span>
 <span class="sd">    given pixel to its 8 nearest neighbors (or, with ``connectivity=4``, to</span>
 <span class="sd">    the 4 orthogonal neighbors only). This produces 3 2D arrays. The</span>
@@ -810,15 +810,15 @@ document.write(`
 <span class="sd">        The allocation result. This is the same shape as the `costs` input</span>
 <span class="sd">        array.</span>
 
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">costs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">costs</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">costs</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">F16</span><span class="p">:</span>
-        <span class="c1"># Promote because our fused type doesn&#39;t define a float16 type</span>
+        <span class="c1"># Promote because our fused type doesn't define a float16 type</span>
         <span class="n">costs</span> <span class="o">=</span> <span class="n">costs</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">F32</span><span class="p">)</span>
     <span class="n">sources</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">sources</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">I64</span><span class="p">)</span>
     <span class="n">shape</span> <span class="o">=</span> <span class="n">costs</span><span class="o">.</span><span class="n">shape</span>
     <span class="k">if</span> <span class="n">sources</span><span class="o">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="n">shape</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Costs and sources array shapes must match&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Costs and sources array shapes must match"</span><span class="p">)</span>
 
     <span class="k">if</span> <span class="n">elevation</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">elevation</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([])</span>
@@ -828,10 +828,10 @@ document.write(`
         <span class="n">elevation</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">elevation</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">elevation</span><span class="o">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="n">shape</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="s2">&quot;Elevation must have the same shape as costs array&quot;</span>
+                <span class="s2">"Elevation must have the same shape as costs array"</span>
             <span class="p">)</span>
         <span class="k">if</span> <span class="n">elevation</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">F16</span><span class="p">:</span>
-            <span class="c1"># Promote because our fused type doesn&#39;t define a float16 type</span>
+            <span class="c1"># Promote because our fused type doesn't define a float16 type</span>
             <span class="n">elevation</span> <span class="o">=</span> <span class="n">elevation</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">F32</span><span class="p">)</span>
         <span class="n">use_elevation</span> <span class="o">=</span> <span class="kc">True</span>
 
@@ -840,12 +840,12 @@ document.write(`
     <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">scaling</span><span class="p">,</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="nb">list</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)):</span>
         <span class="n">scaling</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">scaling</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">F64</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">scaling</span><span class="o">.</span><span class="n">size</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">shape</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">scaling</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid scaling shape: </span><span class="si">{</span><span class="n">scaling</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Invalid scaling shape: </span><span class="si">{</span><span class="n">scaling</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
     <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">scaling</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">):</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Scaling values must be greater than 0&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Scaling values must be greater than 0"</span><span class="p">)</span>
 
     <span class="k">if</span> <span class="n">connectivity</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">8</span><span class="p">):</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;connectivity must be 4 or 8, got </span><span class="si">{</span><span class="n">connectivity</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"connectivity must be 4 or 8, got </span><span class="si">{</span><span class="n">connectivity</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span>
     <span class="n">use_diagonals</span> <span class="o">=</span> <span class="n">connectivity</span> <span class="o">==</span> <span class="mi">8</span>
 
     <span class="n">flat_costs</span> <span class="o">=</span> <span class="n">costs</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
@@ -899,15 +899,15 @@ document.write(`
     <span class="k">return</span> <span class="n">data</span>
 
 
-<span class="c1"># NOTE: this must match the TRACEBACK_NOT_REACHED value in _core.pyx. I can&#39;t</span>
-<span class="c1"># get that variable to import so I&#39;m using this mirror for now.</span>
+<span class="c1"># NOTE: this must match the TRACEBACK_NOT_REACHED value in _core.pyx. I can't</span>
+<span class="c1"># get that variable to import so I'm using this mirror for now.</span>
 <span class="n">_TRACEBACK_NOT_REACHED</span> <span class="o">=</span> <span class="o">-</span><span class="mi">2</span>
 
 
 <div class="viewcode-block" id="cost_distance_analysis"><a class="viewcode-back" href="../../../reference/generated/raster_tools.distance.cost_distance_analysis.html#raster_tools.distance.cost_distance_analysis">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">cost_distance_analysis</span><span class="p">(</span><span class="n">costs</span><span class="p">,</span> <span class="n">sources</span><span class="p">,</span> <span class="n">elevation</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">connectivity</span><span class="o">=</span><span class="mi">8</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Calculate accumulated cost distance, traceback, and allocation.</span>
+<span class="w">    </span><span class="sd">"""Calculate accumulated cost distance, traceback, and allocation.</span>
 
-<span class="sd">    This function uses Dijkstra&#39;s algorithm to compute the many-sources</span>
+<span class="sd">    This function uses Dijkstra's algorithm to compute the many-sources</span>
 <span class="sd">    shortest-paths solution for a given cost surface. Valid moves are from a</span>
 <span class="sd">    given pixel to its 8 nearest neighbors (or, with ``connectivity=4``, to</span>
 <span class="sd">    the 4 orthogonal neighbors only). This produces 3 rasters. The</span>
@@ -915,7 +915,7 @@ document.write(`
 <span class="sd">    distance-weighted accumulated minimum cost to each pixel. The cost to move</span>
 <span class="sd">    from one pixel to the next is ``length * mean(costs[i], costs[i+1])``,</span>
 <span class="sd">    where ``length`` is 1 for horizontal and vertical moves and ``sqrt(2)`` for</span>
-<span class="sd">    diagonal moves. The `costs` raster&#39;s resolution informs the actual scaling</span>
+<span class="sd">    diagonal moves. The `costs` raster's resolution informs the actual scaling</span>
 <span class="sd">    to use. Source locations have a cost of 0. If `elevation` provided, the</span>
 <span class="sd">    length calculation incorporates the elevation data to make the algorithm 3D</span>
 <span class="sd">    aware. Cells that cannot be reached by any source, along with cells that</span>
@@ -987,19 +987,19 @@ document.write(`
 <span class="sd">    * `ESRI: How cost distance tools work &lt;https://pro.arcgis.com/en/pro-app/latest/tool-reference/spatial-analyst/how-the-cost-distance-tools-work.htm&gt;`_</span>
 <span class="sd">    * `ESRI: How path distance tools work &lt;https://pro.arcgis.com/en/pro-app/latest/tool-reference/spatial-analyst/how-the-path-distance-tools-work.htm&gt;`_</span>
 
-<span class="sd">    &quot;&quot;&quot;</span>  <span class="c1"># noqa: E501</span>
+<span class="sd">    """</span>  <span class="c1"># noqa: E501</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">costs</span><span class="p">,</span> <span class="n">Raster</span><span class="p">):</span>
         <span class="n">costs</span> <span class="o">=</span> <span class="n">Raster</span><span class="p">(</span><span class="n">costs</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">costs</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Costs raster cannot be multibanded&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Costs raster cannot be multibanded"</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">elevation</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">elevation</span><span class="p">,</span> <span class="n">Raster</span><span class="p">):</span>
             <span class="n">elevation</span> <span class="o">=</span> <span class="n">Raster</span><span class="p">(</span><span class="n">elevation</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">elevation</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Elevation raster cannot be multibanded&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Elevation raster cannot be multibanded"</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">costs</span><span class="o">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="n">elevation</span><span class="o">.</span><span class="n">shape</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="s2">&quot;Costs and elevation rasters must have the same shape&quot;</span>
+                <span class="s2">"Costs and elevation rasters must have the same shape"</span>
             <span class="p">)</span>
 
     <span class="n">src_idxs</span> <span class="o">=</span> <span class="kc">None</span>
@@ -1007,30 +1007,30 @@ document.write(`
         <span class="k">if</span> <span class="n">is_str</span><span class="p">(</span><span class="n">sources</span><span class="p">):</span>
             <span class="n">sources</span> <span class="o">=</span> <span class="n">Raster</span><span class="p">(</span><span class="n">sources</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">sources</span><span class="o">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="n">costs</span><span class="o">.</span><span class="n">shape</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Cost and sources raster shapes must match&quot;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">sources</span><span class="o">.</span><span class="n">dtype</span><span class="o">.</span><span class="n">kind</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;u&quot;</span><span class="p">,</span> <span class="s2">&quot;i&quot;</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Cost and sources raster shapes must match"</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">sources</span><span class="o">.</span><span class="n">dtype</span><span class="o">.</span><span class="n">kind</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"u"</span><span class="p">,</span> <span class="s2">"i"</span><span class="p">):</span>
             <span class="n">msg</span> <span class="o">=</span> <span class="p">(</span>
-                <span class="s2">&quot;Sources raster must be an integer type, got &quot;</span>
-                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">sources</span><span class="o">.</span><span class="n">dtype</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="s2">"Sources raster must be an integer type, got "</span>
+                <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">sources</span><span class="o">.</span><span class="n">dtype</span><span class="si">}</span><span class="s2">"</span>
             <span class="p">)</span>
             <span class="k">if</span> <span class="n">is_float</span><span class="p">(</span><span class="n">sources</span><span class="o">.</span><span class="n">dtype</span><span class="p">):</span>
                 <span class="n">msg</span> <span class="o">+=</span> <span class="p">(</span>
-                    <span class="s2">&quot;. Saving integer rasters to GeoTIFF on older GDAL&quot;</span>
-                    <span class="s2">&quot; casts them to float64; use .astype(...) to convert&quot;</span>
-                    <span class="s2">&quot; back to an integer type.&quot;</span>
+                    <span class="s2">". Saving integer rasters to GeoTIFF on older GDAL"</span>
+                    <span class="s2">" casts them to float64; use .astype(...) to convert"</span>
+                    <span class="s2">" back to an integer type."</span>
                 <span class="p">)</span>
             <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">sources</span><span class="o">.</span><span class="n">_masked</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Sources raster must have a null value set&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Sources raster must have a null value set"</span><span class="p">)</span>
         <span class="n">sources_null_value</span> <span class="o">=</span> <span class="n">sources</span><span class="o">.</span><span class="n">null_value</span>
         <span class="n">srcs</span> <span class="o">=</span> <span class="n">sources</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">I64</span><span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">sources</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">sources</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
             <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">sources</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">2</span> <span class="ow">or</span> <span class="n">sources</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Sources must be an (M, 2) shaped array&quot;</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Sources must be an (M, 2) shaped array"</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">sources</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="n">sources</span><span class="o">.</span><span class="n">shape</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Sources must not contain duplicates&quot;</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Sources must not contain duplicates"</span><span class="p">)</span>
             <span class="n">nrows</span><span class="p">,</span> <span class="n">ncols</span> <span class="o">=</span> <span class="n">costs</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
             <span class="k">if</span> <span class="p">(</span>
                 <span class="p">(</span><span class="n">sources</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">any</span><span class="p">()</span>
@@ -1039,7 +1039,7 @@ document.write(`
                 <span class="ow">or</span> <span class="p">(</span><span class="n">sources</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="n">ncols</span><span class="p">)</span><span class="o">.</span><span class="n">any</span><span class="p">()</span>
             <span class="p">):</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                    <span class="s2">&quot;Source indices are out of bounds for the costs raster&quot;</span>
+                    <span class="s2">"Source indices are out of bounds for the costs raster"</span>
                 <span class="p">)</span>
             <span class="n">sources_null_value</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
             <span class="n">src_idxs</span> <span class="o">=</span> <span class="n">sources</span>
@@ -1048,7 +1048,7 @@ document.write(`
                 <span class="nb">len</span><span class="p">(</span><span class="n">sources</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">I64</span>
             <span class="p">)</span>
         <span class="k">except</span> <span class="ne">TypeError</span> <span class="k">as</span> <span class="n">err</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Could not understand sources argument&quot;</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">err</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Could not understand sources argument"</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">err</span>
 
     <span class="n">data</span> <span class="o">=</span> <span class="n">_normalize_raster_data</span><span class="p">(</span><span class="n">costs</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">elevation</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -1120,7 +1120,7 @@ document.write(`
 
 
 <div class="viewcode-block" id="cda_cost_distance"><a class="viewcode-back" href="../../../reference/generated/raster_tools.distance.cda_cost_distance.html#raster_tools.distance.cda_cost_distance">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">cda_cost_distance</span><span class="p">(</span><span class="n">costs</span><span class="p">,</span> <span class="n">sources</span><span class="p">,</span> <span class="n">elevation</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">connectivity</span><span class="o">=</span><span class="mi">8</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Calculate just the cost distance for a cost surface</span>
+<span class="w">    </span><span class="sd">"""Calculate just the cost distance for a cost surface</span>
 
 <span class="sd">    See cost_distance_analysis for a full description.</span>
 
@@ -1156,7 +1156,7 @@ document.write(`
 <span class="sd">    --------</span>
 <span class="sd">    cost_distance_analysis : Full cost distance solution</span>
 
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">cost_dist</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">cost_distance_analysis</span><span class="p">(</span>
         <span class="n">costs</span><span class="p">,</span> <span class="n">sources</span><span class="p">,</span> <span class="n">elevation</span><span class="p">,</span> <span class="n">connectivity</span>
     <span class="p">)</span>
@@ -1164,7 +1164,7 @@ document.write(`
 
 
 <div class="viewcode-block" id="cda_traceback"><a class="viewcode-back" href="../../../reference/generated/raster_tools.distance.cda_traceback.html#raster_tools.distance.cda_traceback">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">cda_traceback</span><span class="p">(</span><span class="n">costs</span><span class="p">,</span> <span class="n">sources</span><span class="p">,</span> <span class="n">elevation</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">connectivity</span><span class="o">=</span><span class="mi">8</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Calculate just the cost distance traceback for a cost surface.</span>
+<span class="w">    </span><span class="sd">"""Calculate just the cost distance traceback for a cost surface.</span>
 
 <span class="sd">    See cost_distance_analysis for a full description.</span>
 
@@ -1200,13 +1200,13 @@ document.write(`
 <span class="sd">    --------</span>
 <span class="sd">    cost_distance_analysis : Full cost distance solution</span>
 
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">_</span><span class="p">,</span> <span class="n">trb</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">cost_distance_analysis</span><span class="p">(</span><span class="n">costs</span><span class="p">,</span> <span class="n">sources</span><span class="p">,</span> <span class="n">elevation</span><span class="p">,</span> <span class="n">connectivity</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">trb</span></div>
 
 
 <div class="viewcode-block" id="cda_allocation"><a class="viewcode-back" href="../../../reference/generated/raster_tools.distance.cda_allocation.html#raster_tools.distance.cda_allocation">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">cda_allocation</span><span class="p">(</span><span class="n">costs</span><span class="p">,</span> <span class="n">sources</span><span class="p">,</span> <span class="n">elevation</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">connectivity</span><span class="o">=</span><span class="mi">8</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Calculate just the cost distance allocation for a cost surface.</span>
+<span class="w">    </span><span class="sd">"""Calculate just the cost distance allocation for a cost surface.</span>
 
 <span class="sd">    See cost_distance_analysis for a full description.</span>
 
@@ -1242,7 +1242,7 @@ document.write(`
 <span class="sd">    --------</span>
 <span class="sd">    cost_distance_analysis : Full cost distance solution</span>
 
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">alloc</span> <span class="o">=</span> <span class="n">cost_distance_analysis</span><span class="p">(</span>
         <span class="n">costs</span><span class="p">,</span> <span class="n">sources</span><span class="p">,</span> <span class="n">elevation</span><span class="p">,</span> <span class="n">connectivity</span>
     <span class="p">)</span>

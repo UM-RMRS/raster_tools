@@ -482,7 +482,7 @@ document.write(`
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_get_chunks</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">src_file</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-    <span class="n">chunks</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;auto&quot;</span><span class="p">,</span> <span class="s2">&quot;auto&quot;</span><span class="p">)</span>
+    <span class="n">chunks</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="s2">"auto"</span><span class="p">,</span> <span class="s2">"auto"</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">data</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">src_file</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">chunks</span>
@@ -507,15 +507,15 @@ document.write(`
     <span class="k">return</span> <span class="n">xrs</span><span class="o">.</span><span class="n">chunk</span><span class="p">(</span><span class="n">chunks</span><span class="p">)</span>
 
 
-<span class="n">TIFF_EXTS</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">((</span><span class="s2">&quot;.tif&quot;</span><span class="p">,</span> <span class="s2">&quot;.tiff&quot;</span><span class="p">))</span>
-<span class="n">NC_EXTS</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">((</span><span class="s2">&quot;.cdf&quot;</span><span class="p">,</span> <span class="s2">&quot;.nc&quot;</span><span class="p">,</span> <span class="s2">&quot;.nc4&quot;</span><span class="p">))</span>
-<span class="n">HDF_EXTS</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">((</span><span class="s2">&quot;.hdf&quot;</span><span class="p">,</span> <span class="s2">&quot;.h4&quot;</span><span class="p">,</span> <span class="s2">&quot;.hdf4&quot;</span><span class="p">,</span> <span class="s2">&quot;.he2&quot;</span><span class="p">,</span> <span class="s2">&quot;.h5&quot;</span><span class="p">,</span> <span class="s2">&quot;.hdf5&quot;</span><span class="p">,</span> <span class="s2">&quot;.he5&quot;</span><span class="p">))</span>
-<span class="n">GRIB_EXTS</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">((</span><span class="s2">&quot;.grib&quot;</span><span class="p">,</span> <span class="s2">&quot;.grib2&quot;</span><span class="p">,</span> <span class="s2">&quot;.grb&quot;</span><span class="p">,</span> <span class="s2">&quot;.grb2&quot;</span><span class="p">,</span> <span class="s2">&quot;.gb&quot;</span><span class="p">,</span> <span class="s2">&quot;.gb2&quot;</span><span class="p">))</span>
-<span class="n">BATCH_EXTS</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">((</span><span class="s2">&quot;.bch&quot;</span><span class="p">,))</span>
+<span class="n">TIFF_EXTS</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">((</span><span class="s2">".tif"</span><span class="p">,</span> <span class="s2">".tiff"</span><span class="p">))</span>
+<span class="n">NC_EXTS</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">((</span><span class="s2">".cdf"</span><span class="p">,</span> <span class="s2">".nc"</span><span class="p">,</span> <span class="s2">".nc4"</span><span class="p">))</span>
+<span class="n">HDF_EXTS</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">((</span><span class="s2">".hdf"</span><span class="p">,</span> <span class="s2">".h4"</span><span class="p">,</span> <span class="s2">".hdf4"</span><span class="p">,</span> <span class="s2">".he2"</span><span class="p">,</span> <span class="s2">".h5"</span><span class="p">,</span> <span class="s2">".hdf5"</span><span class="p">,</span> <span class="s2">".he5"</span><span class="p">))</span>
+<span class="n">GRIB_EXTS</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">((</span><span class="s2">".grib"</span><span class="p">,</span> <span class="s2">".grib2"</span><span class="p">,</span> <span class="s2">".grb"</span><span class="p">,</span> <span class="s2">".grb2"</span><span class="p">,</span> <span class="s2">".gb"</span><span class="p">,</span> <span class="s2">".gb2"</span><span class="p">))</span>
+<span class="n">BATCH_EXTS</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">((</span><span class="s2">".bch"</span><span class="p">,))</span>
 
-<span class="c1"># File extenstions that can&#39;t be read in yet</span>
+<span class="c1"># File extenstions that can't be read in yet</span>
 <span class="n">READ_NOT_IMPLEMENTED_EXTS</span> <span class="o">=</span> <span class="n">NC_EXTS</span> <span class="o">|</span> <span class="n">HDF_EXTS</span> <span class="o">|</span> <span class="n">GRIB_EXTS</span>
-<span class="c1"># File extenstions that can&#39;t be written out yet</span>
+<span class="c1"># File extenstions that can't be written out yet</span>
 <span class="n">WRITE_NOT_IMPLEMENTED_EXTS</span> <span class="o">=</span> <span class="n">NC_EXTS</span> <span class="o">|</span> <span class="n">HDF_EXTS</span> <span class="o">|</span> <span class="n">GRIB_EXTS</span>
 
 
@@ -528,10 +528,10 @@ document.write(`
 
     <span class="k">if</span> <span class="n">importlib</span><span class="o">.</span><span class="n">util</span><span class="o">.</span><span class="n">find_spec</span><span class="p">(</span><span class="n">import_name</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;Reading </span><span class="si">{</span><span class="n">ext</span><span class="si">}</span><span class="s2"> files requires the &#39;</span><span class="si">{</span><span class="n">package</span><span class="si">}</span><span class="s2">&#39; package, which is&quot;</span>
-            <span class="s2">&quot; not installed. Install it with &#39;pip install&quot;</span>
-            <span class="sa">f</span><span class="s2">&quot; raster-tools[</span><span class="si">{</span><span class="n">extra</span><span class="si">}</span><span class="s2">]&#39; or &#39;conda install -c conda-forge&quot;</span>
-            <span class="sa">f</span><span class="s2">&quot; </span><span class="si">{</span><span class="n">package</span><span class="si">}</span><span class="s2">&#39;.&quot;</span>
+            <span class="sa">f</span><span class="s2">"Reading </span><span class="si">{</span><span class="n">ext</span><span class="si">}</span><span class="s2"> files requires the '</span><span class="si">{</span><span class="n">package</span><span class="si">}</span><span class="s2">' package, which is"</span>
+            <span class="s2">" not installed. Install it with 'pip install"</span>
+            <span class="sa">f</span><span class="s2">" raster-tools[</span><span class="si">{</span><span class="n">extra</span><span class="si">}</span><span class="s2">]' or 'conda install -c conda-forge"</span>
+            <span class="sa">f</span><span class="s2">" </span><span class="si">{</span><span class="n">package</span><span class="si">}</span><span class="s2">'."</span>
         <span class="p">)</span>
 
 
@@ -539,7 +539,7 @@ document.write(`
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">normalize_null_value</span><span class="p">(</span><span class="n">nv</span><span class="p">,</span> <span class="n">dtype</span><span class="p">):</span>
-    <span class="c1"># Make sure that ESRI&#39;s default F32 null value is properly</span>
+    <span class="c1"># Make sure that ESRI's default F32 null value is properly</span>
     <span class="c1"># registered as F32</span>
     <span class="k">if</span> <span class="n">dtype</span> <span class="o">==</span> <span class="n">F32</span> <span class="ow">and</span> <span class="n">nv</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">np</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">nv</span><span class="p">,</span> <span class="n">ESRI_DEFAULT_F32_NV</span><span class="p">):</span>
         <span class="n">nv</span> <span class="o">=</span> <span class="n">F32</span><span class="o">.</span><span class="n">type</span><span class="p">(</span><span class="n">nv</span><span class="p">)</span>
@@ -560,24 +560,24 @@ document.write(`
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">PathLike</span><span class="p">):</span>
         <span class="n">ext</span> <span class="o">=</span> <span class="n">path</span><span class="o">.</span><span class="n">suffix</span>
     <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
-        <span class="k">if</span> <span class="n">urllib</span><span class="o">.</span><span class="n">parse</span><span class="o">.</span><span class="n">urlparse</span><span class="p">(</span><span class="n">path</span><span class="p">)</span> <span class="o">==</span> <span class="s2">&quot;&quot;</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">urllib</span><span class="o">.</span><span class="n">parse</span><span class="o">.</span><span class="n">urlparse</span><span class="p">(</span><span class="n">path</span><span class="p">)</span> <span class="o">==</span> <span class="s2">""</span><span class="p">:</span>
             <span class="c1"># Assume file path</span>
             <span class="n">validate_path</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
             <span class="n">ext</span> <span class="o">=</span> <span class="n">_get_extension</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="c1"># Could be a URL or path</span>
-            <span class="n">ext</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+            <span class="n">ext</span> <span class="o">=</span> <span class="s2">""</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="k">raise</span> <span class="n">RasterIOError</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;Could not resolve input to a raster path or URL: &#39;</span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">&#39;&quot;</span>
+            <span class="sa">f</span><span class="s2">"Could not resolve input to a raster path or URL: '</span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">'"</span>
         <span class="p">)</span>
 
     <span class="n">xrs</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="c1"># Try to let gdal open anything but NC, HDF, GRIB files</span>
     <span class="k">if</span> <span class="n">ext</span> <span class="ow">in</span> <span class="n">READ_NOT_IMPLEMENTED_EXTS</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
-            <span class="s2">&quot;Reading of NetCDF, HDF, and GRIB files is not supported at this&quot;</span>
-            <span class="s2">&quot; time. Try &#39;raster_tools.open_dataset&#39;.&quot;</span>
+            <span class="s2">"Reading of NetCDF, HDF, and GRIB files is not supported at this"</span>
+            <span class="s2">" time. Try 'raster_tools.open_dataset'."</span>
         <span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="k">try</span><span class="p">:</span>
@@ -586,13 +586,13 @@ document.write(`
             <span class="p">)</span>
         <span class="k">except</span> <span class="n">rio</span><span class="o">.</span><span class="n">errors</span><span class="o">.</span><span class="n">RasterioIOError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">RasterIOError</span><span class="p">(</span>
-                <span class="s2">&quot;Could not open given path as a raster.&quot;</span>
+                <span class="s2">"Could not open given path as a raster."</span>
             <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">xrs</span><span class="p">,</span> <span class="n">xr</span><span class="o">.</span><span class="n">Dataset</span><span class="p">):</span>
-        <span class="k">raise</span> <span class="n">RasterDataError</span><span class="p">(</span><span class="s2">&quot;Too many data variables in input data&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="n">RasterDataError</span><span class="p">(</span><span class="s2">"Too many data variables in input data"</span><span class="p">)</span>
     <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span>
         <span class="n">xrs</span><span class="p">,</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span>
-    <span class="p">),</span> <span class="s2">&quot;Resulting data structure must be a DataArray&quot;</span>
+    <span class="p">),</span> <span class="s2">"Resulting data structure must be a DataArray"</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">dask</span><span class="o">.</span><span class="n">is_dask_collection</span><span class="p">(</span><span class="n">xrs</span><span class="p">):</span>
         <span class="n">xrs</span> <span class="o">=</span> <span class="n">chunk</span><span class="p">(</span><span class="n">xrs</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span>
 
@@ -604,11 +604,11 @@ document.write(`
     <span class="k">return</span> <span class="n">xrs</span>
 
 
-<span class="n">_EXT_TO_DRIVER</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;.tif&quot;</span><span class="p">:</span> <span class="s2">&quot;GTiff&quot;</span><span class="p">,</span> <span class="s2">&quot;.tiff&quot;</span><span class="p">:</span> <span class="s2">&quot;GTiff&quot;</span><span class="p">}</span>
+<span class="n">_EXT_TO_DRIVER</span> <span class="o">=</span> <span class="p">{</span><span class="s2">".tif"</span><span class="p">:</span> <span class="s2">"GTiff"</span><span class="p">,</span> <span class="s2">".tiff"</span><span class="p">:</span> <span class="s2">"GTiff"</span><span class="p">}</span>
 
 <span class="c1"># Drivers that build overviews as part of the write itself; the post-write</span>
 <span class="c1"># build_overviews pass is skipped for these.</span>
-<span class="n">_DRIVERS_WITH_INTERNAL_OVERVIEWS</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="s2">&quot;COG&quot;</span><span class="p">})</span>
+<span class="n">_DRIVERS_WITH_INTERNAL_OVERVIEWS</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="s2">"COG"</span><span class="p">})</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_resolve_driver</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">driver</span><span class="p">):</span>
@@ -618,87 +618,87 @@ document.write(`
 
 
 <span class="c1"># Drivers that support native Int64/UInt64 rasters on a capable GDAL.</span>
-<span class="c1"># The COG writer stages through a temporary GTiff, so it inherits GTiff&#39;s</span>
+<span class="c1"># The COG writer stages through a temporary GTiff, so it inherits GTiff's</span>
 <span class="c1"># support.</span>
-<span class="n">_DRIVERS_WITH_INT64</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="s2">&quot;GTiff&quot;</span><span class="p">,</span> <span class="s2">&quot;COG&quot;</span><span class="p">})</span>
+<span class="n">_DRIVERS_WITH_INT64</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="s2">"GTiff"</span><span class="p">,</span> <span class="s2">"COG"</span><span class="p">})</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_supports_native_int64</span><span class="p">(</span><span class="n">driver</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Whether native int64 writes work for the resolved ``driver``.</span>
+<span class="w">    </span><span class="sd">"""Whether native int64 writes work for the resolved ``driver``.</span>
 
 <span class="sd">    GDAL added native Int64/UInt64 GeoTIFF support in 3.5;</span>
-<span class="sd">    ``check_dtype`` reflects the running GDAL&#39;s global dtype support.</span>
+<span class="sd">    ``check_dtype`` reflects the running GDAL's global dtype support.</span>
 <span class="sd">    A resolved driver outside the known-good set (including ``None``,</span>
 <span class="sd">    which means GDAL would infer the driver from an unmapped extension)</span>
 <span class="sd">    is treated conservatively as unsupported.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">rasterio.dtypes</span><span class="w"> </span><span class="kn">import</span> <span class="n">check_dtype</span>
 
-    <span class="k">return</span> <span class="n">driver</span> <span class="ow">in</span> <span class="n">_DRIVERS_WITH_INT64</span> <span class="ow">and</span> <span class="n">check_dtype</span><span class="p">(</span><span class="s2">&quot;int64&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">driver</span> <span class="ow">in</span> <span class="n">_DRIVERS_WITH_INT64</span> <span class="ow">and</span> <span class="n">check_dtype</span><span class="p">(</span><span class="s2">"int64"</span><span class="p">)</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_gtiff_translate</span><span class="p">(</span><span class="n">opts</span><span class="p">):</span>
     <span class="n">out</span> <span class="o">=</span> <span class="p">{}</span>
-    <span class="n">tiled</span> <span class="o">=</span> <span class="n">opts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;tiled&quot;</span><span class="p">)</span>
+    <span class="n">tiled</span> <span class="o">=</span> <span class="n">opts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"tiled"</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">tiled</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">out</span><span class="p">[</span><span class="s2">&quot;tiled&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="n">tiled</span><span class="p">)</span>
-    <span class="n">bs</span> <span class="o">=</span> <span class="n">opts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;blocksize&quot;</span><span class="p">)</span>
+        <span class="n">out</span><span class="p">[</span><span class="s2">"tiled"</span><span class="p">]</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="n">tiled</span><span class="p">)</span>
+    <span class="n">bs</span> <span class="o">=</span> <span class="n">opts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"blocksize"</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">bs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">bs</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
             <span class="n">h</span> <span class="o">=</span> <span class="n">w</span> <span class="o">=</span> <span class="n">bs</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">h</span><span class="p">,</span> <span class="n">w</span> <span class="o">=</span> <span class="n">bs</span>
-        <span class="n">out</span><span class="p">[</span><span class="s2">&quot;blockxsize&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">w</span><span class="p">)</span>
-        <span class="n">out</span><span class="p">[</span><span class="s2">&quot;blockysize&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">h</span><span class="p">)</span>
-    <span class="n">compress</span> <span class="o">=</span> <span class="n">opts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;compress&quot;</span><span class="p">)</span>
+        <span class="n">out</span><span class="p">[</span><span class="s2">"blockxsize"</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">w</span><span class="p">)</span>
+        <span class="n">out</span><span class="p">[</span><span class="s2">"blockysize"</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">h</span><span class="p">)</span>
+    <span class="n">compress</span> <span class="o">=</span> <span class="n">opts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"compress"</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">compress</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">out</span><span class="p">[</span><span class="s2">&quot;compress&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;none&quot;</span>
+        <span class="n">out</span><span class="p">[</span><span class="s2">"compress"</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"none"</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="n">out</span><span class="p">[</span><span class="s2">&quot;compress&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">compress</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
-    <span class="n">level</span> <span class="o">=</span> <span class="n">opts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;compress_level&quot;</span><span class="p">)</span>
+        <span class="n">out</span><span class="p">[</span><span class="s2">"compress"</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">compress</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+    <span class="n">level</span> <span class="o">=</span> <span class="n">opts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"compress_level"</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">level</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">c</span> <span class="o">=</span> <span class="n">out</span><span class="p">[</span><span class="s2">&quot;compress&quot;</span><span class="p">]</span>
-        <span class="k">if</span> <span class="n">c</span> <span class="o">==</span> <span class="s2">&quot;deflate&quot;</span><span class="p">:</span>
-            <span class="n">out</span><span class="p">[</span><span class="s2">&quot;zlevel&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">level</span><span class="p">)</span>
-        <span class="k">elif</span> <span class="n">c</span> <span class="o">==</span> <span class="s2">&quot;zstd&quot;</span><span class="p">:</span>
-            <span class="n">out</span><span class="p">[</span><span class="s2">&quot;zstd_level&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">level</span><span class="p">)</span>
-        <span class="k">elif</span> <span class="n">c</span> <span class="o">==</span> <span class="s2">&quot;jpeg&quot;</span><span class="p">:</span>
-            <span class="n">out</span><span class="p">[</span><span class="s2">&quot;jpeg_quality&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">level</span><span class="p">)</span>
+        <span class="n">c</span> <span class="o">=</span> <span class="n">out</span><span class="p">[</span><span class="s2">"compress"</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">c</span> <span class="o">==</span> <span class="s2">"deflate"</span><span class="p">:</span>
+            <span class="n">out</span><span class="p">[</span><span class="s2">"zlevel"</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">level</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">c</span> <span class="o">==</span> <span class="s2">"zstd"</span><span class="p">:</span>
+            <span class="n">out</span><span class="p">[</span><span class="s2">"zstd_level"</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">level</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">c</span> <span class="o">==</span> <span class="s2">"jpeg"</span><span class="p">:</span>
+            <span class="n">out</span><span class="p">[</span><span class="s2">"jpeg_quality"</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">level</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;compress_level has no effect with compress=</span><span class="si">{</span><span class="n">compress</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">,</span>
+                <span class="sa">f</span><span class="s2">"compress_level has no effect with compress=</span><span class="si">{</span><span class="n">compress</span><span class="si">!r}</span><span class="s2">"</span><span class="p">,</span>
                 <span class="n">stacklevel</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
             <span class="p">)</span>
-    <span class="n">predictor</span> <span class="o">=</span> <span class="n">opts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;predictor&quot;</span><span class="p">)</span>
+    <span class="n">predictor</span> <span class="o">=</span> <span class="n">opts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"predictor"</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">predictor</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">if</span> <span class="n">out</span><span class="p">[</span><span class="s2">&quot;compress&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;jpeg&quot;</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">out</span><span class="p">[</span><span class="s2">"compress"</span><span class="p">]</span> <span class="o">==</span> <span class="s2">"jpeg"</span><span class="p">:</span>
             <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
-                <span class="s2">&quot;predictor is not valid with compress=&#39;jpeg&#39;; ignoring&quot;</span><span class="p">,</span>
+                <span class="s2">"predictor is not valid with compress='jpeg'; ignoring"</span><span class="p">,</span>
                 <span class="n">stacklevel</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
             <span class="p">)</span>
         <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">predictor</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
             <span class="c1"># Backward compat with rasterio-style integer predictor values.</span>
-            <span class="n">out</span><span class="p">[</span><span class="s2">&quot;predictor&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">predictor</span>
+            <span class="n">out</span><span class="p">[</span><span class="s2">"predictor"</span><span class="p">]</span> <span class="o">=</span> <span class="n">predictor</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">mapping</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;horizontal&quot;</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;float&quot;</span><span class="p">:</span> <span class="mi">3</span><span class="p">}</span>
+            <span class="n">mapping</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"horizontal"</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span> <span class="s2">"float"</span><span class="p">:</span> <span class="mi">3</span><span class="p">}</span>
             <span class="k">if</span> <span class="n">predictor</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">mapping</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                    <span class="s2">&quot;predictor must be &#39;horizontal&#39; or &#39;float&#39;, got &quot;</span>
-                    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">predictor</span><span class="si">!r}</span><span class="s2">&quot;</span>
+                    <span class="s2">"predictor must be 'horizontal' or 'float', got "</span>
+                    <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">predictor</span><span class="si">!r}</span><span class="s2">"</span>
                 <span class="p">)</span>
-            <span class="n">out</span><span class="p">[</span><span class="s2">&quot;predictor&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">mapping</span><span class="p">[</span><span class="n">predictor</span><span class="p">]</span>
-    <span class="n">bigtiff</span> <span class="o">=</span> <span class="n">opts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;bigtiff&quot;</span><span class="p">)</span>
+            <span class="n">out</span><span class="p">[</span><span class="s2">"predictor"</span><span class="p">]</span> <span class="o">=</span> <span class="n">mapping</span><span class="p">[</span><span class="n">predictor</span><span class="p">]</span>
+    <span class="n">bigtiff</span> <span class="o">=</span> <span class="n">opts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"bigtiff"</span><span class="p">)</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">bigtiff</span><span class="p">,</span> <span class="nb">bool</span><span class="p">):</span>
-        <span class="n">out</span><span class="p">[</span><span class="s2">&quot;bigtiff&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;yes&quot;</span> <span class="k">if</span> <span class="n">bigtiff</span> <span class="k">else</span> <span class="s2">&quot;no&quot;</span>
+        <span class="n">out</span><span class="p">[</span><span class="s2">"bigtiff"</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"yes"</span> <span class="k">if</span> <span class="n">bigtiff</span> <span class="k">else</span> <span class="s2">"no"</span>
     <span class="k">elif</span> <span class="n">bigtiff</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">out</span><span class="p">[</span><span class="s2">&quot;bigtiff&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">bigtiff</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+        <span class="n">out</span><span class="p">[</span><span class="s2">"bigtiff"</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">bigtiff</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
     <span class="k">return</span> <span class="n">out</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_cog_translate</span><span class="p">(</span><span class="n">opts</span><span class="p">):</span>
     <span class="n">out</span> <span class="o">=</span> <span class="p">{}</span>
     <span class="c1"># COG is always tiled; the tiled kwarg is intentionally ignored.</span>
-    <span class="n">bs</span> <span class="o">=</span> <span class="n">opts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;blocksize&quot;</span><span class="p">)</span>
+    <span class="n">bs</span> <span class="o">=</span> <span class="n">opts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"blocksize"</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">bs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">bs</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
             <span class="n">size</span> <span class="o">=</span> <span class="n">bs</span>
@@ -706,76 +706,76 @@ document.write(`
             <span class="n">h</span><span class="p">,</span> <span class="n">w</span> <span class="o">=</span> <span class="n">bs</span>
             <span class="k">if</span> <span class="n">h</span> <span class="o">!=</span> <span class="n">w</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;COG driver requires a square blocksize; got </span><span class="si">{</span><span class="n">bs</span><span class="si">!r}</span><span class="s2">&quot;</span>
+                    <span class="sa">f</span><span class="s2">"COG driver requires a square blocksize; got </span><span class="si">{</span><span class="n">bs</span><span class="si">!r}</span><span class="s2">"</span>
                 <span class="p">)</span>
             <span class="n">size</span> <span class="o">=</span> <span class="n">h</span>
-        <span class="n">out</span><span class="p">[</span><span class="s2">&quot;blocksize&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">size</span><span class="p">)</span>
-    <span class="n">compress</span> <span class="o">=</span> <span class="n">opts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;compress&quot;</span><span class="p">)</span>
+        <span class="n">out</span><span class="p">[</span><span class="s2">"blocksize"</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">size</span><span class="p">)</span>
+    <span class="n">compress</span> <span class="o">=</span> <span class="n">opts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"compress"</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">compress</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">out</span><span class="p">[</span><span class="s2">&quot;compress&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;none&quot;</span>
+        <span class="n">out</span><span class="p">[</span><span class="s2">"compress"</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"none"</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="n">out</span><span class="p">[</span><span class="s2">&quot;compress&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">compress</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
-    <span class="n">level</span> <span class="o">=</span> <span class="n">opts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;compress_level&quot;</span><span class="p">)</span>
+        <span class="n">out</span><span class="p">[</span><span class="s2">"compress"</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">compress</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+    <span class="n">level</span> <span class="o">=</span> <span class="n">opts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"compress_level"</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">level</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">c</span> <span class="o">=</span> <span class="n">out</span><span class="p">[</span><span class="s2">&quot;compress&quot;</span><span class="p">]</span>
+        <span class="n">c</span> <span class="o">=</span> <span class="n">out</span><span class="p">[</span><span class="s2">"compress"</span><span class="p">]</span>
         <span class="k">if</span> <span class="n">c</span> <span class="ow">in</span> <span class="p">(</span>
-            <span class="s2">&quot;deflate&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;zstd&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;lzw&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;lerc&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;lerc_deflate&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;lerc_zstd&quot;</span><span class="p">,</span>
+            <span class="s2">"deflate"</span><span class="p">,</span>
+            <span class="s2">"zstd"</span><span class="p">,</span>
+            <span class="s2">"lzw"</span><span class="p">,</span>
+            <span class="s2">"lerc"</span><span class="p">,</span>
+            <span class="s2">"lerc_deflate"</span><span class="p">,</span>
+            <span class="s2">"lerc_zstd"</span><span class="p">,</span>
         <span class="p">):</span>
-            <span class="n">out</span><span class="p">[</span><span class="s2">&quot;level&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">level</span><span class="p">)</span>
-        <span class="k">elif</span> <span class="n">c</span> <span class="o">==</span> <span class="s2">&quot;jpeg&quot;</span><span class="p">:</span>
-            <span class="n">out</span><span class="p">[</span><span class="s2">&quot;quality&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">level</span><span class="p">)</span>
+            <span class="n">out</span><span class="p">[</span><span class="s2">"level"</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">level</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">c</span> <span class="o">==</span> <span class="s2">"jpeg"</span><span class="p">:</span>
+            <span class="n">out</span><span class="p">[</span><span class="s2">"quality"</span><span class="p">]</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">level</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;compress_level has no effect with compress=</span><span class="si">{</span><span class="n">compress</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">,</span>
+                <span class="sa">f</span><span class="s2">"compress_level has no effect with compress=</span><span class="si">{</span><span class="n">compress</span><span class="si">!r}</span><span class="s2">"</span><span class="p">,</span>
                 <span class="n">stacklevel</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
             <span class="p">)</span>
-    <span class="n">predictor</span> <span class="o">=</span> <span class="n">opts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;predictor&quot;</span><span class="p">)</span>
+    <span class="n">predictor</span> <span class="o">=</span> <span class="n">opts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"predictor"</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">predictor</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">if</span> <span class="n">out</span><span class="p">[</span><span class="s2">&quot;compress&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;jpeg&quot;</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">out</span><span class="p">[</span><span class="s2">"compress"</span><span class="p">]</span> <span class="o">==</span> <span class="s2">"jpeg"</span><span class="p">:</span>
             <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
-                <span class="s2">&quot;predictor is not valid with compress=&#39;jpeg&#39;; ignoring&quot;</span><span class="p">,</span>
+                <span class="s2">"predictor is not valid with compress='jpeg'; ignoring"</span><span class="p">,</span>
                 <span class="n">stacklevel</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
             <span class="p">)</span>
         <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">predictor</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
             <span class="c1"># Backward compat with rasterio-style integer predictor values.</span>
-            <span class="n">out</span><span class="p">[</span><span class="s2">&quot;predictor&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">predictor</span>
+            <span class="n">out</span><span class="p">[</span><span class="s2">"predictor"</span><span class="p">]</span> <span class="o">=</span> <span class="n">predictor</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">mapping</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;horizontal&quot;</span><span class="p">:</span> <span class="s2">&quot;STANDARD&quot;</span><span class="p">,</span> <span class="s2">&quot;float&quot;</span><span class="p">:</span> <span class="s2">&quot;FLOATING_POINT&quot;</span><span class="p">}</span>
+            <span class="n">mapping</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"horizontal"</span><span class="p">:</span> <span class="s2">"STANDARD"</span><span class="p">,</span> <span class="s2">"float"</span><span class="p">:</span> <span class="s2">"FLOATING_POINT"</span><span class="p">}</span>
             <span class="k">if</span> <span class="n">predictor</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">mapping</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                    <span class="s2">&quot;predictor must be &#39;horizontal&#39; or &#39;float&#39;, got &quot;</span>
-                    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">predictor</span><span class="si">!r}</span><span class="s2">&quot;</span>
+                    <span class="s2">"predictor must be 'horizontal' or 'float', got "</span>
+                    <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">predictor</span><span class="si">!r}</span><span class="s2">"</span>
                 <span class="p">)</span>
-            <span class="n">out</span><span class="p">[</span><span class="s2">&quot;predictor&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">mapping</span><span class="p">[</span><span class="n">predictor</span><span class="p">]</span>
-    <span class="n">bigtiff</span> <span class="o">=</span> <span class="n">opts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;bigtiff&quot;</span><span class="p">)</span>
+            <span class="n">out</span><span class="p">[</span><span class="s2">"predictor"</span><span class="p">]</span> <span class="o">=</span> <span class="n">mapping</span><span class="p">[</span><span class="n">predictor</span><span class="p">]</span>
+    <span class="n">bigtiff</span> <span class="o">=</span> <span class="n">opts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"bigtiff"</span><span class="p">)</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">bigtiff</span><span class="p">,</span> <span class="nb">bool</span><span class="p">):</span>
-        <span class="n">out</span><span class="p">[</span><span class="s2">&quot;bigtiff&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;yes&quot;</span> <span class="k">if</span> <span class="n">bigtiff</span> <span class="k">else</span> <span class="s2">&quot;no&quot;</span>
+        <span class="n">out</span><span class="p">[</span><span class="s2">"bigtiff"</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"yes"</span> <span class="k">if</span> <span class="n">bigtiff</span> <span class="k">else</span> <span class="s2">"no"</span>
     <span class="k">elif</span> <span class="n">bigtiff</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">out</span><span class="p">[</span><span class="s2">&quot;bigtiff&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">bigtiff</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
-    <span class="n">overviews</span> <span class="o">=</span> <span class="n">opts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;overviews&quot;</span><span class="p">)</span>
+        <span class="n">out</span><span class="p">[</span><span class="s2">"bigtiff"</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">bigtiff</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+    <span class="n">overviews</span> <span class="o">=</span> <span class="n">opts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"overviews"</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">overviews</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">overviews</span> <span class="ow">is</span> <span class="kc">False</span><span class="p">:</span>
-        <span class="n">out</span><span class="p">[</span><span class="s2">&quot;overviews&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;none&quot;</span>
+        <span class="n">out</span><span class="p">[</span><span class="s2">"overviews"</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"none"</span>
     <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">overviews</span><span class="p">,</span> <span class="p">(</span><span class="nb">list</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)):</span>
         <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
-            <span class="s2">&quot;COG driver builds overviews with auto-selected factors; &quot;</span>
-            <span class="s2">&quot;explicit overview list is ignored.&quot;</span><span class="p">,</span>
+            <span class="s2">"COG driver builds overviews with auto-selected factors; "</span>
+            <span class="s2">"explicit overview list is ignored."</span><span class="p">,</span>
             <span class="n">stacklevel</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
         <span class="p">)</span>
-        <span class="n">out</span><span class="p">[</span><span class="s2">&quot;overviews&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;auto&quot;</span>
+        <span class="n">out</span><span class="p">[</span><span class="s2">"overviews"</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"auto"</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="n">out</span><span class="p">[</span><span class="s2">&quot;overviews&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;auto&quot;</span>
-    <span class="n">overview_resampling</span> <span class="o">=</span> <span class="n">opts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;overview_resampling&quot;</span><span class="p">)</span>
+        <span class="n">out</span><span class="p">[</span><span class="s2">"overviews"</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"auto"</span>
+    <span class="n">overview_resampling</span> <span class="o">=</span> <span class="n">opts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"overview_resampling"</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">overview_resampling</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">out</span><span class="p">[</span><span class="s2">&quot;overview_resampling&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">overview_resampling</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+        <span class="n">out</span><span class="p">[</span><span class="s2">"overview_resampling"</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">overview_resampling</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
     <span class="k">return</span> <span class="n">out</span>
 
 
-<span class="n">_DRIVER_TRANSLATORS</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;GTiff&quot;</span><span class="p">:</span> <span class="n">_gtiff_translate</span><span class="p">,</span> <span class="s2">&quot;COG&quot;</span><span class="p">:</span> <span class="n">_cog_translate</span><span class="p">}</span>
+<span class="n">_DRIVER_TRANSLATORS</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"GTiff"</span><span class="p">:</span> <span class="n">_gtiff_translate</span><span class="p">,</span> <span class="s2">"COG"</span><span class="p">:</span> <span class="n">_cog_translate</span><span class="p">}</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_auto_overview_factors</span><span class="p">(</span><span class="n">height</span><span class="p">,</span> <span class="n">width</span><span class="p">,</span> <span class="n">min_size</span><span class="o">=</span><span class="mi">256</span><span class="p">):</span>
@@ -794,30 +794,30 @@ document.write(`
 
 <span class="c1"># A GeoTIFF color table is three 16-bit planes of red, green, and blue with</span>
 <span class="c1"># no room for alpha. Other palette formats, such as PNG and GIF, do store it.</span>
-<span class="n">_COLOR_TABLE_DRIVERS_WITHOUT_ALPHA</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="s2">&quot;GTiff&quot;</span><span class="p">,</span> <span class="s2">&quot;COG&quot;</span><span class="p">})</span>
+<span class="n">_COLOR_TABLE_DRIVERS_WITHOUT_ALPHA</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="s2">"GTiff"</span><span class="p">,</span> <span class="s2">"COG"</span><span class="p">})</span>
 
 <span class="c1"># Overview resampling methods that average or interpolate cell values. Applied</span>
 <span class="c1"># to palette indices they produce indices that do not correspond to the</span>
 <span class="c1"># original colors, so the overviews render as noise.</span>
 <span class="n">_INTERPOLATING_RESAMPLING</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">(</span>
     <span class="p">{</span>
-        <span class="s2">&quot;average&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;average_magphase&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;bilinear&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;cubic&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;cubic_spline&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;gauss&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;lanczos&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;rms&quot;</span><span class="p">,</span>
+        <span class="s2">"average"</span><span class="p">,</span>
+        <span class="s2">"average_magphase"</span><span class="p">,</span>
+        <span class="s2">"bilinear"</span><span class="p">,</span>
+        <span class="s2">"cubic"</span><span class="p">,</span>
+        <span class="s2">"cubic_spline"</span><span class="p">,</span>
+        <span class="s2">"gauss"</span><span class="p">,</span>
+        <span class="s2">"lanczos"</span><span class="p">,</span>
+        <span class="s2">"rms"</span><span class="p">,</span>
     <span class="p">}</span>
 <span class="p">)</span>
 
 
 <div class="viewcode-block" id="read_color_table"><a class="viewcode-back" href="../../reference/generated/raster_tools.read_color_table.html#raster_tools.read_color_table">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">read_color_table</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">band</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Read the color table attached to a raster file.</span>
+<span class="w">    </span><span class="sd">"""Read the color table attached to a raster file.</span>
 
 <span class="sd">    The table is returned exactly as it is stored, which for a GeoTIFF means</span>
-<span class="sd">    padded out to the full index range of the band&#39;s dtype: 256 entries for</span>
+<span class="sd">    padded out to the full index range of the band's dtype: 256 entries for</span>
 <span class="sd">    uint8 and 65536 for uint16, with undefined entries set to opaque black.</span>
 <span class="sd">    An eight class table therefore comes back with 256 entries.</span>
 
@@ -854,27 +854,27 @@ document.write(`
 <span class="sd">    --------</span>
 <span class="sd">    raster_tools.Raster.save</span>
 
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">validate_path</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
     <span class="k">try</span><span class="p">:</span>
         <span class="k">with</span> <span class="n">rio</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">path</span><span class="p">)</span> <span class="k">as</span> <span class="n">src</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">src</span><span class="o">.</span><span class="n">colormap</span><span class="p">(</span><span class="n">band</span><span class="p">)</span>
     <span class="k">except</span> <span class="n">rio</span><span class="o">.</span><span class="n">errors</span><span class="o">.</span><span class="n">RasterioIOError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
         <span class="k">raise</span> <span class="n">RasterIOError</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;Could not open </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">path</span><span class="p">)</span><span class="si">!r}</span><span class="s2"> to read a color table from.&quot;</span>
+            <span class="sa">f</span><span class="s2">"Could not open </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">path</span><span class="p">)</span><span class="si">!r}</span><span class="s2"> to read a color table from."</span>
         <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
     <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
         <span class="k">raise</span> <span class="n">RasterIOError</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;Band </span><span class="si">{</span><span class="n">band</span><span class="si">}</span><span class="s2"> of </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">path</span><span class="p">)</span><span class="si">!r}</span><span class="s2"> does not have a color table.&quot;</span>
+            <span class="sa">f</span><span class="s2">"Band </span><span class="si">{</span><span class="n">band</span><span class="si">}</span><span class="s2"> of </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">path</span><span class="p">)</span><span class="si">!r}</span><span class="s2"> does not have a color table."</span>
         <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span></div>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_color_table_spec_to_entries</span><span class="p">(</span><span class="n">color_table</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Coerce a color table spec to an ``{index: components}`` mapping.</span>
+<span class="w">    </span><span class="sd">"""Coerce a color table spec to an ``{index: components}`` mapping.</span>
 
 <span class="sd">    Also reports whether the entries were read from a file, since a table</span>
 <span class="sd">    GDAL hands back carries padding that a caller never asked for.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">color_table</span><span class="p">,</span> <span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">PathLike</span><span class="p">)):</span>
         <span class="k">return</span> <span class="n">read_color_table</span><span class="p">(</span><span class="n">color_table</span><span class="p">),</span> <span class="kc">True</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">color_table</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
@@ -882,14 +882,14 @@ document.write(`
     <span class="n">entries</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">color_table</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">entries</span><span class="o">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">2</span> <span class="ow">or</span> <span class="n">entries</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">):</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-            <span class="s2">&quot;An array-like color table must have shape (N, 3) or (N, 4). Got&quot;</span>
-            <span class="sa">f</span><span class="s2">&quot; shape </span><span class="si">{</span><span class="n">entries</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">.&quot;</span>
+            <span class="s2">"An array-like color table must have shape (N, 3) or (N, 4). Got"</span>
+            <span class="sa">f</span><span class="s2">" shape </span><span class="si">{</span><span class="n">entries</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">."</span>
         <span class="p">)</span>
     <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span><span class="nb">enumerate</span><span class="p">(</span><span class="n">entries</span><span class="o">.</span><span class="n">tolist</span><span class="p">())),</span> <span class="kc">False</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">normalize_color_table</span><span class="p">(</span><span class="n">color_table</span><span class="p">,</span> <span class="n">dtype</span><span class="p">,</span> <span class="n">driver</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Validate a color table spec and return a mapping GDAL can write.</span>
+<span class="w">    </span><span class="sd">"""Validate a color table spec and return a mapping GDAL can write.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
@@ -912,16 +912,16 @@ document.write(`
 <span class="sd">        Maps each value to a 4-tuple of ints. Alpha is forced to 255 for</span>
 <span class="sd">        drivers whose palette format has no room for it.</span>
 
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">dtype</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">dtype</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">COLOR_TABLE_DTYPES</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-            <span class="s2">&quot;Color tables are only supported for uint8 and uint16 rasters.&quot;</span>
-            <span class="sa">f</span><span class="s2">&quot; Got dtype </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span><span class="si">!r}</span><span class="s2">.&quot;</span>
+            <span class="s2">"Color tables are only supported for uint8 and uint16 rasters."</span>
+            <span class="sa">f</span><span class="s2">" Got dtype </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span><span class="si">!r}</span><span class="s2">."</span>
         <span class="p">)</span>
     <span class="n">entries</span><span class="p">,</span> <span class="n">from_file</span> <span class="o">=</span> <span class="n">_color_table_spec_to_entries</span><span class="p">(</span><span class="n">color_table</span><span class="p">)</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">entries</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;The given color table was empty.&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"The given color table was empty."</span><span class="p">)</span>
     <span class="n">keeps_alpha</span> <span class="o">=</span> <span class="n">driver</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">_COLOR_TABLE_DRIVERS_WITHOUT_ALPHA</span>
 
     <span class="n">max_value</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">iinfo</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span><span class="o">.</span><span class="n">max</span>
@@ -935,25 +935,25 @@ document.write(`
                 <span class="c1"># dtype cannot index. Those are padding, not intent.</span>
                 <span class="k">continue</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="s2">&quot;Color table values must be integers in the range&quot;</span>
-                <span class="sa">f</span><span class="s2">&quot; [0, </span><span class="si">{</span><span class="n">max_value</span><span class="si">}</span><span class="s2">] for dtype </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span><span class="si">!r}</span><span class="s2">. Got </span><span class="si">{</span><span class="n">value</span><span class="si">!r}</span><span class="s2">.&quot;</span>
+                <span class="s2">"Color table values must be integers in the range"</span>
+                <span class="sa">f</span><span class="s2">" [0, </span><span class="si">{</span><span class="n">max_value</span><span class="si">}</span><span class="s2">] for dtype </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span><span class="si">!r}</span><span class="s2">. Got </span><span class="si">{</span><span class="n">value</span><span class="si">!r}</span><span class="s2">."</span>
             <span class="p">)</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">components</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">components</span><span class="p">)</span>
         <span class="k">except</span> <span class="ne">TypeError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="s2">&quot;Color table colors must be a sequence of 3 (RGB) or 4 (RGBA)&quot;</span>
-                <span class="sa">f</span><span class="s2">&quot; components. Got </span><span class="si">{</span><span class="n">components</span><span class="si">!r}</span><span class="s2"> for value </span><span class="si">{</span><span class="n">value</span><span class="si">}</span><span class="s2">.&quot;</span>
+                <span class="s2">"Color table colors must be a sequence of 3 (RGB) or 4 (RGBA)"</span>
+                <span class="sa">f</span><span class="s2">" components. Got </span><span class="si">{</span><span class="n">components</span><span class="si">!r}</span><span class="s2"> for value </span><span class="si">{</span><span class="n">value</span><span class="si">}</span><span class="s2">."</span>
             <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">components</span><span class="p">)</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="s2">&quot;Color table colors must have 3 (RGB) or 4 (RGBA) components.&quot;</span>
-                <span class="sa">f</span><span class="s2">&quot; Got </span><span class="si">{</span><span class="n">components</span><span class="si">!r}</span><span class="s2"> for value </span><span class="si">{</span><span class="n">value</span><span class="si">}</span><span class="s2">.&quot;</span>
+                <span class="s2">"Color table colors must have 3 (RGB) or 4 (RGBA) components."</span>
+                <span class="sa">f</span><span class="s2">" Got </span><span class="si">{</span><span class="n">components</span><span class="si">!r}</span><span class="s2"> for value </span><span class="si">{</span><span class="n">value</span><span class="si">}</span><span class="s2">."</span>
             <span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span><span class="n">is_int</span><span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="ow">and</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">c</span> <span class="o">&lt;=</span> <span class="mi">255</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">components</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="s2">&quot;Color table color components must be integers in the range&quot;</span>
-                <span class="sa">f</span><span class="s2">&quot; [0, 255]. Got </span><span class="si">{</span><span class="n">components</span><span class="si">!r}</span><span class="s2"> for value </span><span class="si">{</span><span class="n">value</span><span class="si">}</span><span class="s2">.&quot;</span>
+                <span class="s2">"Color table color components must be integers in the range"</span>
+                <span class="sa">f</span><span class="s2">" [0, 255]. Got </span><span class="si">{</span><span class="n">components</span><span class="si">!r}</span><span class="s2"> for value </span><span class="si">{</span><span class="n">value</span><span class="si">}</span><span class="s2">."</span>
             <span class="p">)</span>
         <span class="n">alpha</span> <span class="o">=</span> <span class="n">components</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">components</span><span class="p">)</span> <span class="o">==</span> <span class="mi">4</span> <span class="k">else</span> <span class="mi">255</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">keeps_alpha</span> <span class="ow">and</span> <span class="n">alpha</span> <span class="o">!=</span> <span class="mi">255</span><span class="p">:</span>
@@ -966,14 +966,14 @@ document.write(`
 
     <span class="k">if</span> <span class="ow">not</span> <span class="n">normalized</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-            <span class="s2">&quot;The given color table had no entries that a&quot;</span>
-            <span class="sa">f</span><span class="s2">&quot; </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span><span class="si">!r}</span><span class="s2"> raster can index.&quot;</span>
+            <span class="s2">"The given color table had no entries that a"</span>
+            <span class="sa">f</span><span class="s2">" </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span><span class="si">!r}</span><span class="s2"> raster can index."</span>
         <span class="p">)</span>
     <span class="k">if</span> <span class="n">alpha_dropped</span><span class="p">:</span>
         <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;The </span><span class="si">{</span><span class="n">driver</span><span class="si">}</span><span class="s2"> color table cannot store alpha; the alpha&quot;</span>
-            <span class="s2">&quot; components of the given color table were dropped. Use the null&quot;</span>
-            <span class="s2">&quot; value to mark cells that should not be rendered.&quot;</span><span class="p">,</span>
+            <span class="sa">f</span><span class="s2">"The </span><span class="si">{</span><span class="n">driver</span><span class="si">}</span><span class="s2"> color table cannot store alpha; the alpha"</span>
+            <span class="s2">" components of the given color table were dropped. Use the null"</span>
+            <span class="s2">" value to mark cells that should not be rendered."</span><span class="p">,</span>
             <span class="ne">UserWarning</span><span class="p">,</span>
             <span class="n">stacklevel</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
         <span class="p">)</span>
@@ -981,13 +981,13 @@ document.write(`
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_blends_palette_overviews</span><span class="p">(</span><span class="n">overviews</span><span class="p">,</span> <span class="n">resampling</span><span class="p">,</span> <span class="n">yx_shape</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Whether overviews would be built by blending palette indices.</span>
+<span class="w">    </span><span class="sd">"""Whether overviews would be built by blending palette indices.</span>
 
 <span class="sd">    Averaging or interpolating palette indices yields indices that no longer</span>
 <span class="sd">    correspond to the original colors. Only reports ``True`` when overviews</span>
 <span class="sd">    will actually be built, so a raster too small for the auto chain does not</span>
 <span class="sd">    draw a warning about output that will not exist.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">overviews</span><span class="p">:</span>
         <span class="k">return</span> <span class="kc">False</span>
     <span class="k">if</span> <span class="nb">str</span><span class="p">(</span><span class="n">resampling</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">_INTERPOLATING_RESAMPLING</span><span class="p">:</span>
@@ -998,15 +998,15 @@ document.write(`
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_attach_color_table</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">color_table</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Write `color_table` to the first band of an already written raster.</span>
+<span class="w">    </span><span class="sd">"""Write `color_table` to the first band of an already written raster.</span>
 
-<span class="sd">    Writing the color table also switches the file&#39;s photometric</span>
+<span class="sd">    Writing the color table also switches the file's photometric</span>
 <span class="sd">    interpretation to palette, which is what makes strict readers honor it.</span>
 <span class="sd">    Requesting the palette photometric as a creation option on top of this</span>
 <span class="sd">    only reserves a second color table block that nothing reads, so the tag</span>
 <span class="sd">    is left to this call and pinned by the tests instead.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">with</span> <span class="n">rio</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="s2">&quot;r+&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">ds</span><span class="p">:</span>
+<span class="sd">    """</span>
+    <span class="k">with</span> <span class="n">rio</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="s2">"r+"</span><span class="p">)</span> <span class="k">as</span> <span class="n">ds</span><span class="p">:</span>
         <span class="n">ds</span><span class="o">.</span><span class="n">write_colormap</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">color_table</span><span class="p">)</span>
 
 
@@ -1021,16 +1021,16 @@ document.write(`
     <span class="n">compress</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
     <span class="n">compress_level</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
     <span class="n">predictor</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-    <span class="n">bigtiff</span><span class="o">=</span><span class="s2">&quot;if_safer&quot;</span><span class="p">,</span>
+    <span class="n">bigtiff</span><span class="o">=</span><span class="s2">"if_safer"</span><span class="p">,</span>
     <span class="n">overviews</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-    <span class="n">overview_resampling</span><span class="o">=</span><span class="s2">&quot;average&quot;</span><span class="p">,</span>
-    <span class="n">overview_num_threads</span><span class="o">=</span><span class="s2">&quot;all_cpus&quot;</span><span class="p">,</span>
+    <span class="n">overview_resampling</span><span class="o">=</span><span class="s2">"average"</span><span class="p">,</span>
+    <span class="n">overview_num_threads</span><span class="o">=</span><span class="s2">"all_cpus"</span><span class="p">,</span>
     <span class="o">**</span><span class="n">gdal_kwargs</span><span class="p">,</span>
 <span class="p">):</span>
     <span class="n">ext</span> <span class="o">=</span> <span class="n">_get_extension</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">ext</span> <span class="ow">and</span> <span class="n">ext</span> <span class="ow">in</span> <span class="n">WRITE_NOT_IMPLEMENTED_EXTS</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;Writing files with extension </span><span class="si">{</span><span class="n">ext</span><span class="si">!r}</span><span class="s2"> is not supported&quot;</span>
+            <span class="sa">f</span><span class="s2">"Writing files with extension </span><span class="si">{</span><span class="n">ext</span><span class="si">!r}</span><span class="s2"> is not supported"</span>
         <span class="p">)</span>
 
     <span class="n">resolved_driver</span> <span class="o">=</span> <span class="n">_resolve_driver</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">driver</span><span class="p">)</span>
@@ -1040,51 +1040,51 @@ document.write(`
         <span class="n">nv</span> <span class="o">=</span> <span class="n">xrs</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">nodata</span>
         <span class="c1"># GDAL stores a GeoTIFF nodata value as a C double. Its Int64</span>
         <span class="c1"># nodata handling is only reliable for magnitudes up to 2**53;</span>
-        <span class="c1"># larger sentinels (including int64&#39;s default null, -2**63) are</span>
+        <span class="c1"># larger sentinels (including int64's default null, -2**63) are</span>
         <span class="c1"># mangled on write, which would silently drop the null mask on</span>
         <span class="c1"># reload. Treat such a null as unpreservable by a native write.</span>
         <span class="n">null_preservable</span> <span class="o">=</span> <span class="n">nv</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="o">-</span><span class="p">(</span><span class="mi">2</span><span class="o">**</span><span class="mi">53</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">nv</span> <span class="o">&lt;=</span> <span class="mi">2</span><span class="o">**</span><span class="mi">53</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">_supports_native_int64</span><span class="p">(</span><span class="n">resolved_driver</span><span class="p">):</span>
             <span class="c1"># Older GDAL builds lack native int64 raster support; cast up</span>
-            <span class="c1"># to F64 so to_raster won&#39;t reject the array.</span>
+            <span class="c1"># to F64 so to_raster won't reject the array.</span>
             <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
-                <span class="s2">&quot;This GDAL build lacks native int64 raster support; the&quot;</span>
-                <span class="s2">&quot; array will be written as float64. Values above 2**53&quot;</span>
-                <span class="s2">&quot; may lose precision, and the file will read back as&quot;</span>
-                <span class="s2">&quot; float64 (cast it back with .astype(&#39;int64&#39;) after&quot;</span>
-                <span class="s2">&quot; loading if needed).&quot;</span><span class="p">,</span>
+                <span class="s2">"This GDAL build lacks native int64 raster support; the"</span>
+                <span class="s2">" array will be written as float64. Values above 2**53"</span>
+                <span class="s2">" may lose precision, and the file will read back as"</span>
+                <span class="s2">" float64 (cast it back with .astype('int64') after"</span>
+                <span class="s2">" loading if needed)."</span><span class="p">,</span>
                 <span class="ne">UserWarning</span><span class="p">,</span>
                 <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
             <span class="p">)</span>
             <span class="n">xrs</span> <span class="o">=</span> <span class="n">xrs</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">F64</span><span class="p">)</span>
         <span class="k">elif</span> <span class="ow">not</span> <span class="n">null_preservable</span><span class="p">:</span>
-            <span class="c1"># Native int64 is available, but GeoTIFF&#39;s float nodata</span>
+            <span class="c1"># Native int64 is available, but GeoTIFF's float nodata</span>
             <span class="c1"># field cannot hold this null value, so a native write would</span>
             <span class="c1"># lose the mask. Cast to F64, which stores the null exactly</span>
             <span class="c1"># as a double and keeps the mask intact.</span>
             <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
-                <span class="s2">&quot;The int64 null value cannot be represented in a&quot;</span>
-                <span class="s2">&quot; GeoTIFF nodata field; the array will be written as&quot;</span>
-                <span class="s2">&quot; float64 to preserve the null mask. Values above 2**53&quot;</span>
-                <span class="s2">&quot; may lose precision, and the file will read back as&quot;</span>
-                <span class="s2">&quot; float64 (cast it back with .astype(&#39;int64&#39;) after&quot;</span>
-                <span class="s2">&quot; loading if needed).&quot;</span><span class="p">,</span>
+                <span class="s2">"The int64 null value cannot be represented in a"</span>
+                <span class="s2">" GeoTIFF nodata field; the array will be written as"</span>
+                <span class="s2">" float64 to preserve the null mask. Values above 2**53"</span>
+                <span class="s2">" may lose precision, and the file will read back as"</span>
+                <span class="s2">" float64 (cast it back with .astype('int64') after"</span>
+                <span class="s2">" loading if needed)."</span><span class="p">,</span>
                 <span class="ne">UserWarning</span><span class="p">,</span>
                 <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
             <span class="p">)</span>
             <span class="n">xrs</span> <span class="o">=</span> <span class="n">xrs</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">F64</span><span class="p">)</span>
     <span class="k">elif</span> <span class="n">is_bool</span><span class="p">(</span><span class="n">xrs</span><span class="o">.</span><span class="n">dtype</span><span class="p">):</span>
-        <span class="c1"># GDAL doesn&#39;t support bool; encode as uint8.</span>
+        <span class="c1"># GDAL doesn't support bool; encode as uint8.</span>
         <span class="n">rio_is_bool</span> <span class="o">=</span> <span class="kc">True</span>
         <span class="n">xrs</span> <span class="o">=</span> <span class="n">xrs</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">U8</span><span class="p">)</span>
 
     <span class="k">if</span> <span class="n">color_table</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="c1"># 2D input is a single band; only a real band dim can hold more.</span>
-        <span class="n">nbands</span> <span class="o">=</span> <span class="n">xrs</span><span class="o">.</span><span class="n">sizes</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;band&quot;</span><span class="p">,</span> <span class="n">xrs</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="n">xrs</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">3</span> <span class="k">else</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">nbands</span> <span class="o">=</span> <span class="n">xrs</span><span class="o">.</span><span class="n">sizes</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"band"</span><span class="p">,</span> <span class="n">xrs</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="n">xrs</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">3</span> <span class="k">else</span> <span class="mi">1</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">nbands</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="s2">&quot;A color table can only be written for a single band raster.&quot;</span>
-                <span class="sa">f</span><span class="s2">&quot; This raster has </span><span class="si">{</span><span class="n">nbands</span><span class="si">}</span><span class="s2"> bands.&quot;</span>
+                <span class="s2">"A color table can only be written for a single band raster."</span>
+                <span class="sa">f</span><span class="s2">" This raster has </span><span class="si">{</span><span class="n">nbands</span><span class="si">}</span><span class="s2"> bands."</span>
             <span class="p">)</span>
         <span class="n">color_table</span> <span class="o">=</span> <span class="n">normalize_color_table</span><span class="p">(</span>
             <span class="n">color_table</span><span class="p">,</span> <span class="n">xrs</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">resolved_driver</span>
@@ -1093,11 +1093,11 @@ document.write(`
             <span class="n">overviews</span><span class="p">,</span> <span class="n">overview_resampling</span><span class="p">,</span> <span class="n">xrs</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">:]</span>
         <span class="p">):</span>
             <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;overview_resampling=</span><span class="si">{</span><span class="n">overview_resampling</span><span class="si">!r}</span><span class="s2"> blends cell&quot;</span>
-                <span class="s2">&quot; values together, which is not meaningful for values that&quot;</span>
-                <span class="s2">&quot; index a color table. The overviews will not match the&quot;</span>
-                <span class="s2">&quot; colors of the full resolution data. Use &#39;nearest&#39; or&quot;</span>
-                <span class="s2">&quot; &#39;mode&#39; instead.&quot;</span><span class="p">,</span>
+                <span class="sa">f</span><span class="s2">"overview_resampling=</span><span class="si">{</span><span class="n">overview_resampling</span><span class="si">!r}</span><span class="s2"> blends cell"</span>
+                <span class="s2">" values together, which is not meaningful for values that"</span>
+                <span class="s2">" index a color table. The overviews will not match the"</span>
+                <span class="s2">" colors of the full resolution data. Use 'nearest' or"</span>
+                <span class="s2">" 'mode' instead."</span><span class="p">,</span>
                 <span class="ne">UserWarning</span><span class="p">,</span>
                 <span class="n">stacklevel</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
             <span class="p">)</span>
@@ -1107,23 +1107,23 @@ document.write(`
     <span class="k">if</span> <span class="n">translator</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">creation_opts</span> <span class="o">=</span> <span class="n">translator</span><span class="p">(</span>
             <span class="p">{</span>
-                <span class="s2">&quot;tiled&quot;</span><span class="p">:</span> <span class="n">tiled</span><span class="p">,</span>
-                <span class="s2">&quot;blocksize&quot;</span><span class="p">:</span> <span class="n">blocksize</span><span class="p">,</span>
-                <span class="s2">&quot;compress&quot;</span><span class="p">:</span> <span class="n">compress</span><span class="p">,</span>
-                <span class="s2">&quot;compress_level&quot;</span><span class="p">:</span> <span class="n">compress_level</span><span class="p">,</span>
-                <span class="s2">&quot;predictor&quot;</span><span class="p">:</span> <span class="n">predictor</span><span class="p">,</span>
-                <span class="s2">&quot;bigtiff&quot;</span><span class="p">:</span> <span class="n">bigtiff</span><span class="p">,</span>
-                <span class="s2">&quot;overviews&quot;</span><span class="p">:</span> <span class="n">overviews</span><span class="p">,</span>
-                <span class="s2">&quot;overview_resampling&quot;</span><span class="p">:</span> <span class="n">overview_resampling</span><span class="p">,</span>
+                <span class="s2">"tiled"</span><span class="p">:</span> <span class="n">tiled</span><span class="p">,</span>
+                <span class="s2">"blocksize"</span><span class="p">:</span> <span class="n">blocksize</span><span class="p">,</span>
+                <span class="s2">"compress"</span><span class="p">:</span> <span class="n">compress</span><span class="p">,</span>
+                <span class="s2">"compress_level"</span><span class="p">:</span> <span class="n">compress_level</span><span class="p">,</span>
+                <span class="s2">"predictor"</span><span class="p">:</span> <span class="n">predictor</span><span class="p">,</span>
+                <span class="s2">"bigtiff"</span><span class="p">:</span> <span class="n">bigtiff</span><span class="p">,</span>
+                <span class="s2">"overviews"</span><span class="p">:</span> <span class="n">overviews</span><span class="p">,</span>
+                <span class="s2">"overview_resampling"</span><span class="p">:</span> <span class="n">overview_resampling</span><span class="p">,</span>
             <span class="p">}</span>
         <span class="p">)</span>
-        <span class="k">if</span> <span class="n">rio_is_bool</span> <span class="ow">and</span> <span class="n">resolved_driver</span> <span class="o">==</span> <span class="s2">&quot;GTiff&quot;</span><span class="p">:</span>
-            <span class="n">creation_opts</span><span class="p">[</span><span class="s2">&quot;nbits&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="k">if</span> <span class="n">rio_is_bool</span> <span class="ow">and</span> <span class="n">resolved_driver</span> <span class="o">==</span> <span class="s2">"GTiff"</span><span class="p">:</span>
+            <span class="n">creation_opts</span><span class="p">[</span><span class="s2">"nbits"</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
     <span class="c1"># Escape hatch wins on collisions.</span>
     <span class="n">creation_opts</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">gdal_kwargs</span><span class="p">)</span>
 
-    <span class="k">if</span> <span class="n">resolved_driver</span> <span class="o">==</span> <span class="s2">&quot;COG&quot;</span><span class="p">:</span>
-        <span class="c1"># rioxarray streams dask chunks by reopening the file in &quot;r+&quot;, but</span>
+    <span class="k">if</span> <span class="n">resolved_driver</span> <span class="o">==</span> <span class="s2">"COG"</span><span class="p">:</span>
+        <span class="c1"># rioxarray streams dask chunks by reopening the file in "r+", but</span>
         <span class="c1"># COG forbids updates after creation (it would break the layout).</span>
         <span class="c1"># Stage to a temporary GTiff, then translate to COG.</span>
         <span class="kn">import</span><span class="w"> </span><span class="nn">tempfile</span>
@@ -1132,24 +1132,24 @@ document.write(`
 
         <span class="n">out_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">path</span><span class="p">))</span>
         <span class="k">with</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">NamedTemporaryFile</span><span class="p">(</span>
-            <span class="n">suffix</span><span class="o">=</span><span class="s2">&quot;.tif&quot;</span><span class="p">,</span> <span class="nb">dir</span><span class="o">=</span><span class="n">out_dir</span><span class="p">,</span> <span class="n">delete</span><span class="o">=</span><span class="kc">False</span>
+            <span class="n">suffix</span><span class="o">=</span><span class="s2">".tif"</span><span class="p">,</span> <span class="nb">dir</span><span class="o">=</span><span class="n">out_dir</span><span class="p">,</span> <span class="n">delete</span><span class="o">=</span><span class="kc">False</span>
         <span class="p">)</span> <span class="k">as</span> <span class="n">tmpf</span><span class="p">:</span>
             <span class="n">tmp_path</span> <span class="o">=</span> <span class="n">tmpf</span><span class="o">.</span><span class="n">name</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">xrs</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">to_raster</span><span class="p">(</span><span class="n">tmp_path</span><span class="p">,</span> <span class="n">lock</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">compute</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">color_table</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="c1"># The COG driver has no palette creation option, but the copy</span>
-                <span class="c1"># carries the staged file&#39;s color table and photometric tag</span>
+                <span class="c1"># carries the staged file's color table and photometric tag</span>
                 <span class="c1"># over, so the palette has to be in place before it runs.</span>
                 <span class="n">_attach_color_table</span><span class="p">(</span><span class="n">tmp_path</span><span class="p">,</span> <span class="n">color_table</span><span class="p">)</span>
-            <span class="n">rio_copy</span><span class="p">(</span><span class="n">tmp_path</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">driver</span><span class="o">=</span><span class="s2">&quot;COG&quot;</span><span class="p">,</span> <span class="o">**</span><span class="n">creation_opts</span><span class="p">)</span>
+            <span class="n">rio_copy</span><span class="p">(</span><span class="n">tmp_path</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">driver</span><span class="o">=</span><span class="s2">"COG"</span><span class="p">,</span> <span class="o">**</span><span class="n">creation_opts</span><span class="p">)</span>
         <span class="k">finally</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">tmp_path</span><span class="p">):</span>
                 <span class="n">os</span><span class="o">.</span><span class="n">unlink</span><span class="p">(</span><span class="n">tmp_path</span><span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="n">to_raster_kwargs</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;lock&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span> <span class="s2">&quot;compute&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span> <span class="o">**</span><span class="n">creation_opts</span><span class="p">}</span>
+        <span class="n">to_raster_kwargs</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"lock"</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span> <span class="s2">"compute"</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span> <span class="o">**</span><span class="n">creation_opts</span><span class="p">}</span>
         <span class="k">if</span> <span class="n">driver</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">to_raster_kwargs</span><span class="p">[</span><span class="s2">&quot;driver&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">driver</span>
+            <span class="n">to_raster_kwargs</span><span class="p">[</span><span class="s2">"driver"</span><span class="p">]</span> <span class="o">=</span> <span class="n">driver</span>
         <span class="n">xrs</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">to_raster</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="o">**</span><span class="n">to_raster_kwargs</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">color_table</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">_attach_color_table</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">color_table</span><span class="p">)</span>
@@ -1166,13 +1166,13 @@ document.write(`
             <span class="n">resampling</span> <span class="o">=</span> <span class="n">Resampling</span><span class="p">[</span><span class="n">overview_resampling</span><span class="p">]</span>
             <span class="n">env_kwargs</span> <span class="o">=</span> <span class="p">{}</span>
             <span class="k">if</span> <span class="n">overview_num_threads</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">env_kwargs</span><span class="p">[</span><span class="s2">&quot;GDAL_NUM_THREADS&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span>
+                <span class="n">env_kwargs</span><span class="p">[</span><span class="s2">"GDAL_NUM_THREADS"</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span>
                     <span class="n">overview_num_threads</span>
                 <span class="p">)</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span>
-            <span class="k">with</span> <span class="n">rio</span><span class="o">.</span><span class="n">Env</span><span class="p">(</span><span class="o">**</span><span class="n">env_kwargs</span><span class="p">),</span> <span class="n">rio</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="s2">&quot;r+&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">ds</span><span class="p">:</span>
+            <span class="k">with</span> <span class="n">rio</span><span class="o">.</span><span class="n">Env</span><span class="p">(</span><span class="o">**</span><span class="n">env_kwargs</span><span class="p">),</span> <span class="n">rio</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="s2">"r+"</span><span class="p">)</span> <span class="k">as</span> <span class="n">ds</span><span class="p">:</span>
                 <span class="n">ds</span><span class="o">.</span><span class="n">build_overviews</span><span class="p">(</span><span class="n">factors</span><span class="p">,</span> <span class="n">resampling</span><span class="p">)</span>
                 <span class="n">ds</span><span class="o">.</span><span class="n">update_tags</span><span class="p">(</span>
-                    <span class="n">ns</span><span class="o">=</span><span class="s2">&quot;rio_overview&quot;</span><span class="p">,</span> <span class="n">resampling</span><span class="o">=</span><span class="n">overview_resampling</span>
+                    <span class="n">ns</span><span class="o">=</span><span class="s2">"rio_overview"</span><span class="p">,</span> <span class="n">resampling</span><span class="o">=</span><span class="n">overview_resampling</span>
                 <span class="p">)</span>
 
 
@@ -1186,17 +1186,17 @@ document.write(`
                 <span class="k">continue</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="n">DimensionsError</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;Too many dimensions for variable </span><span class="si">{</span><span class="n">v</span><span class="si">!r}</span><span class="s2"> with &quot;</span>
-                    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">meta</span><span class="p">[</span><span class="n">v</span><span class="p">]</span><span class="o">.</span><span class="n">ndim</span><span class="si">}</span><span class="s2">.&quot;</span>
+                    <span class="sa">f</span><span class="s2">"Too many dimensions for variable </span><span class="si">{</span><span class="n">v</span><span class="si">!r}</span><span class="s2"> with "</span>
+                    <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">meta</span><span class="p">[</span><span class="n">v</span><span class="p">]</span><span class="o">.</span><span class="n">ndim</span><span class="si">}</span><span class="s2">."</span>
                 <span class="p">)</span>
         <span class="k">elif</span> <span class="n">n</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">):</span>
             <span class="n">valid</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">DimensionsError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;Too few dimensions for variable </span><span class="si">{</span><span class="n">v</span><span class="si">!r}</span><span class="s2"> with </span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s2">.&quot;</span>
+                <span class="sa">f</span><span class="s2">"Too few dimensions for variable </span><span class="si">{</span><span class="n">v</span><span class="si">!r}</span><span class="s2"> with </span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s2">."</span>
             <span class="p">)</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">valid</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;No valid raster variables found&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"No valid raster variables found"</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">valid</span>
 
 
@@ -1206,11 +1206,11 @@ document.write(`
     <span class="k">if</span> <span class="n">affine</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">affine</span> <span class="o">=</span> <span class="n">Affine</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
     <span class="n">kwargs</span> <span class="o">=</span> <span class="n">xarray_kwargs</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
-    <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;chunks&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;auto&quot;</span>
+    <span class="n">kwargs</span><span class="p">[</span><span class="s2">"chunks"</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"auto"</span>
     <span class="n">var</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">open_dataset</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)[</span><span class="n">variable</span><span class="p">]</span><span class="o">.</span><span class="n">squeeze</span><span class="p">()</span>
     <span class="n">x</span> <span class="o">=</span> <span class="n">var</span><span class="p">[</span><span class="n">var</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">x_dim</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
     <span class="n">y</span> <span class="o">=</span> <span class="n">var</span><span class="p">[</span><span class="n">var</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">y_dim</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
-    <span class="n">nv</span> <span class="o">=</span> <span class="n">var</span><span class="o">.</span><span class="n">_FillValue</span> <span class="k">if</span> <span class="s2">&quot;_FillValue&quot;</span> <span class="ow">in</span> <span class="n">var</span><span class="o">.</span><span class="n">attrs</span> <span class="k">else</span> <span class="n">var</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">nodata</span>
+    <span class="n">nv</span> <span class="o">=</span> <span class="n">var</span><span class="o">.</span><span class="n">_FillValue</span> <span class="k">if</span> <span class="s2">"_FillValue"</span> <span class="ow">in</span> <span class="n">var</span><span class="o">.</span><span class="n">attrs</span> <span class="k">else</span> <span class="n">var</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">nodata</span>
     <span class="n">raster</span> <span class="o">=</span> <span class="n">data_to_raster</span><span class="p">(</span><span class="n">var</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">x</span><span class="o">=</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="n">y</span><span class="p">,</span> <span class="n">affine</span><span class="o">=</span><span class="n">affine</span><span class="p">,</span> <span class="n">crs</span><span class="o">=</span><span class="n">crs</span><span class="p">,</span> <span class="n">nv</span><span class="o">=</span><span class="n">nv</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">nv</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">nv</span><span class="p">):</span>
         <span class="n">raster</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">set_null_value</span><span class="p">(</span><span class="n">get_default_null_value</span><span class="p">(</span><span class="n">raster</span><span class="o">.</span><span class="n">dtype</span><span class="p">))</span>
@@ -1223,8 +1223,8 @@ document.write(`
     <span class="k">except</span> <span class="ne">TypeError</span> <span class="k">as</span> <span class="n">err</span><span class="p">:</span>
         <span class="c1"># Some datasets like gridMET improperly encode the transform.</span>
         <span class="k">raise</span> <span class="n">AffineEncodingError</span><span class="p">(</span>
-            <span class="s2">&quot;Error reading GeoTransform data:&quot;</span>
-            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">ds</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="n">ds</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">grid_mapping</span><span class="p">]</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s1">&#39;GeoTransform&#39;</span><span class="p">]</span><span class="si">!r}</span><span class="s2">&quot;</span>
+            <span class="s2">"Error reading GeoTransform data:"</span>
+            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">ds</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="n">ds</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">grid_mapping</span><span class="p">]</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s1">'GeoTransform'</span><span class="p">]</span><span class="si">!r}</span><span class="s2">"</span>
         <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">err</span>
     <span class="k">return</span> <span class="n">affine</span>
 
@@ -1235,7 +1235,7 @@ document.write(`
     <span class="n">ignore_extra_dim_errors</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
     <span class="n">xarray_kwargs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
 <span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Open a netCDF or GRIB dataset.</span>
+<span class="w">    </span><span class="sd">"""Open a netCDF or GRIB dataset.</span>
 
 <span class="sd">    This function opens a netCDF or GRIB dataset file and returns a dictionary</span>
 <span class="sd">    of Raster objectds where each raster corrersponds to the variables in the</span>
@@ -1277,15 +1277,15 @@ document.write(`
 <span class="sd">        dataset file and the values are the corresponding variable data as a</span>
 <span class="sd">        raster.</span>
 
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">if</span> <span class="n">xarray_kwargs</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">xarray_kwargs</span> <span class="o">=</span> <span class="p">{}</span>
-    <span class="n">xarray_kwargs</span><span class="p">[</span><span class="s2">&quot;decode_coords&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;all&quot;</span>
+    <span class="n">xarray_kwargs</span><span class="p">[</span><span class="s2">"decode_coords"</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"all"</span>
     <span class="n">ext</span> <span class="o">=</span> <span class="n">_get_extension</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">ext</span> <span class="ow">in</span> <span class="n">NC_EXTS</span><span class="p">:</span>
-        <span class="n">_require_backend</span><span class="p">(</span><span class="s2">&quot;netCDF4&quot;</span><span class="p">,</span> <span class="s2">&quot;netcdf4&quot;</span><span class="p">,</span> <span class="n">ext</span><span class="p">,</span> <span class="n">extra</span><span class="o">=</span><span class="s2">&quot;io&quot;</span><span class="p">)</span>
+        <span class="n">_require_backend</span><span class="p">(</span><span class="s2">"netCDF4"</span><span class="p">,</span> <span class="s2">"netcdf4"</span><span class="p">,</span> <span class="n">ext</span><span class="p">,</span> <span class="n">extra</span><span class="o">=</span><span class="s2">"io"</span><span class="p">)</span>
     <span class="k">elif</span> <span class="n">ext</span> <span class="ow">in</span> <span class="n">GRIB_EXTS</span><span class="p">:</span>
-        <span class="n">_require_backend</span><span class="p">(</span><span class="s2">&quot;cfgrib&quot;</span><span class="p">,</span> <span class="s2">&quot;cfgrib&quot;</span><span class="p">,</span> <span class="n">ext</span><span class="p">,</span> <span class="n">extra</span><span class="o">=</span><span class="s2">&quot;io&quot;</span><span class="p">)</span>
+        <span class="n">_require_backend</span><span class="p">(</span><span class="s2">"cfgrib"</span><span class="p">,</span> <span class="s2">"cfgrib"</span><span class="p">,</span> <span class="n">ext</span><span class="p">,</span> <span class="n">extra</span><span class="o">=</span><span class="s2">"io"</span><span class="p">)</span>
     <span class="n">tmp_ds</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">open_dataset</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="o">**</span><span class="n">xarray_kwargs</span><span class="p">)</span>
     <span class="n">data_vars</span> <span class="o">=</span> <span class="n">_get_valid_variables</span><span class="p">(</span><span class="n">tmp_ds</span><span class="p">,</span> <span class="n">ignore_extra_dim_errors</span><span class="p">)</span>
     <span class="n">crs</span> <span class="o">=</span> <span class="n">crs</span> <span class="ow">or</span> <span class="n">tmp_ds</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">crs</span>

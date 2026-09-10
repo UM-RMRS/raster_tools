@@ -712,7 +712,7 @@ masked:</p>
 </div>
 <p>Use dask’s per-block info inside <code class="docutils literal notranslate"><span class="pre">func</span></code>:</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="k">def</span><span class="w"> </span><span class="nf">by_chunk_id</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">block_info</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-<span class="gp">... </span>    <span class="n">bi</span> <span class="o">=</span> <span class="n">block_info</span><span class="p">[</span><span class="kc">None</span><span class="p">][</span><span class="s2">&quot;chunk-location&quot;</span><span class="p">]</span>
+<span class="gp">... </span>    <span class="n">bi</span> <span class="o">=</span> <span class="n">block_info</span><span class="p">[</span><span class="kc">None</span><span class="p">][</span><span class="s2">"chunk-location"</span><span class="p">]</span>
 <span class="gp">... </span>    <span class="o">...</span>                                       
 </pre></div>
 </div>

@@ -460,19 +460,19 @@ document.write(`
     <span class="kn">import</span><span class="w"> </span><span class="nn">pyogrio</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">ogr</span>
 
     <span class="n">warnings</span><span class="o">.</span><span class="n">filterwarnings</span><span class="p">(</span>
-        <span class="s2">&quot;ignore&quot;</span><span class="p">,</span>
-        <span class="n">message</span><span class="o">=</span><span class="s2">&quot;.*Measured </span><span class="se">\\</span><span class="s2">(M</span><span class="se">\\</span><span class="s2">) geometry types are not supported.*&quot;</span><span class="p">,</span>
+        <span class="s2">"ignore"</span><span class="p">,</span>
+        <span class="n">message</span><span class="o">=</span><span class="s2">".*Measured </span><span class="se">\\</span><span class="s2">(M</span><span class="se">\\</span><span class="s2">) geometry types are not supported.*"</span><span class="p">,</span>
     <span class="p">)</span>
 <span class="k">else</span><span class="p">:</span>
     <span class="kn">import</span><span class="w"> </span><span class="nn">fiona</span>
 
 <span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
-    <span class="s2">&quot;Vector&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;add_objectid_column&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;count_layer_features&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;get_vector&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;list_layers&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;open_vectors&quot;</span><span class="p">,</span>
+    <span class="s2">"Vector"</span><span class="p">,</span>
+    <span class="s2">"add_objectid_column"</span><span class="p">,</span>
+    <span class="s2">"count_layer_features"</span><span class="p">,</span>
+    <span class="s2">"get_vector"</span><span class="p">,</span>
+    <span class="s2">"list_layers"</span><span class="p">,</span>
+    <span class="s2">"open_vectors"</span><span class="p">,</span>
 <span class="p">]</span>
 
 
@@ -485,9 +485,9 @@ document.write(`
 
 
 <div class="viewcode-block" id="list_layers"><a class="viewcode-back" href="../../reference/generated/raster_tools.list_layers.html#raster_tools.list_layers">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">list_layers</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;List the layers in a vector source file.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""List the layers in a vector source file."""</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
-        <span class="k">raise</span> <span class="ne">IOError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;No such file or directory: </span><span class="si">{</span><span class="n">path</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">IOError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"No such file or directory: </span><span class="si">{</span><span class="n">path</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">PYOGRIO_SUPPORTED</span><span class="p">:</span>
         <span class="n">layers</span> <span class="o">=</span> <span class="n">ogr</span><span class="o">.</span><span class="n">list_layers</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
         <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="n">layers</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">])</span>
@@ -496,7 +496,7 @@ document.write(`
 
 
 <div class="viewcode-block" id="count_layer_features"><a class="viewcode-back" href="../../reference/generated/raster_tools.count_layer_features.html#raster_tools.count_layer_features">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">count_layer_features</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">layer</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Count the number of features in a layer of a vector source file.</span>
+<span class="w">    </span><span class="sd">"""Count the number of features in a layer of a vector source file.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
@@ -510,17 +510,17 @@ document.write(`
 <span class="sd">    int</span>
 <span class="sd">        The number of features.</span>
 
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
-        <span class="k">raise</span> <span class="ne">IOError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;No such file or directory: </span><span class="si">{</span><span class="n">path</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">IOError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"No such file or directory: </span><span class="si">{</span><span class="n">path</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">is_int</span><span class="p">(</span><span class="n">layer</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">is_str</span><span class="p">(</span><span class="n">layer</span><span class="p">):</span>
-        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;The layer must be an int or string.&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">"The layer must be an int or string."</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">is_int</span><span class="p">(</span><span class="n">layer</span><span class="p">)</span> <span class="ow">and</span> <span class="n">layer</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;The layer must be positive.&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"The layer must be positive."</span><span class="p">)</span>
 
     <span class="k">if</span> <span class="n">PYOGRIO_SUPPORTED</span><span class="p">:</span>
         <span class="n">info</span> <span class="o">=</span> <span class="n">ogr</span><span class="o">.</span><span class="n">read_info</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">layer</span><span class="o">=</span><span class="n">layer</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">info</span><span class="p">[</span><span class="s2">&quot;features&quot;</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">info</span><span class="p">[</span><span class="s2">"features"</span><span class="p">]</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="k">with</span> <span class="n">fiona</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">layer</span><span class="o">=</span><span class="n">layer</span><span class="p">)</span> <span class="k">as</span> <span class="n">src</span><span class="p">:</span>
             <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="n">src</span><span class="p">)</span></div>
@@ -558,25 +558,25 @@ document.write(`
 <span class="k">def</span><span class="w"> </span><span class="nf">_normalize_layers_arg</span><span class="p">(</span><span class="n">layers</span><span class="p">):</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">layers</span><span class="p">,</span> <span class="p">(</span><span class="nb">list</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)):</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">layers</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Layers argument was empty&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Layers argument was empty"</span><span class="p">)</span>
         <span class="n">first</span> <span class="o">=</span> <span class="n">layers</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
         <span class="n">is_ftype</span> <span class="o">=</span> <span class="n">is_str</span> <span class="k">if</span> <span class="n">is_str</span><span class="p">(</span><span class="n">first</span><span class="p">)</span> <span class="k">else</span> <span class="n">is_int</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span><span class="n">is_ftype</span><span class="p">(</span><span class="n">layer</span><span class="p">)</span> <span class="k">for</span> <span class="n">layer</span> <span class="ow">in</span> <span class="n">layers</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
-                <span class="s2">&quot;Layers must be all name strings or all integer indices&quot;</span>
+                <span class="s2">"Layers must be all name strings or all integer indices"</span>
             <span class="p">)</span>
         <span class="k">return</span> <span class="n">layers</span>
     <span class="k">elif</span> <span class="n">is_int</span><span class="p">(</span><span class="n">layers</span><span class="p">)</span> <span class="ow">or</span> <span class="n">is_str</span><span class="p">(</span><span class="n">layers</span><span class="p">):</span>
         <span class="k">return</span> <span class="p">[</span><span class="n">layers</span><span class="p">]</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Could not understand layers argument: </span><span class="si">{</span><span class="n">layers</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Could not understand layers argument: </span><span class="si">{</span><span class="n">layers</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span>
 
 
 <span class="n">_TARGET_CHUNK_SIZE</span> <span class="o">=</span> <span class="mi">50_000</span>
 
 
 <div class="viewcode-block" id="open_vectors"><a class="viewcode-back" href="../../reference/generated/raster_tools.open_vectors.html#raster_tools.open_vectors">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">open_vectors</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">layers</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Open a vector source.</span>
+<span class="w">    </span><span class="sd">"""Open a vector source.</span>
 
 <span class="sd">    This can be any GDAL/OGR compatible source.</span>
 
@@ -596,9 +596,9 @@ document.write(`
 <span class="sd">        If only a single layer was specified or found, a single Vector object</span>
 <span class="sd">        is returned. Otherwise, a list of Vector objects is returned.</span>
 
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
-        <span class="k">raise</span> <span class="ne">IOError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;No such file or directory: </span><span class="si">{</span><span class="n">path</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">IOError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"No such file or directory: </span><span class="si">{</span><span class="n">path</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span>
 
     <span class="n">src_layers</span> <span class="o">=</span> <span class="n">list_layers</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
     <span class="n">n_layers</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">src_layers</span><span class="p">)</span>
@@ -608,13 +608,13 @@ document.write(`
         <span class="k">if</span> <span class="n">is_str</span><span class="p">(</span><span class="n">layers</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="ow">and</span> <span class="nb">any</span><span class="p">(</span>
             <span class="n">layer</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">src_layers_set</span> <span class="k">for</span> <span class="n">layer</span> <span class="ow">in</span> <span class="n">layers</span>
         <span class="p">):</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Invalid layer name&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Invalid layer name"</span><span class="p">)</span>
         <span class="k">elif</span> <span class="n">is_int</span><span class="p">(</span><span class="n">layers</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="ow">and</span> <span class="nb">any</span><span class="p">(</span>
             <span class="n">layer</span> <span class="o">&gt;=</span> <span class="n">n_layers</span> <span class="ow">or</span> <span class="n">layer</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="k">for</span> <span class="n">layer</span> <span class="ow">in</span> <span class="n">layers</span>
         <span class="p">):</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="s2">&quot;Invalid layer index. Index either outside valid range or less&quot;</span>
-                <span class="s2">&quot; than 0&quot;</span>
+                <span class="s2">"Invalid layer index. Index either outside valid range or less"</span>
+                <span class="s2">" than 0"</span>
             <span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="n">layers</span> <span class="o">=</span> <span class="n">src_layers</span>
@@ -644,12 +644,12 @@ document.write(`
         <span class="n">result</span> <span class="o">=</span> <span class="n">open_vectors</span><span class="p">(</span><span class="n">src</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">Vector</span><span class="p">):</span>
             <span class="c1"># More than one layer was found</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Input source must only have 1 layer&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Input source must only have 1 layer"</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">result</span>
     <span class="k">elif</span> <span class="n">_is_series</span><span class="p">(</span><span class="n">src</span><span class="p">)</span> <span class="ow">or</span> <span class="n">_is_frame</span><span class="p">(</span><span class="n">src</span><span class="p">):</span>
         <span class="k">return</span> <span class="n">Vector</span><span class="p">(</span><span class="n">src</span><span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Invalid vector input&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">"Invalid vector input"</span><span class="p">)</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">get_dask_geodataframe</span><span class="p">(</span><span class="n">src</span><span class="p">):</span>
@@ -658,23 +658,23 @@ document.write(`
     <span class="k">elif</span> <span class="n">is_str</span><span class="p">(</span><span class="n">src</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">PathLike</span><span class="p">):</span>
         <span class="k">return</span> <span class="n">get_vector</span><span class="p">(</span><span class="n">src</span><span class="p">)</span><span class="o">.</span><span class="n">data</span>
     <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="n">gpd</span><span class="o">.</span><span class="n">GeoSeries</span><span class="p">):</span>
-        <span class="k">return</span> <span class="n">dgpd</span><span class="o">.</span><span class="n">from_geopandas</span><span class="p">(</span><span class="n">src</span><span class="o">.</span><span class="n">to_frame</span><span class="p">(</span><span class="s2">&quot;geometry&quot;</span><span class="p">),</span> <span class="n">npartitions</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">dgpd</span><span class="o">.</span><span class="n">from_geopandas</span><span class="p">(</span><span class="n">src</span><span class="o">.</span><span class="n">to_frame</span><span class="p">(</span><span class="s2">"geometry"</span><span class="p">),</span> <span class="n">npartitions</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
     <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="n">dgpd</span><span class="o">.</span><span class="n">GeoSeries</span><span class="p">):</span>
-        <span class="k">return</span> <span class="n">src</span><span class="o">.</span><span class="n">to_frame</span><span class="p">(</span><span class="s2">&quot;geometry&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">src</span><span class="o">.</span><span class="n">to_frame</span><span class="p">(</span><span class="s2">"geometry"</span><span class="p">)</span>
     <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="n">gpd</span><span class="o">.</span><span class="n">GeoDataFrame</span><span class="p">):</span>
         <span class="k">return</span> <span class="n">dgpd</span><span class="o">.</span><span class="n">from_geopandas</span><span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="n">npartitions</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
     <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="n">dgpd</span><span class="o">.</span><span class="n">GeoDataFrame</span><span class="p">):</span>
         <span class="k">return</span> <span class="n">src</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
-            <span class="s2">&quot;Could not coerce input to a dask_geopandas.GeoDataFrame&quot;</span>
+            <span class="s2">"Could not coerce input to a dask_geopandas.GeoDataFrame"</span>
         <span class="p">)</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_add_objid</span><span class="p">(</span><span class="n">feats</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">base</span><span class="p">,</span> <span class="n">partition_info</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
     <span class="n">feats</span> <span class="o">=</span> <span class="n">feats</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
     <span class="n">feats</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">feats</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">I64</span><span class="p">)</span> <span class="o">+</span> <span class="p">(</span>
-        <span class="n">partition_info</span><span class="p">[</span><span class="s2">&quot;number&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="n">base</span>
+        <span class="n">partition_info</span><span class="p">[</span><span class="s2">"number"</span><span class="p">]</span> <span class="o">*</span> <span class="n">base</span>
     <span class="p">)</span>
     <span class="k">return</span> <span class="n">feats</span>
 
@@ -683,7 +683,7 @@ document.write(`
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">add_objectid_column</span><span class="p">(</span><span class="n">features</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">_base</span><span class="o">=</span><span class="n">_OBJECTID_BASE</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Add a column of unique ID values to the set of features.</span>
+<span class="w">    </span><span class="sd">"""Add a column of unique ID values to the set of features.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
@@ -691,32 +691,32 @@ document.write(`
 <span class="sd">        The features to add the column to.</span>
 <span class="sd">    name : str, optional</span>
 <span class="sd">        The name for the column. If not given, the ESRI OBJECTID convention is</span>
-<span class="sd">        used. For example, if no name is given, &#39;OBJECTID&#39; will be used. If</span>
-<span class="sd">        &#39;OBJECTID&#39; is already present, &#39;OBJECTID_1&#39; is used.</span>
+<span class="sd">        used. For example, if no name is given, 'OBJECTID' will be used. If</span>
+<span class="sd">        'OBJECTID' is already present, 'OBJECTID_1' is used.</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
 <span class="sd">    result : Vector, dask_geopandas.GeoDataFrame</span>
 <span class="sd">        The updated vector or dataframe with the new column of unique values.</span>
 
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">return_vector</span> <span class="o">=</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">features</span><span class="p">,</span> <span class="p">(</span><span class="n">Vector</span><span class="p">,</span> <span class="nb">str</span><span class="p">))</span>
     <span class="n">feats</span> <span class="o">=</span> <span class="n">get_dask_geodataframe</span><span class="p">(</span><span class="n">features</span><span class="p">)</span>
 
     <span class="k">if</span> <span class="n">name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">feats</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;name already exists in dataframe: </span><span class="si">{</span><span class="n">name</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"name already exists in dataframe: </span><span class="si">{</span><span class="n">name</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="n">prefix</span> <span class="o">=</span> <span class="s2">&quot;OBJECTID&quot;</span>
+        <span class="n">prefix</span> <span class="o">=</span> <span class="s2">"OBJECTID"</span>
         <span class="k">if</span> <span class="n">prefix</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">feats</span><span class="p">:</span>
             <span class="n">name</span> <span class="o">=</span> <span class="n">prefix</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">n</span> <span class="o">=</span> <span class="mi">1</span>
             <span class="c1"># Use ESRI convention of OBJECTID_{n} for duplicate OBJECTID</span>
-            <span class="n">name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">prefix</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="n">name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">prefix</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s2">"</span>
             <span class="k">while</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">feats</span><span class="p">:</span>
                 <span class="n">n</span> <span class="o">+=</span> <span class="mi">1</span>
-                <span class="n">name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">prefix</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="n">name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">prefix</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s2">"</span>
     <span class="n">meta</span> <span class="o">=</span> <span class="n">feats</span><span class="o">.</span><span class="n">_meta</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
     <span class="n">meta</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">((),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">I64</span><span class="p">)</span>
     <span class="n">df_new</span> <span class="o">=</span> <span class="n">feats</span><span class="o">.</span><span class="n">map_partitions</span><span class="p">(</span><span class="n">_add_objid</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">_base</span><span class="p">,</span> <span class="n">meta</span><span class="o">=</span><span class="n">meta</span><span class="p">)</span>
@@ -763,7 +763,7 @@ document.write(`
 
     <span class="k">if</span> <span class="n">geo</span><span class="o">.</span><span class="n">known_divisions</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">_get_len_from_divisions</span><span class="p">(</span><span class="n">geo</span><span class="o">.</span><span class="n">divisions</span><span class="p">)</span>
-    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Divisions must be set.&quot;</span><span class="p">)</span>
+    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Divisions must be set."</span><span class="p">)</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_get_best_effort_geo_len</span><span class="p">(</span><span class="n">geo</span><span class="p">):</span>
@@ -772,7 +772,7 @@ document.write(`
 
     <span class="n">n</span> <span class="o">=</span> <span class="n">_guess_geo_len</span><span class="p">(</span><span class="n">geo</span><span class="o">.</span><span class="n">partitions</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
     <span class="c1"># Evaluate the last partition to get its exact size. Hopefully this is the</span>
-    <span class="c1"># special-cased partition. If it isn&#39;t, this will undercount by 1. See</span>
+    <span class="c1"># special-cased partition. If it isn't, this will undercount by 1. See</span>
     <span class="c1"># the note in _get_len_from_divisions.</span>
     <span class="n">n</span> <span class="o">+=</span> <span class="nb">len</span><span class="p">(</span><span class="n">geo</span><span class="o">.</span><span class="n">partitions</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
     <span class="k">return</span> <span class="n">n</span>
@@ -781,30 +781,30 @@ document.write(`
 <span class="k">def</span><span class="w"> </span><span class="nf">_normalize_geo_data</span><span class="p">(</span><span class="n">geo</span><span class="p">):</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">_is_series</span><span class="p">(</span><span class="n">geo</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">_is_frame</span><span class="p">(</span><span class="n">geo</span><span class="p">):</span>
         <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
-            <span class="s2">&quot;Invalid data type. Must be some type GeoDataFrame or&quot;</span>
-            <span class="sa">f</span><span class="s2">&quot; GeoSeries. Got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">geo</span><span class="p">)</span><span class="si">}</span><span class="s2">.&quot;</span>
+            <span class="s2">"Invalid data type. Must be some type GeoDataFrame or"</span>
+            <span class="sa">f</span><span class="s2">" GeoSeries. Got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">geo</span><span class="p">)</span><span class="si">}</span><span class="s2">."</span>
         <span class="p">)</span>
     <span class="k">if</span> <span class="n">_is_series</span><span class="p">(</span><span class="n">geo</span><span class="p">):</span>
-        <span class="n">geo</span> <span class="o">=</span> <span class="n">geo</span><span class="o">.</span><span class="n">to_frame</span><span class="p">(</span><span class="s2">&quot;geometry&quot;</span><span class="p">)</span>
+        <span class="n">geo</span> <span class="o">=</span> <span class="n">geo</span><span class="o">.</span><span class="n">to_frame</span><span class="p">(</span><span class="s2">"geometry"</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">dask</span><span class="o">.</span><span class="n">is_dask_collection</span><span class="p">(</span><span class="n">geo</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">geo</span><span class="o">.</span><span class="n">known_divisions</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-            <span class="s2">&quot;Unknown divisions set on input data. Divisions must be set.&quot;</span>
+            <span class="s2">"Unknown divisions set on input data. Divisions must be set."</span>
         <span class="p">)</span>
     <span class="k">return</span> <span class="n">geo</span>
 
 
-<span class="n">_GMTRY</span> <span class="o">=</span> <span class="s2">&quot;geometry&quot;</span>
+<span class="n">_GMTRY</span> <span class="o">=</span> <span class="s2">"geometry"</span>
 
 
 <div class="viewcode-block" id="Vector"><a class="viewcode-back" href="../../reference/generated/raster_tools.Vector.html#raster_tools.Vector">[docs]</a><span class="k">class</span><span class="w"> </span><span class="nc">Vector</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;A class representing vector data.</span>
+<span class="w">    </span><span class="sd">"""A class representing vector data.</span>
 
 <span class="sd">    Take care to provide the actual number of features in the data when</span>
 <span class="sd">    creating a new Vector.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
 <div class="viewcode-block" id="Vector.__init__"><a class="viewcode-back" href="../../reference/generated/raster_tools.Vector.html#raster_tools.Vector.__init__">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">geo</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a `Vector` object.</span>
+<span class="w">        </span><span class="sd">"""Create a `Vector` object.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -816,7 +816,7 @@ document.write(`
 <span class="sd">            to determine the number of features. Part of the data may be</span>
 <span class="sd">            temporarily loaded.</span>
 
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">geo</span> <span class="o">=</span> <span class="n">_normalize_geo_data</span><span class="p">(</span><span class="n">geo</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">dask</span><span class="o">.</span><span class="n">is_dask_collection</span><span class="p">(</span><span class="n">geo</span><span class="p">):</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_size</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">geo</span><span class="p">)</span>
@@ -831,7 +831,7 @@ document.write(`
                 <span class="bp">self</span><span class="o">.</span><span class="n">_size</span> <span class="o">=</span> <span class="n">_get_best_effort_geo_len</span><span class="p">(</span><span class="n">geo</span><span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="k">if</span> <span class="ow">not</span> <span class="n">is_int</span><span class="p">(</span><span class="n">size</span><span class="p">):</span>
-                    <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Size must be an int.&quot;</span><span class="p">)</span>
+                    <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">"Size must be an int."</span><span class="p">)</span>
 
                 <span class="c1"># The guess will underestimate by 1 in most cases</span>
                 <span class="n">size_guess</span> <span class="o">=</span> <span class="n">_guess_geo_len</span><span class="p">(</span><span class="n">geo</span><span class="p">)</span>
@@ -839,7 +839,7 @@ document.write(`
                     <span class="bp">self</span><span class="o">.</span><span class="n">_size</span> <span class="o">=</span> <span class="n">size</span>
                 <span class="k">else</span><span class="p">:</span>
                     <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                        <span class="s2">&quot;Given size does not match divisions in data&quot;</span>
+                        <span class="s2">"Given size does not match divisions in data"</span>
                     <span class="p">)</span></div>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__len__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -847,13 +847,13 @@ document.write(`
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">lazy</span> <span class="o">=</span> <span class="n">dask</span><span class="o">.</span><span class="n">is_dask_collection</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_geo</span><span class="p">)</span>
-        <span class="k">return</span> <span class="s2">&quot;&lt;Vector(shapes: </span><span class="si">{}</span><span class="s2">, fields: </span><span class="si">{}</span><span class="s2">, CRS: </span><span class="si">{}</span><span class="s2">, lazy:</span><span class="si">{}</span><span class="s2">)&gt;&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+        <span class="k">return</span> <span class="s2">"&lt;Vector(shapes: </span><span class="si">{}</span><span class="s2">, fields: </span><span class="si">{}</span><span class="s2">, CRS: </span><span class="si">{}</span><span class="s2">, lazy:</span><span class="si">{}</span><span class="s2">)&gt;"</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">crs</span><span class="p">,</span> <span class="n">lazy</span>
         <span class="p">)</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">table</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;The vector attribute table.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""The vector attribute table."""</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_geo</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="n">_GMTRY</span><span class="p">])</span>
 
     <span class="nd">@property</span>
@@ -862,48 +862,48 @@ document.write(`
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">size</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        The number of vectors contained. NaN is returned if the vector is lazy.</span>
 
 <span class="sd">        Use `len(vector)` to trigger computation of the length.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">shape</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;The shape of the attribute table.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""The shape of the attribute table."""</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">dask</span><span class="o">.</span><span class="n">is_dask_collection</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_geo</span><span class="p">):</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">table</span><span class="o">.</span><span class="n">shape</span>
         <span class="k">return</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">field_names</span><span class="p">))</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">crs</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;The vector CRS.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""The vector CRS."""</span>
         <span class="k">return</span> <span class="n">rio</span><span class="o">.</span><span class="n">crs</span><span class="o">.</span><span class="n">CRS</span><span class="o">.</span><span class="n">from_wkt</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_geo</span><span class="o">.</span><span class="n">crs</span><span class="o">.</span><span class="n">to_wkt</span><span class="p">())</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">field_schema</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;A mapping of the field names to dtypes.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""A mapping of the field names to dtypes."""</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">table</span><span class="o">.</span><span class="n">dtypes</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">field_names</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;The field names.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""The field names."""</span>
         <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">field_schema</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">field_dtypes</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;The field dtypes.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""The field dtypes."""</span>
         <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">field_schema</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">geometry</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;The vector geometry series.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""The vector geometry series."""</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_geo</span><span class="o">.</span><span class="n">geometry</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">tasks</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;The number of lazy operations left to be computed.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""The number of lazy operations left to be computed."""</span>
         <span class="k">if</span> <span class="n">dask</span><span class="o">.</span><span class="n">is_dask_collection</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_geo</span><span class="p">):</span>
             <span class="c1"># TODO: take into account partitions?</span>
             <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_geo</span><span class="o">.</span><span class="n">dask</span><span class="p">)</span>
@@ -911,40 +911,40 @@ document.write(`
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">bounds</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a bounds array or dask array: (minx, miny, maxx, maxy).</span>
+<span class="w">        </span><span class="sd">"""Return a bounds array or dask array: (minx, miny, maxx, maxy).</span>
 
 <span class="sd">        If the vector is lazy, the output is a dask array.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">total_bounds</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">copy</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Copies the vector.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Copies the vector."""</span>
         <span class="k">return</span> <span class="n">Vector</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_geo</span><span class="o">.</span><span class="n">copy</span><span class="p">())</span>
 
 <div class="viewcode-block" id="Vector.eval"><a class="viewcode-back" href="../../reference/generated/raster_tools.Vector.eval.html#raster_tools.Vector.eval">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">eval</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>  <span class="c1"># noqa: A003</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute the built-up chain of operations on the underlying data.</span>
+<span class="w">        </span><span class="sd">"""Compute the built-up chain of operations on the underlying data.</span>
 
 <span class="sd">        .. deprecated::</span>
 <span class="sd">            Use :meth:`load` instead. ``eval`` will be removed in a future</span>
 <span class="sd">            release.</span>
 
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
-            <span class="s2">&quot;&#39;Vector.eval&#39; is deprecated and will be removed in a future &quot;</span>
-            <span class="s2">&quot;release. Use &#39;Vector.load&#39; instead.&quot;</span><span class="p">,</span>
+            <span class="s2">"'Vector.eval' is deprecated and will be removed in a future "</span>
+            <span class="s2">"release. Use 'Vector.load' instead."</span><span class="p">,</span>
             <span class="ne">DeprecationWarning</span><span class="p">,</span>
             <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">load</span><span class="p">()</span></div>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">load</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute delayed operations and load the result into memory.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Compute delayed operations and load the result into memory."""</span>
         <span class="k">if</span> <span class="n">dask</span><span class="o">.</span><span class="n">is_dask_collection</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_geo</span><span class="p">):</span>
             <span class="k">return</span> <span class="n">Vector</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_geo</span><span class="o">.</span><span class="n">compute</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">_size</span><span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span>
 
 <div class="viewcode-block" id="Vector.to_lazy"><a class="viewcode-back" href="../../reference/generated/raster_tools.Vector.to_lazy.html#raster_tools.Vector.to_lazy">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">to_lazy</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">npartitions</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Converts to a lazy dask-backed Vector.</span>
+<span class="w">        </span><span class="sd">"""Converts to a lazy dask-backed Vector.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -956,7 +956,7 @@ document.write(`
 <span class="sd">        Vector</span>
 <span class="sd">            A lazy copy of the vector.</span>
 
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">if</span> <span class="n">dask</span><span class="o">.</span><span class="n">is_dask_collection</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_geo</span><span class="p">):</span>
             <span class="k">return</span> <span class="bp">self</span>
         <span class="k">if</span> <span class="n">npartitions</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -967,24 +967,24 @@ document.write(`
         <span class="p">)</span></div>
 
 <div class="viewcode-block" id="Vector.to_dask"><a class="viewcode-back" href="../../reference/generated/raster_tools.Vector.to_dask.html#raster_tools.Vector.to_dask">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">to_dask</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Returns the underlying data as a :obj:`dask_geopandas.GeoDataFrame`.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">to_lazy</span><span class="p">()</span><span class="o">.</span><span class="n">_geo</span></div>
 
 <div class="viewcode-block" id="Vector.to_dataframe"><a class="viewcode-back" href="../../reference/generated/raster_tools.Vector.to_dataframe.html#raster_tools.Vector.to_dataframe">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">to_dataframe</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns the underlying GeoDataFrame.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Returns the underlying GeoDataFrame."""</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span></div>
 
 <div class="viewcode-block" id="Vector.to_shapely"><a class="viewcode-back" href="../../reference/generated/raster_tools.Vector.to_shapely.html#raster_tools.Vector.to_shapely">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">to_shapely</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns the vector data as a list of shapely geometries objects.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Returns the vector data as a list of shapely geometries objects."""</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">to_list</span><span class="p">()</span></div>
 
 <div class="viewcode-block" id="Vector.to_raster"><a class="viewcode-back" href="../../reference/generated/raster_tools.Vector.to_raster.html#raster_tools.Vector.to_raster">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">to_raster</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">like</span><span class="p">,</span>
         <span class="n">field</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-        <span class="n">overlap_resolve_method</span><span class="o">=</span><span class="s2">&quot;last&quot;</span><span class="p">,</span>
+        <span class="n">overlap_resolve_method</span><span class="o">=</span><span class="s2">"last"</span><span class="p">,</span>
         <span class="n">mask</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
         <span class="n">mask_invert</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
         <span class="n">null_value</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
@@ -992,12 +992,12 @@ document.write(`
         <span class="n">use_spatial_aware</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
         <span class="n">show_progress</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
     <span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Convert vector feature data to a raster.</span>
+<span class="w">        </span><span class="sd">"""Convert vector feature data to a raster.</span>
 
 <span class="sd">        This method can be used to either rasterize features using values from</span>
 <span class="sd">        a particular data field or to create a raster mask of zeros and ones.</span>
 <span class="sd">        Using values to rasterize is the default. Use `mask=True` to generate a</span>
-<span class="sd">        raster mask. If no data field is specified, the underlying dataframe&#39;s</span>
+<span class="sd">        raster mask. If no data field is specified, the underlying dataframe's</span>
 <span class="sd">        index is used. NOTE: because of limitations in dask, dataframe index</span>
 <span class="sd">        values are not guaranteed to be unique across the dataframe. Cells that</span>
 <span class="sd">        do not touch or overlap any features are marked as null.</span>
@@ -1021,7 +1021,7 @@ document.write(`
 
 <span class="sd">        .. note::</span>
 <span class="sd">            If the CRS for this vector does not match the CRS for `like`,</span>
-<span class="sd">            this vector will be transformed to `like`&#39;s CRS. This operation</span>
+<span class="sd">            this vector will be transformed to `like`'s CRS. This operation</span>
 <span class="sd">            causes spatial partition information to be lost. It is recommended</span>
 <span class="sd">            that the CRSs for both are matched ahead of time.</span>
 
@@ -1033,21 +1033,21 @@ document.write(`
 <span class="sd">        field : str, optional</span>
 <span class="sd">            The name of a field to use for cell values when rasterizing the</span>
 <span class="sd">            vector features. If None or not specified, the underlying</span>
-<span class="sd">            dataframe&#39;s index is used. The default is to use the index.</span>
+<span class="sd">            dataframe's index is used. The default is to use the index.</span>
 <span class="sd">        overlap_resolve_method : str, optional</span>
 <span class="sd">            The method used to resolve overlaping features. Default is</span>
-<span class="sd">            `&quot;last&quot;`. The available methods are:</span>
+<span class="sd">            `"last"`. The available methods are:</span>
 
-<span class="sd">            &#39;first&#39;</span>
+<span class="sd">            'first'</span>
 <span class="sd">                Cells with overlapping features will receive the value from the</span>
 <span class="sd">                feature that appears first in the feature table.</span>
-<span class="sd">            &#39;last&#39;</span>
+<span class="sd">            'last'</span>
 <span class="sd">                Cells with overlapping features will receive the value from the</span>
 <span class="sd">                feature that appears last in the feature table.</span>
-<span class="sd">            &#39;min&#39;</span>
+<span class="sd">            'min'</span>
 <span class="sd">                Cells with overlap will receive the value from the feature with</span>
 <span class="sd">                the smallest value.</span>
-<span class="sd">            &#39;max&#39;</span>
+<span class="sd">            'max'</span>
 <span class="sd">                Cells with overlap will receive the value from the feature with</span>
 <span class="sd">                the largest value.</span>
 
@@ -1071,7 +1071,7 @@ document.write(`
 <span class="sd">        use_spatial_aware : bool, optional</span>
 <span class="sd">            Force the use of spatial aware rasterization. If ``True`` and</span>
 <span class="sd">            `features` is not already spatially indexed, a spatial index will</span>
-<span class="sd">            be computed. Alternatively, if ``True`` and `features`&#39;s CRS</span>
+<span class="sd">            be computed. Alternatively, if ``True`` and `features`'s CRS</span>
 <span class="sd">            differs from `like`, a new spatial index in a common CRS will be</span>
 <span class="sd">            computed. If `features` already has a spatial index and its CRS</span>
 <span class="sd">            matches `like`, this argument is ignored. Default is ``False``.</span>
@@ -1085,7 +1085,7 @@ document.write(`
 <span class="sd">            The resulting single band raster of rasterized features. This</span>
 <span class="sd">            raster will be on the same grid as `like`.</span>
 
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.rasterize</span><span class="w"> </span><span class="kn">import</span> <span class="n">rasterize</span>
 
         <span class="k">return</span> <span class="n">rasterize</span><span class="p">(</span>
@@ -1102,7 +1102,7 @@ document.write(`
         <span class="p">)</span></div>
 
 <div class="viewcode-block" id="Vector.to_crs"><a class="viewcode-back" href="../../reference/generated/raster_tools.Vector.to_crs.html#raster_tools.Vector.to_crs">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">to_crs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">crs</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Transform the vector coordinates to the specified `crs`.</span>
+<span class="w">        </span><span class="sd">"""Transform the vector coordinates to the specified `crs`.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -1110,17 +1110,17 @@ document.write(`
 <span class="sd">            The crs to transform the vector coordinates to. The value can be</span>
 <span class="sd">            anything accepted by</span>
 <span class="sd">            :meth:`pyproj.CRS.from_user_input()`,</span>
-<span class="sd">            such as an EPSG string (eg &quot;EPSG:4326&quot;) or a WKT string.</span>
+<span class="sd">            such as an EPSG string (eg "EPSG:4326") or a WKT string.</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        The transformed vector(s).</span>
 
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">return</span> <span class="n">Vector</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_geo</span><span class="o">.</span><span class="n">to_crs</span><span class="p">(</span><span class="n">crs</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">_size</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="Vector.cast_field"><a class="viewcode-back" href="../../reference/generated/raster_tools.Vector.cast_field.html#raster_tools.Vector.cast_field">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">cast_field</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">dtype</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Cast a field to the specified `dtype`.</span>
+<span class="w">        </span><span class="sd">"""Cast a field to the specified `dtype`.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -1134,23 +1134,23 @@ document.write(`
 <span class="sd">        Vector</span>
 <span class="sd">            A new vector with the updated attribute table.</span>
 
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">is_str</span><span class="p">(</span><span class="n">name</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Name must be a string&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">"Name must be a string"</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_geo</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Inalid attribute name: </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Inalid attribute name: </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
         <span class="n">geo</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_geo</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
         <span class="n">geo</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">geo</span><span class="p">[</span><span class="n">name</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">Vector</span><span class="p">(</span><span class="n">geo</span><span class="p">)</span></div>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">idx</span><span class="p">):</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">idx</span><span class="p">,</span> <span class="nb">slice</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Slicing is not supported&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">"Slicing is not supported"</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">is_int</span><span class="p">(</span><span class="n">idx</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid index type: </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">idx</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Invalid index type: </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">idx</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">idx</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">IndexError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;Index </span><span class="si">{</span><span class="n">idx</span><span class="si">}</span><span class="s2"> is too large for vector with size </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="sa">f</span><span class="s2">"Index </span><span class="si">{</span><span class="n">idx</span><span class="si">}</span><span class="s2"> is too large for vector with size </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="si">}</span><span class="s2">"</span>
             <span class="p">)</span>
         <span class="c1"># Convert negative indices to positive because the index only handles +</span>
         <span class="k">if</span> <span class="n">idx</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
@@ -1158,8 +1158,8 @@ document.write(`
             <span class="n">idx</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">size</span> <span class="o">+</span> <span class="n">idx</span>
             <span class="k">if</span> <span class="n">idx</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">IndexError</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;Negative index </span><span class="si">{</span><span class="n">old_idx</span><span class="si">}</span><span class="s2"> is too small for vector with &quot;</span>
-                    <span class="sa">f</span><span class="s2">&quot;size </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="si">}</span><span class="s2">.&quot;</span>
+                    <span class="sa">f</span><span class="s2">"Negative index </span><span class="si">{</span><span class="n">old_idx</span><span class="si">}</span><span class="s2"> is too small for vector with "</span>
+                    <span class="sa">f</span><span class="s2">"size </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">size</span><span class="si">}</span><span class="s2">."</span>
                 <span class="p">)</span>
         <span class="c1"># [[idx]] forces loc to return a data frame. The new frames index is</span>
         <span class="c1"># [idx], however. This breaks future iteration we reset it to [0] to</span>
@@ -1167,13 +1167,13 @@ document.write(`
         <span class="n">subgeo</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_geo</span><span class="o">.</span><span class="n">loc</span><span class="p">[[</span><span class="n">idx</span><span class="p">]]</span>
         <span class="n">subgeo</span> <span class="o">=</span> <span class="n">subgeo</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="n">__new_idx__</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
         <span class="n">old_idx_name</span> <span class="o">=</span> <span class="n">subgeo</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">name</span>
-        <span class="n">subgeo</span> <span class="o">=</span> <span class="n">subgeo</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span><span class="s2">&quot;__new_idx__&quot;</span><span class="p">,</span> <span class="n">divisions</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span>
-        <span class="n">new_idx_name</span> <span class="o">=</span> <span class="s2">&quot;index&quot;</span> <span class="k">if</span> <span class="n">old_idx_name</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">old_idx_name</span>
+        <span class="n">subgeo</span> <span class="o">=</span> <span class="n">subgeo</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span><span class="s2">"__new_idx__"</span><span class="p">,</span> <span class="n">divisions</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span>
+        <span class="n">new_idx_name</span> <span class="o">=</span> <span class="s2">"index"</span> <span class="k">if</span> <span class="n">old_idx_name</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">old_idx_name</span>
         <span class="n">subgeo</span><span class="o">.</span><span class="n">index</span> <span class="o">=</span> <span class="n">subgeo</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="n">new_idx_name</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">Vector</span><span class="p">(</span><span class="n">subgeo</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
 
 <div class="viewcode-block" id="Vector.buffer"><a class="viewcode-back" href="../../reference/generated/raster_tools.Vector.buffer.html#raster_tools.Vector.buffer">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">buffer</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply the buffer operation to the vector geometries.</span>
+<span class="w">        </span><span class="sd">"""Apply the buffer operation to the vector geometries.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -1187,11 +1187,11 @@ document.write(`
 <span class="sd">        Vector</span>
 <span class="sd">            The buffered vector.</span>
 
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">return</span> <span class="n">Vector</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_geo</span><span class="o">.</span><span class="n">buffer</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">))</span></div>
 
 <div class="viewcode-block" id="Vector.simplify"><a class="viewcode-back" href="../../reference/generated/raster_tools.Vector.simplify.html#raster_tools.Vector.simplify">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">simplify</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Simplify the vector geometries.</span>
+<span class="w">        </span><span class="sd">"""Simplify the vector geometries.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -1205,11 +1205,11 @@ document.write(`
 <span class="sd">        Vector</span>
 <span class="sd">            The simplify vector.</span>
 
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">return</span> <span class="n">Vector</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_geo</span><span class="o">.</span><span class="n">simplify</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">))</span></div>
 
 <div class="viewcode-block" id="Vector.save"><a class="viewcode-back" href="../../reference/generated/raster_tools.Vector.save.html#raster_tools.Vector.save">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="o">**</span><span class="n">fiona_kwargs</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Save the vector data to a file.</span>
+<span class="w">        </span><span class="sd">"""Save the vector data to a file.</span>
 
 <span class="sd">        By default, an ESRI shapefile is written.</span>
 
@@ -1219,22 +1219,22 @@ document.write(`
 <span class="sd">            Output location to save the vector data to.</span>
 <span class="sd">        **fiona_kwargs : keyword args</span>
 <span class="sd">            Keyword arguments to pass on to :func:`fiona.open` such as</span>
-<span class="sd">            ``layer=&#39;name&#39;``, ``driver=&#39;GPKG&#39;``, or ``mode=&#39;a&#39;``</span>
+<span class="sd">            ``layer='name'``, ``driver='GPKG'``, or ``mode='a'``</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        Vector</span>
 <span class="sd">            Returns a new vector pointing to the saved location.</span>
 
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="p">(</span><span class="n">geo</span><span class="p">,)</span> <span class="o">=</span> <span class="n">dask</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_geo</span><span class="p">)</span>
         <span class="n">geo</span><span class="o">.</span><span class="n">to_file</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="o">**</span><span class="n">fiona_kwargs</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">open_vectors</span><span class="p">(</span><span class="n">path</span><span class="p">)</span></div>
 
-    <span class="k">def</span><span class="w"> </span><span class="nf">model_predict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">fields</span><span class="p">,</span> <span class="n">n_outputs</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">out_prefix</span><span class="o">=</span><span class="s2">&quot;pred_&quot;</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Predict new columns using a model.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">model_predict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">fields</span><span class="p">,</span> <span class="n">n_outputs</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">out_prefix</span><span class="o">=</span><span class="s2">"pred_"</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Predict new columns using a model.</span>
 
-<span class="sd">        `layer`&#39;s values are used as predictors for the model to produce new</span>
+<span class="sd">        `layer`'s values are used as predictors for the model to produce new</span>
 <span class="sd">        predictions. The resulting predictions are used to create a new vector</span>
 <span class="sd">        with the results appended as new columns.</span>
 
@@ -1263,7 +1263,7 @@ document.write(`
 <span class="sd">        out_prefix : str, optional</span>
 <span class="sd">            The prefix to use when naming the resulting column(s). The prefix</span>
 <span class="sd">            will be combined with the 1-based number of the output variable.</span>
-<span class="sd">            The Default is `&quot;pred_&quot;`.</span>
+<span class="sd">            The Default is `"pred_"`.</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
@@ -1271,31 +1271,31 @@ document.write(`
 <span class="sd">            The resulting vector with estimated values appended as a columns</span>
 <span class="sd">            (pred_1, pred_2, pred_3 ...).</span>
 
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.general</span><span class="w"> </span><span class="kn">import</span> <span class="n">model_predict_vector</span>
 
         <span class="k">return</span> <span class="n">model_predict_vector</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">fields</span><span class="p">,</span> <span class="n">n_outputs</span><span class="p">,</span> <span class="n">out_prefix</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">add_objectid_column</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Add a column of unique ID values to the set of features.</span>
+<span class="w">        </span><span class="sd">"""Add a column of unique ID values to the set of features.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        name : str, optional</span>
 <span class="sd">            The name for the column. If not given, the ESRI OBJECTID convention</span>
-<span class="sd">            is used. For example, if no name is given, &#39;OBJECTID&#39; will be used.</span>
-<span class="sd">            If &#39;OBJECTID&#39; is already present, &#39;OBJECTID_1&#39; is used, etc.</span>
+<span class="sd">            is used. For example, if no name is given, 'OBJECTID' will be used.</span>
+<span class="sd">            If 'OBJECTID' is already present, 'OBJECTID_1' is used, etc.</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        result : Vector</span>
 <span class="sd">            The updated vector with the new column of unique values.</span>
 
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">return</span> <span class="n">add_objectid_column</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">spatial_shuffle</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">show_progress</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Shuffle the features into spatially grouped partitions.</span>
+<span class="w">        </span><span class="sd">"""Shuffle the features into spatially grouped partitions.</span>
 
 <span class="sd">        This sorts the features into partitions such that each partition</span>
 <span class="sd">        contains features that are near to one another. This has the added</span>
@@ -1304,7 +1304,7 @@ document.write(`
 <span class="sd">        .. note::</span>
 <span class="sd">            This causes partial computation to take place.</span>
 
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">if</span> <span class="n">show_progress</span><span class="p">:</span>
             <span class="k">with</span> <span class="n">ProgressBar</span><span class="p">():</span>
                 <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_geo</span><span class="o">.</span><span class="n">spatial_shuffle</span><span class="p">()</span>
@@ -1313,7 +1313,7 @@ document.write(`
         <span class="k">return</span> <span class="n">Vector</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">calculate_spatial_partitions</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">show_progress</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Calculate the spatial bounds of the underlying data.</span>
+<span class="w">        </span><span class="sd">"""Calculate the spatial bounds of the underlying data.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -1325,7 +1325,7 @@ document.write(`
 <span class="sd">        .. note::</span>
 <span class="sd">            This causes partial computation to take place.</span>
 
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_geo</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
         <span class="k">if</span> <span class="n">show_progress</span><span class="p">:</span>
             <span class="k">with</span> <span class="n">ProgressBar</span><span class="p">():</span>

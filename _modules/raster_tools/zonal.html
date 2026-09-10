@@ -454,7 +454,7 @@ document.write(`
 <span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">version_to_tuple</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.vector</span><span class="w"> </span><span class="kn">import</span> <span class="n">Vector</span><span class="p">,</span> <span class="n">get_vector</span>
 
-<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;ZONAL_STAT_FUNCS&quot;</span><span class="p">,</span> <span class="s2">&quot;extract_points_eager&quot;</span><span class="p">,</span> <span class="s2">&quot;zonal_stats&quot;</span><span class="p">]</span>
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"ZONAL_STAT_FUNCS"</span><span class="p">,</span> <span class="s2">"extract_points_eager"</span><span class="p">,</span> <span class="s2">"zonal_stats"</span><span class="p">]</span>
 
 
 <span class="nd">@nb</span><span class="o">.</span><span class="n">jit</span><span class="p">(</span><span class="n">nopython</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">nogil</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
@@ -493,18 +493,18 @@ document.write(`
     <span class="n">result</span> <span class="o">=</span> <span class="p">(</span>
         <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
             <span class="p">{</span>
-                <span class="s2">&quot;values_&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">vs</span> <span class="k">for</span> <span class="n">vs</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">s</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()],</span>
-                <span class="s2">&quot;counts_&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">cs</span> <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">cs</span> <span class="ow">in</span> <span class="n">s</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()],</span>
+                <span class="s2">"values_"</span><span class="p">:</span> <span class="p">[</span><span class="n">vs</span> <span class="k">for</span> <span class="n">vs</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">s</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()],</span>
+                <span class="s2">"counts_"</span><span class="p">:</span> <span class="p">[</span><span class="n">cs</span> <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">cs</span> <span class="ow">in</span> <span class="n">s</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()],</span>
             <span class="p">}</span>
         <span class="p">)</span>
-        <span class="o">.</span><span class="n">explode</span><span class="p">([</span><span class="s2">&quot;values_&quot;</span><span class="p">,</span> <span class="s2">&quot;counts_&quot;</span><span class="p">])</span>
-        <span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">&quot;values_&quot;</span><span class="p">)</span>
+        <span class="o">.</span><span class="n">explode</span><span class="p">([</span><span class="s2">"values_"</span><span class="p">,</span> <span class="s2">"counts_"</span><span class="p">])</span>
+        <span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">"values_"</span><span class="p">)</span>
         <span class="o">.</span><span class="n">sum</span><span class="p">()</span>
     <span class="p">)</span>
     <span class="c1"># Convert to lists because of weird behavior in finalize step. If the</span>
     <span class="c1"># results are not converted to lists, the finalize step will get a series</span>
     <span class="c1"># where each row is a tuple of arrays of objects instead of a tuple of</span>
-    <span class="c1"># lists of numbers. I don&#39;t know why this happens, but the following works.</span>
+    <span class="c1"># lists of numbers. I don't know why this happens, but the following works.</span>
     <span class="k">return</span> <span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">to_list</span><span class="p">(),</span> <span class="n">result</span><span class="o">.</span><span class="n">counts_</span><span class="o">.</span><span class="n">to_list</span><span class="p">())</span>
 
 
@@ -515,10 +515,10 @@ document.write(`
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">vs</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
             <span class="c1"># Order the counts descending with values ascending. In the case of</span>
             <span class="c1"># tied counts, lower values come first. This mirrors the behavior</span>
-            <span class="c1"># of scipy&#39;s mode function.</span>
+            <span class="c1"># of scipy's mode function.</span>
             <span class="n">values_and_counts</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
-                <span class="p">{</span><span class="s2">&quot;values_&quot;</span><span class="p">:</span> <span class="n">vs</span><span class="p">,</span> <span class="s2">&quot;counts_&quot;</span><span class="p">:</span> <span class="n">cs</span><span class="p">}</span>
-            <span class="p">)</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="n">by</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;counts_&quot;</span><span class="p">,</span> <span class="s2">&quot;values_&quot;</span><span class="p">],</span> <span class="n">ascending</span><span class="o">=</span><span class="p">[</span><span class="kc">False</span><span class="p">,</span> <span class="kc">True</span><span class="p">])</span>
+                <span class="p">{</span><span class="s2">"values_"</span><span class="p">:</span> <span class="n">vs</span><span class="p">,</span> <span class="s2">"counts_"</span><span class="p">:</span> <span class="n">cs</span><span class="p">}</span>
+            <span class="p">)</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="n">by</span><span class="o">=</span><span class="p">[</span><span class="s2">"counts_"</span><span class="p">,</span> <span class="s2">"values_"</span><span class="p">],</span> <span class="n">ascending</span><span class="o">=</span><span class="p">[</span><span class="kc">False</span><span class="p">,</span> <span class="kc">True</span><span class="p">])</span>
             <span class="n">results</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">values_and_counts</span><span class="o">.</span><span class="n">values_</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">results</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
@@ -545,25 +545,25 @@ document.write(`
 <span class="c1"># finalize:</span>
 <span class="c1">#     Compute final stat from values and counts.</span>
 <span class="n">_mode_agg</span> <span class="o">=</span> <span class="n">dd</span><span class="o">.</span><span class="n">Aggregation</span><span class="p">(</span>
-    <span class="s2">&quot;mode&quot;</span><span class="p">,</span>
+    <span class="s2">"mode"</span><span class="p">,</span>
     <span class="n">chunk</span><span class="o">=</span><span class="k">lambda</span> <span class="n">grps</span><span class="p">:</span> <span class="n">grps</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="k">lambda</span> <span class="n">s</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">return_counts</span><span class="o">=</span><span class="kc">True</span><span class="p">)),</span>
     <span class="n">agg</span><span class="o">=</span><span class="k">lambda</span> <span class="n">grps</span><span class="p">:</span> <span class="n">grps</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">_combine_values_and_counts</span><span class="p">),</span>
     <span class="n">finalize</span><span class="o">=</span><span class="n">_mode_fin</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="n">_asm_agg</span> <span class="o">=</span> <span class="n">dd</span><span class="o">.</span><span class="n">Aggregation</span><span class="p">(</span>
-    <span class="s2">&quot;asm&quot;</span><span class="p">,</span>
+    <span class="s2">"asm"</span><span class="p">,</span>
     <span class="n">chunk</span><span class="o">=</span><span class="k">lambda</span> <span class="n">grps</span><span class="p">:</span> <span class="n">grps</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="k">lambda</span> <span class="n">s</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">return_counts</span><span class="o">=</span><span class="kc">True</span><span class="p">)),</span>
     <span class="n">agg</span><span class="o">=</span><span class="k">lambda</span> <span class="n">grps</span><span class="p">:</span> <span class="n">grps</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">_combine_values_and_counts</span><span class="p">),</span>
     <span class="n">finalize</span><span class="o">=</span><span class="n">partial</span><span class="p">(</span><span class="n">_asm_entropy_fin</span><span class="p">,</span> <span class="n">func</span><span class="o">=</span><span class="n">_asm</span><span class="p">),</span>
 <span class="p">)</span>
 <span class="n">_entropy_agg</span> <span class="o">=</span> <span class="n">dd</span><span class="o">.</span><span class="n">Aggregation</span><span class="p">(</span>
-    <span class="s2">&quot;entropy&quot;</span><span class="p">,</span>
+    <span class="s2">"entropy"</span><span class="p">,</span>
     <span class="n">chunk</span><span class="o">=</span><span class="n">_unique_with_counts_chunk</span><span class="p">,</span>
     <span class="n">agg</span><span class="o">=</span><span class="k">lambda</span> <span class="n">grps</span><span class="p">:</span> <span class="n">grps</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">_combine_values_and_counts</span><span class="p">),</span>
     <span class="n">finalize</span><span class="o">=</span><span class="n">partial</span><span class="p">(</span><span class="n">_asm_entropy_fin</span><span class="p">,</span> <span class="n">func</span><span class="o">=</span><span class="n">_entropy</span><span class="p">),</span>
 <span class="p">)</span>
 <span class="n">_nunique_agg</span> <span class="o">=</span> <span class="n">dd</span><span class="o">.</span><span class="n">Aggregation</span><span class="p">(</span>
-    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;nunique&quot;</span><span class="p">,</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">"nunique"</span><span class="p">,</span>
     <span class="n">chunk</span><span class="o">=</span><span class="k">lambda</span> <span class="n">s</span><span class="p">:</span> <span class="n">s</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">dropna</span><span class="p">()))),</span>
     <span class="n">agg</span><span class="o">=</span><span class="k">lambda</span> <span class="n">s0</span><span class="p">:</span> <span class="n">s0</span><span class="o">.</span><span class="n">obj</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span>
         <span class="n">level</span><span class="o">=</span><span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">s0</span><span class="o">.</span><span class="n">obj</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">nlevels</span><span class="p">))</span>
@@ -574,24 +574,24 @@ document.write(`
 
 <span class="n">_DASK_STAT_NAMES</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">(</span>
     <span class="p">(</span>
-        <span class="s2">&quot;count&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;max&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;mean&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;median&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;min&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;prod&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;size&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;std&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;sum&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;var&quot;</span><span class="p">,</span>
+        <span class="s2">"count"</span><span class="p">,</span>
+        <span class="s2">"max"</span><span class="p">,</span>
+        <span class="s2">"mean"</span><span class="p">,</span>
+        <span class="s2">"median"</span><span class="p">,</span>
+        <span class="s2">"min"</span><span class="p">,</span>
+        <span class="s2">"prod"</span><span class="p">,</span>
+        <span class="s2">"size"</span><span class="p">,</span>
+        <span class="s2">"std"</span><span class="p">,</span>
+        <span class="s2">"sum"</span><span class="p">,</span>
+        <span class="s2">"var"</span><span class="p">,</span>
     <span class="p">)</span>
 <span class="p">)</span>
-<span class="n">_CUSTOM_STAT_NAMES</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">((</span><span class="s2">&quot;asm&quot;</span><span class="p">,</span> <span class="s2">&quot;entropy&quot;</span><span class="p">,</span> <span class="s2">&quot;mode&quot;</span><span class="p">,</span> <span class="s2">&quot;nunique&quot;</span><span class="p">))</span>
+<span class="n">_CUSTOM_STAT_NAMES</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">((</span><span class="s2">"asm"</span><span class="p">,</span> <span class="s2">"entropy"</span><span class="p">,</span> <span class="s2">"mode"</span><span class="p">,</span> <span class="s2">"nunique"</span><span class="p">))</span>
 <span class="n">_CUSTOM_STAT_AGGS</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="s2">&quot;asm&quot;</span><span class="p">:</span> <span class="n">_asm_agg</span><span class="p">,</span>
-    <span class="s2">&quot;entropy&quot;</span><span class="p">:</span> <span class="n">_entropy_agg</span><span class="p">,</span>
-    <span class="s2">&quot;mode&quot;</span><span class="p">:</span> <span class="n">_mode_agg</span><span class="p">,</span>
-    <span class="s2">&quot;nunique&quot;</span><span class="p">:</span> <span class="n">_nunique_agg</span><span class="p">,</span>
+    <span class="s2">"asm"</span><span class="p">:</span> <span class="n">_asm_agg</span><span class="p">,</span>
+    <span class="s2">"entropy"</span><span class="p">:</span> <span class="n">_entropy_agg</span><span class="p">,</span>
+    <span class="s2">"mode"</span><span class="p">:</span> <span class="n">_mode_agg</span><span class="p">,</span>
+    <span class="s2">"nunique"</span><span class="p">:</span> <span class="n">_nunique_agg</span><span class="p">,</span>
 <span class="p">}</span>
 <span class="n">ZONAL_STAT_FUNCS</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">_DASK_STAT_NAMES</span> <span class="o">|</span> <span class="n">_CUSTOM_STAT_NAMES</span><span class="p">))</span>
 
@@ -599,11 +599,11 @@ document.write(`
 <span class="k">def</span><span class="w"> </span><span class="nf">_build_long_format_meta</span><span class="p">(</span><span class="n">df</span><span class="p">):</span>
     <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
         <span class="p">{</span>
-            <span class="s2">&quot;zone&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">((),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">df</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">dtype</span><span class="p">),</span>
-            <span class="s2">&quot;band&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">((),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">I64</span><span class="p">),</span>
+            <span class="s2">"zone"</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">((),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">df</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">dtype</span><span class="p">),</span>
+            <span class="s2">"band"</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">((),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">I64</span><span class="p">),</span>
             <span class="o">**</span><span class="p">{</span>
                 <span class="n">s</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">((),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
-                <span class="k">for</span> <span class="n">s</span><span class="p">,</span> <span class="n">dtype</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">dtypes</span><span class="p">[</span><span class="s2">&quot;band_1&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+                <span class="k">for</span> <span class="n">s</span><span class="p">,</span> <span class="n">dtype</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">dtypes</span><span class="p">[</span><span class="s2">"band_1"</span><span class="p">]</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
             <span class="p">},</span>
         <span class="p">},</span>
         <span class="n">index</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">((),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">I64</span><span class="p">),</span>
@@ -627,11 +627,11 @@ document.write(`
         <span class="n">part</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">future_stack</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>  <span class="c1"># noqa: PD013</span>
         <span class="c1"># Move the zone and level_1 indices to columns</span>
         <span class="o">.</span><span class="n">reset_index</span><span class="p">()</span>
-        <span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;level_1&quot;</span><span class="p">:</span> <span class="s2">&quot;band&quot;</span><span class="p">})</span>
-        <span class="o">.</span><span class="n">sort_values</span><span class="p">([</span><span class="s2">&quot;band&quot;</span><span class="p">,</span> <span class="s2">&quot;zone&quot;</span><span class="p">])</span>
+        <span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">{</span><span class="s2">"level_1"</span><span class="p">:</span> <span class="s2">"band"</span><span class="p">})</span>
+        <span class="o">.</span><span class="n">sort_values</span><span class="p">([</span><span class="s2">"band"</span><span class="p">,</span> <span class="s2">"zone"</span><span class="p">])</span>
     <span class="p">)</span>
     <span class="c1"># Convert band labels to 1-based integers</span>
-    <span class="n">part</span><span class="p">[</span><span class="s2">&quot;band&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">part</span><span class="o">.</span><span class="n">band</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]))</span>
+    <span class="n">part</span><span class="p">[</span><span class="s2">"band"</span><span class="p">]</span> <span class="o">=</span> <span class="n">part</span><span class="o">.</span><span class="n">band</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">"_"</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]))</span>
     <span class="c1"># New DataFrame structure:</span>
     <span class="c1">#        zone  band  stat1  stat2  ...</span>
     <span class="c1"># index</span>
@@ -643,7 +643,7 @@ document.write(`
     <span class="n">has_median</span> <span class="o">=</span> <span class="kc">False</span>
     <span class="n">out</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">stats</span><span class="p">:</span>
-        <span class="k">if</span> <span class="n">s</span> <span class="o">!=</span> <span class="s2">&quot;median&quot;</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">s</span> <span class="o">!=</span> <span class="s2">"median"</span><span class="p">:</span>
             <span class="n">out</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">has_median</span> <span class="o">=</span> <span class="kc">True</span>
@@ -653,16 +653,16 @@ document.write(`
 <span class="k">def</span><span class="w"> </span><span class="nf">_raster_to_series</span><span class="p">(</span><span class="n">raster</span><span class="p">):</span>
     <span class="c1"># Convert the underlying dask array into a dask Series</span>
     <span class="c1"># DataArray.to_dask_dataframe is only available in newer versions of xarray</span>
-    <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">raster</span><span class="o">.</span><span class="n">xdata</span><span class="p">,</span> <span class="s2">&quot;to_dask_dataframe&quot;</span><span class="p">):</span>
-        <span class="k">return</span> <span class="n">raster</span><span class="o">.</span><span class="n">xdata</span><span class="o">.</span><span class="n">to_dask_dataframe</span><span class="p">([</span><span class="s2">&quot;band&quot;</span><span class="p">,</span> <span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="s2">&quot;y&quot;</span><span class="p">])[</span><span class="s2">&quot;raster&quot;</span><span class="p">]</span>
-    <span class="k">return</span> <span class="n">raster</span><span class="o">.</span><span class="n">_ds</span><span class="o">.</span><span class="n">to_dask_dataframe</span><span class="p">([</span><span class="s2">&quot;band&quot;</span><span class="p">,</span> <span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="s2">&quot;y&quot;</span><span class="p">])[</span><span class="s2">&quot;raster&quot;</span><span class="p">]</span>
+    <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">raster</span><span class="o">.</span><span class="n">xdata</span><span class="p">,</span> <span class="s2">"to_dask_dataframe"</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">raster</span><span class="o">.</span><span class="n">xdata</span><span class="o">.</span><span class="n">to_dask_dataframe</span><span class="p">([</span><span class="s2">"band"</span><span class="p">,</span> <span class="s2">"x"</span><span class="p">,</span> <span class="s2">"y"</span><span class="p">])[</span><span class="s2">"raster"</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">raster</span><span class="o">.</span><span class="n">_ds</span><span class="o">.</span><span class="n">to_dask_dataframe</span><span class="p">([</span><span class="s2">"band"</span><span class="p">,</span> <span class="s2">"x"</span><span class="p">,</span> <span class="s2">"y"</span><span class="p">])[</span><span class="s2">"raster"</span><span class="p">]</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_zonal_stats</span><span class="p">(</span><span class="n">features_raster</span><span class="p">,</span> <span class="n">data_raster</span><span class="p">,</span> <span class="n">stats</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Convert data to large dask DataFrame, group by the feature zone ids, and</span>
 <span class="sd">    apply aggregations specified by `stats` for each band.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">stat_names</span> <span class="o">=</span> <span class="n">stats</span>
     <span class="n">stats</span><span class="p">,</span> <span class="n">has_median</span> <span class="o">=</span> <span class="n">_find_problem_stats</span><span class="p">(</span><span class="n">stats</span><span class="p">)</span>
     <span class="n">stats</span> <span class="o">=</span> <span class="p">[</span>
@@ -675,9 +675,9 @@ document.write(`
     <span class="c1"># them together. Each cell becomes a row and each chunk becomes a</span>
     <span class="c1"># partition. The order is the same and the chunk boundaries are the same so</span>
     <span class="c1"># they should concat together, cleanly.</span>
-    <span class="n">raster_dfs</span> <span class="o">=</span> <span class="p">[</span><span class="n">_raster_to_series</span><span class="p">(</span><span class="n">features_raster</span><span class="p">)</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="s2">&quot;zone&quot;</span><span class="p">)]</span>
+    <span class="n">raster_dfs</span> <span class="o">=</span> <span class="p">[</span><span class="n">_raster_to_series</span><span class="p">(</span><span class="n">features_raster</span><span class="p">)</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="s2">"zone"</span><span class="p">)]</span>
     <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">data_raster</span><span class="o">.</span><span class="n">nbands</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
-        <span class="n">band</span> <span class="o">=</span> <span class="n">_raster_to_series</span><span class="p">(</span><span class="n">data_raster</span><span class="o">.</span><span class="n">get_bands</span><span class="p">(</span><span class="n">b</span><span class="p">))</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;band_</span><span class="si">{</span><span class="n">b</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">band</span> <span class="o">=</span> <span class="n">_raster_to_series</span><span class="p">(</span><span class="n">data_raster</span><span class="o">.</span><span class="n">get_bands</span><span class="p">(</span><span class="n">b</span><span class="p">))</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="sa">f</span><span class="s2">"band_</span><span class="si">{</span><span class="n">b</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">data_raster</span><span class="o">.</span><span class="n">null_value</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span>
             <span class="n">data_raster</span><span class="o">.</span><span class="n">null_value</span>
         <span class="p">):</span>
@@ -699,7 +699,7 @@ document.write(`
     <span class="n">combined_raster_df</span> <span class="o">=</span> <span class="n">combined_raster_df</span><span class="p">[</span>
         <span class="n">combined_raster_df</span><span class="o">.</span><span class="n">zone</span> <span class="o">!=</span> <span class="n">features_raster</span><span class="o">.</span><span class="n">null_value</span>
     <span class="p">]</span>
-    <span class="n">grouped</span> <span class="o">=</span> <span class="n">combined_raster_df</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">&quot;zone&quot;</span><span class="p">)</span>
+    <span class="n">grouped</span> <span class="o">=</span> <span class="n">combined_raster_df</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">"zone"</span><span class="p">)</span>
     <span class="n">agg_result_df</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="k">if</span> <span class="n">has_median</span><span class="p">:</span>
         <span class="c1"># median requires special treatment. It needs the shuffle arg and also</span>
@@ -707,10 +707,10 @@ document.write(`
         <span class="c1"># ref: https://github.com/dask/dask/issues/10517</span>
         <span class="c1"># Stay backword compatible with older versions of dask</span>
         <span class="k">if</span> <span class="n">version_to_tuple</span><span class="p">(</span><span class="n">dask</span><span class="o">.</span><span class="n">__version__</span><span class="p">)</span> <span class="o">&lt;</span> <span class="p">(</span><span class="mi">2024</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">):</span>
-            <span class="n">shuffle_kw</span> <span class="o">=</span> <span class="s2">&quot;shuffle&quot;</span>
+            <span class="n">shuffle_kw</span> <span class="o">=</span> <span class="s2">"shuffle"</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">shuffle_kw</span> <span class="o">=</span> <span class="s2">&quot;shuffle_method&quot;</span>
-        <span class="n">median_df</span> <span class="o">=</span> <span class="n">grouped</span><span class="o">.</span><span class="n">agg</span><span class="p">([</span><span class="s2">&quot;median&quot;</span><span class="p">],</span> <span class="o">**</span><span class="p">{</span><span class="n">shuffle_kw</span><span class="p">:</span> <span class="s2">&quot;tasks&quot;</span><span class="p">})</span>
+            <span class="n">shuffle_kw</span> <span class="o">=</span> <span class="s2">"shuffle_method"</span>
+        <span class="n">median_df</span> <span class="o">=</span> <span class="n">grouped</span><span class="o">.</span><span class="n">agg</span><span class="p">([</span><span class="s2">"median"</span><span class="p">],</span> <span class="o">**</span><span class="p">{</span><span class="n">shuffle_kw</span><span class="p">:</span> <span class="s2">"tasks"</span><span class="p">})</span>
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">stats</span><span class="p">):</span>
         <span class="n">agg_result_df</span> <span class="o">=</span> <span class="n">grouped</span><span class="o">.</span><span class="n">agg</span><span class="p">(</span><span class="n">stats</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">has_median</span><span class="p">:</span>
@@ -722,7 +722,7 @@ document.write(`
         <span class="c1"># Shuffle columns to be in order of the original stats</span>
         <span class="n">col_tuples</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">data_raster</span><span class="o">.</span><span class="n">nbands</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
-            <span class="n">band</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;band_</span><span class="si">{</span><span class="n">b</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="n">band</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"band_</span><span class="si">{</span><span class="n">b</span><span class="si">}</span><span class="s2">"</span>
             <span class="n">col_tuples</span><span class="o">.</span><span class="n">extend</span><span class="p">((</span><span class="n">band</span><span class="p">,</span> <span class="n">stat</span><span class="p">)</span> <span class="k">for</span> <span class="n">stat</span> <span class="ow">in</span> <span class="n">stat_names</span><span class="p">)</span>
         <span class="n">target_columns</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">MultiIndex</span><span class="o">.</span><span class="n">from_tuples</span><span class="p">(</span><span class="n">col_tuples</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">agg_result_df</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">equals</span><span class="p">(</span><span class="n">target_columns</span><span class="p">):</span>
@@ -744,7 +744,7 @@ document.write(`
     <span class="n">wide_format</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
     <span class="n">handle_overlap</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
 <span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Apply stat functions to a raster based on a set of features.</span>
+<span class="w">    </span><span class="sd">"""Apply stat functions to a raster based on a set of features.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
@@ -761,41 +761,41 @@ document.write(`
 <span class="sd">        These functions will be applied to the raster data for each of the</span>
 <span class="sd">        features in `features`. Valid string values:</span>
 
-<span class="sd">        &#39;asm&#39;</span>
+<span class="sd">        'asm'</span>
 <span class="sd">            Angular second moment. Applies -sum(P(g)**2) where P(g) gives the</span>
 <span class="sd">            probability of g within the neighborhood.</span>
-<span class="sd">        &#39;count&#39;</span>
+<span class="sd">        'count'</span>
 <span class="sd">            Count valid cells.</span>
-<span class="sd">        &#39;entropy&#39;</span>
-<span class="sd">            Calculates the entropy. Applies -sum(P(g) * log(P(g))). See &#39;asm&#39;</span>
+<span class="sd">        'entropy'</span>
+<span class="sd">            Calculates the entropy. Applies -sum(P(g) * log(P(g))). See 'asm'</span>
 <span class="sd">            above.</span>
-<span class="sd">        &#39;max&#39;</span>
+<span class="sd">        'max'</span>
 <span class="sd">            Find the maximum value.</span>
-<span class="sd">        &#39;mean&#39;</span>
+<span class="sd">        'mean'</span>
 <span class="sd">            Calculate the mean.</span>
-<span class="sd">        &#39;median&#39;</span>
+<span class="sd">        'median'</span>
 <span class="sd">            Calculate the median value.</span>
-<span class="sd">        &#39;min&#39;</span>
+<span class="sd">        'min'</span>
 <span class="sd">            Find the minimum value.</span>
-<span class="sd">        &#39;mode&#39;</span>
+<span class="sd">        'mode'</span>
 <span class="sd">            Compute the statistical mode of the data. In the case of a tie, the</span>
 <span class="sd">            lowest value is returned.</span>
-<span class="sd">        &#39;nunique&#39;</span>
+<span class="sd">        'nunique'</span>
 <span class="sd">            Count unique values.</span>
-<span class="sd">        &#39;prod&#39;</span>
+<span class="sd">        'prod'</span>
 <span class="sd">            Calculate the product.</span>
-<span class="sd">        &#39;size&#39;</span>
+<span class="sd">        'size'</span>
 <span class="sd">            Calculate zone size.</span>
-<span class="sd">        &#39;std&#39;</span>
+<span class="sd">        'std'</span>
 <span class="sd">            Calculate the standard deviation.</span>
-<span class="sd">        &#39;sum&#39;</span>
+<span class="sd">        'sum'</span>
 <span class="sd">            Calculate the sum.</span>
-<span class="sd">        &#39;var&#39;</span>
+<span class="sd">        'var'</span>
 <span class="sd">            Calculate the variance.</span>
 <span class="sd">    features_field : str, optional</span>
 <span class="sd">        If the `features` argument is a vector, this determines which field to</span>
 <span class="sd">        use when rasterizing the features. It must match one of the fields in</span>
-<span class="sd">        `features`. The default is to use `features`&#39; index.</span>
+<span class="sd">        `features`. The default is to use `features`' index.</span>
 <span class="sd">    wide_format : bool, optional</span>
 <span class="sd">        If ``True``, the resulting dataframe is returned in wide format where</span>
 <span class="sd">        the columns are a cartesian product of the `data_raster` bands and the</span>
@@ -805,17 +805,17 @@ document.write(`
 
 <span class="sd">            pandas.MultiIndex(</span>
 <span class="sd">              [</span>
-<span class="sd">                (&#39;band_1&#39;, &#39;stat1&#39;),</span>
-<span class="sd">                (&#39;band_1&#39;, &#39;stat2&#39;),</span>
+<span class="sd">                ('band_1', 'stat1'),</span>
+<span class="sd">                ('band_1', 'stat2'),</span>
 <span class="sd">                ...</span>
-<span class="sd">                (&#39;band_2&#39;, &#39;stat1&#39;),</span>
-<span class="sd">                (&#39;band_2&#39;, &#39;stat2&#39;),</span>
+<span class="sd">                ('band_2', 'stat1'),</span>
+<span class="sd">                ('band_2', 'stat2'),</span>
 <span class="sd">                ...</span>
 <span class="sd">              ],</span>
 <span class="sd">            )</span>
 
-<span class="sd">        If ``False``, the resulting dataframe has columns `&#39;zone&#39;, &#39;band&#39;,</span>
-<span class="sd">        &#39;stat1&#39;, &#39;stat2&#39;, ...` and an integer index. In this case, the zone</span>
+<span class="sd">        If ``False``, the resulting dataframe has columns `'zone', 'band',</span>
+<span class="sd">        'stat1', 'stat2', ...` and an integer index. In this case, the zone</span>
 <span class="sd">        column contains the feature zone IDs and band contains the one-base</span>
 <span class="sd">        integer band number. The rest of the columns correspond to the</span>
 <span class="sd">        specified stats.</span>
@@ -835,9 +835,9 @@ document.write(`
 <span class="sd">    dask.dataframe.DataFrame</span>
 <span class="sd">        A delayed dask DataFrame where the specified stats have been applied to</span>
 <span class="sd">        the bands in `data_raster`. See the `wide_format` option for a</span>
-<span class="sd">        description of the dataframe&#39;s structure.</span>
+<span class="sd">        description of the dataframe's structure.</span>
 
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">in_memory</span> <span class="o">=</span> <span class="kc">False</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span>
         <span class="n">features</span><span class="p">,</span>
@@ -857,21 +857,21 @@ document.write(`
     <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">features</span><span class="p">,</span> <span class="n">Raster</span><span class="p">):</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">is_int</span><span class="p">(</span><span class="n">features</span><span class="o">.</span><span class="n">dtype</span><span class="p">):</span>
             <span class="n">msg</span> <span class="o">=</span> <span class="p">(</span>
-                <span class="s2">&quot;Feature raster must be an integer type, got &quot;</span>
-                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">features</span><span class="o">.</span><span class="n">dtype</span><span class="si">}</span><span class="s2">.&quot;</span>
+                <span class="s2">"Feature raster must be an integer type, got "</span>
+                <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">features</span><span class="o">.</span><span class="n">dtype</span><span class="si">}</span><span class="s2">."</span>
             <span class="p">)</span>
             <span class="k">if</span> <span class="n">is_float</span><span class="p">(</span><span class="n">features</span><span class="o">.</span><span class="n">dtype</span><span class="p">):</span>
                 <span class="n">msg</span> <span class="o">+=</span> <span class="p">(</span>
-                    <span class="s2">&quot; Saving integer rasters to GeoTIFF on older GDAL&quot;</span>
-                    <span class="s2">&quot; casts them to float64; use .astype(...) to convert&quot;</span>
-                    <span class="s2">&quot; back to an integer type.&quot;</span>
+                    <span class="s2">" Saving integer rasters to GeoTIFF on older GDAL"</span>
+                    <span class="s2">" casts them to float64; use .astype(...) to convert"</span>
+                    <span class="s2">" back to an integer type."</span>
                 <span class="p">)</span>
             <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">features</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Feature raster must have only 1 band.&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Feature raster must have only 1 band."</span><span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
-            <span class="s2">&quot;Could not understand features arg. Must be Vector, str or Raster&quot;</span>
+            <span class="s2">"Could not understand features arg. Must be Vector, str or Raster"</span>
         <span class="p">)</span>
     <span class="n">data_raster</span> <span class="o">=</span> <span class="n">get_raster</span><span class="p">(</span><span class="n">data_raster</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">is_str</span><span class="p">(</span><span class="n">stats</span><span class="p">):</span>
@@ -879,17 +879,17 @@ document.write(`
     <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">stats</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">):</span>
         <span class="n">stats</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">stats</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">stats</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;No stat functions provide&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"No stat functions provide"</span><span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Could not understand stats arg: </span><span class="si">{</span><span class="nb">repr</span><span class="p">(</span><span class="n">stats</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Could not understand stats arg: </span><span class="si">{</span><span class="nb">repr</span><span class="p">(</span><span class="n">stats</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
     <span class="k">for</span> <span class="n">stat</span> <span class="ow">in</span> <span class="n">stats</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">stat</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">ZONAL_STAT_FUNCS</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid stats function: </span><span class="si">{</span><span class="nb">repr</span><span class="p">(</span><span class="n">stat</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Invalid stats function: </span><span class="si">{</span><span class="nb">repr</span><span class="p">(</span><span class="n">stat</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 
     <span class="k">if</span> <span class="n">handle_overlap</span><span class="p">:</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">features</span><span class="p">,</span> <span class="n">Raster</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="s2">&quot;&#39;features&#39; cannont be a raster when &#39;handle_overlap&#39; is True&quot;</span>
+                <span class="s2">"'features' cannont be a raster when 'handle_overlap' is True"</span>
             <span class="p">)</span>
         <span class="n">features</span> <span class="o">=</span> <span class="n">features</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">compute</span><span class="p">()</span>
         <span class="n">features</span> <span class="o">=</span> <span class="p">[</span><span class="n">features</span><span class="o">.</span><span class="n">iloc</span><span class="p">[[</span><span class="n">i</span><span class="p">]]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">features</span><span class="p">))]</span>
@@ -908,9 +908,9 @@ document.write(`
 
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">features</span><span class="p">,</span> <span class="n">Raster</span><span class="p">):</span>
         <span class="k">if</span> <span class="n">features</span><span class="o">.</span><span class="n">crs</span> <span class="o">!=</span> <span class="n">data_raster</span><span class="o">.</span><span class="n">crs</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Feature raster CRS must match data raster&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Feature raster CRS must match data raster"</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">features</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="o">!=</span> <span class="n">data_raster</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">:]:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Feature raster shape must match data raster&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Feature raster shape must match data raster"</span><span class="p">)</span>
 
     <span class="c1"># Rechunk based on largest (probable) dtype to avoid overly large chunks,</span>
     <span class="c1"># which could cause memory issues down the pipeline. For instance, if the</span>
@@ -928,7 +928,7 @@ document.write(`
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">features</span><span class="p">,</span> <span class="n">Vector</span><span class="p">):</span>
         <span class="k">if</span> <span class="n">features_field</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">features_field</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">features</span><span class="o">.</span><span class="n">data</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span>
-                <span class="s2">&quot;features_field must be a field name in the features input&quot;</span>
+                <span class="s2">"features_field must be a field name in the features input"</span>
             <span class="p">)</span>
         <span class="n">features_raster</span> <span class="o">=</span> <span class="n">features</span><span class="o">.</span><span class="n">to_raster</span><span class="p">(</span>
             <span class="n">data_raster</span><span class="p">,</span>
@@ -937,11 +937,11 @@ document.write(`
         <span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">features</span><span class="o">.</span><span class="n">nbands</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;features raster must have a single band&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"features raster must have a single band"</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">features</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="o">!=</span> <span class="n">data_raster</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">:]:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="s2">&quot;features raster shape must match the data raster. &quot;</span>
-                <span class="sa">f</span><span class="s2">&quot;Expected </span><span class="si">{</span><span class="n">data_raster</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span><span class="si">}</span><span class="s2">, got </span><span class="si">{</span><span class="n">features</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span><span class="si">}</span><span class="s2">.&quot;</span>
+                <span class="s2">"features raster shape must match the data raster. "</span>
+                <span class="sa">f</span><span class="s2">"Expected </span><span class="si">{</span><span class="n">data_raster</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span><span class="si">}</span><span class="s2">, got </span><span class="si">{</span><span class="n">features</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span><span class="si">}</span><span class="s2">."</span>
             <span class="p">)</span>
         <span class="n">features_raster</span> <span class="o">=</span> <span class="n">features</span>
 
@@ -958,19 +958,19 @@ document.write(`
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_create_dask_range_index</span><span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">stop</span><span class="p">):</span>
-    <span class="c1"># dask.dataframe only allows dask.dataframe.index objects but doesn&#39;t have</span>
+    <span class="c1"># dask.dataframe only allows dask.dataframe.index objects but doesn't have</span>
     <span class="c1"># a way to create them. this is a hack to create one using from_pandas.</span>
     <span class="n">dummy</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
-        <span class="p">{</span><span class="s2">&quot;tmp&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">stop</span> <span class="o">-</span> <span class="n">start</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="s2">&quot;u1&quot;</span><span class="p">)},</span>
+        <span class="p">{</span><span class="s2">"tmp"</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">stop</span> <span class="o">-</span> <span class="n">start</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="s2">"u1"</span><span class="p">)},</span>
         <span class="n">index</span><span class="o">=</span><span class="n">pd</span><span class="o">.</span><span class="n">RangeIndex</span><span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">stop</span><span class="p">),</span>
     <span class="p">)</span>
     <span class="k">return</span> <span class="n">dd</span><span class="o">.</span><span class="n">from_pandas</span><span class="p">(</span><span class="n">dummy</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">index</span>
 
 
 <div class="viewcode-block" id="extract_points_eager"><a class="viewcode-back" href="../../reference/generated/raster_tools.zonal.extract_points_eager.html#raster_tools.zonal.extract_points_eager">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">extract_points_eager</span><span class="p">(</span>
-    <span class="n">points</span><span class="p">,</span> <span class="n">raster</span><span class="p">,</span> <span class="n">column_name</span><span class="o">=</span><span class="s2">&quot;extracted&quot;</span><span class="p">,</span> <span class="n">skip_validation</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span>
+    <span class="n">points</span><span class="p">,</span> <span class="n">raster</span><span class="p">,</span> <span class="n">column_name</span><span class="o">=</span><span class="s2">"extracted"</span><span class="p">,</span> <span class="n">skip_validation</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span>
 <span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Extract the raster cell values using point features</span>
+<span class="w">    </span><span class="sd">"""Extract the raster cell values using point features</span>
 
 <span class="sd">    Note</span>
 <span class="sd">    ----</span>
@@ -991,7 +991,7 @@ document.write(`
 <span class="sd">        The raster to pull data from.</span>
 <span class="sd">    column_name : str, optional</span>
 <span class="sd">        The column name to use for the extracted data points. Default is</span>
-<span class="sd">        `&quot;extracted&quot;`.</span>
+<span class="sd">        `"extracted"`.</span>
 <span class="sd">    skip_validation : bool, optional</span>
 <span class="sd">        If `True`, the input `points` is not validated to make sure that all</span>
 <span class="sd">        features are points. This prevents partially computing the data.</span>
@@ -1005,25 +1005,25 @@ document.write(`
 <span class="sd">    -------</span>
 <span class="sd">    dask.dataframe.DataFrame</span>
 <span class="sd">        The columns names depend on the value of axis and are based on the</span>
-<span class="sd">        &quot;band&quot; and `column_name` variable. If axis = 0, the output band column</span>
+<span class="sd">        "band" and `column_name` variable. If axis = 0, the output band column</span>
 <span class="sd">        within the dataframe identifies the band the value was extracted from.</span>
 <span class="sd">        The values within the column named after the column name variable are</span>
 <span class="sd">        the extracted values from the given band. Otherwise, the column names</span>
 <span class="sd">        within the dataframe are appended to the column_name prefix and provide</span>
 <span class="sd">        the extracted values. NaN values in the extracted column are where</span>
 <span class="sd">        there was missing data in the raster or the point was outside the</span>
-<span class="sd">        raster&#39;s domain.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">        raster's domain.</span>
+<span class="sd">    """</span>
     <span class="n">points</span> <span class="o">=</span> <span class="n">get_vector</span><span class="p">(</span><span class="n">points</span><span class="p">)</span>
     <span class="n">raster</span> <span class="o">=</span> <span class="n">get_raster</span><span class="p">(</span><span class="n">raster</span><span class="p">)</span>
 
     <span class="k">if</span> <span class="ow">not</span> <span class="nb">len</span><span class="p">(</span><span class="n">column_name</span><span class="p">):</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;column_name must not be empty&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"column_name must not be empty"</span><span class="p">)</span>
     <span class="k">if</span> <span class="p">(</span>
         <span class="ow">not</span> <span class="n">skip_validation</span>
-        <span class="ow">and</span> <span class="ow">not</span> <span class="p">(</span><span class="n">points</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">geom_type</span> <span class="o">==</span> <span class="s2">&quot;Point&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">()</span><span class="o">.</span><span class="n">compute</span><span class="p">()</span>
+        <span class="ow">and</span> <span class="ow">not</span> <span class="p">(</span><span class="n">points</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">geom_type</span> <span class="o">==</span> <span class="s2">"Point"</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">()</span><span class="o">.</span><span class="n">compute</span><span class="p">()</span>
     <span class="p">):</span>
-        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;All geometries must be points.&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">"All geometries must be points."</span><span class="p">)</span>
 
     <span class="k">if</span> <span class="n">raster</span><span class="o">.</span><span class="n">crs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">raster</span><span class="o">.</span><span class="n">crs</span> <span class="o">!=</span> <span class="n">points</span><span class="o">.</span><span class="n">crs</span><span class="p">:</span>
         <span class="n">gdf</span> <span class="o">=</span> <span class="n">points</span><span class="o">.</span><span class="n">to_crs</span><span class="p">(</span><span class="n">raster</span><span class="o">.</span><span class="n">crs</span><span class="p">)</span><span class="o">.</span><span class="n">data</span>
@@ -1049,14 +1049,14 @@ document.write(`
             <span class="n">extracted_df</span> <span class="o">=</span> <span class="p">(</span>
                 <span class="n">da</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">bnd</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">min_scalar_type</span><span class="p">(</span><span class="n">nb</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span>
                 <span class="o">.</span><span class="n">to_dask_dataframe</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="n">index</span><span class="p">)</span>
-                <span class="o">.</span><span class="n">to_frame</span><span class="p">(</span><span class="s2">&quot;band&quot;</span><span class="p">)</span>
+                <span class="o">.</span><span class="n">to_frame</span><span class="p">(</span><span class="s2">"band"</span><span class="p">)</span>
             <span class="p">)</span>
             <span class="n">extracted_df</span><span class="p">[</span><span class="n">column_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">extracted</span><span class="o">.</span><span class="n">to_dask_dataframe</span><span class="p">(</span>
                 <span class="n">index</span><span class="o">=</span><span class="n">index</span>
             <span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">extracted_df</span> <span class="o">=</span> <span class="n">extracted</span><span class="o">.</span><span class="n">to_dask_dataframe</span><span class="p">(</span>
-                <span class="n">columns</span><span class="o">=</span><span class="n">column_name</span> <span class="o">+</span> <span class="s2">&quot;_&quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">bnd</span><span class="p">)</span>
+                <span class="n">columns</span><span class="o">=</span><span class="n">column_name</span> <span class="o">+</span> <span class="s2">"_"</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">bnd</span><span class="p">)</span>
             <span class="p">)</span>
         <span class="k">assert</span> <span class="n">extracted_df</span><span class="o">.</span><span class="n">known_divisions</span>
         <span class="n">dfs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">extracted_df</span><span class="p">)</span>

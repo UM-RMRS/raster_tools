@@ -450,15 +450,15 @@ document.write(`
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">nan_equal</span>
 
-<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;pad&quot;</span><span class="p">]</span>
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"pad"</span><span class="p">]</span>
 
 <span class="c1"># rioxarray.pad_box requires a CRS. When the source raster has none, we</span>
 <span class="c1"># attach a placeholder CRS just for the pad call and strip it afterward.</span>
-<span class="n">_DUMMY_CRS</span> <span class="o">=</span> <span class="s2">&quot;EPSG:4326&quot;</span>
+<span class="n">_DUMMY_CRS</span> <span class="o">=</span> <span class="s2">"EPSG:4326"</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_strip_crs</span><span class="p">(</span><span class="n">arr</span><span class="p">):</span>
-    <span class="k">return</span> <span class="n">arr</span><span class="o">.</span><span class="n">drop_vars</span><span class="p">(</span><span class="s2">&quot;spatial_ref&quot;</span><span class="p">,</span> <span class="n">errors</span><span class="o">=</span><span class="s2">&quot;ignore&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">arr</span><span class="o">.</span><span class="n">drop_vars</span><span class="p">(</span><span class="s2">"spatial_ref"</span><span class="p">,</span> <span class="n">errors</span><span class="o">=</span><span class="s2">"ignore"</span><span class="p">)</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_is_numeric_scalar</span><span class="p">(</span><span class="n">value</span><span class="p">):</span>
@@ -479,7 +479,7 @@ document.write(`
             <span class="ow">and</span> <span class="n">target</span><span class="o">.</span><span class="n">crs</span> <span class="o">!=</span> <span class="n">raster</span><span class="o">.</span><span class="n">crs</span>
         <span class="p">):</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="s2">&quot;GeoBox target CRS does not match the raster&#39;s CRS&quot;</span>
+                <span class="s2">"GeoBox target CRS does not match the raster's CRS"</span>
             <span class="p">)</span>
         <span class="n">bb</span> <span class="o">=</span> <span class="n">target</span><span class="o">.</span><span class="n">boundingbox</span>
         <span class="k">return</span> <span class="p">(</span>
@@ -497,7 +497,7 @@ document.write(`
             <span class="ow">and</span> <span class="n">other</span><span class="o">.</span><span class="n">crs</span> <span class="o">!=</span> <span class="n">raster</span><span class="o">.</span><span class="n">crs</span>
         <span class="p">):</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="s2">&quot;Raster target CRS does not match the raster&#39;s CRS&quot;</span>
+                <span class="s2">"Raster target CRS does not match the raster's CRS"</span>
             <span class="p">)</span>
         <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">b</span><span class="p">)</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">other</span><span class="o">.</span><span class="n">bounds</span><span class="p">)</span>
 
@@ -505,12 +505,12 @@ document.write(`
         <span class="n">bounds</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">target</span><span class="p">)</span>
     <span class="k">except</span> <span class="ne">TypeError</span> <span class="k">as</span> <span class="n">err</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
-            <span class="s2">&quot;target must be a (minx, miny, maxx, maxy) sequence, Raster, &quot;</span>
-            <span class="s2">&quot;or GeoBox&quot;</span>
+            <span class="s2">"target must be a (minx, miny, maxx, maxy) sequence, Raster, "</span>
+            <span class="s2">"or GeoBox"</span>
         <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">err</span>
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">bounds</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">4</span> <span class="ow">or</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span><span class="n">_is_numeric_scalar</span><span class="p">(</span><span class="n">b</span><span class="p">)</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">bounds</span><span class="p">):</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-            <span class="s2">&quot;Invalid bounds. Must be a length-4 sequence of numbers.&quot;</span>
+            <span class="s2">"Invalid bounds. Must be a length-4 sequence of numbers."</span>
         <span class="p">)</span>
     <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">b</span><span class="p">)</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">bounds</span><span class="p">)</span>
 
@@ -536,26 +536,26 @@ document.write(`
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">fill_values</span><span class="p">,</span> <span class="p">(</span><span class="nb">list</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)):</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">fill_values</span><span class="p">)</span> <span class="o">!=</span> <span class="n">nbands</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;fill_values length (</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">fill_values</span><span class="p">)</span><span class="si">}</span><span class="s2">) does not match &quot;</span>
-                <span class="sa">f</span><span class="s2">&quot;the number of bands (</span><span class="si">{</span><span class="n">nbands</span><span class="si">}</span><span class="s2">)&quot;</span>
+                <span class="sa">f</span><span class="s2">"fill_values length (</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">fill_values</span><span class="p">)</span><span class="si">}</span><span class="s2">) does not match "</span>
+                <span class="sa">f</span><span class="s2">"the number of bands (</span><span class="si">{</span><span class="n">nbands</span><span class="si">}</span><span class="s2">)"</span>
             <span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span><span class="n">_is_numeric_scalar</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">fill_values</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
-                <span class="s2">&quot;fill_values list entries must all be numeric scalars&quot;</span>
+                <span class="s2">"fill_values list entries must all be numeric scalars"</span>
             <span class="p">)</span>
         <span class="n">per_band</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">fill_values</span><span class="p">)</span>
         <span class="n">mark</span> <span class="o">=</span> <span class="p">[</span><span class="n">_equals_null</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">null_value</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">per_band</span><span class="p">]</span>
         <span class="k">return</span> <span class="n">per_band</span><span class="p">,</span> <span class="n">mark</span><span class="p">,</span> <span class="n">null_value</span>
 
     <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
-        <span class="s2">&quot;fill_values must be None, a scalar, or a list/tuple of scalars&quot;</span>
+        <span class="s2">"fill_values must be None, a scalar, or a list/tuple of scalars"</span>
     <span class="p">)</span>
 
 
 <div class="viewcode-block" id="pad"><a class="viewcode-back" href="../../reference/generated/raster_tools.pad.html#raster_tools.pad">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">pad</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">target</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">fill_values</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Pad a raster&#39;s grid out to cover the given extent.</span>
+<span class="w">    </span><span class="sd">"""Pad a raster's grid out to cover the given extent.</span>
 
-<span class="sd">    The source raster&#39;s grid (resolution and origin) is preserved; only</span>
+<span class="sd">    The source raster's grid (resolution and origin) is preserved; only</span>
 <span class="sd">    new cells are added on the edges. If the requested extent is already</span>
 <span class="sd">    inside the raster, the result is unchanged in shape.</span>
 
@@ -566,7 +566,7 @@ document.write(`
 <span class="sd">    target : tuple, Raster, or odc.geo.geobox.GeoBox</span>
 <span class="sd">        The extent to pad to. Accepts:</span>
 
-<span class="sd">        - a ``(minx, miny, maxx, maxy)`` tuple in the raster&#39;s CRS</span>
+<span class="sd">        - a ``(minx, miny, maxx, maxy)`` tuple in the raster's CRS</span>
 <span class="sd">          (pixel-edge semantics, matching ``Raster.bounds``)</span>
 <span class="sd">        - a ``Raster`` -- its ``.bounds`` is used; its resolution and</span>
 <span class="sd">          origin are ignored</span>
@@ -574,15 +574,15 @@ document.write(`
 <span class="sd">    fill_values : None, scalar, or list of scalars, optional</span>
 <span class="sd">        Value(s) used to fill newly added cells.</span>
 
-<span class="sd">        - ``None`` (default): use the raster&#39;s null value, and mark the</span>
+<span class="sd">        - ``None`` (default): use the raster's null value, and mark the</span>
 <span class="sd">          new cells as null. If the raster has no null value, a</span>
 <span class="sd">          dtype-appropriate sentinel is chosen and assigned to the</span>
 <span class="sd">          result.</span>
 <span class="sd">        - scalar: fill all new cells across all bands with this value.</span>
-<span class="sd">          If the value equals the raster&#39;s null value, behave as</span>
+<span class="sd">          If the value equals the raster's null value, behave as</span>
 <span class="sd">          ``None`` for that case.</span>
 <span class="sd">        - list/tuple of length ``nbands``: per-band fill. Per-band</span>
-<span class="sd">          values that equal the raster&#39;s null value cause those bands&#39;</span>
+<span class="sd">          values that equal the raster's null value cause those bands'</span>
 <span class="sd">          new cells to be marked null.</span>
 
 <span class="sd">    Returns</span>
@@ -590,7 +590,7 @@ document.write(`
 <span class="sd">    Raster</span>
 <span class="sd">        A new lazy Raster covering at least the requested extent.</span>
 
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">raster</span> <span class="o">=</span> <span class="n">get_raster</span><span class="p">(</span><span class="n">raster</span><span class="p">)</span>
     <span class="n">bounds</span> <span class="o">=</span> <span class="n">_resolve_bounds</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span>
     <span class="n">per_band</span><span class="p">,</span> <span class="n">mark_null</span><span class="p">,</span> <span class="n">out_nv</span> <span class="o">=</span> <span class="n">_validate_fill_values</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">fill_values</span><span class="p">)</span>
@@ -612,7 +612,7 @@ document.write(`
 
     <span class="n">fill_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">per_band</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">xdata_padded</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
     <span class="n">fill_da</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">(</span>
-        <span class="n">fill_arr</span><span class="p">,</span> <span class="n">dims</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;band&quot;</span><span class="p">,),</span> <span class="n">coords</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;band&quot;</span><span class="p">:</span> <span class="n">xdata_padded</span><span class="o">.</span><span class="n">band</span><span class="p">}</span>
+        <span class="n">fill_arr</span><span class="p">,</span> <span class="n">dims</span><span class="o">=</span><span class="p">(</span><span class="s2">"band"</span><span class="p">,),</span> <span class="n">coords</span><span class="o">=</span><span class="p">{</span><span class="s2">"band"</span><span class="p">:</span> <span class="n">xdata_padded</span><span class="o">.</span><span class="n">band</span><span class="p">}</span>
     <span class="p">)</span>
     <span class="n">xdata</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">is_new</span><span class="p">,</span> <span class="n">fill_da</span><span class="p">,</span> <span class="n">xdata_padded</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">src_crs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -631,8 +631,8 @@ document.write(`
         <span class="n">xmask</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">xdata_padded</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
     <span class="n">mark_da</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">(</span>
         <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">mark_null</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">),</span>
-        <span class="n">dims</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;band&quot;</span><span class="p">,),</span>
-        <span class="n">coords</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;band&quot;</span><span class="p">:</span> <span class="n">xdata_padded</span><span class="o">.</span><span class="n">band</span><span class="p">},</span>
+        <span class="n">dims</span><span class="o">=</span><span class="p">(</span><span class="s2">"band"</span><span class="p">,),</span>
+        <span class="n">coords</span><span class="o">=</span><span class="p">{</span><span class="s2">"band"</span><span class="p">:</span> <span class="n">xdata_padded</span><span class="o">.</span><span class="n">band</span><span class="p">},</span>
     <span class="p">)</span>
     <span class="n">xmask</span> <span class="o">=</span> <span class="n">xmask</span> <span class="o">|</span> <span class="p">(</span><span class="n">is_new</span> <span class="o">&amp;</span> <span class="n">mark_da</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">src_crs</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>

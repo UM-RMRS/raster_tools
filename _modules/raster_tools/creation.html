@@ -453,26 +453,26 @@ document.write(`
 <span class="p">)</span>
 
 <span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
-    <span class="s2">&quot;constant_raster&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;empty_like&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;full_like&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;ones_like&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;random_raster&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;zeros_like&quot;</span><span class="p">,</span>
+    <span class="s2">"constant_raster"</span><span class="p">,</span>
+    <span class="s2">"empty_like"</span><span class="p">,</span>
+    <span class="s2">"full_like"</span><span class="p">,</span>
+    <span class="s2">"ones_like"</span><span class="p">,</span>
+    <span class="s2">"random_raster"</span><span class="p">,</span>
+    <span class="s2">"zeros_like"</span><span class="p">,</span>
 <span class="p">]</span>
 
 <span class="n">_VALID_RANDOM_DISTRIBUTIONS</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">(</span>
     <span class="p">(</span>
-        <span class="s2">&quot;b&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;binomial&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;n&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;normal&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;p&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;poisson&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;u&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;uniform&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;w&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;weibull&quot;</span><span class="p">,</span>
+        <span class="s2">"b"</span><span class="p">,</span>
+        <span class="s2">"binomial"</span><span class="p">,</span>
+        <span class="s2">"n"</span><span class="p">,</span>
+        <span class="s2">"normal"</span><span class="p">,</span>
+        <span class="s2">"p"</span><span class="p">,</span>
+        <span class="s2">"poisson"</span><span class="p">,</span>
+        <span class="s2">"u"</span><span class="p">,</span>
+        <span class="s2">"uniform"</span><span class="p">,</span>
+        <span class="s2">"w"</span><span class="p">,</span>
+        <span class="s2">"weibull"</span><span class="p">,</span>
     <span class="p">)</span>
 <span class="p">)</span>
 
@@ -483,21 +483,21 @@ document.write(`
     <span class="k">if</span> <span class="n">raster_template</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">template</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
-                <span class="s2">&quot;Pass `template` only; `raster_template` is deprecated&quot;</span>
+                <span class="s2">"Pass `template` only; `raster_template` is deprecated"</span>
             <span class="p">)</span>
         <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
-            <span class="s2">&quot;`raster_template` is deprecated; use `template`&quot;</span><span class="p">,</span>
+            <span class="s2">"`raster_template` is deprecated; use `template`"</span><span class="p">,</span>
             <span class="ne">DeprecationWarning</span><span class="p">,</span>
             <span class="n">stacklevel</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
         <span class="p">)</span>
         <span class="k">return</span> <span class="n">raster_template</span>
     <span class="k">if</span> <span class="n">template</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;A template is required&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">"A template is required"</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">template</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_resolve_template</span><span class="p">(</span><span class="n">template</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Normalize a template to grid info.</span>
+<span class="w">    </span><span class="sd">"""Normalize a template to grid info.</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
@@ -511,7 +511,7 @@ document.write(`
 <span class="sd">        The affine transform (only set for the GeoBox path).</span>
 <span class="sd">    crs : CRS or None</span>
 <span class="sd">        The CRS (only set for the GeoBox path).</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">template</span><span class="p">,</span> <span class="n">GeoBox</span><span class="p">):</span>
         <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">template</span><span class="o">.</span><span class="n">shape</span><span class="p">),</span> <span class="kc">None</span><span class="p">,</span> <span class="n">template</span><span class="o">.</span><span class="n">affine</span><span class="p">,</span> <span class="n">template</span><span class="o">.</span><span class="n">crs</span>
     <span class="n">rst</span> <span class="o">=</span> <span class="n">get_raster</span><span class="p">(</span><span class="n">template</span><span class="p">,</span> <span class="n">strict</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
@@ -520,7 +520,7 @@ document.write(`
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_check_copy_mask</span><span class="p">(</span><span class="n">rst</span><span class="p">,</span> <span class="n">copy_mask</span><span class="p">):</span>
     <span class="k">if</span> <span class="n">rst</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">copy_mask</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;copy_mask requires a Raster template, not a GeoBox&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"copy_mask requires a Raster template, not a GeoBox"</span><span class="p">)</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_get_bands</span><span class="p">(</span><span class="n">bands</span><span class="p">):</span>
@@ -529,10 +529,10 @@ document.write(`
             <span class="n">bands</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">bands</span><span class="p">)</span>
         <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;Could not coerce bands argument to an int: </span><span class="si">{</span><span class="nb">repr</span><span class="p">(</span><span class="n">bands</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="sa">f</span><span class="s2">"Could not coerce bands argument to an int: </span><span class="si">{</span><span class="nb">repr</span><span class="p">(</span><span class="n">bands</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span>
             <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="kc">None</span>
     <span class="k">if</span> <span class="n">bands</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Number of bands must be greater than 0&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Number of bands must be greater than 0"</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">bands</span>
 
 
@@ -542,7 +542,7 @@ document.write(`
             <span class="n">dtype</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span>
         <span class="k">except</span> <span class="ne">TypeError</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;Could not understand dtype argument: </span><span class="si">{</span><span class="nb">repr</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="sa">f</span><span class="s2">"Could not understand dtype argument: </span><span class="si">{</span><span class="nb">repr</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span>
             <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="kc">None</span>
     <span class="k">return</span> <span class="n">dtype</span>
 
@@ -553,7 +553,7 @@ document.write(`
         <span class="n">chunks</span> <span class="o">=</span> <span class="p">((</span><span class="mi">1</span><span class="p">,)</span> <span class="o">*</span> <span class="n">bands</span><span class="p">,)</span> <span class="o">+</span> <span class="n">yx_chunks</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="c1"># GeoBox path: chunksize 1 in band dim, dask picks spatial chunks</span>
-        <span class="n">chunks</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;auto&quot;</span><span class="p">,</span> <span class="s2">&quot;auto&quot;</span><span class="p">)</span>
+        <span class="n">chunks</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="s2">"auto"</span><span class="p">,</span> <span class="s2">"auto"</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">shape</span><span class="p">,</span> <span class="n">chunks</span>
 
 
@@ -583,14 +583,14 @@ document.write(`
 
 <div class="viewcode-block" id="random_raster"><a class="viewcode-back" href="../../reference/generated/raster_tools.random_raster.html#raster_tools.random_raster">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">random_raster</span><span class="p">(</span>
     <span class="n">template</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-    <span class="n">distribution</span><span class="o">=</span><span class="s2">&quot;normal&quot;</span><span class="p">,</span>
+    <span class="n">distribution</span><span class="o">=</span><span class="s2">"normal"</span><span class="p">,</span>
     <span class="n">bands</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
     <span class="n">params</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">),</span>
     <span class="n">copy_mask</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
     <span class="o">*</span><span class="p">,</span>
     <span class="n">raster_template</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
 <span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Creates a Raster of random values based on the desired distribution.</span>
+<span class="w">    </span><span class="sd">"""Creates a Raster of random values based on the desired distribution.</span>
 
 <span class="sd">    This function uses dask.array.random to generate data. The default is a</span>
 <span class="sd">    normal distribution with mean of 1 and standard deviation of 0.5.</span>
@@ -602,33 +602,33 @@ document.write(`
 <span class="sd">        is loaded as a Raster. A ``GeoBox`` supplies only the grid; in that</span>
 <span class="sd">        case ``copy_mask`` is invalid and no mask/null value is propagated.</span>
 <span class="sd">    distribution : str, optional</span>
-<span class="sd">        Random distribution type. Default is `&#39;normal&#39;`. See `params` parameter</span>
+<span class="sd">        Random distribution type. Default is `'normal'`. See `params` parameter</span>
 <span class="sd">        below for passing additional distribution  parameters. Valid values</span>
 <span class="sd">        are:</span>
 
-<span class="sd">        &#39;binomial&#39;</span>
+<span class="sd">        'binomial'</span>
 <span class="sd">            Binomial distribution. Uses two additional parameters: (n, p).</span>
-<span class="sd">        &#39;normal&#39;</span>
+<span class="sd">        'normal'</span>
 <span class="sd">            Normal distribution. Uses two additional parameters: (mean, std).</span>
 <span class="sd">            This is the default.</span>
-<span class="sd">        &#39;poisson&#39;</span>
+<span class="sd">        'poisson'</span>
 <span class="sd">            Poisson distribution. Uses one additional parameter.</span>
-<span class="sd">        &#39;uniform&#39;</span>
+<span class="sd">        'uniform'</span>
 <span class="sd">            Uniform distribution in the half-open interval [0, 1). Uses no</span>
 <span class="sd">            additional.</span>
-<span class="sd">        &#39;weibull&#39;</span>
+<span class="sd">        'weibull'</span>
 <span class="sd">            Weibull distribution. Uses one additional parameter.</span>
 
 <span class="sd">    bands : int, optional</span>
 <span class="sd">        Number of bands needed desired. Default is 1.</span>
 <span class="sd">    params : list of scalars, optional</span>
 <span class="sd">        Additional parameters for generating the distribution. For example</span>
-<span class="sd">        `distribution=&#39;normal&#39;` and `params=(1, 0.5)` would result in a normal</span>
+<span class="sd">        `distribution='normal'` and `params=(1, 0.5)` would result in a normal</span>
 <span class="sd">        distribution with mean of 1 and standard deviation of 0.5. Default is</span>
 <span class="sd">        ``(1, 0.5)``.</span>
 <span class="sd">    copy_mask : bool</span>
-<span class="sd">        If `True`, the template raster&#39;s mask is copied to the result raster.</span>
-<span class="sd">        If `bands` differs from the template, the first band&#39;s mask is copied</span>
+<span class="sd">        If `True`, the template raster's mask is copied to the result raster.</span>
+<span class="sd">        If `bands` differs from the template, the first band's mask is copied</span>
 <span class="sd">        `bands` times. Only valid when `template` is a Raster.</span>
 
 <span class="sd">    Returns</span>
@@ -636,7 +636,7 @@ document.write(`
 <span class="sd">    Raster</span>
 <span class="sd">        The resulting raster of random values pulled from the distribution.</span>
 
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">template</span> <span class="o">=</span> <span class="n">_coalesce_template</span><span class="p">(</span><span class="n">template</span><span class="p">,</span> <span class="n">raster_template</span><span class="p">)</span>
     <span class="n">rst</span><span class="p">,</span> <span class="n">yx_shape</span><span class="p">,</span> <span class="n">yx_chunks</span><span class="p">,</span> <span class="n">affine</span><span class="p">,</span> <span class="n">crs</span> <span class="o">=</span> <span class="n">_resolve_template</span><span class="p">(</span><span class="n">template</span><span class="p">)</span>
     <span class="n">_check_copy_mask</span><span class="p">(</span><span class="n">rst</span><span class="p">,</span> <span class="n">copy_mask</span><span class="p">)</span>
@@ -646,7 +646,7 @@ document.write(`
             <span class="n">params</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">params</span><span class="p">)</span>
         <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;Could not coerce params argument to a list: </span><span class="si">{</span><span class="nb">repr</span><span class="p">(</span><span class="n">params</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="sa">f</span><span class="s2">"Could not coerce params argument to a list: </span><span class="si">{</span><span class="nb">repr</span><span class="p">(</span><span class="n">params</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span>
             <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="kc">None</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="n">params</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">params</span><span class="p">)</span>
@@ -655,33 +655,33 @@ document.write(`
 
     <span class="n">dist</span> <span class="o">=</span> <span class="n">distribution</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
     <span class="k">if</span> <span class="n">dist</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">_VALID_RANDOM_DISTRIBUTIONS</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown distribution type: </span><span class="si">{</span><span class="nb">repr</span><span class="p">(</span><span class="n">distribution</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">dist</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;u&quot;</span><span class="p">,</span> <span class="s2">&quot;uniform&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">params</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Unknown distribution type: </span><span class="si">{</span><span class="nb">repr</span><span class="p">(</span><span class="n">distribution</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">dist</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"u"</span><span class="p">,</span> <span class="s2">"uniform"</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">params</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-            <span class="s2">&quot;Not enough additional parameters for the distribution&quot;</span>
+            <span class="s2">"Not enough additional parameters for the distribution"</span>
         <span class="p">)</span>
 
-    <span class="k">if</span> <span class="n">dist</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;n&quot;</span><span class="p">,</span> <span class="s2">&quot;normal&quot;</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">dist</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"n"</span><span class="p">,</span> <span class="s2">"normal"</span><span class="p">):</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">params</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="s2">&quot;Two few additional parameters for normal distribution&quot;</span>
+                <span class="s2">"Two few additional parameters for normal distribution"</span>
             <span class="p">)</span>
         <span class="n">ndata</span> <span class="o">=</span> <span class="n">da</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span>
             <span class="n">params</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">params</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">size</span><span class="o">=</span><span class="n">shape</span><span class="p">,</span> <span class="n">chunks</span><span class="o">=</span><span class="n">chunks</span>
         <span class="p">)</span>
-    <span class="k">elif</span> <span class="n">dist</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;p&quot;</span><span class="p">,</span> <span class="s2">&quot;poisson&quot;</span><span class="p">):</span>
+    <span class="k">elif</span> <span class="n">dist</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"p"</span><span class="p">,</span> <span class="s2">"poisson"</span><span class="p">):</span>
         <span class="n">ndata</span> <span class="o">=</span> <span class="n">da</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">poisson</span><span class="p">(</span><span class="n">params</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">size</span><span class="o">=</span><span class="n">shape</span><span class="p">,</span> <span class="n">chunks</span><span class="o">=</span><span class="n">chunks</span><span class="p">)</span>
-    <span class="k">elif</span> <span class="n">dist</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;b&quot;</span><span class="p">,</span> <span class="s2">&quot;binomial&quot;</span><span class="p">):</span>
+    <span class="k">elif</span> <span class="n">dist</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"b"</span><span class="p">,</span> <span class="s2">"binomial"</span><span class="p">):</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">params</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="s2">&quot;Two few additional parameters for binomial distribution&quot;</span>
+                <span class="s2">"Two few additional parameters for binomial distribution"</span>
             <span class="p">)</span>
         <span class="n">ndata</span> <span class="o">=</span> <span class="n">da</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">binomial</span><span class="p">(</span>
             <span class="n">params</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">params</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">size</span><span class="o">=</span><span class="n">shape</span><span class="p">,</span> <span class="n">chunks</span><span class="o">=</span><span class="n">chunks</span>
         <span class="p">)</span>
-    <span class="k">elif</span> <span class="n">dist</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;w&quot;</span><span class="p">,</span> <span class="s2">&quot;weibull&quot;</span><span class="p">):</span>
+    <span class="k">elif</span> <span class="n">dist</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"w"</span><span class="p">,</span> <span class="s2">"weibull"</span><span class="p">):</span>
         <span class="n">ndata</span> <span class="o">=</span> <span class="n">da</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">weibull</span><span class="p">(</span><span class="n">params</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">size</span><span class="o">=</span><span class="n">shape</span><span class="p">,</span> <span class="n">chunks</span><span class="o">=</span><span class="n">chunks</span><span class="p">)</span>
-    <span class="k">elif</span> <span class="n">dist</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;u&quot;</span><span class="p">,</span> <span class="s2">&quot;uniform&quot;</span><span class="p">):</span>
+    <span class="k">elif</span> <span class="n">dist</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"u"</span><span class="p">,</span> <span class="s2">"uniform"</span><span class="p">):</span>
         <span class="n">ndata</span> <span class="o">=</span> <span class="n">da</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">random</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="n">shape</span><span class="p">,</span> <span class="n">chunks</span><span class="o">=</span><span class="n">chunks</span><span class="p">)</span>
     <span class="c1"># TODO: add more distributions</span>
 
@@ -698,7 +698,7 @@ document.write(`
     <span class="o">*</span><span class="p">,</span>
     <span class="n">raster_template</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
 <span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a Raster filled with uninitialized data like a template.</span>
+<span class="w">    </span><span class="sd">"""Create a Raster filled with uninitialized data like a template.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
@@ -711,8 +711,8 @@ document.write(`
 <span class="sd">    dtype : data-type, optional</span>
 <span class="sd">        Overrides the result dtype.</span>
 <span class="sd">    copy_mask : bool</span>
-<span class="sd">        If `True`, the template raster&#39;s mask is copied to the result raster.</span>
-<span class="sd">        If `bands` differs from the template, the first band&#39;s mask is</span>
+<span class="sd">        If `True`, the template raster's mask is copied to the result raster.</span>
+<span class="sd">        If `bands` differs from the template, the first band's mask is</span>
 <span class="sd">        copied `bands` times. Only valid when `template` is a Raster.</span>
 
 <span class="sd">    Returns</span>
@@ -720,7 +720,7 @@ document.write(`
 <span class="sd">    Raster</span>
 <span class="sd">        The resulting raster of uninitialized data.</span>
 
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">template</span> <span class="o">=</span> <span class="n">_coalesce_template</span><span class="p">(</span><span class="n">template</span><span class="p">,</span> <span class="n">raster_template</span><span class="p">)</span>
     <span class="n">rst</span><span class="p">,</span> <span class="n">yx_shape</span><span class="p">,</span> <span class="n">yx_chunks</span><span class="p">,</span> <span class="n">affine</span><span class="p">,</span> <span class="n">crs</span> <span class="o">=</span> <span class="n">_resolve_template</span><span class="p">(</span><span class="n">template</span><span class="p">)</span>
     <span class="n">_check_copy_mask</span><span class="p">(</span><span class="n">rst</span><span class="p">,</span> <span class="n">copy_mask</span><span class="p">)</span>
@@ -746,7 +746,7 @@ document.write(`
     <span class="o">*</span><span class="p">,</span>
     <span class="n">raster_template</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
 <span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a Raster filled with a constant value like a template.</span>
+<span class="w">    </span><span class="sd">"""Create a Raster filled with a constant value like a template.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
@@ -761,8 +761,8 @@ document.write(`
 <span class="sd">    dtype : data-type, optional</span>
 <span class="sd">        Overrides the result dtype.</span>
 <span class="sd">    copy_mask : bool</span>
-<span class="sd">        If `True`, the template raster&#39;s mask is copied to the result raster.</span>
-<span class="sd">        If `bands` differs from the template, the first band&#39;s mask is</span>
+<span class="sd">        If `True`, the template raster's mask is copied to the result raster.</span>
+<span class="sd">        If `bands` differs from the template, the first band's mask is</span>
 <span class="sd">        copied `bands` times. Only valid when `template` is a Raster.</span>
 
 <span class="sd">    Returns</span>
@@ -770,10 +770,10 @@ document.write(`
 <span class="sd">    Raster</span>
 <span class="sd">        The resulting raster of constant values.</span>
 
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">template</span> <span class="o">=</span> <span class="n">_coalesce_template</span><span class="p">(</span><span class="n">template</span><span class="p">,</span> <span class="n">raster_template</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="n">_MISSING</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;full_like() missing required argument: &#39;value&#39;&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">"full_like() missing required argument: 'value'"</span><span class="p">)</span>
     <span class="n">rst</span><span class="p">,</span> <span class="n">yx_shape</span><span class="p">,</span> <span class="n">yx_chunks</span><span class="p">,</span> <span class="n">affine</span><span class="p">,</span> <span class="n">crs</span> <span class="o">=</span> <span class="n">_resolve_template</span><span class="p">(</span><span class="n">template</span><span class="p">)</span>
     <span class="n">_check_copy_mask</span><span class="p">(</span><span class="n">rst</span><span class="p">,</span> <span class="n">copy_mask</span><span class="p">)</span>
     <span class="n">bands</span> <span class="o">=</span> <span class="n">_get_bands</span><span class="p">(</span><span class="n">bands</span><span class="p">)</span>
@@ -782,7 +782,7 @@ document.write(`
             <span class="n">value</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
         <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;Could not coerce value argument to a scalar: </span><span class="si">{</span><span class="nb">repr</span><span class="p">(</span><span class="n">value</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="sa">f</span><span class="s2">"Could not coerce value argument to a scalar: </span><span class="si">{</span><span class="nb">repr</span><span class="p">(</span><span class="n">value</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span>
             <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="kc">None</span>
     <span class="n">dtype</span> <span class="o">=</span> <span class="n">_get_dtype</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span>
 
@@ -809,7 +809,7 @@ document.write(`
     <span class="o">*</span><span class="p">,</span>
     <span class="n">raster_template</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
 <span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a Raster filled with a constant value like a template.</span>
+<span class="w">    </span><span class="sd">"""Create a Raster filled with a constant value like a template.</span>
 
 <span class="sd">    This is a convenience function that wraps :func:`full_like`.</span>
 
@@ -826,8 +826,8 @@ document.write(`
 <span class="sd">    dtype : data-type, optional</span>
 <span class="sd">        Overrides the result dtype.</span>
 <span class="sd">    copy_mask : bool</span>
-<span class="sd">        If `True`, the template raster&#39;s mask is copied to the result raster.</span>
-<span class="sd">        If `bands` differs from the template, the first band&#39;s mask is</span>
+<span class="sd">        If `True`, the template raster's mask is copied to the result raster.</span>
+<span class="sd">        If `bands` differs from the template, the first band's mask is</span>
 <span class="sd">        copied `bands` times. Only valid when `template` is a Raster.</span>
 
 <span class="sd">    Returns</span>
@@ -835,7 +835,7 @@ document.write(`
 <span class="sd">    Raster</span>
 <span class="sd">        The resulting raster of constant values.</span>
 
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">return</span> <span class="n">full_like</span><span class="p">(</span>
         <span class="n">template</span><span class="p">,</span>
         <span class="n">value</span><span class="p">,</span>
@@ -854,7 +854,7 @@ document.write(`
     <span class="o">*</span><span class="p">,</span>
     <span class="n">raster_template</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
 <span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a Raster filled with zeros like a template.</span>
+<span class="w">    </span><span class="sd">"""Create a Raster filled with zeros like a template.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
@@ -867,8 +867,8 @@ document.write(`
 <span class="sd">    dtype : data-type, optional</span>
 <span class="sd">        Overrides the result dtype.</span>
 <span class="sd">    copy_mask : bool</span>
-<span class="sd">        If `True`, the template raster&#39;s mask is copied to the result raster.</span>
-<span class="sd">        If `bands` differs from the template, the first band&#39;s mask is</span>
+<span class="sd">        If `True`, the template raster's mask is copied to the result raster.</span>
+<span class="sd">        If `bands` differs from the template, the first band's mask is</span>
 <span class="sd">        copied `bands` times. Only valid when `template` is a Raster.</span>
 
 <span class="sd">    Returns</span>
@@ -876,7 +876,7 @@ document.write(`
 <span class="sd">    Raster</span>
 <span class="sd">        The resulting raster of zeros.</span>
 
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">return</span> <span class="n">full_like</span><span class="p">(</span>
         <span class="n">template</span><span class="p">,</span>
         <span class="mi">0</span><span class="p">,</span>
@@ -895,7 +895,7 @@ document.write(`
     <span class="o">*</span><span class="p">,</span>
     <span class="n">raster_template</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
 <span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a Raster filled with ones like a template.</span>
+<span class="w">    </span><span class="sd">"""Create a Raster filled with ones like a template.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
@@ -908,8 +908,8 @@ document.write(`
 <span class="sd">    dtype : data-type, optional</span>
 <span class="sd">        Overrides the result dtype.</span>
 <span class="sd">    copy_mask : bool</span>
-<span class="sd">        If `True`, the template raster&#39;s mask is copied to the result raster.</span>
-<span class="sd">        If `bands` differs from the template, the first band&#39;s mask is</span>
+<span class="sd">        If `True`, the template raster's mask is copied to the result raster.</span>
+<span class="sd">        If `bands` differs from the template, the first band's mask is</span>
 <span class="sd">        copied `bands` times. Only valid when `template` is a Raster.</span>
 
 <span class="sd">    Returns</span>
@@ -917,7 +917,7 @@ document.write(`
 <span class="sd">    Raster</span>
 <span class="sd">        The resulting raster of ones.</span>
 
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">return</span> <span class="n">full_like</span><span class="p">(</span>
         <span class="n">template</span><span class="p">,</span>
         <span class="mi">1</span><span class="p">,</span>

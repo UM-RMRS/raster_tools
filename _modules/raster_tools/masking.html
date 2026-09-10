@@ -500,17 +500,17 @@ document.write(`
 
 
 <div class="viewcode-block" id="get_default_null_value"><a class="viewcode-back" href="../../reference/generated/raster_tools.masking.get_default_null_value.html#raster_tools.masking.get_default_null_value">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">get_default_null_value</span><span class="p">(</span><span class="n">dtype</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Get the default null value for a given dtype.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""Get the default null value for a given dtype."""</span>
     <span class="n">dtype</span> <span class="o">=</span> <span class="n">DTYPE_INPUT_TO_DTYPE</span><span class="p">[</span><span class="n">dtype</span><span class="p">]</span>
     <span class="k">return</span> <span class="n">DTYPE_TO_DEFAULT_NULL</span><span class="p">[</span><span class="n">dtype</span><span class="p">]</span></div>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">reconcile_nullvalue_with_dtype</span><span class="p">(</span><span class="n">null_value</span><span class="p">,</span> <span class="n">dtype</span><span class="p">,</span> <span class="n">warn</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Make sure that the null value is consistent with the given dtype</span>
+<span class="w">    </span><span class="sd">"""Make sure that the null value is consistent with the given dtype</span>
 
 <span class="sd">    The null value is cast to the given dtype, if possible. If not, a warning</span>
 <span class="sd">    is raised and the default for the dtype is returned.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">if</span> <span class="n">null_value</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">return</span> <span class="kc">None</span>
     <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">null_value</span><span class="p">):</span>
@@ -535,7 +535,7 @@ document.write(`
             <span class="n">nv</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">original_nv</span><span class="p">)</span>
             <span class="n">min_type</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">min_scalar_type</span><span class="p">(</span><span class="n">nv</span><span class="p">)</span>
             <span class="n">nv</span> <span class="o">=</span> <span class="n">min_type</span><span class="o">.</span><span class="n">type</span><span class="p">(</span><span class="n">nv</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">min_type</span><span class="o">.</span><span class="n">kind</span> <span class="o">==</span> <span class="s2">&quot;O&quot;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">min_type</span><span class="o">.</span><span class="n">kind</span> <span class="o">==</span> <span class="s2">"O"</span><span class="p">:</span>
                 <span class="n">nv</span> <span class="o">=</span> <span class="n">original_nv</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="n">nv</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">min_scalar_type</span><span class="p">(</span><span class="n">original_nv</span><span class="p">)</span><span class="o">.</span><span class="n">type</span><span class="p">(</span><span class="n">original_nv</span><span class="p">)</span>
@@ -544,8 +544,8 @@ document.write(`
     <span class="n">nv</span> <span class="o">=</span> <span class="n">get_default_null_value</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">warn</span><span class="p">:</span>
         <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;The null value </span><span class="si">{</span><span class="n">original_nv</span><span class="si">!r}</span><span class="s2"> could not be cast to </span><span class="si">{</span><span class="n">dtype</span><span class="si">}</span><span class="s2">. &quot;</span>
-            <span class="sa">f</span><span class="s2">&quot;It has been automatically changed to </span><span class="si">{</span><span class="n">nv</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="sa">f</span><span class="s2">"The null value </span><span class="si">{</span><span class="n">original_nv</span><span class="si">!r}</span><span class="s2"> could not be cast to </span><span class="si">{</span><span class="n">dtype</span><span class="si">}</span><span class="s2">. "</span>
+            <span class="sa">f</span><span class="s2">"It has been automatically changed to </span><span class="si">{</span><span class="n">nv</span><span class="si">!r}</span><span class="s2">"</span><span class="p">,</span>
             <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
         <span class="p">)</span>
     <span class="k">return</span> <span class="n">nv</span>

@@ -437,14 +437,14 @@ document.write(`
                 <article class="bd-article" role="main">
                   
   <h1>Source code for raster_tools.general</h1><div class="highlight"><pre>
-<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span></span><span class="sd">"""</span>
 <span class="sd">Description: general module used to perform common spatial analyses</span>
 <span class="sd">on Raster objects</span>
 
 <span class="sd">* `ESRI Generalization Tools &lt;https://pro.arcgis.com/en/pro-app/latest/tool-reference/spatial-analyst/an-overview-of-the-generalization-tools.htm&gt;`_</span>
 <span class="sd">* `ESRI Local Tools &lt;https://pro.arcgis.com/en/pro-app/latest/tool-reference/spatial-analyst/an-overview-of-the-local-tools.htm&gt;`_</span>
 
-<span class="sd">&quot;&quot;&quot;</span>  <span class="c1"># noqa: E501</span>
+<span class="sd">"""</span>  <span class="c1"># noqa: E501</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
@@ -510,18 +510,18 @@ document.write(`
 <span class="p">)</span>
 
 <span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
-    <span class="s2">&quot;ModelPredictAdaptor&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;aggregate&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;band_concat&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;dilate&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;erode&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;local_stats&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;model_predict_vector&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;model_predict_raster&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;reclassify&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;regions&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;remap_range&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;where&quot;</span><span class="p">,</span>
+    <span class="s2">"ModelPredictAdaptor"</span><span class="p">,</span>
+    <span class="s2">"aggregate"</span><span class="p">,</span>
+    <span class="s2">"band_concat"</span><span class="p">,</span>
+    <span class="s2">"dilate"</span><span class="p">,</span>
+    <span class="s2">"erode"</span><span class="p">,</span>
+    <span class="s2">"local_stats"</span><span class="p">,</span>
+    <span class="s2">"model_predict_vector"</span><span class="p">,</span>
+    <span class="s2">"model_predict_raster"</span><span class="p">,</span>
+    <span class="s2">"reclassify"</span><span class="p">,</span>
+    <span class="s2">"regions"</span><span class="p">,</span>
+    <span class="s2">"remap_range"</span><span class="p">,</span>
+    <span class="s2">"where"</span><span class="p">,</span>
 <span class="p">]</span>
 
 <span class="c1"># TODO: mosaic</span>
@@ -545,9 +545,9 @@ document.write(`
 
 
 <div class="viewcode-block" id="regions"><a class="viewcode-back" href="../../reference/generated/raster_tools.general.regions.html#raster_tools.regions">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">regions</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">neighbors</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">unique_values</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Calculates the unique regions (patches) within a raster band.</span>
+<span class="w">    </span><span class="sd">"""Calculates the unique regions (patches) within a raster band.</span>
 
-<span class="sd">    The approach is based on ESRI&#39;s region group calculation.</span>
+<span class="sd">    The approach is based on ESRI's region group calculation.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
@@ -576,12 +576,12 @@ document.write(`
 <span class="sd">    ----------</span>
 <span class="sd">    * `ESRI: Region Group &lt;https://pro.arcgis.com/en/pro-app/latest/tool-reference/spatial-analyst/region-group.htm&gt;`_</span>
 
-<span class="sd">    &quot;&quot;&quot;</span>  <span class="c1"># noqa: E501</span>
+<span class="sd">    """</span>  <span class="c1"># noqa: E501</span>
     <span class="n">raster</span> <span class="o">=</span> <span class="n">get_raster</span><span class="p">(</span><span class="n">raster</span><span class="p">)</span>
 
     <span class="k">if</span> <span class="ow">not</span> <span class="n">is_int</span><span class="p">(</span><span class="n">neighbors</span><span class="p">):</span>
         <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;neighbors argument must be an int. Got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">neighbors</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="sa">f</span><span class="s2">"neighbors argument must be an int. Got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">neighbors</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span>
         <span class="p">)</span>
     <span class="k">if</span> <span class="n">neighbors</span> <span class="o">==</span> <span class="mi">4</span><span class="p">:</span>
         <span class="n">wd</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">]])</span>
@@ -589,14 +589,14 @@ document.write(`
         <span class="n">wd</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;Invalid value for neighbors parameter: </span><span class="si">{</span><span class="nb">repr</span><span class="p">(</span><span class="n">neighbors</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="sa">f</span><span class="s2">"Invalid value for neighbors parameter: </span><span class="si">{</span><span class="nb">repr</span><span class="p">(</span><span class="n">neighbors</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span>
         <span class="p">)</span>
 
     <span class="k">if</span> <span class="n">unique_values</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">unique_values</span><span class="p">,</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">da</span><span class="o">.</span><span class="n">Array</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">)):</span>
             <span class="n">unique_values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">unique_values</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Invalid type for unique_values parameter&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">"Invalid type for unique_values parameter"</span><span class="p">)</span>
 
     <span class="n">data</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">data</span>
     <span class="c1"># Copy to prevent input and output rasters from having same reference</span>
@@ -624,7 +624,7 @@ document.write(`
             <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">nb</span><span class="o">.</span><span class="n">prange</span><span class="p">(</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">]):</span>
                 <span class="n">v</span> <span class="o">=</span> <span class="n">func</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="p">:,</span> <span class="n">k</span><span class="p">,</span> <span class="p">:])</span>
                 <span class="k">if</span> <span class="n">check_nan</span> <span class="ow">and</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">v</span><span class="p">):</span>
-                    <span class="c1"># It doesn&#39;t matter what value is swapped with nan values</span>
+                    <span class="c1"># It doesn't matter what value is swapped with nan values</span>
                     <span class="c1"># since those cells will be masked out later.</span>
                     <span class="n">v</span> <span class="o">=</span> <span class="mi">0</span>
                 <span class="n">out</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span>
@@ -650,9 +650,9 @@ document.write(`
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_get_coarsen_dtype</span><span class="p">(</span><span class="n">stat</span><span class="p">,</span> <span class="n">window_size</span><span class="p">,</span> <span class="n">input_dtype</span><span class="p">):</span>
-    <span class="k">if</span> <span class="n">stat</span> <span class="o">==</span> <span class="s2">&quot;unique&quot;</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">stat</span> <span class="o">==</span> <span class="s2">"unique"</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">min_scalar_type</span><span class="p">(</span><span class="n">window_size</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">stat</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;mode&quot;</span><span class="p">,</span> <span class="s2">&quot;min&quot;</span><span class="p">,</span> <span class="s2">&quot;max&quot;</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">stat</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"mode"</span><span class="p">,</span> <span class="s2">"min"</span><span class="p">,</span> <span class="s2">"max"</span><span class="p">):</span>
         <span class="k">return</span> <span class="n">input_dtype</span>
     <span class="k">if</span> <span class="n">input_dtype</span> <span class="o">==</span> <span class="n">F32</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">F32</span>
@@ -660,20 +660,20 @@ document.write(`
 
 
 <span class="n">_COARSEN_STYPE_TO_FUNC</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="s2">&quot;max&quot;</span><span class="p">:</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">max</span><span class="p">(),</span>
-    <span class="s2">&quot;mean&quot;</span><span class="p">:</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">mean</span><span class="p">(),</span>
-    <span class="s2">&quot;median&quot;</span><span class="p">:</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">median</span><span class="p">(),</span>
-    <span class="s2">&quot;min&quot;</span><span class="p">:</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span>
-    <span class="s2">&quot;prod&quot;</span><span class="p">:</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">prod</span><span class="p">(),</span>
-    <span class="s2">&quot;std&quot;</span><span class="p">:</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">std</span><span class="p">(),</span>
-    <span class="s2">&quot;sum&quot;</span><span class="p">:</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">sum</span><span class="p">(),</span>
-    <span class="s2">&quot;var&quot;</span><span class="p">:</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">var</span><span class="p">(),</span>
+    <span class="s2">"max"</span><span class="p">:</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">max</span><span class="p">(),</span>
+    <span class="s2">"mean"</span><span class="p">:</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">mean</span><span class="p">(),</span>
+    <span class="s2">"median"</span><span class="p">:</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">median</span><span class="p">(),</span>
+    <span class="s2">"min"</span><span class="p">:</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span>
+    <span class="s2">"prod"</span><span class="p">:</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">prod</span><span class="p">(),</span>
+    <span class="s2">"std"</span><span class="p">:</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">std</span><span class="p">(),</span>
+    <span class="s2">"sum"</span><span class="p">:</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">sum</span><span class="p">(),</span>
+    <span class="s2">"var"</span><span class="p">:</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">var</span><span class="p">(),</span>
 <span class="p">}</span>
 <span class="n">_COARSEN_STYPE_TO_CUSTOM_FUNC</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="s2">&quot;asm&quot;</span><span class="p">:</span> <span class="n">nanasm_jit</span><span class="p">,</span>
-    <span class="s2">&quot;entropy&quot;</span><span class="p">:</span> <span class="n">nanentropy_jit</span><span class="p">,</span>
-    <span class="s2">&quot;mode&quot;</span><span class="p">:</span> <span class="n">nanmode_jit</span><span class="p">,</span>
-    <span class="s2">&quot;unique&quot;</span><span class="p">:</span> <span class="n">nan_unique_count_jit</span><span class="p">,</span>
+    <span class="s2">"asm"</span><span class="p">:</span> <span class="n">nanasm_jit</span><span class="p">,</span>
+    <span class="s2">"entropy"</span><span class="p">:</span> <span class="n">nanentropy_jit</span><span class="p">,</span>
+    <span class="s2">"mode"</span><span class="p">:</span> <span class="n">nanmode_jit</span><span class="p">,</span>
+    <span class="s2">"unique"</span><span class="p">:</span> <span class="n">nan_unique_count_jit</span><span class="p">,</span>
 <span class="p">}</span>
 
 
@@ -688,9 +688,9 @@ document.write(`
 
 
 <div class="viewcode-block" id="aggregate"><a class="viewcode-back" href="../../reference/generated/raster_tools.general.aggregate.html#raster_tools.aggregate">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">aggregate</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">expand_cells</span><span class="p">,</span> <span class="n">stype</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Creates a Raster of aggregated cell values for a new resolution.</span>
+<span class="w">    </span><span class="sd">"""Creates a Raster of aggregated cell values for a new resolution.</span>
 
-<span class="sd">    The approach is based on ESRI&#39;s aggregate and majority filter functions.</span>
+<span class="sd">    The approach is based on ESRI's aggregate and majority filter functions.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
@@ -714,41 +714,41 @@ document.write(`
 <span class="sd">    * `ESRI aggregate &lt;https://pro.arcgis.com/en/pro-app/latest/tool-reference/spatial-analyst/aggregate.htm&gt;`_</span>
 <span class="sd">    * `ESRI majority filter &lt;https://pro.arcgis.com/en/pro-app/latest/tool-reference/spatial-analyst/majority-filter.htm&gt;`_</span>
 
-<span class="sd">    &quot;&quot;&quot;</span>  <span class="c1"># noqa: E501</span>
+<span class="sd">    """</span>  <span class="c1"># noqa: E501</span>
     <span class="n">expand_cells</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="n">expand_cells</span><span class="p">)</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">is_int</span><span class="p">(</span><span class="n">expand_cells</span><span class="o">.</span><span class="n">dtype</span><span class="p">):</span>
-        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;expand_cells must contain integers&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">"expand_cells must contain integers"</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">expand_cells</span><span class="o">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="p">(</span><span class="mi">2</span><span class="p">,):</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;expand_cells must contain 2 elements&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"expand_cells must contain 2 elements"</span><span class="p">)</span>
     <span class="k">if</span> <span class="p">(</span><span class="n">expand_cells</span> <span class="o">==</span> <span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">():</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;expand_cells values cannont both be one&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"expand_cells values cannont both be one"</span><span class="p">)</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">expand_cells</span> <span class="o">&gt;=</span> <span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">():</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;All expand_cells values must be &gt;= 1&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"All expand_cells values must be &gt;= 1"</span><span class="p">)</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">is_str</span><span class="p">(</span><span class="n">stype</span><span class="p">):</span>
-        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;stype argument must be a string&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">"stype argument must be a string"</span><span class="p">)</span>
     <span class="n">stype</span> <span class="o">=</span> <span class="n">stype</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
     <span class="k">if</span> <span class="p">(</span>
         <span class="n">stype</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">_COARSEN_STYPE_TO_FUNC</span>
         <span class="ow">and</span> <span class="n">stype</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">_COARSEN_STYPE_TO_CUSTOM_FUNC</span>
     <span class="p">):</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid stype argument: </span><span class="si">{</span><span class="nb">repr</span><span class="p">(</span><span class="n">stype</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Invalid stype argument: </span><span class="si">{</span><span class="nb">repr</span><span class="p">(</span><span class="n">stype</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
     <span class="n">orig_dtype</span> <span class="o">=</span> <span class="n">get_raster</span><span class="p">(</span><span class="n">raster</span><span class="p">)</span><span class="o">.</span><span class="n">dtype</span>
     <span class="n">raster</span> <span class="o">=</span> <span class="n">get_raster</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">null_to_nan</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
     <span class="n">xdata</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">xdata</span>
     <span class="n">xmask</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">xmask</span>
-    <span class="n">dim_map</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;y&quot;</span><span class="p">:</span> <span class="n">expand_cells</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="s2">&quot;x&quot;</span><span class="p">:</span> <span class="n">expand_cells</span><span class="p">[</span><span class="mi">1</span><span class="p">]}</span>
-    <span class="n">xdatac</span> <span class="o">=</span> <span class="n">xdata</span><span class="o">.</span><span class="n">coarsen</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="n">dim_map</span><span class="p">,</span> <span class="n">boundary</span><span class="o">=</span><span class="s2">&quot;trim&quot;</span><span class="p">)</span>
+    <span class="n">dim_map</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"y"</span><span class="p">:</span> <span class="n">expand_cells</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="s2">"x"</span><span class="p">:</span> <span class="n">expand_cells</span><span class="p">[</span><span class="mi">1</span><span class="p">]}</span>
+    <span class="n">xdatac</span> <span class="o">=</span> <span class="n">xdata</span><span class="o">.</span><span class="n">coarsen</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="n">dim_map</span><span class="p">,</span> <span class="n">boundary</span><span class="o">=</span><span class="s2">"trim"</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">stype</span> <span class="ow">in</span> <span class="n">_COARSEN_STYPE_TO_FUNC</span><span class="p">:</span>
         <span class="n">xdata</span> <span class="o">=</span> <span class="n">_COARSEN_STYPE_TO_FUNC</span><span class="p">[</span><span class="n">stype</span><span class="p">](</span><span class="n">xdatac</span><span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="n">custom_stat_func</span> <span class="o">=</span> <span class="n">_COARSEN_STYPE_TO_CUSTOM_FUNC</span><span class="p">[</span><span class="n">stype</span><span class="p">]</span>
-        <span class="n">check_nan</span> <span class="o">=</span> <span class="n">stype</span> <span class="o">==</span> <span class="s2">&quot;mode&quot;</span>
+        <span class="n">check_nan</span> <span class="o">=</span> <span class="n">stype</span> <span class="o">==</span> <span class="s2">"mode"</span>
         <span class="n">out_dtype</span> <span class="o">=</span> <span class="n">_get_coarsen_dtype</span><span class="p">(</span>
             <span class="n">stype</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">prod</span><span class="p">(</span><span class="n">expand_cells</span><span class="p">),</span> <span class="n">orig_dtype</span>
         <span class="p">)</span>
         <span class="c1"># Use partial because reduce seems to be bugged and grabs kwargs that</span>
-        <span class="c1"># it shouldn&#39;t.</span>
+        <span class="c1"># it shouldn't.</span>
         <span class="n">xdata</span> <span class="o">=</span> <span class="n">xdatac</span><span class="o">.</span><span class="n">reduce</span><span class="p">(</span>
             <span class="n">partial</span><span class="p">(</span>
                 <span class="n">_coarsen_block_map</span><span class="p">,</span>
@@ -759,11 +759,11 @@ document.write(`
         <span class="p">)</span>
     <span class="k">if</span> <span class="n">raster</span><span class="o">.</span><span class="n">_masked</span><span class="p">:</span>
         <span class="c1"># Coarsen mask as well</span>
-        <span class="n">xmask</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">xmask</span><span class="o">.</span><span class="n">coarsen</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="n">dim_map</span><span class="p">,</span> <span class="n">boundary</span><span class="o">=</span><span class="s2">&quot;trim&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
+        <span class="n">xmask</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">xmask</span><span class="o">.</span><span class="n">coarsen</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="n">dim_map</span><span class="p">,</span> <span class="n">boundary</span><span class="o">=</span><span class="s2">"trim"</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
 
-        <span class="k">if</span> <span class="n">stype</span> <span class="o">==</span> <span class="s2">&quot;unique&quot;</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">stype</span> <span class="o">==</span> <span class="s2">"unique"</span><span class="p">:</span>
             <span class="n">xdata</span> <span class="o">=</span> <span class="n">xdata</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">_get_unique_dtype</span><span class="p">(</span><span class="n">xdata</span><span class="o">.</span><span class="n">dtype</span><span class="p">))</span>
-        <span class="k">elif</span> <span class="n">stype</span> <span class="o">==</span> <span class="s2">&quot;mode&quot;</span><span class="p">:</span>
+        <span class="k">elif</span> <span class="n">stype</span> <span class="o">==</span> <span class="s2">"mode"</span><span class="p">:</span>
             <span class="c1"># Cast back to original dtype. Original null value will work</span>
             <span class="n">xdata</span> <span class="o">=</span> <span class="n">xdata</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">orig_dtype</span><span class="p">)</span>
         <span class="c1"># Replace null cells with null value acording to mask</span>
@@ -776,7 +776,7 @@ document.write(`
 
 
 <div class="viewcode-block" id="ModelPredictAdaptor"><a class="viewcode-back" href="../../reference/generated/raster_tools.general.ModelPredictAdaptor.html#raster_tools.ModelPredictAdaptor">[docs]</a><span class="k">class</span><span class="w"> </span><span class="nc">ModelPredictAdaptor</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    An adaptor class that allows models without a `predict` method to be used</span>
 <span class="sd">    with :func:`model_predict_raster` and :func:`model_predict_vector`.</span>
 
@@ -798,13 +798,13 @@ document.write(`
 <span class="sd">    ...     def transform(x):</span>
 <span class="sd">    ...         # ...</span>
 <span class="sd">    ...         return result</span>
-<span class="sd">    &gt;&gt;&gt; model = ModelPredictAdaptor(MyModel(), &quot;transform&quot;)</span>
+<span class="sd">    &gt;&gt;&gt; model = ModelPredictAdaptor(MyModel(), "transform")</span>
 <span class="sd">    &gt;&gt;&gt; result_raster = rts.general.model_predict_raster(predictors, model)</span>
 
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
 
 <div class="viewcode-block" id="ModelPredictAdaptor.__init__"><a class="viewcode-back" href="../../reference/generated/raster_tools.general.ModelPredictAdaptor.html#raster_tools.ModelPredictAdaptor.__init__">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""</span>
 <span class="sd">        Constructs an adaptor.</span>
 
 <span class="sd">        Parameters</span>
@@ -816,10 +816,10 @@ document.write(`
 <span class="sd">            Determines how input data is provided to `model`. If ``None``,</span>
 <span class="sd">            `model` is called with the data as the argument, e.g. `model(x)`.</span>
 <span class="sd">            If a string, the adaptor passes input data to the method on `model`</span>
-<span class="sd">            with the same name, e.g. for `method=&quot;my_func&quot;`,</span>
+<span class="sd">            with the same name, e.g. for `method="my_func"`,</span>
 <span class="sd">            `model.my_func(x)` is called.</span>
 
-<span class="sd">        &quot;&quot;&quot;</span>
+<span class="sd">        """</span>
         <span class="k">if</span> <span class="n">method</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
 
             <span class="k">def</span><span class="w"> </span><span class="nf">func</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
@@ -829,7 +829,7 @@ document.write(`
         <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">method</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">method</span><span class="p">):</span>
                 <span class="k">raise</span> <span class="ne">AttributeError</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;The given model object has no attribute &#39;</span><span class="si">{</span><span class="n">method</span><span class="si">}</span><span class="s2">&#39;&quot;</span>
+                    <span class="sa">f</span><span class="s2">"The given model object has no attribute '</span><span class="si">{</span><span class="n">method</span><span class="si">}</span><span class="s2">'"</span>
                 <span class="p">)</span>
 
             <span class="k">def</span><span class="w"> </span><span class="nf">func</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
@@ -838,12 +838,12 @@ document.write(`
             <span class="bp">self</span><span class="o">.</span><span class="n">method</span> <span class="o">=</span> <span class="n">func</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="s2">&quot;Could not understand the method argument. method must be &quot;</span>
-                <span class="s2">&quot;None or a string.&quot;</span>
+                <span class="s2">"Could not understand the method argument. method must be "</span>
+                <span class="s2">"None or a string."</span>
             <span class="p">)</span></div>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">predict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Pass the input data to the wrapped model and produce the results&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">"""Pass the input data to the wrapped model and produce the results"""</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">method</span><span class="p">(</span><span class="n">x</span><span class="p">)</span></div>
 
 
@@ -857,10 +857,10 @@ document.write(`
 
 
 <div class="viewcode-block" id="model_predict_raster"><a class="viewcode-back" href="../../reference/generated/raster_tools.general.model_predict_raster.html#raster_tools.model_predict_raster">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">model_predict_raster</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">n_outputs</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Generate a new raster using the provided model to predict new values.</span>
 
-<span class="sd">    The raster&#39;s values are used as the predictor inputs for `model`. Each band</span>
+<span class="sd">    The raster's values are used as the predictor inputs for `model`. Each band</span>
 <span class="sd">    in the input raster is used as a separate input variable. Outputs are</span>
 <span class="sd">    raster surfaces where each band corresponds to a variable output by</span>
 <span class="sd">    `model`.</span>
@@ -889,15 +889,15 @@ document.write(`
 <span class="sd">        The resulting raster of estimated values. Each band corresponds to an</span>
 <span class="sd">        output variable produced by `model`.</span>
 
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">in_raster</span> <span class="o">=</span> <span class="n">get_raster</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">null_to_nan</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
     <span class="n">n_outputs</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">n_outputs</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">n_outputs</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;n_outputs must be greater than 0&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"n_outputs must be greater than 0"</span><span class="p">)</span>
     <span class="n">in_chunks</span> <span class="o">=</span> <span class="n">in_raster</span><span class="o">.</span><span class="n">xdata</span><span class="o">.</span><span class="n">chunksizes</span>
     <span class="n">nbands</span> <span class="o">=</span> <span class="n">in_raster</span><span class="o">.</span><span class="n">nbands</span>
 
-    <span class="n">data</span> <span class="o">=</span> <span class="n">in_raster</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">rechunk</span><span class="p">(</span><span class="n">chunks</span><span class="o">=</span><span class="p">(</span><span class="n">nbands</span><span class="p">,</span> <span class="s2">&quot;auto&quot;</span><span class="p">,</span> <span class="s2">&quot;auto&quot;</span><span class="p">))</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">in_raster</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">rechunk</span><span class="p">(</span><span class="n">chunks</span><span class="o">=</span><span class="p">(</span><span class="n">nbands</span><span class="p">,</span> <span class="s2">"auto"</span><span class="p">,</span> <span class="s2">"auto"</span><span class="p">))</span>
     <span class="n">interim_chunks</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">chunks</span>
 
     <span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">map_blocks</span><span class="p">(</span>
@@ -907,19 +907,19 @@ document.write(`
         <span class="n">chunks</span><span class="o">=</span><span class="p">(</span><span class="n">n_outputs</span><span class="p">,</span> <span class="n">interim_chunks</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">interim_chunks</span><span class="p">[</span><span class="mi">2</span><span class="p">]),</span>
         <span class="n">meta</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">((),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">F64</span><span class="p">),</span>
         <span class="n">dtype</span><span class="o">=</span><span class="n">F64</span><span class="p">,</span>
-    <span class="p">)</span><span class="o">.</span><span class="n">rechunk</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span> <span class="n">in_chunks</span><span class="p">[</span><span class="s2">&quot;y&quot;</span><span class="p">],</span> <span class="n">in_chunks</span><span class="p">[</span><span class="s2">&quot;x&quot;</span><span class="p">]))</span>
+    <span class="p">)</span><span class="o">.</span><span class="n">rechunk</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span> <span class="n">in_chunks</span><span class="p">[</span><span class="s2">"y"</span><span class="p">],</span> <span class="n">in_chunks</span><span class="p">[</span><span class="s2">"x"</span><span class="p">]))</span>
     <span class="n">xdata</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">(</span>
         <span class="n">data</span><span class="p">,</span>
         <span class="n">coords</span><span class="o">=</span><span class="p">{</span>
-            <span class="s2">&quot;band&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">n_outputs</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span>
-            <span class="s2">&quot;y&quot;</span><span class="p">:</span> <span class="n">in_raster</span><span class="o">.</span><span class="n">y</span><span class="p">,</span>
-            <span class="s2">&quot;x&quot;</span><span class="p">:</span> <span class="n">in_raster</span><span class="o">.</span><span class="n">x</span><span class="p">,</span>
+            <span class="s2">"band"</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">n_outputs</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span>
+            <span class="s2">"y"</span><span class="p">:</span> <span class="n">in_raster</span><span class="o">.</span><span class="n">y</span><span class="p">,</span>
+            <span class="s2">"x"</span><span class="p">:</span> <span class="n">in_raster</span><span class="o">.</span><span class="n">x</span><span class="p">,</span>
         <span class="p">},</span>
     <span class="p">)</span>
     <span class="k">if</span> <span class="n">in_raster</span><span class="o">.</span><span class="n">_masked</span><span class="p">:</span>
-        <span class="n">xmask</span> <span class="o">=</span> <span class="n">in_raster</span><span class="o">.</span><span class="n">xmask</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="s2">&quot;band&quot;</span><span class="p">,</span> <span class="n">keepdims</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">xmask</span> <span class="o">=</span> <span class="n">in_raster</span><span class="o">.</span><span class="n">xmask</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="s2">"band"</span><span class="p">,</span> <span class="n">keepdims</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">n_outputs</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
-            <span class="n">xmask</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">xmask</span><span class="p">]</span> <span class="o">*</span> <span class="n">n_outputs</span><span class="p">,</span> <span class="s2">&quot;band&quot;</span><span class="p">)</span>
+            <span class="n">xmask</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">xmask</span><span class="p">]</span> <span class="o">*</span> <span class="n">n_outputs</span><span class="p">,</span> <span class="s2">"band"</span><span class="p">)</span>
         <span class="n">xdata</span> <span class="o">=</span> <span class="n">xdata</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_nodata</span><span class="p">(</span><span class="n">get_default_null_value</span><span class="p">(</span><span class="n">xdata</span><span class="o">.</span><span class="n">dtype</span><span class="p">))</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="n">xmask</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">xdata</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
@@ -943,19 +943,19 @@ document.write(`
     <span class="n">dic</span> <span class="o">=</span> <span class="p">{}</span>
     <span class="k">if</span> <span class="n">pred</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
         <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">pred</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]):</span>
-            <span class="n">dic</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">prefix</span><span class="si">}{</span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pred</span><span class="p">[:,</span> <span class="n">i</span><span class="p">]</span>
+            <span class="n">dic</span><span class="p">[</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">prefix</span><span class="si">}{</span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="si">}</span><span class="s2">"</span><span class="p">]</span> <span class="o">=</span> <span class="n">pred</span><span class="p">[:,</span> <span class="n">i</span><span class="p">]</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="n">dic</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">prefix</span><span class="si">}{</span><span class="mi">1</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pred</span><span class="o">.</span><span class="n">squeeze</span><span class="p">()</span>
+        <span class="n">dic</span><span class="p">[</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">prefix</span><span class="si">}{</span><span class="mi">1</span><span class="si">}</span><span class="s2">"</span><span class="p">]</span> <span class="o">=</span> <span class="n">pred</span><span class="o">.</span><span class="n">squeeze</span><span class="p">()</span>
     <span class="n">df2</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">dic</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">df</span><span class="o">.</span><span class="n">index</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">df</span><span class="p">,</span> <span class="n">df2</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
 
 
 <div class="viewcode-block" id="model_predict_vector"><a class="viewcode-back" href="../../reference/generated/raster_tools.general.model_predict_vector.html#raster_tools.model_predict_vector">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">model_predict_vector</span><span class="p">(</span>
-    <span class="n">features</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">fields</span><span class="p">,</span> <span class="n">n_outputs</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">out_prefix</span><span class="o">=</span><span class="s2">&quot;pred_&quot;</span>
+    <span class="n">features</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">fields</span><span class="p">,</span> <span class="n">n_outputs</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">out_prefix</span><span class="o">=</span><span class="s2">"pred_"</span>
 <span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Predict new columns using a model.</span>
+<span class="w">    </span><span class="sd">"""Predict new columns using a model.</span>
 
-<span class="sd">    `features`&#39; values are used as predictors for the model to produce new</span>
+<span class="sd">    `features`' values are used as predictors for the model to produce new</span>
 <span class="sd">    predictions. The resulting predictions are used to create a new vector with</span>
 <span class="sd">    the results appended as new columns.</span>
 
@@ -983,7 +983,7 @@ document.write(`
 <span class="sd">    out_prefix : str, optional</span>
 <span class="sd">        The prefix to use when naming the resulting column(s). The prefix will</span>
 <span class="sd">        be combined with the 1-based number of the output variable. The Default</span>
-<span class="sd">        is `&quot;pred_&quot;`.</span>
+<span class="sd">        is `"pred_"`.</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
@@ -991,7 +991,7 @@ document.write(`
 <span class="sd">        The resulting vector with estimated values appended as a columns</span>
 <span class="sd">        (pred_1, pred_2, pred_3 ...).</span>
 
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.vector</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_vector</span>
 
     <span class="n">vc</span> <span class="o">=</span> <span class="n">get_vector</span><span class="p">(</span><span class="n">features</span><span class="p">)</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
@@ -999,25 +999,25 @@ document.write(`
     <span class="n">fields</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">fields</span><span class="p">)</span>
     <span class="k">for</span> <span class="n">field</span> <span class="ow">in</span> <span class="n">fields</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">field</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">feats</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid field name: &#39;</span><span class="si">{</span><span class="n">field</span><span class="si">}</span><span class="s2">&#39;&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Invalid field name: '</span><span class="si">{</span><span class="n">field</span><span class="si">}</span><span class="s2">'"</span><span class="p">)</span>
     <span class="n">n_outputs</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">n_outputs</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">n_outputs</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;n_outputs must be greater than 0&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"n_outputs must be greater than 0"</span><span class="p">)</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">out_prefix</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
-        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;out_prefix must be a string&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">"out_prefix must be a string"</span><span class="p">)</span>
     <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_outputs</span><span class="p">):</span>
         <span class="n">i</span> <span class="o">+=</span> <span class="mi">1</span>
-        <span class="n">c</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">out_prefix</span><span class="si">}{</span><span class="n">i</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="n">c</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">out_prefix</span><span class="si">}{</span><span class="n">i</span><span class="si">}</span><span class="s2">"</span>
         <span class="k">if</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">feats</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span>
-                <span class="s2">&quot;out_prefix produced a column name that is already present in &quot;</span>
-                <span class="s2">&quot;the feature: &#39;</span><span class="si">{c}</span><span class="s2">&#39;.&quot;</span>
+                <span class="s2">"out_prefix produced a column name that is already present in "</span>
+                <span class="s2">"the feature: '</span><span class="si">{c}</span><span class="s2">'."</span>
             <span class="p">)</span>
 
     <span class="n">meta</span> <span class="o">=</span> <span class="n">feats</span><span class="o">.</span><span class="n">_meta</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
     <span class="n">new_meta_cols</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
         <span class="p">{</span>
-            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">out_prefix</span><span class="si">}{</span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">F64</span><span class="p">)</span>
+            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">out_prefix</span><span class="si">}{</span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="si">}</span><span class="s2">"</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">F64</span><span class="p">)</span>
             <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_outputs</span><span class="p">)</span>
         <span class="p">}</span>
     <span class="p">)</span>
@@ -1055,24 +1055,24 @@ document.write(`
 
 
 <span class="n">_LOCAL_STYPE_TO_NUMPY_FUNC</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="s2">&quot;mean&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmean</span><span class="p">,</span>
-    <span class="s2">&quot;std&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">nanstd</span><span class="p">,</span>
-    <span class="s2">&quot;var&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">nanvar</span><span class="p">,</span>
-    <span class="s2">&quot;max&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmax</span><span class="p">,</span>
-    <span class="s2">&quot;min&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmin</span><span class="p">,</span>
-    <span class="s2">&quot;prod&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">nanprod</span><span class="p">,</span>
-    <span class="s2">&quot;sum&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">nansum</span><span class="p">,</span>
-    <span class="s2">&quot;median&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmedian</span><span class="p">,</span>
+    <span class="s2">"mean"</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmean</span><span class="p">,</span>
+    <span class="s2">"std"</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">nanstd</span><span class="p">,</span>
+    <span class="s2">"var"</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">nanvar</span><span class="p">,</span>
+    <span class="s2">"max"</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmax</span><span class="p">,</span>
+    <span class="s2">"min"</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmin</span><span class="p">,</span>
+    <span class="s2">"prod"</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">nanprod</span><span class="p">,</span>
+    <span class="s2">"sum"</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">nansum</span><span class="p">,</span>
+    <span class="s2">"median"</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmedian</span><span class="p">,</span>
 <span class="p">}</span>
 <span class="c1"># Use custom min/max band because numpy versions throw errors if all values are</span>
 <span class="c1"># nan.</span>
 <span class="n">_LOCAL_STYPE_TO_CUSTOM_FUNC</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="s2">&quot;asm&quot;</span><span class="p">:</span> <span class="n">nanasm_jit</span><span class="p">,</span>
-    <span class="s2">&quot;entropy&quot;</span><span class="p">:</span> <span class="n">nanentropy_jit</span><span class="p">,</span>
-    <span class="s2">&quot;minband&quot;</span><span class="p">:</span> <span class="n">nanargmin_jit</span><span class="p">,</span>
-    <span class="s2">&quot;maxband&quot;</span><span class="p">:</span> <span class="n">nanargmax_jit</span><span class="p">,</span>
-    <span class="s2">&quot;mode&quot;</span><span class="p">:</span> <span class="n">nanmode_jit</span><span class="p">,</span>
-    <span class="s2">&quot;unique&quot;</span><span class="p">:</span> <span class="n">nan_unique_count_jit</span><span class="p">,</span>
+    <span class="s2">"asm"</span><span class="p">:</span> <span class="n">nanasm_jit</span><span class="p">,</span>
+    <span class="s2">"entropy"</span><span class="p">:</span> <span class="n">nanentropy_jit</span><span class="p">,</span>
+    <span class="s2">"minband"</span><span class="p">:</span> <span class="n">nanargmin_jit</span><span class="p">,</span>
+    <span class="s2">"maxband"</span><span class="p">:</span> <span class="n">nanargmax_jit</span><span class="p">,</span>
+    <span class="s2">"mode"</span><span class="p">:</span> <span class="n">nanmode_jit</span><span class="p">,</span>
+    <span class="s2">"unique"</span><span class="p">:</span> <span class="n">nan_unique_count_jit</span><span class="p">,</span>
 <span class="p">}</span>
 
 
@@ -1080,14 +1080,14 @@ document.write(`
     <span class="n">bnds</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
     <span class="n">orig_chunks</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">chunks</span>
     <span class="c1"># Rechunk so band dim is contiguous and chunk sizes are reasonable</span>
-    <span class="n">data</span> <span class="o">=</span> <span class="n">da</span><span class="o">.</span><span class="n">rechunk</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">chunks</span><span class="o">=</span><span class="p">(</span><span class="n">bnds</span><span class="p">,</span> <span class="s2">&quot;auto&quot;</span><span class="p">,</span> <span class="s2">&quot;auto&quot;</span><span class="p">))</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">da</span><span class="o">.</span><span class="n">rechunk</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">chunks</span><span class="o">=</span><span class="p">(</span><span class="n">bnds</span><span class="p">,</span> <span class="s2">"auto"</span><span class="p">,</span> <span class="s2">"auto"</span><span class="p">))</span>
 
     <span class="n">ffun</span> <span class="o">=</span> <span class="n">_LOCAL_STYPE_TO_CUSTOM_FUNC</span><span class="p">[</span><span class="n">stype</span><span class="p">]</span>
-    <span class="k">if</span> <span class="n">stype</span> <span class="o">==</span> <span class="s2">&quot;unique&quot;</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">stype</span> <span class="o">==</span> <span class="s2">"unique"</span><span class="p">:</span>
         <span class="n">out_dtype</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">min_scalar_type</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
-    <span class="k">elif</span> <span class="n">stype</span> <span class="o">==</span> <span class="s2">&quot;mode&quot;</span><span class="p">:</span>
+    <span class="k">elif</span> <span class="n">stype</span> <span class="o">==</span> <span class="s2">"mode"</span><span class="p">:</span>
         <span class="n">out_dtype</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">dtype</span>
-    <span class="k">elif</span> <span class="n">stype</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;minband&quot;</span><span class="p">,</span> <span class="s2">&quot;maxband&quot;</span><span class="p">):</span>
+    <span class="k">elif</span> <span class="n">stype</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"minband"</span><span class="p">,</span> <span class="s2">"maxband"</span><span class="p">):</span>
         <span class="c1"># min/max band inner funcs will return &lt; 0 if all values are nan which</span>
         <span class="c1"># will cause overflow for the unsigned type returned by</span>
         <span class="c1"># min_scalar_type. This is fine since we can mask them out later.</span>
@@ -1112,9 +1112,9 @@ document.write(`
 
 
 <div class="viewcode-block" id="local_stats"><a class="viewcode-back" href="../../reference/generated/raster_tools.general.local_stats.html#raster_tools.local_stats">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">local_stats</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">stype</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Creates a Raster of summarized values across bands.</span>
+<span class="w">    </span><span class="sd">"""Creates a Raster of summarized values across bands.</span>
 
-<span class="sd">    The approach is based on ESRI&#39;s local function.</span>
+<span class="sd">    The approach is based on ESRI's local function.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
@@ -1133,15 +1133,15 @@ document.write(`
 <span class="sd">    ----------</span>
 <span class="sd">    * `ESRI local &lt;https://pro.arcgis.com/en/pro-app/latest/tool-reference/spatial-analyst/an-overview-of-the-local-tools.htm&gt;`_</span>
 
-<span class="sd">    &quot;&quot;&quot;</span>  <span class="c1"># noqa: E501</span>
+<span class="sd">    """</span>  <span class="c1"># noqa: E501</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">is_str</span><span class="p">(</span><span class="n">stype</span><span class="p">):</span>
-        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;stype argument must be a string&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">"stype argument must be a string"</span><span class="p">)</span>
     <span class="n">stype</span> <span class="o">=</span> <span class="n">stype</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
     <span class="k">if</span> <span class="p">(</span>
         <span class="n">stype</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">_LOCAL_STYPE_TO_NUMPY_FUNC</span>
         <span class="ow">and</span> <span class="n">stype</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">_LOCAL_STYPE_TO_CUSTOM_FUNC</span>
     <span class="p">):</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid stype aregument: </span><span class="si">{</span><span class="nb">repr</span><span class="p">(</span><span class="n">stype</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Invalid stype aregument: </span><span class="si">{</span><span class="nb">repr</span><span class="p">(</span><span class="n">stype</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
     <span class="n">orig_dtype</span> <span class="o">=</span> <span class="n">get_raster</span><span class="p">(</span><span class="n">raster</span><span class="p">)</span><span class="o">.</span><span class="n">dtype</span>
     <span class="n">raster</span> <span class="o">=</span> <span class="n">get_raster</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">null_to_nan</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
@@ -1149,7 +1149,7 @@ document.write(`
     <span class="n">xmask</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">xmask</span>
     <span class="k">if</span> <span class="n">stype</span> <span class="ow">in</span> <span class="n">_LOCAL_STYPE_TO_NUMPY_FUNC</span><span class="p">:</span>
         <span class="n">xdata</span> <span class="o">=</span> <span class="n">xdata</span><span class="o">.</span><span class="n">reduce</span><span class="p">(</span>
-            <span class="n">_LOCAL_STYPE_TO_NUMPY_FUNC</span><span class="p">[</span><span class="n">stype</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="s2">&quot;band&quot;</span><span class="p">,</span> <span class="n">keepdims</span><span class="o">=</span><span class="kc">True</span>
+            <span class="n">_LOCAL_STYPE_TO_NUMPY_FUNC</span><span class="p">[</span><span class="n">stype</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="s2">"band"</span><span class="p">,</span> <span class="n">keepdims</span><span class="o">=</span><span class="kc">True</span>
         <span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="n">data</span> <span class="o">=</span> <span class="n">xdata</span><span class="o">.</span><span class="n">data</span>
@@ -1158,7 +1158,7 @@ document.write(`
     <span class="k">if</span> <span class="n">raster</span><span class="o">.</span><span class="n">_masked</span><span class="p">:</span>
         <span class="n">xmask</span> <span class="o">=</span> <span class="n">xmask</span><span class="o">.</span><span class="n">reduce</span><span class="p">(</span>
             <span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">,</span>
-            <span class="n">dim</span><span class="o">=</span><span class="s2">&quot;band&quot;</span><span class="p">,</span>
+            <span class="n">dim</span><span class="o">=</span><span class="s2">"band"</span><span class="p">,</span>
             <span class="n">keepdims</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
         <span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
@@ -1166,9 +1166,9 @@ document.write(`
 
     <span class="n">ds_out</span> <span class="o">=</span> <span class="n">dataarray_to_xr_raster_ds</span><span class="p">(</span><span class="n">xdata</span><span class="p">,</span> <span class="n">xmask</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">raster</span><span class="o">.</span><span class="n">_masked</span><span class="p">:</span>
-        <span class="k">if</span> <span class="n">stype</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;unique&quot;</span><span class="p">,</span> <span class="s2">&quot;minband&quot;</span><span class="p">,</span> <span class="s2">&quot;maxband&quot;</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">stype</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"unique"</span><span class="p">,</span> <span class="s2">"minband"</span><span class="p">,</span> <span class="s2">"maxband"</span><span class="p">):</span>
             <span class="n">xdata</span> <span class="o">=</span> <span class="n">xdata</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">_get_unique_dtype</span><span class="p">(</span><span class="n">xdata</span><span class="o">.</span><span class="n">dtype</span><span class="p">))</span>
-        <span class="k">elif</span> <span class="n">stype</span> <span class="o">==</span> <span class="s2">&quot;mode&quot;</span><span class="p">:</span>
+        <span class="k">elif</span> <span class="n">stype</span> <span class="o">==</span> <span class="s2">"mode"</span><span class="p">:</span>
             <span class="c1"># Cast back to original dtype. Original null value will work</span>
             <span class="n">xdata</span> <span class="o">=</span> <span class="n">xdata</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">orig_dtype</span><span class="p">)</span>
         <span class="n">nv</span> <span class="o">=</span> <span class="n">get_default_null_value</span><span class="p">(</span><span class="n">xdata</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
@@ -1181,11 +1181,11 @@ document.write(`
     <span class="k">if</span> <span class="n">x</span><span class="o">.</span><span class="n">ndim</span> <span class="o">&gt;</span> <span class="mi">2</span><span class="p">:</span>
         <span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">binary</span><span class="p">:</span>
-        <span class="n">morph_func</span> <span class="o">=</span> <span class="n">grey_dilation</span> <span class="k">if</span> <span class="n">morph_op</span> <span class="o">==</span> <span class="s2">&quot;dilation&quot;</span> <span class="k">else</span> <span class="n">grey_erosion</span>
-        <span class="n">out</span> <span class="o">=</span> <span class="n">morph_func</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">footprint</span><span class="o">=</span><span class="n">footprint</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;constant&quot;</span><span class="p">,</span> <span class="n">cval</span><span class="o">=</span><span class="n">cval</span><span class="p">)</span>
+        <span class="n">morph_func</span> <span class="o">=</span> <span class="n">grey_dilation</span> <span class="k">if</span> <span class="n">morph_op</span> <span class="o">==</span> <span class="s2">"dilation"</span> <span class="k">else</span> <span class="n">grey_erosion</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="n">morph_func</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">footprint</span><span class="o">=</span><span class="n">footprint</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">"constant"</span><span class="p">,</span> <span class="n">cval</span><span class="o">=</span><span class="n">cval</span><span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="n">morph_func</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="n">binary_dilation</span> <span class="k">if</span> <span class="n">morph_op</span> <span class="o">==</span> <span class="s2">&quot;dilation&quot;</span> <span class="k">else</span> <span class="n">binary_erosion</span>
+            <span class="n">binary_dilation</span> <span class="k">if</span> <span class="n">morph_op</span> <span class="o">==</span> <span class="s2">"dilation"</span> <span class="k">else</span> <span class="n">binary_erosion</span>
         <span class="p">)</span>
         <span class="n">out</span> <span class="o">=</span> <span class="n">morph_func</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">structure</span><span class="o">=</span><span class="n">footprint</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">out</span><span class="p">[</span><span class="kc">None</span><span class="p">]</span>
@@ -1195,24 +1195,24 @@ document.write(`
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">size</span><span class="p">,</span> <span class="n">Iterable</span><span class="p">):</span>
         <span class="n">size</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">size</span><span class="p">)</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">size</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;size sequence must have lenght 2.&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"size sequence must have lenght 2."</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span><span class="n">is_int</span><span class="p">(</span><span class="n">s</span><span class="p">)</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">size</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;size sequence must only contain ints.&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">"size sequence must only contain ints."</span><span class="p">)</span>
     <span class="k">elif</span> <span class="n">is_int</span><span class="p">(</span><span class="n">size</span><span class="p">):</span>
         <span class="n">size</span> <span class="o">=</span> <span class="p">(</span><span class="n">size</span><span class="p">,</span> <span class="n">size</span><span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;size input must be an int or sequence of ints.&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">"size input must be an int or sequence of ints."</span><span class="p">)</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span><span class="n">s</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">size</span><span class="p">):</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;size values must be greater than 0.&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"size values must be greater than 0."</span><span class="p">)</span>
     <span class="k">if</span> <span class="nb">all</span><span class="p">(</span><span class="n">s</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">size</span><span class="p">):</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;At least one size value must be greater than 1.&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"At least one size value must be greater than 1."</span><span class="p">)</span>
     <span class="n">footprint</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">size</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span>
     <span class="k">return</span> <span class="n">footprint</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_get_fill</span><span class="p">(</span><span class="n">dtype</span><span class="p">,</span> <span class="n">op</span><span class="p">):</span>
     <span class="n">type_info</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">iinfo</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span> <span class="k">if</span> <span class="n">is_int</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">finfo</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">type_info</span><span class="o">.</span><span class="n">max</span> <span class="k">if</span> <span class="n">op</span> <span class="o">==</span> <span class="s2">&quot;erosion&quot;</span> <span class="k">else</span> <span class="n">type_info</span><span class="o">.</span><span class="n">min</span>
+    <span class="k">return</span> <span class="n">type_info</span><span class="o">.</span><span class="n">max</span> <span class="k">if</span> <span class="n">op</span> <span class="o">==</span> <span class="s2">"erosion"</span> <span class="k">else</span> <span class="n">type_info</span><span class="o">.</span><span class="n">min</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_erosion_or_dilation_filter</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">footprint</span><span class="p">,</span> <span class="n">op</span><span class="p">):</span>
@@ -1264,7 +1264,7 @@ document.write(`
 
 
 <div class="viewcode-block" id="dilate"><a class="viewcode-back" href="../../reference/generated/raster_tools.general.dilate.html#raster_tools.dilate">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">dilate</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">size</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Perform dilation on a raster</span>
+<span class="w">    </span><span class="sd">"""Perform dilation on a raster</span>
 
 <span class="sd">    Dilation increases the thickness of raster features [1]_. Features with</span>
 <span class="sd">    higher values will cover features with lower values. At each cell, the</span>
@@ -1299,15 +1299,15 @@ document.write(`
 <span class="sd">    .. [1] https://en.wikipedia.org/wiki/Dilation_%28morphology%29</span>
 <span class="sd">    .. [2] https://en.wikipedia.org/wiki/Mathematical_morphology</span>
 
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">raster</span> <span class="o">=</span> <span class="n">get_raster</span><span class="p">(</span><span class="n">raster</span><span class="p">)</span>
     <span class="n">footprint</span> <span class="o">=</span> <span class="n">_get_footprint</span><span class="p">(</span><span class="n">size</span><span class="p">)</span>
 
-    <span class="k">return</span> <span class="n">_erosion_or_dilation_filter</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">footprint</span><span class="p">,</span> <span class="s2">&quot;dilation&quot;</span><span class="p">)</span></div>
+    <span class="k">return</span> <span class="n">_erosion_or_dilation_filter</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">footprint</span><span class="p">,</span> <span class="s2">"dilation"</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="erode"><a class="viewcode-back" href="../../reference/generated/raster_tools.general.erode.html#raster_tools.erode">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">erode</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">size</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Perform erosion on a raster</span>
+<span class="w">    </span><span class="sd">"""Perform erosion on a raster</span>
 
 <span class="sd">    Erosion decreases the thickness of raster features [1]_. Features with</span>
 <span class="sd">    lower values will cover features with higher values. At each cell, the</span>
@@ -1342,15 +1342,15 @@ document.write(`
 <span class="sd">    .. [1] https://en.wikipedia.org/wiki/Erosion_%28morphology%29</span>
 <span class="sd">    .. [2] https://en.wikipedia.org/wiki/Mathematical_morphology</span>
 
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">raster</span> <span class="o">=</span> <span class="n">get_raster</span><span class="p">(</span><span class="n">raster</span><span class="p">)</span>
     <span class="n">footprint</span> <span class="o">=</span> <span class="n">_get_footprint</span><span class="p">(</span><span class="n">size</span><span class="p">)</span>
 
-    <span class="k">return</span> <span class="n">_erosion_or_dilation_filter</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">footprint</span><span class="p">,</span> <span class="s2">&quot;erosion&quot;</span><span class="p">)</span></div>
+    <span class="k">return</span> <span class="n">_erosion_or_dilation_filter</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">footprint</span><span class="p">,</span> <span class="s2">"erosion"</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="band_concat"><a class="viewcode-back" href="../../reference/generated/raster_tools.general.band_concat.html#raster_tools.band_concat">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">band_concat</span><span class="p">(</span><span class="n">rasters</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Join a sequence of rasters along the band dimension.</span>
+<span class="w">    </span><span class="sd">"""Join a sequence of rasters along the band dimension.</span>
 
 <span class="sd">    .. deprecated::</span>
 <span class="sd">        Use :py:func:`raster_tools.stack_bands` instead. ``band_concat``</span>
@@ -1367,25 +1367,25 @@ document.write(`
 <span class="sd">    Raster</span>
 <span class="sd">        The resulting concatenated Raster.</span>
 
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
-        <span class="s2">&quot;&#39;band_concat&#39; is deprecated and will be removed in a future &quot;</span>
-        <span class="s2">&quot;release. Use &#39;raster_tools.stack_bands&#39; instead.&quot;</span><span class="p">,</span>
+        <span class="s2">"'band_concat' is deprecated and will be removed in a future "</span>
+        <span class="s2">"release. Use 'raster_tools.stack_bands' instead."</span><span class="p">,</span>
         <span class="ne">DeprecationWarning</span><span class="p">,</span>
         <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
     <span class="p">)</span>
     <span class="n">rasters</span> <span class="o">=</span> <span class="p">[</span><span class="n">get_raster</span><span class="p">(</span><span class="n">raster</span><span class="p">)</span> <span class="k">for</span> <span class="n">raster</span> <span class="ow">in</span> <span class="n">rasters</span><span class="p">]</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">rasters</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;No rasters provided&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"No rasters provided"</span><span class="p">)</span>
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">rasters</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">rasters</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
 
-    <span class="c1"># TODO: make join a user option or set join=&quot;exact&quot;?</span>
-    <span class="n">ds</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">r</span><span class="o">.</span><span class="n">to_dataset</span><span class="p">()</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">rasters</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="s2">&quot;band&quot;</span><span class="p">,</span> <span class="n">join</span><span class="o">=</span><span class="s2">&quot;inner&quot;</span><span class="p">)</span>
-    <span class="n">ds</span><span class="p">[</span><span class="s2">&quot;band&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">([</span><span class="n">r</span><span class="o">.</span><span class="n">nbands</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">rasters</span><span class="p">]))</span> <span class="o">+</span> <span class="mi">1</span>
+    <span class="c1"># TODO: make join a user option or set join="exact"?</span>
+    <span class="n">ds</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">r</span><span class="o">.</span><span class="n">to_dataset</span><span class="p">()</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">rasters</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="s2">"band"</span><span class="p">,</span> <span class="n">join</span><span class="o">=</span><span class="s2">"inner"</span><span class="p">)</span>
+    <span class="n">ds</span><span class="p">[</span><span class="s2">"band"</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">([</span><span class="n">r</span><span class="o">.</span><span class="n">nbands</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">rasters</span><span class="p">]))</span> <span class="o">+</span> <span class="mi">1</span>
     <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">_masked</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">rasters</span><span class="p">):</span>
         <span class="n">nv</span> <span class="o">=</span> <span class="n">get_default_null_value</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">raster</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
-        <span class="n">ds</span><span class="p">[</span><span class="s2">&quot;raster&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">xr_where_with_meta</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">mask</span><span class="p">,</span> <span class="n">nv</span><span class="p">,</span> <span class="n">ds</span><span class="o">.</span><span class="n">raster</span><span class="p">,</span> <span class="n">nv</span><span class="o">=</span><span class="n">nv</span><span class="p">)</span>
+        <span class="n">ds</span><span class="p">[</span><span class="s2">"raster"</span><span class="p">]</span> <span class="o">=</span> <span class="n">xr_where_with_meta</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">mask</span><span class="p">,</span> <span class="n">nv</span><span class="p">,</span> <span class="n">ds</span><span class="o">.</span><span class="n">raster</span><span class="p">,</span> <span class="n">nv</span><span class="o">=</span><span class="n">nv</span><span class="p">)</span>
     <span class="n">crs</span> <span class="o">=</span> <span class="p">([</span><span class="kc">None</span><span class="p">]</span> <span class="o">+</span> <span class="p">[</span><span class="n">r</span><span class="o">.</span><span class="n">crs</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">rasters</span> <span class="k">if</span> <span class="n">r</span><span class="o">.</span><span class="n">crs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">])</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span>
     <span class="k">if</span> <span class="n">ds</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">crs</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">crs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">ds</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_crs</span><span class="p">(</span><span class="n">crs</span><span class="p">)</span>
@@ -1427,19 +1427,19 @@ document.write(`
 <span class="k">def</span><span class="w"> </span><span class="nf">_normalize_mappings</span><span class="p">(</span><span class="n">mappings</span><span class="p">):</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">mappings</span><span class="p">,</span> <span class="p">(</span><span class="nb">list</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)):</span>
         <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
-            <span class="s2">&quot;Mappings must be either single 3-tuple or list of 3-tuples of &quot;</span>
-            <span class="s2">&quot;scalars&quot;</span>
+            <span class="s2">"Mappings must be either single 3-tuple or list of 3-tuples of "</span>
+            <span class="s2">"scalars"</span>
         <span class="p">)</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="nb">len</span><span class="p">(</span><span class="n">mappings</span><span class="p">):</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;No mappings provided&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"No mappings provided"</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">is_scalar</span><span class="p">(</span><span class="n">mappings</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
         <span class="n">mappings</span> <span class="o">=</span> <span class="p">[</span><span class="n">mappings</span><span class="p">]</span>
     <span class="k">try</span><span class="p">:</span>
         <span class="n">mappings</span> <span class="o">=</span> <span class="p">[</span><span class="nb">list</span><span class="p">(</span><span class="n">m</span><span class="p">)</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">mappings</span><span class="p">]</span>
     <span class="k">except</span> <span class="ne">TypeError</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
-            <span class="s2">&quot;Mappings must be either single 3-tuple or list of 3-tuples of &quot;</span>
-            <span class="s2">&quot;scalars&quot;</span>
+            <span class="s2">"Mappings must be either single 3-tuple or list of 3-tuples of "</span>
+            <span class="s2">"scalars"</span>
         <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="kc">None</span>
     <span class="n">starts</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="n">ends</span> <span class="o">=</span> <span class="p">[]</span>
@@ -1447,22 +1447,22 @@ document.write(`
     <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">mappings</span><span class="p">:</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">m</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">3</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="s2">&quot;Mappings must be either single 3-tuple or list of 3-tuples of&quot;</span>
-                <span class="s2">&quot; scalars&quot;</span>
+                <span class="s2">"Mappings must be either single 3-tuple or list of 3-tuples of"</span>
+                <span class="s2">" scalars"</span>
             <span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span><span class="n">is_scalar</span><span class="p">(</span><span class="n">mi</span><span class="p">)</span> <span class="k">for</span> <span class="n">mi</span> <span class="ow">in</span> <span class="n">m</span><span class="p">[:</span><span class="mi">2</span><span class="p">]):</span>
-            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Mapping min and max values must be scalars&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">"Mapping min and max values must be scalars"</span><span class="p">)</span>
         <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">mi</span><span class="p">)</span> <span class="k">for</span> <span class="n">mi</span> <span class="ow">in</span> <span class="n">m</span><span class="p">[:</span><span class="mi">2</span><span class="p">]):</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Mapping min and max values cannot be NaN&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Mapping min and max values cannot be NaN"</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">m</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="n">m</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="s2">&quot;Mapping min value must be strictly less than max value:&quot;</span>
-                <span class="sa">f</span><span class="s2">&quot; </span><span class="si">{</span><span class="n">m</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">m</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="s2">"Mapping min value must be strictly less than max value:"</span>
+                <span class="sa">f</span><span class="s2">" </span><span class="si">{</span><span class="n">m</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">m</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span>
             <span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">is_scalar</span><span class="p">(</span><span class="n">m</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span> <span class="ow">and</span> <span class="n">m</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="s2">&quot;The new value in a mapping must be a scalar or None. &quot;</span>
-                <span class="sa">f</span><span class="s2">&quot;Got </span><span class="si">{</span><span class="n">m</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="si">!r}</span><span class="s2">.&quot;</span>
+                <span class="s2">"The new value in a mapping must be a scalar or None. "</span>
+                <span class="sa">f</span><span class="s2">"Got </span><span class="si">{</span><span class="n">m</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="si">!r}</span><span class="s2">."</span>
             <span class="p">)</span>
         <span class="n">starts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">m</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
         <span class="n">ends</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">m</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
@@ -1470,8 +1470,8 @@ document.write(`
     <span class="k">return</span> <span class="n">starts</span><span class="p">,</span> <span class="n">ends</span><span class="p">,</span> <span class="n">outs</span>
 
 
-<div class="viewcode-block" id="remap_range"><a class="viewcode-back" href="../../reference/generated/raster_tools.remap_range.html#raster_tools.remap_range">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">remap_range</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">mapping</span><span class="p">,</span> <span class="n">inclusivity</span><span class="o">=</span><span class="s2">&quot;left&quot;</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Remaps values based on a mapping or list of mappings.</span>
+<div class="viewcode-block" id="remap_range"><a class="viewcode-back" href="../../reference/generated/raster_tools.remap_range.html#raster_tools.remap_range">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">remap_range</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">mapping</span><span class="p">,</span> <span class="n">inclusivity</span><span class="o">=</span><span class="s2">"left"</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Remaps values based on a mapping or list of mappings.</span>
 
 <span class="sd">    Mappings are applied all at once with earlier mappings taking</span>
 <span class="sd">    precedence.</span>
@@ -1489,15 +1489,15 @@ document.write(`
 <span class="sd">        determines which sides of the range are inclusive and exclusive.</span>
 <span class="sd">    inclusivity : str, optional</span>
 <span class="sd">        Determines whether to be inclusive or exclusive on either end of the</span>
-<span class="sd">        range. Default is `&#39;left&#39;`.</span>
+<span class="sd">        range. Default is `'left'`.</span>
 
-<span class="sd">        &#39;left&#39; [min, max)</span>
+<span class="sd">        'left' [min, max)</span>
 <span class="sd">            Left (min) side is inclusive and right (max) side is exclusive.</span>
-<span class="sd">        &#39;right&#39; (min, max]</span>
+<span class="sd">        'right' (min, max]</span>
 <span class="sd">            Left (min) side is exclusive and right (max) side is inclusive.</span>
-<span class="sd">        &#39;both&#39; [min, max]</span>
+<span class="sd">        'both' [min, max]</span>
 <span class="sd">            Both sides are inclusive.</span>
-<span class="sd">        &#39;none&#39; (min, max)</span>
+<span class="sd">        'none' (min, max)</span>
 <span class="sd">            Both sides are exclusive.</span>
 
 <span class="sd">    Returns</span>
@@ -1505,18 +1505,18 @@ document.write(`
 <span class="sd">    Raster</span>
 <span class="sd">        The resulting Raster.</span>
 
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">raster</span> <span class="o">=</span> <span class="n">get_raster</span><span class="p">(</span><span class="n">raster</span><span class="p">)</span>
     <span class="n">map_starts</span><span class="p">,</span> <span class="n">map_ends</span><span class="p">,</span> <span class="n">map_outs</span> <span class="o">=</span> <span class="n">_normalize_mappings</span><span class="p">(</span><span class="n">mapping</span><span class="p">)</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">is_str</span><span class="p">(</span><span class="n">inclusivity</span><span class="p">):</span>
         <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;inclusivity must be a str. Got type: </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">inclusivity</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="sa">f</span><span class="s2">"inclusivity must be a str. Got type: </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">inclusivity</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span>
         <span class="p">)</span>
     <span class="n">inc_map</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span>
-        <span class="nb">zip</span><span class="p">((</span><span class="s2">&quot;left&quot;</span><span class="p">,</span> <span class="s2">&quot;right&quot;</span><span class="p">,</span> <span class="s2">&quot;both&quot;</span><span class="p">,</span> <span class="s2">&quot;none&quot;</span><span class="p">),</span> <span class="nb">range</span><span class="p">(</span><span class="mi">4</span><span class="p">),</span> <span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="nb">zip</span><span class="p">((</span><span class="s2">"left"</span><span class="p">,</span> <span class="s2">"right"</span><span class="p">,</span> <span class="s2">"both"</span><span class="p">,</span> <span class="s2">"none"</span><span class="p">),</span> <span class="nb">range</span><span class="p">(</span><span class="mi">4</span><span class="p">),</span> <span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
     <span class="p">)</span>
     <span class="k">if</span> <span class="n">inclusivity</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">inc_map</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid inclusivity value. Got: </span><span class="si">{</span><span class="n">inclusivity</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Invalid inclusivity value. Got: </span><span class="si">{</span><span class="n">inclusivity</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span><span class="n">m</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">map_outs</span><span class="p">):</span>
         <span class="n">mappings_common_dtype</span> <span class="o">=</span> <span class="n">get_common_dtype</span><span class="p">(</span>
             <span class="p">[</span><span class="n">m</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">map_outs</span> <span class="k">if</span> <span class="n">m</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">]</span>
@@ -1524,7 +1524,7 @@ document.write(`
     <span class="k">else</span><span class="p">:</span>
         <span class="n">mappings_common_dtype</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">dtype</span>
     <span class="n">out_dtype</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">promote_types</span><span class="p">(</span><span class="n">raster</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">mappings_common_dtype</span><span class="p">)</span>
-    <span class="c1"># numba doesn&#39;t understand f16 so use f32 and then downcast</span>
+    <span class="c1"># numba doesn't understand f16 so use f32 and then downcast</span>
     <span class="n">f16_workaround</span> <span class="o">=</span> <span class="n">out_dtype</span> <span class="o">==</span> <span class="n">F16</span>
     <span class="k">if</span> <span class="n">raster</span><span class="o">.</span><span class="n">_masked</span><span class="p">:</span>
         <span class="n">nv</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">null_value</span>
@@ -1550,7 +1550,7 @@ document.write(`
         <span class="n">_remap_values</span><span class="p">,</span>
         <span class="n">data</span><span class="p">,</span>
         <span class="n">mask</span><span class="p">,</span>
-        <span class="c1"># Can&#39;t pass None object to numba code</span>
+        <span class="c1"># Can't pass None object to numba code</span>
         <span class="n">null</span><span class="o">=</span><span class="mi">0</span> <span class="k">if</span> <span class="n">nv</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">nv</span><span class="p">,</span>
         <span class="n">start_end_values</span><span class="o">=</span><span class="n">start_end_values</span><span class="p">,</span>
         <span class="n">new_values</span><span class="o">=</span><span class="n">new_values</span><span class="p">,</span>
@@ -1582,7 +1582,7 @@ document.write(`
 
 
 <div class="viewcode-block" id="where"><a class="viewcode-back" href="../../reference/generated/raster_tools.general.where.html#raster_tools.where">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">where</span><span class="p">(</span><span class="n">condition</span><span class="p">,</span> <span class="n">true_rast</span><span class="p">,</span> <span class="n">false_rast</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Return elements chosen from `true_rast` or `false_rast` depending on</span>
 <span class="sd">    `condition`.</span>
 
@@ -1618,35 +1618,35 @@ document.write(`
 <span class="sd">    Raster</span>
 <span class="sd">        The resulting Raster.</span>
 
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">condition</span> <span class="o">=</span> <span class="n">get_raster</span><span class="p">(</span><span class="n">condition</span><span class="p">)</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">is_bool</span><span class="p">(</span><span class="n">condition</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">is_int</span><span class="p">(</span><span class="n">condition</span><span class="o">.</span><span class="n">dtype</span><span class="p">):</span>
         <span class="n">msg</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="s2">&quot;Condition argument must be a boolean or integer raster, &quot;</span>
-            <span class="sa">f</span><span class="s2">&quot;got </span><span class="si">{</span><span class="n">condition</span><span class="o">.</span><span class="n">dtype</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="s2">"Condition argument must be a boolean or integer raster, "</span>
+            <span class="sa">f</span><span class="s2">"got </span><span class="si">{</span><span class="n">condition</span><span class="o">.</span><span class="n">dtype</span><span class="si">}</span><span class="s2">"</span>
         <span class="p">)</span>
         <span class="k">if</span> <span class="n">is_float</span><span class="p">(</span><span class="n">condition</span><span class="o">.</span><span class="n">dtype</span><span class="p">):</span>
             <span class="n">msg</span> <span class="o">+=</span> <span class="p">(</span>
-                <span class="s2">&quot;. Saving integer rasters to GeoTIFF on older GDAL casts&quot;</span>
-                <span class="s2">&quot; them to float64; use .astype(...) to convert back to an&quot;</span>
-                <span class="s2">&quot; integer type.&quot;</span>
+                <span class="s2">". Saving integer rasters to GeoTIFF on older GDAL casts"</span>
+                <span class="s2">" them to float64; use .astype(...) to convert back to an"</span>
+                <span class="s2">" integer type."</span>
             <span class="p">)</span>
         <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
     <span class="n">args</span> <span class="o">=</span> <span class="p">[]</span>
-    <span class="k">for</span> <span class="n">r</span><span class="p">,</span> <span class="n">name</span> <span class="ow">in</span> <span class="p">[(</span><span class="n">true_rast</span><span class="p">,</span> <span class="s2">&quot;true_rast&quot;</span><span class="p">),</span> <span class="p">(</span><span class="n">false_rast</span><span class="p">,</span> <span class="s2">&quot;false_rast&quot;</span><span class="p">)]:</span>
+    <span class="k">for</span> <span class="n">r</span><span class="p">,</span> <span class="n">name</span> <span class="ow">in</span> <span class="p">[(</span><span class="n">true_rast</span><span class="p">,</span> <span class="s2">"true_rast"</span><span class="p">),</span> <span class="p">(</span><span class="n">false_rast</span><span class="p">,</span> <span class="s2">"false_rast"</span><span class="p">)]:</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">is_scalar</span><span class="p">(</span><span class="n">r</span><span class="p">)</span> <span class="ow">and</span> <span class="n">r</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">try</span><span class="p">:</span>
                 <span class="n">r</span> <span class="o">=</span> <span class="n">get_raster</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
             <span class="k">except</span> <span class="ne">TypeError</span> <span class="k">as</span> <span class="n">err</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;Could not understand </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> argument. Got: </span><span class="si">{</span><span class="n">r</span><span class="si">!r}</span><span class="s2">&quot;</span>
+                    <span class="sa">f</span><span class="s2">"Could not understand </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> argument. Got: </span><span class="si">{</span><span class="n">r</span><span class="si">!r}</span><span class="s2">"</span>
                 <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">err</span>
         <span class="n">args</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
     <span class="k">if</span> <span class="nb">all</span><span class="p">(</span><span class="n">a</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">args</span><span class="p">):</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;&#39;true_rast&#39; and &#39;false_rast&#39; cannot both be None&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"'true_rast' and 'false_rast' cannot both be None"</span><span class="p">)</span>
     <span class="n">out_crs</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="p">[</span><span class="n">condition</span><span class="p">,</span> <span class="n">true_rast</span><span class="p">,</span> <span class="n">false_rast</span><span class="p">]:</span>
-        <span class="n">crs</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="s2">&quot;crs&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="n">crs</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="s2">"crs"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">crs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">out_crs</span> <span class="o">=</span> <span class="n">crs</span>
             <span class="k">break</span>
@@ -1672,11 +1672,11 @@ document.write(`
             <span class="n">x</span> <span class="o">=</span> <span class="n">dtype</span><span class="o">.</span><span class="n">type</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
             <span class="n">y</span> <span class="o">=</span> <span class="n">dtype</span><span class="o">.</span><span class="n">type</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
         <span class="n">cd</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">condition</span><span class="o">.</span><span class="n">xmask</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="n">cd</span><span class="p">)</span>
-        <span class="n">xd</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="s2">&quot;xdata&quot;</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
-        <span class="n">yd</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="s2">&quot;xdata&quot;</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+        <span class="n">xd</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="s2">"xdata"</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+        <span class="n">yd</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="s2">"xdata"</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
         <span class="n">cm</span> <span class="o">=</span> <span class="n">condition</span><span class="o">.</span><span class="n">xmask</span>
-        <span class="n">xm</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="s2">&quot;xmask&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
-        <span class="n">ym</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="s2">&quot;xmask&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+        <span class="n">xm</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="s2">"xmask"</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+        <span class="n">ym</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="s2">"xmask"</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
         <span class="n">data</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">cd</span><span class="p">,</span> <span class="n">xd</span><span class="p">,</span> <span class="n">yd</span><span class="p">)</span>
         <span class="n">mask</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">cd</span><span class="p">,</span> <span class="n">xm</span><span class="p">,</span> <span class="n">ym</span><span class="p">)</span>
         <span class="n">mask</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">cm</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="n">mask</span><span class="p">)</span>
@@ -1685,8 +1685,8 @@ document.write(`
         <span class="n">mask</span> <span class="o">=</span> <span class="n">data</span> <span class="o">==</span> <span class="n">nv</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">nv</span><span class="p">)</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
         <span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_nodata</span><span class="p">(</span><span class="n">nv</span><span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="n">xd</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="s2">&quot;xdata&quot;</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
-        <span class="n">yd</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="s2">&quot;xdata&quot;</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+        <span class="n">xd</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="s2">"xdata"</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+        <span class="n">yd</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="s2">"xdata"</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
         <span class="n">data</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">cd</span><span class="p">,</span> <span class="n">xd</span><span class="p">,</span> <span class="n">yd</span><span class="p">)</span>
         <span class="n">mask</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
     <span class="n">ds</span> <span class="o">=</span> <span class="n">dataarray_to_xr_raster_ds</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">mask</span><span class="p">)</span>
@@ -1721,18 +1721,18 @@ document.write(`
 
 <span class="c1"># Matches: 0, 0.0, .0, 12, 1.2, .2, 1.2e34, 1.2e-34, .2e+34, 0e+12, 1.2E23</span>
 <span class="n">_INT_OR_FLOAT_RE</span> <span class="o">=</span> <span class="p">(</span>
-    <span class="sa">r</span><span class="s2">&quot;(?:[-+]?(?:(?:0|[1-9]\d*)(?:\.\d*)?|\.\d+)?)(?:[eE][-+]?\d+)?&quot;</span>
+    <span class="sa">r</span><span class="s2">"(?:[-+]?(?:(?:0|[1-9]\d*)(?:\.\d*)?|\.\d+)?)(?:[eE][-+]?\d+)?"</span>
 <span class="p">)</span>
 <span class="n">_REMAPPING_LINE_PATTERN</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span>
-    <span class="sa">rf</span><span class="s2">&quot;^\s*(?P&lt;from&gt;</span><span class="si">{</span><span class="n">_INT_OR_FLOAT_RE</span><span class="si">}</span><span class="s2">)\s*:&quot;</span>
-    <span class="sa">rf</span><span class="s2">&quot;\s*(?P&lt;to&gt;</span><span class="si">{</span><span class="n">_INT_OR_FLOAT_RE</span><span class="si">}</span><span class="s2">|NoData)\s*$&quot;</span>
+    <span class="sa">rf</span><span class="s2">"^\s*(?P&lt;from&gt;</span><span class="si">{</span><span class="n">_INT_OR_FLOAT_RE</span><span class="si">}</span><span class="s2">)\s*:"</span>
+    <span class="sa">rf</span><span class="s2">"\s*(?P&lt;to&gt;</span><span class="si">{</span><span class="n">_INT_OR_FLOAT_RE</span><span class="si">}</span><span class="s2">|NoData)\s*$"</span>
 <span class="p">)</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_str_to_float_or_int</span><span class="p">(</span><span class="n">string</span><span class="p">):</span>
     <span class="c1"># String matched regex for a number value. Check if float specific</span>
     <span class="c1"># characters are in the string.</span>
-    <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">c</span> <span class="ow">in</span> <span class="n">string</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="s2">&quot;.eE&quot;</span><span class="p">):</span>
+    <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">c</span> <span class="ow">in</span> <span class="n">string</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="s2">".eE"</span><span class="p">):</span>
         <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">string</span><span class="p">)</span>
     <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">string</span><span class="p">)</span>
 
@@ -1744,16 +1744,16 @@ document.write(`
         <span class="k">if</span> <span class="ow">not</span> <span class="n">line</span><span class="p">:</span>
             <span class="k">continue</span>
         <span class="n">m</span> <span class="o">=</span> <span class="n">_REMAPPING_LINE_PATTERN</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="n">line</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">m</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">m</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="s2">&quot;from&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">m</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="s2">&quot;to&quot;</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">m</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">m</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="s2">"from"</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">m</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="s2">"to"</span><span class="p">):</span>
             <span class="k">raise</span> <span class="n">RemapFileParseError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;Invalid remapping on line </span><span class="si">{</span><span class="n">line_no</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">line</span><span class="si">!r}</span><span class="s2">&quot;</span>
+                <span class="sa">f</span><span class="s2">"Invalid remapping on line </span><span class="si">{</span><span class="n">line_no</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">line</span><span class="si">!r}</span><span class="s2">"</span>
             <span class="p">)</span>
-        <span class="n">from_str</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="s2">&quot;from&quot;</span><span class="p">)</span>
-        <span class="n">to_str</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="s2">&quot;to&quot;</span><span class="p">)</span>
+        <span class="n">from_str</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="s2">"from"</span><span class="p">)</span>
+        <span class="n">to_str</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="s2">"to"</span><span class="p">)</span>
         <span class="n">k</span> <span class="o">=</span> <span class="n">_str_to_float_or_int</span><span class="p">(</span><span class="n">from_str</span><span class="p">)</span>
-        <span class="n">v</span> <span class="o">=</span> <span class="n">_str_to_float_or_int</span><span class="p">(</span><span class="n">to_str</span><span class="p">)</span> <span class="k">if</span> <span class="n">to_str</span> <span class="o">!=</span> <span class="s2">&quot;NoData&quot;</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="n">v</span> <span class="o">=</span> <span class="n">_str_to_float_or_int</span><span class="p">(</span><span class="n">to_str</span><span class="p">)</span> <span class="k">if</span> <span class="n">to_str</span> <span class="o">!=</span> <span class="s2">"NoData"</span> <span class="k">else</span> <span class="kc">None</span>
         <span class="k">if</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">mapping</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Found duplicate mapping: &#39;</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">v</span><span class="si">}</span><span class="s2">&#39;.&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Found duplicate mapping: '</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">v</span><span class="si">}</span><span class="s2">'."</span><span class="p">)</span>
         <span class="n">mapping</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span>
     <span class="k">return</span> <span class="n">mapping</span>
 
@@ -1764,18 +1764,18 @@ document.write(`
             <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">mapping</span><span class="p">)</span> <span class="k">as</span> <span class="n">fd</span><span class="p">:</span>
                 <span class="n">mapping</span> <span class="o">=</span> <span class="n">_parse_ascii_remap_file</span><span class="p">(</span><span class="n">fd</span><span class="p">)</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="n">mapping</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;No mapping found in the provided file&quot;</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"No mapping found in the provided file"</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">IOError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;No such file: </span><span class="si">{</span><span class="n">mapping</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">IOError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"No such file: </span><span class="si">{</span><span class="n">mapping</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span>
     <span class="k">elif</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">mapping</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
         <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;Remapping must be a str or dict. Got: </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">mapping</span><span class="p">)</span><span class="si">!r}</span><span class="s2">&quot;</span>
+            <span class="sa">f</span><span class="s2">"Remapping must be a str or dict. Got: </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">mapping</span><span class="p">)</span><span class="si">!r}</span><span class="s2">"</span>
         <span class="p">)</span>
     <span class="k">return</span> <span class="n">mapping</span>
 
 
 <div class="viewcode-block" id="reclassify"><a class="viewcode-back" href="../../reference/generated/raster_tools.reclassify.html#raster_tools.reclassify">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">reclassify</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">remapping</span><span class="p">,</span> <span class="n">unmapped_to_null</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Reclassify the input raster values based on a mapping.</span>
+<span class="w">    </span><span class="sd">"""Reclassify the input raster values based on a mapping.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
@@ -1787,7 +1787,7 @@ document.write(`
 <span class="sd">        possible to map values to the null value by providing ``None`` in the</span>
 <span class="sd">        mapping. If a path string, it is treated as an ASCII remap file where</span>
 <span class="sd">        each line looks like ``a:b`` and ``a`` and ``b`` are scalars. ``b`` can</span>
-<span class="sd">        also be &quot;NoData&quot;. This indicates that ``a`` will be mapped to the null</span>
+<span class="sd">        also be "NoData". This indicates that ``a`` will be mapped to the null</span>
 <span class="sd">        value. The output values of the mapping can cause type promotion. If</span>
 <span class="sd">        the input raster has integer data and one of the outputs in the mapping</span>
 <span class="sd">        is a float, the result will be a float raster.</span>
@@ -1800,7 +1800,7 @@ document.write(`
 <span class="sd">    Raster</span>
 <span class="sd">        The remapped raster.</span>
 
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">raster</span> <span class="o">=</span> <span class="n">get_raster</span><span class="p">(</span><span class="n">raster</span><span class="p">)</span>
     <span class="n">remapping</span> <span class="o">=</span> <span class="n">_get_remapping</span><span class="p">(</span><span class="n">remapping</span><span class="p">)</span>
 

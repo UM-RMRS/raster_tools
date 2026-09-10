@@ -461,23 +461,23 @@ document.write(`
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_compute_lengths</span><span class="p">(</span><span class="n">geom_df</span><span class="p">,</span> <span class="n">targets</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Overlay the targets circles on the geometries in `geometry`. This produces</span>
 <span class="sd">    a clip of `geometry` for each target. The output is the computed length of</span>
 <span class="sd">    each clip result. The output lengths array is the same shape as the input</span>
 <span class="sd">    targets and the elements correspond to the same location in `targets`.</span>
 
 <span class="sd">    See geopandas.overlay for more details about the overlay operation.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">targets_df</span> <span class="o">=</span> <span class="n">targets</span><span class="o">.</span><span class="n">to_frame</span><span class="p">(</span><span class="s2">&quot;geometry&quot;</span><span class="p">)</span>
+<span class="sd">    """</span>
+    <span class="n">targets_df</span> <span class="o">=</span> <span class="n">targets</span><span class="o">.</span><span class="n">to_frame</span><span class="p">(</span><span class="s2">"geometry"</span><span class="p">)</span>
     <span class="c1"># Add column of index values so that clipped geoms can be mapped back to</span>
     <span class="c1"># the target that clipped them after the overlay operation. Column values</span>
     <span class="c1"># are preserved in overlay.</span>
-    <span class="n">targets_df</span><span class="p">[</span><span class="s2">&quot;target_idx&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">targets</span><span class="p">))</span>
+    <span class="n">targets_df</span><span class="p">[</span><span class="s2">"target_idx"</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">targets</span><span class="p">))</span>
     <span class="n">overlay</span> <span class="o">=</span> <span class="n">geom_df</span><span class="o">.</span><span class="n">overlay</span><span class="p">(</span><span class="n">targets_df</span><span class="p">,</span> <span class="n">keep_geom_type</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="n">overlay</span><span class="p">[</span><span class="s2">&quot;len&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">overlay</span><span class="o">.</span><span class="n">length</span>
-    <span class="k">if</span> <span class="s2">&quot;weights&quot;</span> <span class="ow">in</span> <span class="n">geom_df</span><span class="p">:</span>
-        <span class="n">overlay</span><span class="p">[</span><span class="s2">&quot;len&quot;</span><span class="p">]</span> <span class="o">*=</span> <span class="n">overlay</span><span class="o">.</span><span class="n">weights</span>
+    <span class="n">overlay</span><span class="p">[</span><span class="s2">"len"</span><span class="p">]</span> <span class="o">=</span> <span class="n">overlay</span><span class="o">.</span><span class="n">length</span>
+    <span class="k">if</span> <span class="s2">"weights"</span> <span class="ow">in</span> <span class="n">geom_df</span><span class="p">:</span>
+        <span class="n">overlay</span><span class="p">[</span><span class="s2">"len"</span><span class="p">]</span> <span class="o">*=</span> <span class="n">overlay</span><span class="o">.</span><span class="n">weights</span>
     <span class="n">lengths</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">targets</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">F32</span><span class="p">)</span>
     <span class="n">lengths</span> <span class="o">=</span> <span class="n">_length_sum</span><span class="p">(</span>
         <span class="n">lengths</span><span class="p">,</span> <span class="n">overlay</span><span class="o">.</span><span class="n">len</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(),</span> <span class="n">overlay</span><span class="o">.</span><span class="n">target_idx</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
@@ -495,9 +495,9 @@ document.write(`
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_calculate_number_vertices</span><span class="p">(</span><span class="n">geoms</span><span class="p">):</span>
     <span class="c1"># Assume all geoms are valid</span>
-    <span class="n">has_exterior</span> <span class="o">=</span> <span class="n">geoms</span><span class="o">.</span><span class="n">geom_type</span> <span class="o">==</span> <span class="s2">&quot;Polygon&quot;</span>
+    <span class="n">has_exterior</span> <span class="o">=</span> <span class="n">geoms</span><span class="o">.</span><span class="n">geom_type</span> <span class="o">==</span> <span class="s2">"Polygon"</span>
     <span class="n">has_interior</span> <span class="o">=</span> <span class="o">~</span><span class="n">geoms</span><span class="p">[</span><span class="n">has_exterior</span><span class="p">]</span><span class="o">.</span><span class="n">interiors</span><span class="o">.</span><span class="n">isin</span><span class="p">([[]])</span>
-    <span class="n">nverts</span> <span class="o">=</span> <span class="p">(</span><span class="n">geoms</span><span class="o">.</span><span class="n">geom_type</span> <span class="o">==</span> <span class="s2">&quot;Point&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+    <span class="n">nverts</span> <span class="o">=</span> <span class="p">(</span><span class="n">geoms</span><span class="o">.</span><span class="n">geom_type</span> <span class="o">==</span> <span class="s2">"Point"</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
     <span class="k">if</span> <span class="n">has_exterior</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
         <span class="n">nverts</span> <span class="o">+=</span> <span class="p">(</span>
             <span class="n">geoms</span><span class="p">[</span><span class="n">has_exterior</span><span class="p">]</span><span class="o">.</span><span class="n">exterior</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">_len_coords</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
@@ -510,7 +510,7 @@ document.write(`
                 <span class="o">.</span><span class="n">sum</span><span class="p">()</span>
             <span class="p">)</span>
     <span class="n">nverts</span> <span class="o">+=</span> <span class="p">(</span>
-        <span class="n">geoms</span><span class="p">[</span><span class="n">geoms</span><span class="o">.</span><span class="n">geom_type</span><span class="o">.</span><span class="n">isin</span><span class="p">({</span><span class="s2">&quot;LineString&quot;</span><span class="p">,</span> <span class="s2">&quot;LinearRing&quot;</span><span class="p">})]</span>
+        <span class="n">geoms</span><span class="p">[</span><span class="n">geoms</span><span class="o">.</span><span class="n">geom_type</span><span class="o">.</span><span class="n">isin</span><span class="p">({</span><span class="s2">"LineString"</span><span class="p">,</span> <span class="s2">"LinearRing"</span><span class="p">})]</span>
         <span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">_len_coords</span><span class="p">)</span>
         <span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
         <span class="o">.</span><span class="n">sum</span><span class="p">()</span>
@@ -536,7 +536,7 @@ document.write(`
 <span class="n">BUFFER_RES</span> <span class="o">=</span> <span class="mi">4</span>
 <span class="c1"># The max desired average vertices per geometry in a geoseries. Values higher</span>
 <span class="c1"># than this tend to cause large fluctuations in memory usage. When combined</span>
-<span class="c1"># with dask&#39;s scheduling, the system has a high chance of running out of</span>
+<span class="c1"># with dask's scheduling, the system has a high chance of running out of</span>
 <span class="c1"># memory.</span>
 <span class="n">VERTS_PER_GEOM_CUTOFF</span> <span class="o">=</span> <span class="mi">15</span>
 <span class="c1"># The max number of geometries to work on at a time. Large collections of</span>
@@ -545,13 +545,13 @@ document.write(`
 <span class="c1"># handle the memory load.</span>
 <span class="n">GEOM_BATCH_SIZE</span> <span class="o">=</span> <span class="mi">700</span>
 <span class="c1"># Only line geometry types are supported, mirroring ArcGIS Line Statistics.</span>
-<span class="n">ALLOWED_GEOM_TYPES</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="s2">&quot;LineString&quot;</span><span class="p">,</span> <span class="s2">&quot;MultiLineString&quot;</span><span class="p">,</span> <span class="s2">&quot;LinearRing&quot;</span><span class="p">})</span>
+<span class="n">ALLOWED_GEOM_TYPES</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span><span class="s2">"LineString"</span><span class="p">,</span> <span class="s2">"MultiLineString"</span><span class="p">,</span> <span class="s2">"LinearRing"</span><span class="p">})</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_get_indices_and_lengths_core</span><span class="p">(</span><span class="n">geoms_df</span><span class="p">,</span> <span class="n">xc</span><span class="p">,</span> <span class="n">yc</span><span class="p">,</span> <span class="n">radius</span><span class="p">):</span>
     <span class="n">shape</span> <span class="o">=</span> <span class="p">(</span><span class="n">yc</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="n">xc</span><span class="o">.</span><span class="n">size</span><span class="p">)</span>
     <span class="n">transform</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">(</span>
-        <span class="n">da</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">shape</span><span class="p">),</span> <span class="n">coords</span><span class="o">=</span><span class="p">(</span><span class="n">yc</span><span class="p">,</span> <span class="n">xc</span><span class="p">),</span> <span class="n">dims</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;y&quot;</span><span class="p">,</span> <span class="s2">&quot;x&quot;</span><span class="p">)</span>
+        <span class="n">da</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">shape</span><span class="p">),</span> <span class="n">coords</span><span class="o">=</span><span class="p">(</span><span class="n">yc</span><span class="p">,</span> <span class="n">xc</span><span class="p">),</span> <span class="n">dims</span><span class="o">=</span><span class="p">(</span><span class="s2">"y"</span><span class="p">,</span> <span class="s2">"x"</span><span class="p">)</span>
     <span class="p">)</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">transform</span><span class="p">()</span>
     <span class="c1"># Rasterize to create mask of cells-of-interest and extract the locations</span>
     <span class="n">indices</span> <span class="o">=</span> <span class="n">_rio_mask</span><span class="p">(</span>
@@ -571,7 +571,7 @@ document.write(`
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_get_indices_and_lengths</span><span class="p">(</span><span class="n">geoms_df</span><span class="p">,</span> <span class="n">xc</span><span class="p">,</span> <span class="n">yc</span><span class="p">,</span> <span class="n">radius</span><span class="p">,</span> <span class="n">weight_values</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Finds the indices of cells where geoms fall within the given radius and</span>
 <span class="sd">    computes the lengths of those geoms for each one of the cells.</span>
 
@@ -581,7 +581,7 @@ document.write(`
 <span class="sd">    spawn too many workers so that when enough memory swings occur at once,</span>
 <span class="sd">    system memory is totally consumed and the whole program is killed. The</span>
 <span class="sd">    smaller batches smooth out the memory consumption and prevent crashing.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="c1"># Explode to turn multi-geometries into single geometries for vertex</span>
     <span class="c1"># counting</span>
     <span class="n">geoms_df</span> <span class="o">=</span> <span class="n">geoms_df</span><span class="o">.</span><span class="n">explode</span><span class="p">(</span><span class="n">ignore_index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
@@ -600,16 +600,16 @@ document.write(`
                 <span class="n">batch_df</span><span class="p">,</span> <span class="n">xc</span><span class="p">,</span> <span class="n">yc</span><span class="p">,</span> <span class="n">radius</span>
             <span class="p">)</span>
             <span class="n">idx_len_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
-                <span class="p">{</span><span class="s2">&quot;idx0&quot;</span><span class="p">:</span> <span class="n">idxs</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="s2">&quot;idx1&quot;</span><span class="p">:</span> <span class="n">idxs</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="s2">&quot;length&quot;</span><span class="p">:</span> <span class="n">lens</span><span class="p">}</span>
+                <span class="p">{</span><span class="s2">"idx0"</span><span class="p">:</span> <span class="n">idxs</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="s2">"idx1"</span><span class="p">:</span> <span class="n">idxs</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="s2">"length"</span><span class="p">:</span> <span class="n">lens</span><span class="p">}</span>
             <span class="p">)</span>
             <span class="n">idx_len_dfs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">idx_len_df</span><span class="p">)</span>
         <span class="c1"># Merge results, summing co-located length values</span>
         <span class="n">idx_len_dfs</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">idx_len_dfs</span><span class="p">,</span> <span class="n">ignore_index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="n">idx_len_sums</span> <span class="o">=</span> <span class="n">idx_len_dfs</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span>
-            <span class="p">[</span><span class="s2">&quot;idx0&quot;</span><span class="p">,</span> <span class="s2">&quot;idx1&quot;</span><span class="p">],</span> <span class="n">as_index</span><span class="o">=</span><span class="kc">False</span>
+            <span class="p">[</span><span class="s2">"idx0"</span><span class="p">,</span> <span class="s2">"idx1"</span><span class="p">],</span> <span class="n">as_index</span><span class="o">=</span><span class="kc">False</span>
         <span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
-        <span class="n">indices</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">idx_len_sums</span><span class="p">[[</span><span class="s2">&quot;idx0&quot;</span><span class="p">,</span> <span class="s2">&quot;idx1&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
-        <span class="n">lengths</span> <span class="o">=</span> <span class="n">idx_len_sums</span><span class="p">[</span><span class="s2">&quot;length&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+        <span class="n">indices</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">idx_len_sums</span><span class="p">[[</span><span class="s2">"idx0"</span><span class="p">,</span> <span class="s2">"idx1"</span><span class="p">]]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span><span class="o">.</span><span class="n">T</span><span class="p">)</span>
+        <span class="n">lengths</span> <span class="o">=</span> <span class="n">idx_len_sums</span><span class="p">[</span><span class="s2">"length"</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="n">indices</span><span class="p">,</span> <span class="n">lengths</span> <span class="o">=</span> <span class="n">_get_indices_and_lengths_core</span><span class="p">(</span>
             <span class="n">geoms_df</span><span class="p">,</span> <span class="n">xc</span><span class="p">,</span> <span class="n">yc</span><span class="p">,</span> <span class="n">radius</span>
@@ -620,15 +620,15 @@ document.write(`
 <span class="k">def</span><span class="w"> </span><span class="nf">_length</span><span class="p">(</span><span class="n">gdf</span><span class="p">,</span> <span class="n">xc</span><span class="p">,</span> <span class="n">yc</span><span class="p">,</span> <span class="n">radius</span><span class="p">,</span> <span class="n">field</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">F32</span><span class="p">):</span>
     <span class="n">shape</span> <span class="o">=</span> <span class="p">(</span><span class="n">yc</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="n">xc</span><span class="o">.</span><span class="n">size</span><span class="p">)</span>
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">gdf</span><span class="p">):</span>
-        <span class="n">cols</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;geometry&quot;</span><span class="p">]</span>
+        <span class="n">cols</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"geometry"</span><span class="p">]</span>
         <span class="k">if</span> <span class="n">field</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">cols</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">field</span><span class="p">)</span>
         <span class="n">gdf</span> <span class="o">=</span> <span class="n">gdf</span><span class="p">[</span><span class="n">cols</span><span class="p">]</span>
         <span class="k">if</span> <span class="n">field</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="c1"># Use field as weights</span>
-            <span class="n">gdf</span> <span class="o">=</span> <span class="n">gdf</span><span class="o">.</span><span class="n">rename</span><span class="p">({</span><span class="n">field</span><span class="p">:</span> <span class="s2">&quot;weights&quot;</span><span class="p">})</span>
+            <span class="n">gdf</span> <span class="o">=</span> <span class="n">gdf</span><span class="o">.</span><span class="n">rename</span><span class="p">({</span><span class="n">field</span><span class="p">:</span> <span class="s2">"weights"</span><span class="p">})</span>
             <span class="k">if</span> <span class="n">is_bool</span><span class="p">(</span><span class="n">gdf</span><span class="o">.</span><span class="n">weights</span><span class="o">.</span><span class="n">dtype</span><span class="p">):</span>
-                <span class="n">gdf</span> <span class="o">=</span> <span class="n">gdf</span><span class="o">.</span><span class="n">astype</span><span class="p">({</span><span class="s2">&quot;weights&quot;</span><span class="p">:</span> <span class="n">I8</span><span class="p">})</span>
+                <span class="n">gdf</span> <span class="o">=</span> <span class="n">gdf</span><span class="o">.</span><span class="n">astype</span><span class="p">({</span><span class="s2">"weights"</span><span class="p">:</span> <span class="n">I8</span><span class="p">})</span>
 
         <span class="n">indices</span><span class="p">,</span> <span class="n">lengths</span> <span class="o">=</span> <span class="n">_get_indices_and_lengths</span><span class="p">(</span><span class="n">gdf</span><span class="p">,</span> <span class="n">xc</span><span class="p">,</span> <span class="n">yc</span><span class="p">,</span> <span class="n">radius</span><span class="p">)</span>
         <span class="n">output</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
@@ -640,17 +640,17 @@ document.write(`
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_length_chunk</span><span class="p">(</span><span class="n">xda</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">gdf</span><span class="p">,</span> <span class="n">radius</span><span class="p">,</span> <span class="n">field</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">geo_block_info</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
     <span class="c1"># The block xda includes the overlap region; geo_block_info reflects</span>
-    <span class="c1"># the same extent. We don&#39;t actually use xda&#39;s data values -- the</span>
-    <span class="c1"># function only needs the chunk&#39;s spatial coords to know where it is.</span>
+    <span class="c1"># the same extent. We don't actually use xda's data values -- the</span>
+    <span class="c1"># function only needs the chunk's spatial coords to know where it is.</span>
     <span class="k">if</span> <span class="n">geo_block_info</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="c1"># dask&#39;s dtype-inference meta call (0-shape DataArrays).</span>
+        <span class="c1"># dask's dtype-inference meta call (0-shape DataArrays).</span>
         <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">xda</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">F32</span><span class="p">)</span>
     <span class="n">xc</span> <span class="o">=</span> <span class="n">geo_block_info</span><span class="o">.</span><span class="n">x</span>
     <span class="n">yc</span> <span class="o">=</span> <span class="n">geo_block_info</span><span class="o">.</span><span class="n">y</span>
 
     <span class="c1"># Filter out any geoms that could be problematic</span>
     <span class="n">gdf</span> <span class="o">=</span> <span class="n">gdf</span><span class="p">[(</span><span class="o">~</span><span class="n">gdf</span><span class="o">.</span><span class="n">is_empty</span><span class="p">)</span> <span class="o">&amp;</span> <span class="n">gdf</span><span class="o">.</span><span class="n">is_valid</span><span class="p">]</span>
-    <span class="c1"># Clip out any features outside of this chunk&#39;s area of interest</span>
+    <span class="c1"># Clip out any features outside of this chunk's area of interest</span>
     <span class="n">gdf</span> <span class="o">=</span> <span class="n">gdf</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span>
         <span class="n">shapely</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">box</span><span class="p">(</span><span class="n">xc</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span> <span class="n">yc</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span> <span class="n">xc</span><span class="o">.</span><span class="n">max</span><span class="p">(),</span> <span class="n">yc</span><span class="o">.</span><span class="n">max</span><span class="p">())</span>
         <span class="o">.</span><span class="n">buffer</span><span class="p">(</span><span class="n">radius</span><span class="p">)</span>
@@ -661,12 +661,12 @@ document.write(`
 
 
 <div class="viewcode-block" id="length"><a class="viewcode-back" href="../../reference/generated/raster_tools.line_stats.length.html#raster_tools.line_stats.length">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">length</span><span class="p">(</span><span class="n">features</span><span class="p">,</span> <span class="n">like_rast</span><span class="p">,</span> <span class="n">radius</span><span class="p">,</span> <span class="n">weighting_field</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Calculate a raster where each cell is the net length of all features within</span>
 <span class="sd">    a given radius.</span>
 
 <span class="sd">    This function returns a raster where each cell contains the sum of the</span>
-<span class="sd">    lengths of all features that fall within a radius of the cell&#39;s center. The</span>
+<span class="sd">    lengths of all features that fall within a radius of the cell's center. The</span>
 <span class="sd">    features are clipped to the circular neighborhood before the length is</span>
 <span class="sd">    computed. Optional weighting can be added with `weighting_field`.</span>
 
@@ -680,11 +680,11 @@ document.write(`
 <span class="sd">        A raster to use as a reference grid and CRS. The output raster will be</span>
 <span class="sd">        on the same grid.</span>
 <span class="sd">    radius : scalar</span>
-<span class="sd">        The radius around each grid cell&#39;s center to use. Features that fall</span>
+<span class="sd">        The radius around each grid cell's center to use. Features that fall</span>
 <span class="sd">        within the radius are clipped to the resulting circle and their</span>
 <span class="sd">        resulting lengths are summed. Additional weighting of the sum can be</span>
 <span class="sd">        done using `weighting_field`. This should be in the same units as</span>
-<span class="sd">        `like_rast`&#39;s CRS.</span>
+<span class="sd">        `like_rast`'s CRS.</span>
 <span class="sd">    weighting_field : str, optional</span>
 <span class="sd">        If not ``None``, this selects a field in `features` to use as a</span>
 <span class="sd">        weighting factor in the sum of lengths.</span>
@@ -696,39 +696,39 @@ document.write(`
 <span class="sd">        lengths in the circular neighborhood determined by `radius`.</span>
 
 
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">features</span> <span class="o">=</span> <span class="n">get_vector</span><span class="p">(</span><span class="n">features</span><span class="p">)</span>
     <span class="n">like_rast</span> <span class="o">=</span> <span class="n">get_raster</span><span class="p">(</span><span class="n">like_rast</span><span class="p">)</span><span class="o">.</span><span class="n">get_bands</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
 
     <span class="k">if</span> <span class="ow">not</span> <span class="n">is_scalar</span><span class="p">(</span><span class="n">radius</span><span class="p">):</span>
-        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;radius must be a scalar. Got type: </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">radius</span><span class="p">)</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"radius must be a scalar. Got type: </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">radius</span><span class="p">)</span><span class="si">}</span><span class="s2">."</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">radius</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;radius must be greater than zero: Got: </span><span class="si">{</span><span class="n">radius</span><span class="si">!r}</span><span class="s2">.&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"radius must be greater than zero: Got: </span><span class="si">{</span><span class="n">radius</span><span class="si">!r}</span><span class="s2">."</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">like_rast</span><span class="o">.</span><span class="n">crs</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;like_rast must have a CRS set.&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"like_rast must have a CRS set."</span><span class="p">)</span>
     <span class="n">gtypes</span> <span class="o">=</span> <span class="n">features</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">geom_type</span><span class="o">.</span><span class="n">unique</span><span class="p">()</span>
-    <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">gtypes</span><span class="p">,</span> <span class="s2">&quot;compute&quot;</span><span class="p">):</span>
+    <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">gtypes</span><span class="p">,</span> <span class="s2">"compute"</span><span class="p">):</span>
         <span class="n">gtypes</span> <span class="o">=</span> <span class="n">gtypes</span><span class="o">.</span><span class="n">compute</span><span class="p">()</span>
     <span class="n">bad</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">gtypes</span><span class="p">)</span> <span class="o">-</span> <span class="n">ALLOWED_GEOM_TYPES</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">bad</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
-            <span class="s2">&quot;line_stats.length only supports line geometries &quot;</span>
-            <span class="s2">&quot;(LineString, MultiLineString, LinearRing); got: &quot;</span>
-            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">bad</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="s2">"line_stats.length only supports line geometries "</span>
+            <span class="s2">"(LineString, MultiLineString, LinearRing); got: "</span>
+            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">bad</span><span class="si">}</span><span class="s2">"</span>
         <span class="p">)</span>
     <span class="k">if</span> <span class="n">weighting_field</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">is_str</span><span class="p">(</span><span class="n">weighting_field</span><span class="p">):</span>
-            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;weighting_field must be a string.&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">"weighting_field must be a string."</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">weighting_field</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">features</span><span class="o">.</span><span class="n">data</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="s2">&quot;weighting_field must be a field name in features. &quot;</span>
-                <span class="sa">f</span><span class="s2">&quot;Got: </span><span class="si">{</span><span class="n">weighting_field</span><span class="si">!r}</span><span class="s2">.&quot;</span>
+                <span class="s2">"weighting_field must be a field name in features. "</span>
+                <span class="sa">f</span><span class="s2">"Got: </span><span class="si">{</span><span class="n">weighting_field</span><span class="si">!r}</span><span class="s2">."</span>
             <span class="p">)</span>
         <span class="n">field_dtype</span> <span class="o">=</span> <span class="n">features</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">weighting_field</span><span class="p">]</span><span class="o">.</span><span class="n">dtype</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">is_scalar</span><span class="p">(</span><span class="n">field_dtype</span><span class="p">)</span> <span class="ow">or</span> <span class="n">is_bool</span><span class="p">(</span><span class="n">field_dtype</span><span class="p">)):</span>
             <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
-                <span class="s2">&quot;The field specified by weighting_field must be a scalar type.&quot;</span>
-                <span class="sa">f</span><span class="s2">&quot; Found: </span><span class="si">{</span><span class="n">field_dtype</span><span class="si">}</span><span class="s2">.&quot;</span>
+                <span class="s2">"The field specified by weighting_field must be a scalar type."</span>
+                <span class="sa">f</span><span class="s2">" Found: </span><span class="si">{</span><span class="n">field_dtype</span><span class="si">}</span><span class="s2">."</span>
             <span class="p">)</span>
 
     <span class="n">gdf</span> <span class="o">=</span> <span class="n">features</span><span class="o">.</span><span class="n">to_crs</span><span class="p">(</span><span class="n">like_rast</span><span class="o">.</span><span class="n">crs</span><span class="p">)</span><span class="o">.</span><span class="n">data</span>

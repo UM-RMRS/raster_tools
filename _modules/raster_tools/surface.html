@@ -437,12 +437,12 @@ document.write(`
                 <article class="bd-article" role="main">
                   
   <h1>Source code for raster_tools.surface</h1><div class="highlight"><pre>
-<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span></span><span class="sd">"""</span>
 <span class="sd">Surface module used to perform common surface analyses on Raster objects.</span>
 
 <span class="sd">ref: https://pro.arcgis.com/en/pro-app/latest/tool-reference/spatial-analyst/an-overview-of-the-surface-tools.htm</span>
 <span class="sd">ref: https://github.com/makepath/xarray-spatial</span>
-<span class="sd">&quot;&quot;&quot;</span>  <span class="c1"># noqa: E501</span>
+<span class="sd">"""</span>  <span class="c1"># noqa: E501</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">dask.array</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">da</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">numba</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">nb</span>
@@ -455,14 +455,14 @@ document.write(`
 <span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">single_band_mappable</span>
 
 <span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
-    <span class="s2">&quot;aspect&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;curvature&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;easting&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;hillshade&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;northing&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;slope&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;surface_area_3d&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;tpi&quot;</span><span class="p">,</span>
+    <span class="s2">"aspect"</span><span class="p">,</span>
+    <span class="s2">"curvature"</span><span class="p">,</span>
+    <span class="s2">"easting"</span><span class="p">,</span>
+    <span class="s2">"hillshade"</span><span class="p">,</span>
+    <span class="s2">"northing"</span><span class="p">,</span>
+    <span class="s2">"slope"</span><span class="p">,</span>
+    <span class="s2">"surface_area_3d"</span><span class="p">,</span>
+    <span class="s2">"tpi"</span><span class="p">,</span>
 <span class="p">]</span>
 
 <span class="n">RADIANS_TO_DEGREES</span> <span class="o">=</span> <span class="mi">180</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span>
@@ -540,7 +540,7 @@ document.write(`
 
 
 <div class="viewcode-block" id="surface_area_3d"><a class="viewcode-back" href="../../reference/generated/raster_tools.surface.surface_area_3d.html#raster_tools.surface.surface_area_3d">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">surface_area_3d</span><span class="p">(</span><span class="n">raster</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Calculates the 3D surface area of each raster cell for each raster band.</span>
+<span class="w">    </span><span class="sd">"""Calculates the 3D surface area of each raster cell for each raster band.</span>
 
 <span class="sd">    The approach is based on Jense, 2004.</span>
 
@@ -560,9 +560,9 @@ document.write(`
 <span class="sd">    ----------</span>
 <span class="sd">    * `Jense, 2004 &lt;https://www.fs.usda.gov/treesearch/pubs/20437&gt;`_</span>
 
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">raster</span> <span class="o">=</span> <span class="n">get_raster</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">null_to_nan</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">raster</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="s2">&quot;float16&quot;</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">raster</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="s2">"float16"</span><span class="p">):</span>
         <span class="n">raster</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">F32</span><span class="p">)</span>
     <span class="n">out_data</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">map_overlap</span><span class="p">(</span>
         <span class="n">_surface_area_3d</span><span class="p">,</span>
@@ -605,9 +605,9 @@ document.write(`
 
 
 <div class="viewcode-block" id="slope"><a class="viewcode-back" href="../../reference/generated/raster_tools.surface.slope.html#raster_tools.surface.slope">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">slope</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">degrees</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Calculates the slope (degrees) of each raster cell for each raster band.</span>
+<span class="w">    </span><span class="sd">"""Calculates the slope (degrees) of each raster cell for each raster band.</span>
 
-<span class="sd">    The approach is based on ESRI&#39;s degree slope calculation.</span>
+<span class="sd">    The approach is based on ESRI's degree slope calculation.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
@@ -628,9 +628,9 @@ document.write(`
 <span class="sd">    ----------</span>
 <span class="sd">    * `ESRI slope &lt;https://pro.arcgis.com/en/pro-app/latest/tool-reference/3d-analyst/how-slope-works.htm&gt;`_</span>
 
-<span class="sd">    &quot;&quot;&quot;</span>  <span class="c1"># noqa: E501</span>
+<span class="sd">    """</span>  <span class="c1"># noqa: E501</span>
     <span class="n">raster</span> <span class="o">=</span> <span class="n">get_raster</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">null_to_nan</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">raster</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="s2">&quot;float16&quot;</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">raster</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="s2">"float16"</span><span class="p">):</span>
         <span class="n">raster</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">F32</span><span class="p">)</span>
     <span class="c1"># Leave resolution sign as is</span>
     <span class="n">out_data</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">map_overlap</span><span class="p">(</span>
@@ -682,9 +682,9 @@ document.write(`
 
 
 <div class="viewcode-block" id="aspect"><a class="viewcode-back" href="../../reference/generated/raster_tools.surface.aspect.html#raster_tools.surface.aspect">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">aspect</span><span class="p">(</span><span class="n">raster</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Calculates the aspect of each raster cell for each raster band.</span>
+<span class="w">    </span><span class="sd">"""Calculates the aspect of each raster cell for each raster band.</span>
 
-<span class="sd">    The approach is based on ESRI&#39;s aspect calculation.</span>
+<span class="sd">    The approach is based on ESRI's aspect calculation.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
@@ -702,9 +702,9 @@ document.write(`
 <span class="sd">    ----------</span>
 <span class="sd">    * `ESRI aspect &lt;https://pro.arcgis.com/en/pro-app/latest/tool-reference/3d-analyst/how-aspect-works.htm&gt;`_</span>
 
-<span class="sd">    &quot;&quot;&quot;</span>  <span class="c1"># noqa: E501</span>
+<span class="sd">    """</span>  <span class="c1"># noqa: E501</span>
     <span class="n">raster</span> <span class="o">=</span> <span class="n">get_raster</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">null_to_nan</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">raster</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="s2">&quot;float16&quot;</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">raster</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="s2">"float16"</span><span class="p">):</span>
         <span class="n">raster</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">F32</span><span class="p">)</span>
     <span class="n">out_data</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">map_overlap</span><span class="p">(</span>
         <span class="n">_aspect</span><span class="p">,</span>
@@ -741,9 +741,9 @@ document.write(`
 
 
 <div class="viewcode-block" id="curvature"><a class="viewcode-back" href="../../reference/generated/raster_tools.surface.curvature.html#raster_tools.surface.curvature">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">curvature</span><span class="p">(</span><span class="n">raster</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Calculates the curvature of each raster cell for each raster band.</span>
+<span class="w">    </span><span class="sd">"""Calculates the curvature of each raster cell for each raster band.</span>
 
-<span class="sd">    The approach is based on ESRI&#39;s curvature calculation.</span>
+<span class="sd">    The approach is based on ESRI's curvature calculation.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
@@ -761,9 +761,9 @@ document.write(`
 <span class="sd">    ----------</span>
 <span class="sd">    * `ESRI curvature &lt;https://pro.arcgis.com/en/pro-app/latest/tool-reference/3d-analyst/how-curvature-works.htm&gt;`_</span>
 
-<span class="sd">    &quot;&quot;&quot;</span>  <span class="c1"># noqa: E501</span>
+<span class="sd">    """</span>  <span class="c1"># noqa: E501</span>
     <span class="n">raster</span> <span class="o">=</span> <span class="n">get_raster</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">null_to_nan</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">raster</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="s2">&quot;float16&quot;</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">raster</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="s2">"float16"</span><span class="p">):</span>
         <span class="n">raster</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">F32</span><span class="p">)</span>
     <span class="n">out_data</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">map_overlap</span><span class="p">(</span>
         <span class="n">_curv</span><span class="p">,</span>
@@ -779,7 +779,7 @@ document.write(`
 <span class="k">def</span><span class="w"> </span><span class="nf">_northing_easting</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">do_northing</span><span class="p">):</span>
     <span class="n">trig</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span> <span class="k">if</span> <span class="n">do_northing</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span>
     <span class="n">data</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">data</span>
-    <span class="c1"># Operate on raster.data rather than raster.xdata to avoid xarray&#39;s</span>
+    <span class="c1"># Operate on raster.data rather than raster.xdata to avoid xarray's</span>
     <span class="c1"># annoying habit of dropping meta data.</span>
     <span class="n">data</span> <span class="o">=</span> <span class="n">trig</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">radians</span><span class="p">(</span><span class="n">data</span><span class="p">))</span>
     <span class="k">if</span> <span class="n">raster</span><span class="o">.</span><span class="n">_masked</span><span class="p">:</span>
@@ -789,7 +789,7 @@ document.write(`
 
 
 <div class="viewcode-block" id="northing"><a class="viewcode-back" href="../../reference/generated/raster_tools.surface.northing.html#raster_tools.surface.northing">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">northing</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">is_aspect</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Calculates the nothing component of each raster cell for each band.</span>
 
 <span class="sd">    Parameters</span>
@@ -807,17 +807,17 @@ document.write(`
 <span class="sd">        The resulting raster of northing (-1 to 1). The bands will have the</span>
 <span class="sd">        same shape as the original Raster.</span>
 
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">is_aspect</span><span class="p">:</span>
         <span class="n">raster</span> <span class="o">=</span> <span class="n">aspect</span><span class="p">(</span><span class="n">raster</span><span class="p">)</span>
     <span class="n">raster</span> <span class="o">=</span> <span class="n">get_raster</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">null_to_nan</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
-    <span class="k">if</span> <span class="n">raster</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="s2">&quot;float16&quot;</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">raster</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="s2">"float16"</span><span class="p">):</span>
         <span class="n">raster</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">F32</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">_northing_easting</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="easting"><a class="viewcode-back" href="../../reference/generated/raster_tools.surface.easting.html#raster_tools.surface.easting">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">easting</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">is_aspect</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Calculates the easting component of each raster cell for each band.</span>
 
 <span class="sd">    Parameters</span>
@@ -835,12 +835,12 @@ document.write(`
 <span class="sd">        The resulting raster of easting (-1 to 1). The bands will have the same</span>
 <span class="sd">        shape as the original raster.</span>
 
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">is_aspect</span><span class="p">:</span>
         <span class="n">raster</span> <span class="o">=</span> <span class="n">aspect</span><span class="p">(</span><span class="n">raster</span><span class="p">)</span>
 
     <span class="n">raster</span> <span class="o">=</span> <span class="n">get_raster</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">null_to_nan</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
-    <span class="k">if</span> <span class="n">raster</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="s2">&quot;float16&quot;</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">raster</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="s2">"float16"</span><span class="p">):</span>
         <span class="n">raster</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">F32</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">_northing_easting</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span></div>
 
@@ -891,10 +891,10 @@ document.write(`
 
 
 <div class="viewcode-block" id="hillshade"><a class="viewcode-back" href="../../reference/generated/raster_tools.surface.hillshade.html#raster_tools.surface.hillshade">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">hillshade</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">azimuth</span><span class="o">=</span><span class="mi">315</span><span class="p">,</span> <span class="n">altitude</span><span class="o">=</span><span class="mi">45</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    Calculates the hillshade component of each raster cell for each band.</span>
 
-<span class="sd">    This approach is based on ESRI&#39;s hillshade calculation.</span>
+<span class="sd">    This approach is based on ESRI's hillshade calculation.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
@@ -917,9 +917,9 @@ document.write(`
 <span class="sd">    ----------</span>
 <span class="sd">    * `ESRI hillshade &lt;https://pro.arcgis.com/en/pro-app/latest/tool-reference/spatial-analyst/how-hillshade-works.htm&gt;`_</span>
 
-<span class="sd">    &quot;&quot;&quot;</span>  <span class="c1"># noqa: E501</span>
+<span class="sd">    """</span>  <span class="c1"># noqa: E501</span>
     <span class="n">raster</span> <span class="o">=</span> <span class="n">get_raster</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">null_to_nan</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">raster</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="s2">&quot;float16&quot;</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">raster</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="s2">"float16"</span><span class="p">):</span>
         <span class="n">raster</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">F32</span><span class="p">)</span>
     <span class="c1"># Specifically leave resolution sign as is</span>
     <span class="n">out_data</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">map_overlap</span><span class="p">(</span>
@@ -942,7 +942,7 @@ document.write(`
 
 
 <div class="viewcode-block" id="tpi"><a class="viewcode-back" href="../../reference/generated/raster_tools.surface.tpi.html#raster_tools.surface.tpi">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">tpi</span><span class="p">(</span><span class="n">dem</span><span class="p">,</span> <span class="n">annulus_inner</span><span class="p">,</span> <span class="n">annulus_outer</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute the Topographic Position Index of a DEM.</span>
+<span class="w">    </span><span class="sd">"""Compute the Topographic Position Index of a DEM.</span>
 
 <span class="sd">    This function compares each elevation value to the mean of its neighborhood</span>
 <span class="sd">    to produce a scale-dependent index that highlights ridges (positive values)</span>
@@ -981,24 +981,24 @@ document.write(`
 <span class="sd">      2001, San Diego, CA. Available at</span>
 <span class="sd">      http://www.jennessent.com/arcview/TPI_Weiss_poster.htm</span>
 
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="sd">    """</span>
     <span class="n">dem</span> <span class="o">=</span> <span class="n">get_raster</span><span class="p">(</span><span class="n">dem</span><span class="p">)</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">is_int</span><span class="p">(</span><span class="n">annulus_inner</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">is_int</span><span class="p">(</span><span class="n">annulus_outer</span><span class="p">):</span>
         <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
-            <span class="s2">&quot;annulus_inner and annulus_outer must be integer values&quot;</span>
+            <span class="s2">"annulus_inner and annulus_outer must be integer values"</span>
         <span class="p">)</span>
     <span class="k">if</span> <span class="n">annulus_inner</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;annulus_inner must be greater or equal to zero&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"annulus_inner must be greater or equal to zero"</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">annulus_outer</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;annulus_outer must be greater than zero&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"annulus_outer must be greater than zero"</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">annulus_inner</span> <span class="o">&gt;=</span> <span class="n">annulus_outer</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;annulus_inner must be less than annulus_outer&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"annulus_inner must be less than annulus_outer"</span><span class="p">)</span>
 
     <span class="k">if</span> <span class="n">annulus_inner</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
         <span class="n">radii</span> <span class="o">=</span> <span class="n">annulus_outer</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="n">radii</span> <span class="o">=</span> <span class="p">(</span><span class="n">annulus_inner</span><span class="p">,</span> <span class="n">annulus_outer</span><span class="p">)</span>
-    <span class="n">rs_tpi</span> <span class="o">=</span> <span class="p">((</span><span class="n">dem</span> <span class="o">-</span> <span class="n">focal</span><span class="o">.</span><span class="n">focal</span><span class="p">(</span><span class="n">dem</span><span class="p">,</span> <span class="s2">&quot;mean&quot;</span><span class="p">,</span> <span class="n">radii</span><span class="p">))</span> <span class="o">+</span> <span class="mf">0.5</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">I32</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+    <span class="n">rs_tpi</span> <span class="o">=</span> <span class="p">((</span><span class="n">dem</span> <span class="o">-</span> <span class="n">focal</span><span class="o">.</span><span class="n">focal</span><span class="p">(</span><span class="n">dem</span><span class="p">,</span> <span class="s2">"mean"</span><span class="p">,</span> <span class="n">radii</span><span class="p">))</span> <span class="o">+</span> <span class="mf">0.5</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">I32</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">dem</span><span class="o">.</span><span class="n">_masked</span><span class="p">:</span>
         <span class="n">rs_tpi</span> <span class="o">=</span> <span class="n">rs_tpi</span><span class="o">.</span><span class="n">set_null_value</span><span class="p">(</span><span class="n">get_default_null_value</span><span class="p">(</span><span class="n">I32</span><span class="p">))</span>
     <span class="k">return</span> <span class="n">rs_tpi</span></div>
