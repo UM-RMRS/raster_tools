@@ -117,6 +117,56 @@ def _rio_mask(geoms, shape, transform, all_touched, invert):
     return out
 
 
+def _chunk_intersects_mask(geometry, bounds):
+    """
+    Return a boolean mask marking the geometries whose bounds overlap the
+    chunk bounds. Missing and empty geometries have NaN bounds and fail
+    every comparison, so they are dropped as well.
+    """
+    xmin, ymin, xmax, ymax = bounds
+    b = shapely.bounds(geometry)
+    return (
+        (b[:, 0] <= xmax)
+        & (b[:, 2] >= xmin)
+        & (b[:, 1] <= ymax)
+        & (b[:, 3] >= ymin)
+    )
+
+
+def _clip_polygons_to_chunk(geometry, bounds):
+    """
+    Clip polygons that extend past the chunk bounds. Rasterizing cost grows
+    with the number of vertices handed to rasterio, so cutting polygons
+    down to the chunk keeps large features cheap.
+
+    Points and lines are never clipped. GDAL walks a line from its first
+    vertex, so a clipped line can burn different cells than the original.
+    A polygon whose clip collapses to nothing or to a lower dimension is
+    passed through unchanged so that GDAL decides which cells it touches.
+    The input array is not modified.
+    """
+    xmin, ymin, xmax, ymax = bounds
+    b = shapely.bounds(geometry)
+    inside = (
+        (b[:, 0] >= xmin)
+        & (b[:, 1] >= ymin)
+        & (b[:, 2] <= xmax)
+        & (b[:, 3] <= ymax)
+    )
+    to_clip = ~inside & (shapely.get_dimensions(geometry) == 2)
+    if not to_clip.any():
+        return geometry
+    src = geometry[to_clip]
+    clipped = shapely.clip_by_rect(src, xmin, ymin, xmax, ymax)
+    degenerate = shapely.is_empty(clipped) | (
+        shapely.get_dimensions(clipped) != 2
+    )
+    clipped[degenerate] = src[degenerate]
+    geometry = geometry.copy()
+    geometry[to_clip] = clipped
+    return geometry
+
+
 def _rasterize_onto_chunk(
     gdf,
     transform,
@@ -141,29 +191,13 @@ def _rasterize_onto_chunk(
             " given, but it is not unique within a partition. Add a column of"
             " unique IDs with add_objectid_column and pass it as 'field'."
         )
-    valid = ~(gdf.geometry.is_empty | gdf.geometry.isna())
-    gdf = gdf[valid]
-    if len(gdf) == 0:
+    bounds = rio.transform.array_bounds(*shape_2d, transform)
+    keep = _chunk_intersects_mask(gdf.geometry.to_numpy(), bounds)
+    if not keep.any():
         return np.full(shape_2d, fill, dtype=out_dtype)
+    gdf = gdf[keep]
     if use_index:
         gdf = gdf.reset_index(names="values")
-
-    # Trim anything outside the chunk
-    chunk_bbox = shapely.geometry.box(
-        *rio.transform.array_bounds(*shape_2d, transform)
-    )
-    geoms_bbox = shapely.geometry.box(*gdf.total_bounds)
-    if not shapely.intersects(chunk_bbox, geoms_bbox):
-        return np.full(shape_2d, fill, dtype=out_dtype)
-    # The clip call shuffles the dataframe. Add column that can be used to
-    # return the dataframe to the original order after clipping.
-    # ref: https://github.com/geopandas/geopandas/issues/2937
-    gdf["idx"] = np.arange(len(gdf))
-    gdf = gdf.clip(chunk_bbox)
-    gdf = gdf.sort_values(by=["idx"])
-    if not len(gdf):
-        return np.full(shape_2d, fill, dtype=out_dtype)
-    gdf = gdf.drop(labels="idx", axis=1)
 
     # Sort the dataframe to match the specified overlap resolution method.
     # rasterio's raesterize function replaces cells with overlapping features
@@ -191,7 +225,7 @@ def _rasterize_onto_chunk(
         # Sort so that larger values get rasterized last
         gdf = gdf.sort_values(by=["values"], na_position="first")
 
-    geometry = gdf.geometry.to_numpy()
+    geometry = _clip_polygons_to_chunk(gdf.geometry.to_numpy(), bounds)
     values = gdf["values"].to_numpy().copy()
     if use_index:
         values += 1
@@ -210,20 +244,13 @@ def _mask_onto_chunk(
     """
     fill = 1 if invert else 0
     shape_2d = block_info[None]["chunk-shape"]
-    # Trim anything outside the chunk
-    chunk_bbox = shapely.geometry.box(
-        *rio.transform.array_bounds(*shape_2d, transform)
-    )
-    geoms_bbox = shapely.geometry.box(*gdf.total_bounds)
-    if not shapely.intersects(chunk_bbox, geoms_bbox):
+    bounds = rio.transform.array_bounds(*shape_2d, transform)
+    geometry = gdf.geometry.to_numpy()
+    keep = _chunk_intersects_mask(geometry, bounds)
+    if not keep.any():
         return np.full(shape_2d, fill, dtype="uint8")
-    gdf = gdf.clip(chunk_bbox)
-    if not len(gdf):
-        return np.full(shape_2d, fill, dtype="uint8")
-
-    return _rio_mask(
-        gdf.geometry.to_numpy(), shape_2d, transform, all_touched, invert
-    )
+    geometry = _clip_polygons_to_chunk(geometry[keep], bounds)
+    return _rio_mask(geometry, shape_2d, transform, all_touched, invert)
 
 
 @nb.jit(nopython=True, nogil=True)
