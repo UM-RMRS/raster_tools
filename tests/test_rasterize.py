@@ -305,6 +305,37 @@ def test_rasterize_mask(
     assert result.dtype == np.dtype("uint8")
 
 
+def test_rasterize_no_field_uses_unique_index_across_partitions():
+    like = testdata.raster.dem_small
+    feats = rts.vector.get_vector(testdata.vector.test_circles_small).data
+    feats = feats.compute().reset_index(drop=True)
+    # Two partitions with a global RangeIndex, as the file readers produce
+    dfeats = dgpd.from_geopandas(feats, npartitions=2)
+    assert dfeats.npartitions == 2
+
+    result = rasterize.rasterize(dfeats, like).load()
+
+    values = np.unique(result.to_numpy())
+    values = values[values != result.null_value]
+    assert set(values) <= set(range(1, len(feats) + 1))
+    assert len(values) > 1
+
+
+def test_rasterize_no_field_rejects_duplicate_index():
+    like = testdata.raster.dem_small
+    feats = rts.vector.get_vector(testdata.vector.test_circles_small).data
+    feats = feats.compute()
+    feats.index = np.arange(len(feats)) // 2
+    dfeats = dgpd.from_geopandas(feats, npartitions=2)
+    assert dfeats.known_divisions
+
+    result = rasterize.rasterize(dfeats, like)
+    with pytest.raises(ValueError, match="not unique within a partition"):
+        result.load()
+    # A field sidesteps the index entirely
+    rasterize.rasterize(dfeats, like, field="values").load()
+
+
 @pytest.mark.parametrize(
     "field,mask",
     [(None, False), ("values", False), (None, True)],

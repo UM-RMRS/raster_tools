@@ -87,11 +87,17 @@ def _rasterize_onto_chunk(
     overlap_resolve_method.
     """
     shape_2d = block_info[None]["chunk-shape"]
+    use_index = "values" not in gdf
+    if use_index and not gdf.index.is_unique:
+        raise ValueError(
+            "The dataframe index is used for feature values when no field is"
+            " given, but it is not unique within a partition. Add a column of"
+            " unique IDs with add_objectid_column and pass it as 'field'."
+        )
     valid = ~(gdf.geometry.is_empty | gdf.geometry.isna())
     gdf = gdf[valid]
     if len(gdf) == 0:
         return np.full(shape_2d, fill, dtype=out_dtype)
-    use_index = "values" not in gdf
     if use_index:
         gdf = gdf.reset_index(names="values")
 
@@ -552,13 +558,17 @@ def rasterize(
     particular data field or to create a raster mask of zeros and ones. Using
     values to rasterize is the default. Use `mask=True` to generate a raster
     mask. If no data field is specified, the underlying dataframe's index plus
-    one is used. NOTE: because of limitations in dask, dataframe index values
-    are not guaranteed to be unique across the dataframe. Cells that do not
-    touch or overlap any features are marked as null.
+    one is used. Vectors opened from a file carry a global, contiguous integer
+    index across all partitions, so each feature receives a unique value.
+    Cells that do not touch or overlap any features are marked as null.
 
-    To add a column of unique IDs for each feature, see
+    A dask dataframe supplied directly must have a unique index for the
+    resulting values to identify features. Duplicate index values within a
+    partition raise a ``ValueError`` when the result is computed. To add a
+    column of unique IDs for each feature, see
     :func:`raster_tools.vector.add_objectid_column` or
-    :meth:`raster_tools.vector.Vector.add_objectid_column`.
+    :meth:`raster_tools.vector.Vector.add_objectid_column` and pass the new
+    column as `field`.
 
     This operation can be greatly accelerated if the provided `features`
     object has been spatially shuffled or had spatial partitions calculated.
