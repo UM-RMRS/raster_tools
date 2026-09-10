@@ -11,11 +11,17 @@ import geopandas as gpd
 import numpy as np
 import pytest
 import shapely
+from affine import Affine
+from rasterio.features import rasterize as rio_rasterize
 
 from raster_tools import rasterize
 from raster_tools.masking import get_default_null_value
 from tests import testdata
-from tests.utils import assert_rasters_similar, assert_valid_raster
+from tests.utils import (
+    assert_rasters_similar,
+    assert_valid_raster,
+    make_raster,
+)
 
 
 def test_rasterize_partition_chunk_matches():
@@ -275,6 +281,248 @@ def test_rio_mask_call_count_and_shared_out(monkeypatch):
 def calc_spatial_parts(x):
     x.calculate_spatial_partitions()
     return x
+
+
+def _edge_like(chunks=(1, 10, 10)):
+    # 20x20 unit-cell grid, origin (0, 20), chunk edges at x=10 and y=10
+    return make_raster(
+        "zeros",
+        shape=(1, 20, 20),
+        affine=Affine(1, 0, 0, 0, -1, 20),
+        chunksize=chunks,
+    )
+
+
+def _edge_features():
+    # Values 1..n. Features chosen to exercise chunk edges: a polygon
+    # crossing both edges diagonally, a polygon containing a whole chunk, a
+    # polygon whose hole straddles both edges, a MultiPolygon spanning three
+    # chunks, a polygon abutting x=10 from the left, a line crossing both
+    # edges, a line along x=10, a line ending on x=10 from the left, and
+    # points on and off the edges.
+    geoms = [
+        shapely.Polygon([(10, 2), (18, 10), (10, 18), (2, 10)]),
+        shapely.box(-2, -2, 12, 12),
+        shapely.Polygon(
+            [(6, 6), (19, 6), (19, 19), (6, 19)],
+            holes=[[(8, 8), (13, 8), (13, 13), (8, 13)]],
+        ),
+        shapely.MultiPolygon(
+            [
+                shapely.box(1, 1, 3, 3),
+                shapely.box(13, 13, 15, 15),
+                shapely.box(1, 13, 3, 15),
+            ]
+        ),
+        shapely.box(6, 2, 10, 6),
+        shapely.LineString([(4, 4), (16, 16)]),
+        shapely.LineString([(10, 2), (10, 18)]),
+        shapely.LineString([(4, 15), (10, 15)]),
+        shapely.Point(10, 5),
+        shapely.Point(5, 10),
+        shapely.Point(10, 10),
+        shapely.Point(0, 15),
+        shapely.Point(20, 5),
+    ]
+    return gpd.GeoDataFrame(
+        {"values": np.arange(1, len(geoms) + 1)},
+        geometry=geoms,
+        crs="EPSG:3857",
+    )
+
+
+def _reference(gdf, like, all_touched, fill=0):
+    return rio_rasterize(
+        zip(gdf.geometry, gdf["values"], strict=True),
+        out_shape=like.shape[1:],
+        transform=like.affine,
+        fill=fill,
+        all_touched=all_touched,
+        dtype="int64",
+    )
+
+
+def _sort_like_chunk(gdf, overlap_resolve_method):
+    # Mirror the per-chunk overlap-resolution sort in _rasterize_onto_chunk.
+    if overlap_resolve_method == "first":
+        return gdf.iloc[::-1]
+    if overlap_resolve_method == "last":
+        return gdf
+    if overlap_resolve_method == "min":
+        return gdf.sort_values(
+            by=["values"], ascending=False, na_position="first"
+        )
+    return gdf.sort_values(by=["values"], na_position="first")
+
+
+@pytest.mark.parametrize("all_touched", [False, True])
+@pytest.mark.parametrize("overlap_resolve_method", ["first", "last"])
+def test_rasterize_chunk_edges_match_whole_raster(
+    all_touched, overlap_resolve_method
+):
+    gdf = _edge_features()
+    like = _edge_like()
+    ref_gdf = gdf.iloc[::-1] if overlap_resolve_method == "first" else gdf
+    expected = _reference(ref_gdf, like, all_touched)
+
+    result = rasterize.rasterize(
+        gdf,
+        like,
+        field="values",
+        all_touched=all_touched,
+        overlap_resolve_method=overlap_resolve_method,
+        null_value=0,
+    )
+    single = rasterize.rasterize(
+        gdf,
+        _edge_like(chunks=(1, 20, 20)),
+        field="values",
+        all_touched=all_touched,
+        overlap_resolve_method=overlap_resolve_method,
+        null_value=0,
+    )
+
+    np.testing.assert_array_equal(result.to_numpy()[0], expected)
+    np.testing.assert_array_equal(single.to_numpy()[0], expected)
+
+
+@pytest.mark.parametrize("all_touched", [False, True])
+@pytest.mark.parametrize("mask_invert", [False, True])
+def test_rasterize_mask_chunk_edges_match_whole_raster(
+    all_touched, mask_invert
+):
+    gdf = _edge_features()
+    like = _edge_like()
+    base = rio_rasterize(
+        gdf.geometry,
+        out_shape=like.shape[1:],
+        transform=like.affine,
+        fill=0,
+        default_value=1,
+        all_touched=all_touched,
+        dtype="uint8",
+    )
+    expected = (1 - base) if mask_invert else base
+
+    result = rasterize.rasterize(
+        gdf,
+        like,
+        mask=True,
+        mask_invert=mask_invert,
+        all_touched=all_touched,
+    )
+    single = rasterize.rasterize(
+        gdf,
+        _edge_like(chunks=(1, 20, 20)),
+        mask=True,
+        mask_invert=mask_invert,
+        all_touched=all_touched,
+    )
+
+    np.testing.assert_array_equal(result.to_numpy()[0], expected)
+    np.testing.assert_array_equal(single.to_numpy()[0], expected)
+
+
+@pytest.mark.parametrize(
+    "overlap_resolve_method", ["first", "last", "min", "max"]
+)
+def test_rasterize_overlap_order_without_resort(overlap_resolve_method):
+    rng = np.random.default_rng(0)
+    n = 30
+    xs = rng.uniform(0, 14, n)
+    ys = rng.uniform(0, 14, n)
+    boxes = [
+        shapely.box(x, y, x + 6, y + 6) for x, y in zip(xs, ys, strict=True)
+    ]
+    values = rng.permutation(np.arange(1, n + 1))
+    gdf = gpd.GeoDataFrame({"values": values}, geometry=boxes, crs="EPSG:3857")
+    # Make the spatial order deliberately non-monotone so a dropped re-sort
+    # would show up as misordered overlaps.
+    gdf = gdf.iloc[rng.permutation(n)].reset_index(drop=True)
+
+    ref_gdf = _sort_like_chunk(gdf, overlap_resolve_method)
+    expected = _reference(ref_gdf, _edge_like(), False)
+
+    result = rasterize.rasterize(
+        gdf,
+        _edge_like(),
+        field="values",
+        overlap_resolve_method=overlap_resolve_method,
+        all_touched=False,
+        null_value=0,
+    )
+
+    np.testing.assert_array_equal(result.to_numpy()[0], expected)
+
+
+def test_clip_polygons_to_chunk_unit():
+    bounds = (0.0, 0.0, 10.0, 10.0)
+
+    # Lines and points are never clipped; the same array object comes back.
+    line_pts = np.array(
+        [shapely.LineString([(-5, 5), (15, 5)]), shapely.Point(5, 5)],
+        dtype=object,
+    )
+    assert rasterize._clip_polygons_to_chunk(line_pts, bounds) is line_pts
+
+    # A straddling polygon is clipped down to the chunk bounds.
+    straddle = shapely.box(-5, -5, 5, 5)
+    arr = np.array([straddle], dtype=object)
+    out = rasterize._clip_polygons_to_chunk(arr, bounds)
+    b = shapely.bounds(out[0])
+    assert b[0] >= 0 and b[1] >= 0 and b[2] <= 10 and b[3] <= 10
+    # The input array is not mutated.
+    assert arr[0] is straddle
+
+    # A polygon touching only along the edge clips to a lower dimension, so
+    # the original polygon is passed through unchanged.
+    edge = shapely.box(-5, 2, 0, 6)
+    arr2 = np.array([edge], dtype=object)
+    out2 = rasterize._clip_polygons_to_chunk(arr2, bounds)
+    assert out2[0] is edge
+
+
+def test_chunk_intersects_mask_drops_missing_and_empty():
+    bounds = (0.0, 0.0, 10.0, 10.0)
+    geoms = np.array(
+        [
+            shapely.box(2, 2, 8, 8),
+            None,
+            shapely.Polygon(),
+            shapely.box(20, 20, 30, 30),
+        ],
+        dtype=object,
+    )
+    mask = rasterize._chunk_intersects_mask(geoms, bounds)
+    np.testing.assert_array_equal(mask, [True, False, False, False])
+
+
+def test_rasterize_onto_chunk_index_plus_one_with_missing_rows():
+    like = _edge_like(chunks=(1, 20, 20))
+    geoms = [
+        shapely.box(2, 12, 8, 18),
+        None,
+        shapely.Polygon(),
+        shapely.box(2, 2, 8, 8),
+    ]
+    gdf = gpd.GeoDataFrame(geometry=geoms, crs="EPSG:3857")
+
+    out = rasterize._rasterize_onto_chunk(
+        gdf,
+        like.affine,
+        np.dtype("int64"),
+        0,
+        False,
+        "last",
+        block_info={None: {"chunk-shape": (20, 20)}},
+    )
+
+    # Index-plus-one values survive the boolean filter of missing rows:
+    # index 0 burns 1 and index 3 burns 4; the dropped rows never appear.
+    assert 1 in out
+    assert 4 in out
+    assert 2 not in out
+    assert 3 not in out
 
 
 def rasterize_helper(
