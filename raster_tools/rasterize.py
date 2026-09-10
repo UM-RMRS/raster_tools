@@ -26,6 +26,18 @@ _RIO_64BIT_INTS_SUPPORTED = GDALVersion.runtime().at_least("3.5") and (
 )
 
 
+# rasterio converts every geometry to a GeoJSON dict of nested tuples of
+# Python floats before burning, then builds an OGR copy of each one. Both
+# copies of the whole shape list are alive at once, so the peak memory of a
+# single call scales with the total coordinate count. Geometries are burned
+# in batches whose coordinate totals stay near this budget. At roughly 100
+# bytes per GeoJSON coordinate, 1e6 coordinates is on the order of 100 MB.
+RASTERIZE_COORD_BUDGET = 1_000_000
+# Fixed per-geometry cost, in coordinate equivalents, for the GeoJSON dict,
+# its ring/part lists, and the (geometry, value) pair rasterio builds.
+GEOM_COORD_OVERHEAD = 8
+
+
 def _get_rio_dtype(dtype):
     if dtype == I8:
         return I16
@@ -35,6 +47,33 @@ def _get_rio_dtype(dtype):
     return dtype
 
 
+def _iter_geom_batches(geometry, budget=None):
+    """Yield (start, stop) index pairs that split geometry into batches.
+
+    Each batch's total coordinate count stays under budget plus the size of
+    its first geometry. A geometry that is larger than budget on its own is
+    always yielded as its own batch. Batches preserve the input order.
+    """
+    if budget is None:
+        budget = RASTERIZE_COORD_BUDGET
+    budget = max(int(budget), 1)
+    n = len(geometry)
+    if n == 0:
+        return
+    weights = shapely.get_num_coordinates(geometry).astype(np.int64)
+    weights += GEOM_COORD_OVERHEAD
+    csum = np.cumsum(weights)
+    total = int(csum[-1])
+    # Cut wherever the running total crosses a multiple of the budget.
+    targets = np.arange(budget, total, budget)
+    cuts = np.searchsorted(csum, targets, side="right")
+    # Isolate oversized geometries so they never share a batch.
+    big = np.flatnonzero(weights > budget)
+    bounds = np.unique(np.concatenate(([0], cuts, big, big + 1, [n])))
+    for start, stop in zip(bounds[:-1], bounds[1:], strict=True):
+        yield int(start), int(stop)
+
+
 def _rio_rasterize_wrapper(
     shape, transform, geometry, values, out_dtype, fill, all_touched
 ):
@@ -42,32 +81,40 @@ def _rio_rasterize_wrapper(
     values_dtype = _get_rio_dtype(values.dtype)
     if values_dtype != values.dtype:
         values = values.astype(values_dtype)
+    geometry = np.asarray(geometry)
 
-    rast_array = rio_rasterize(
-        zip(geometry, values, strict=True),
-        out_shape=shape,
-        transform=transform,
-        fill=fill,
-        all_touched=all_touched,
-        merge_alg=MergeAlg.replace,
-        dtype=rio_dtype,
-    )
+    # Burn into one preallocated array. With out given, rasterio ignores
+    # fill, dtype, and out_shape, so fill and dtype are applied here. Later
+    # batches overwrite earlier ones the same way later shapes already do
+    # within a single call, so the result matches an unbatched call.
+    out = np.full(shape, fill, dtype=rio_dtype)
+    for start, stop in _iter_geom_batches(geometry):
+        rio_rasterize(
+            zip(geometry[start:stop], values[start:stop], strict=True),
+            out=out,
+            transform=transform,
+            all_touched=all_touched,
+            merge_alg=MergeAlg.replace,
+        )
 
     if rio_dtype != out_dtype:
-        rast_array = rast_array.astype(out_dtype)
-    return rast_array
+        out = out.astype(out_dtype)
+    return out
 
 
 def _rio_mask(geoms, shape, transform, all_touched, invert):
     fill, geom_value = (1, 0) if invert else (0, 1)
-    return rio_rasterize(
-        geoms,
-        out_shape=shape,
-        fill=fill,
-        transform=transform,
-        all_touched=all_touched,
-        default_value=geom_value,
-    )
+    geoms = np.asarray(geoms)
+    out = np.full(shape, fill, dtype=U8)
+    for start, stop in _iter_geom_batches(geoms):
+        rio_rasterize(
+            geoms[start:stop],
+            out=out,
+            transform=transform,
+            all_touched=all_touched,
+            default_value=geom_value,
+        )
+    return out
 
 
 def _rasterize_onto_chunk(

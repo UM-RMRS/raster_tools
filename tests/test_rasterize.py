@@ -7,6 +7,7 @@ import raster_tools as rts
 
 import dask.array as da
 import dask_geopandas as dgpd
+import geopandas as gpd
 import numpy as np
 import pytest
 import shapely
@@ -109,6 +110,166 @@ def test_rasterize_spatial_aware_routing(monkeypatch):
     features.calculate_spatial_partitions()
     rasterize.rasterize(features, like)
     assert calls == {"naive": 1, "aware": 2}
+
+
+def _direct_rasterize_inputs():
+    # Geometries, values, and grid info for calling the low level wrappers
+    # directly with no dask involved.
+    like = testdata.raster.dem_small
+    gdf = testdata.vector.test_circles_small.data.compute()
+    geometry = gdf.geometry.to_numpy()
+    values = gdf["values"].to_numpy()
+    shape = like.shape[1:]
+    return like.affine, shape, geometry, values
+
+
+@pytest.mark.parametrize("budget", [1, 150, 10**9])
+@pytest.mark.parametrize("all_touched", [False, True])
+def test_rio_rasterize_wrapper_batching_matches_single_call(
+    monkeypatch, budget, all_touched
+):
+    transform, shape, geometry, values = _direct_rasterize_inputs()
+    # Unbounded budget is a single call and is the reference result.
+    monkeypatch.setattr(rasterize, "RASTERIZE_COORD_BUDGET", 10**9)
+    expected = rasterize._rio_rasterize_wrapper(
+        shape, transform, geometry, values, values.dtype, -1, all_touched
+    )
+    monkeypatch.setattr(rasterize, "RASTERIZE_COORD_BUDGET", budget)
+    result = rasterize._rio_rasterize_wrapper(
+        shape, transform, geometry, values, values.dtype, -1, all_touched
+    )
+    assert result.dtype == values.dtype
+    assert np.array_equal(result, expected)
+
+
+@pytest.mark.parametrize("budget", [1, 150, 10**9])
+@pytest.mark.parametrize("all_touched", [False, True])
+@pytest.mark.parametrize("invert", [False, True])
+def test_rio_mask_batching_matches_single_call(
+    monkeypatch, budget, all_touched, invert
+):
+    transform, shape, geometry, _ = _direct_rasterize_inputs()
+    monkeypatch.setattr(rasterize, "RASTERIZE_COORD_BUDGET", 10**9)
+    expected = rasterize._rio_mask(
+        geometry, shape, transform, all_touched, invert
+    )
+    monkeypatch.setattr(rasterize, "RASTERIZE_COORD_BUDGET", budget)
+    result = rasterize._rio_mask(
+        geometry, shape, transform, all_touched, invert
+    )
+    assert result.dtype == np.uint8
+    assert np.array_equal(result, expected)
+
+
+@pytest.mark.parametrize("budget", [1, 150, 10**9])
+def test_rio_mask_accepts_geoseries(monkeypatch, budget):
+    transform, shape, geometry, _ = _direct_rasterize_inputs()
+    monkeypatch.setattr(rasterize, "RASTERIZE_COORD_BUDGET", 10**9)
+    expected = rasterize._rio_mask(geometry, shape, transform, True, False)
+    # line_stats passes a GeoSeries with a non-default index.
+    n = len(geometry)
+    series = gpd.GeoSeries(geometry, index=np.arange(n) + 10)
+    monkeypatch.setattr(rasterize, "RASTERIZE_COORD_BUDGET", budget)
+    result = rasterize._rio_mask(series, shape, transform, True, False)
+    assert result.dtype == np.uint8
+    assert np.array_equal(result, expected)
+
+
+def test_rio_rasterize_wrapper_int8_roundtrip(monkeypatch):
+    transform, shape, geometry, values = _direct_rasterize_inputs()
+    values = values.astype("int8")
+    out_dtype = np.dtype("int8")
+    monkeypatch.setattr(rasterize, "RASTERIZE_COORD_BUDGET", 10**9)
+    expected = rasterize._rio_rasterize_wrapper(
+        shape, transform, geometry, values, out_dtype, -1, True
+    )
+    monkeypatch.setattr(rasterize, "RASTERIZE_COORD_BUDGET", 1)
+    result = rasterize._rio_rasterize_wrapper(
+        shape, transform, geometry, values, out_dtype, -1, True
+    )
+    assert result.dtype == out_dtype
+    assert np.array_equal(result, expected)
+
+
+def test_iter_geom_batches_boundaries():
+    ov = rasterize.GEOM_COORD_OVERHEAD
+    small = shapely.Point(0, 0)  # weight ov + 1
+    big = shapely.LineString([(i, 0) for i in range(5 * (ov + 1))])
+
+    def batches(geoms, budget):
+        return list(
+            rasterize._iter_geom_batches(np.array(geoms, dtype=object), budget)
+        )
+
+    assert batches([], 10) == []
+    assert batches([small] * 3, 3 * (ov + 1)) == [(0, 3)]
+    assert batches([small] * 5, 2 * (ov + 1)) == [(0, 2), (2, 4), (4, 5)]
+    assert batches([small, big, small], ov + 1) == [(0, 1), (1, 2), (2, 3)]
+    assert batches([big, small, small], 2 * (ov + 1)) == [(0, 1), (1, 3)]
+    assert batches([small, small, big], 2 * (ov + 1)) == [(0, 2), (2, 3)]
+    assert batches([small] * 3, 1) == [(0, 1), (1, 2), (2, 3)]
+
+
+def test_iter_geom_batches_tiles_pods_small():
+    gdf = testdata.vector.pods_small.data.compute()
+    geometry = gdf.geometry.to_numpy()
+    n = len(geometry)
+    weights = shapely.get_num_coordinates(geometry).astype(np.int64)
+    weights += rasterize.GEOM_COORD_OVERHEAD
+    budget = 5000
+    bounds = list(rasterize._iter_geom_batches(geometry, budget))
+    assert bounds[0][0] == 0
+    assert bounds[-1][1] == n
+    for (_, end), (nxt_start, _) in zip(bounds, bounds[1:], strict=False):
+        assert end == nxt_start
+    for start, end in bounds:
+        assert end > start
+        assert int(weights[start:end].sum()) < budget + int(weights[start])
+
+
+@pytest.mark.parametrize("budget_in_geoms", [1, 2, 4])
+def test_rio_rasterize_wrapper_call_count(monkeypatch, budget_in_geoms):
+    transform, shape, geometry, values = _direct_rasterize_inputs()
+    n = len(geometry)
+    per_geom = int(shapely.get_num_coordinates(geometry[0]))
+    per_geom += rasterize.GEOM_COORD_OVERHEAD
+    # All circles have the same coordinate count so the batch count is exact.
+    monkeypatch.setattr(
+        rasterize, "RASTERIZE_COORD_BUDGET", per_geom * budget_in_geoms
+    )
+    calls = []
+    real = rasterize.rio_rasterize
+
+    def spy(shapes, **kwargs):
+        shapes = list(shapes)
+        calls.append(len(shapes))
+        return real(shapes, **kwargs)
+
+    monkeypatch.setattr(rasterize, "rio_rasterize", spy)
+    rasterize._rio_rasterize_wrapper(
+        shape, transform, geometry, values, values.dtype, 0, True
+    )
+    assert len(calls) == -(-n // budget_in_geoms)
+    assert sum(calls) == n
+
+
+def test_rio_mask_call_count_and_shared_out(monkeypatch):
+    transform, shape, geometry, _ = _direct_rasterize_inputs()
+    n = len(geometry)
+    per_geom = int(shapely.get_num_coordinates(geometry[0]))
+    per_geom += rasterize.GEOM_COORD_OVERHEAD
+    monkeypatch.setattr(rasterize, "RASTERIZE_COORD_BUDGET", per_geom * 2)
+    outs = []
+    real = rasterize.rio_rasterize
+
+    def spy(shapes, **kwargs):
+        outs.append(kwargs["out"])
+        return real(shapes, **kwargs)
+
+    monkeypatch.setattr(rasterize, "rio_rasterize", spy)
+    rasterize._rio_mask(geometry, shape, transform, True, False)
+    assert len(outs) == -(-n // 2)
+    assert all(o is outs[0] for o in outs)
 
 
 def calc_spatial_parts(x):
