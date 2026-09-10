@@ -526,11 +526,17 @@ document.write(`
 <span class="sd">    overlap_resolve_method.</span>
 <span class="sd">    """</span>
     <span class="n">shape_2d</span> <span class="o">=</span> <span class="n">block_info</span><span class="p">[</span><span class="kc">None</span><span class="p">][</span><span class="s2">"chunk-shape"</span><span class="p">]</span>
+    <span class="n">use_index</span> <span class="o">=</span> <span class="s2">"values"</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">gdf</span>
+    <span class="k">if</span> <span class="n">use_index</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">gdf</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">is_unique</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">"The dataframe index is used for feature values when no field is"</span>
+            <span class="s2">" given, but it is not unique within a partition. Add a column of"</span>
+            <span class="s2">" unique IDs with add_objectid_column and pass it as 'field'."</span>
+        <span class="p">)</span>
     <span class="n">valid</span> <span class="o">=</span> <span class="o">~</span><span class="p">(</span><span class="n">gdf</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">is_empty</span> <span class="o">|</span> <span class="n">gdf</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">isna</span><span class="p">())</span>
     <span class="n">gdf</span> <span class="o">=</span> <span class="n">gdf</span><span class="p">[</span><span class="n">valid</span><span class="p">]</span>
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">gdf</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">shape_2d</span><span class="p">,</span> <span class="n">fill</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">out_dtype</span><span class="p">)</span>
-    <span class="n">use_index</span> <span class="o">=</span> <span class="s2">"values"</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">gdf</span>
     <span class="k">if</span> <span class="n">use_index</span><span class="p">:</span>
         <span class="n">gdf</span> <span class="o">=</span> <span class="n">gdf</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">names</span><span class="o">=</span><span class="s2">"values"</span><span class="p">)</span>
 
@@ -991,13 +997,17 @@ document.write(`
 <span class="sd">    particular data field or to create a raster mask of zeros and ones. Using</span>
 <span class="sd">    values to rasterize is the default. Use `mask=True` to generate a raster</span>
 <span class="sd">    mask. If no data field is specified, the underlying dataframe's index plus</span>
-<span class="sd">    one is used. NOTE: because of limitations in dask, dataframe index values</span>
-<span class="sd">    are not guaranteed to be unique across the dataframe. Cells that do not</span>
-<span class="sd">    touch or overlap any features are marked as null.</span>
+<span class="sd">    one is used. Vectors opened from a file carry a global, contiguous integer</span>
+<span class="sd">    index across all partitions, so each feature receives a unique value.</span>
+<span class="sd">    Cells that do not touch or overlap any features are marked as null.</span>
 
-<span class="sd">    To add a column of unique IDs for each feature, see</span>
+<span class="sd">    A dask dataframe supplied directly must have a unique index for the</span>
+<span class="sd">    resulting values to identify features. Duplicate index values within a</span>
+<span class="sd">    partition raise a ``ValueError`` when the result is computed. To add a</span>
+<span class="sd">    column of unique IDs for each feature, see</span>
 <span class="sd">    :func:`raster_tools.vector.add_objectid_column` or</span>
-<span class="sd">    :meth:`raster_tools.vector.Vector.add_objectid_column`.</span>
+<span class="sd">    :meth:`raster_tools.vector.Vector.add_objectid_column` and pass the new</span>
+<span class="sd">    column as `field`.</span>
 
 <span class="sd">    This operation can be greatly accelerated if the provided `features`</span>
 <span class="sd">    object has been spatially shuffled or had spatial partitions calculated.</span>

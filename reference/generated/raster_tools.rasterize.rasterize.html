@@ -497,12 +497,16 @@ document.write(`
 particular data field or to create a raster mask of zeros and ones. Using
 values to rasterize is the default. Use <cite>mask=True</cite> to generate a raster
 mask. If no data field is specified, the underlying dataframe’s index plus
-one is used. NOTE: because of limitations in dask, dataframe index values
-are not guaranteed to be unique across the dataframe. Cells that do not
-touch or overlap any features are marked as null.</p>
-<p>To add a column of unique IDs for each feature, see
+one is used. Vectors opened from a file carry a global, contiguous integer
+index across all partitions, so each feature receives a unique value.
+Cells that do not touch or overlap any features are marked as null.</p>
+<p>A dask dataframe supplied directly must have a unique index for the
+resulting values to identify features. Duplicate index values within a
+partition raise a <code class="docutils literal notranslate"><span class="pre">ValueError</span></code> when the result is computed. To add a
+column of unique IDs for each feature, see
 <code class="xref py py-func docutils literal notranslate"><span class="pre">raster_tools.vector.add_objectid_column()</span></code> or
-<code class="xref py py-meth docutils literal notranslate"><span class="pre">raster_tools.vector.Vector.add_objectid_column()</span></code>.</p>
+<code class="xref py py-meth docutils literal notranslate"><span class="pre">raster_tools.vector.Vector.add_objectid_column()</span></code> and pass the new
+column as <cite>field</cite>.</p>
 <p>This operation can be greatly accelerated if the provided <cite>features</cite>
 object has been spatially shuffled or had spatial partitions calculated.
 There are a few ways to do this. For <cite>Vector</cite> or <cite>GeoDataFrame</cite>/<cite>GeoSeries</cite>
