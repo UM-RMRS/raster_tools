@@ -491,16 +491,15 @@ def zonal_stats(
         if features.shape[1:] != data_raster.shape[1:]:
             raise ValueError("Feature raster shape must match data raster")
 
-    # Rechunk based on largest (probable) dtype to avoid overly large chunks,
-    # which could cause memory issues down the pipeline. For instance, if the
-    # data raster has dtype of f32 but the rasterization of the features
-    # produces an i64 raster, the features raster will have double the memory
-    # footprint, for each chunk, compared to the original data raster. This
-    # causes dask to raise warnings about chunk sizes and drastically increases
-    # the likelihood of running out of memory at compute time.
-    # Rechunking to an 8-byte dtype helps mitigate the potential for memory
-    # pressure at compute time. It is done here because the chunksize of the
-    # data raster determines the chunksize of the features raster.
+    # Rechunk based on the largest probable dtype to avoid overly large
+    # chunks, which could cause memory issues down the pipeline. Feature
+    # rasterization burns the smallest unsigned dtype that holds the zone ids
+    # and falls back to int64, so a features raster can reach 8 bytes per cell
+    # -- up to double the footprint of, say, an f32 data raster, for each
+    # chunk. That triggers dask chunk-size warnings and raises the likelihood
+    # of running out of memory at compute time. Rechunking to an 8-byte dtype
+    # here mitigates that; it is done here because the data raster's chunksize
+    # determines the features raster's chunksize.
     new_chunksize = da.empty((1, *data_raster.shape[1:]), dtype=F64).chunksize
     data_raster = data_raster.chunk(new_chunksize)
     features_raster = None

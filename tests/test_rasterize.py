@@ -25,6 +25,13 @@ from tests.utils import (
 )
 
 
+def _hlg_layer_names(raster):
+    # High-level-graph layer names carry the op that produced them, so a
+    # stack/reduce layer's presence is a stable structural signal. Inspecting
+    # names avoids asserting spy call counts under dask's threaded compute.
+    return set(raster.data.__dask_graph__().layers)
+
+
 def test_rasterize_partition_chunk_matches():
     like = testdata.raster.dem.chunk((1, 500, 500))
     features = dgpd.read_file(
@@ -884,3 +891,71 @@ def test_rasterize_no_field_uses_minimal_dtype(monkeypatch):
     forced = rasterize.rasterize(features, like).load()
     assert forced.dtype == np.dtype("int64")
     assert np.array_equal(result.to_numpy().astype("int64"), forced.to_numpy())
+
+
+@pytest.mark.parametrize("mask", [False, True])
+def test_single_partition_skips_stack_and_reduce(mask):
+    like = testdata.raster.dem_small.chunk((1, 20, 20))
+    feats = (
+        rts.vector.get_vector(testdata.vector.test_circles_small)
+        .data.compute()
+        .reset_index(drop=True)
+    )
+    one = dgpd.from_geopandas(feats, npartitions=1)
+    assert one.npartitions == 1
+
+    result = rasterize.rasterize(one, like, mask=mask, use_spatial_aware=False)
+    names = _hlg_layer_names(result)
+    # No stack means the reduce (da.reduction, or da.max/da.min for masks) was
+    # never built, since it only runs on a stacked array.
+    assert not any(n.startswith("stack") for n in names)
+
+    # Positive control: two partitions with no spatial info both land on every
+    # chunk, so the stack-and-reduce path stays in the graph.
+    two = dgpd.from_geopandas(feats, npartitions=2)
+    result2 = rasterize.rasterize(
+        two, like, mask=mask, use_spatial_aware=False
+    )
+    assert any(n.startswith("stack") for n in _hlg_layer_names(result2))
+
+
+@pytest.mark.parametrize(
+    "overlap_resolve_method", ["first", "last", "min", "max"]
+)
+def test_two_partition_reduce_matches_single_field(overlap_resolve_method):
+    like = testdata.raster.dem_small.chunk((1, 20, 20))
+    feats = testdata.vector.test_circles_small.data.compute().reset_index(
+        drop=True
+    )
+    one = dgpd.from_geopandas(feats, npartitions=1)
+    two = dgpd.from_geopandas(feats, npartitions=2)
+    kw = {
+        "overlap_resolve_method": overlap_resolve_method,
+        "all_touched": True,
+        "use_spatial_aware": False,
+    }
+    r1 = rasterize.rasterize(one, like, **kw)
+    r2 = rasterize.rasterize(two, like, **kw)
+    # Two partitions with no spatial info keep the reduce path.
+    assert any(n.startswith("stack") for n in _hlg_layer_names(r2))
+    np.testing.assert_array_equal(r1.to_numpy(), r2.to_numpy())
+
+
+@pytest.mark.parametrize("mask_invert", [False, True])
+def test_two_partition_reduce_matches_single_mask(mask_invert):
+    like = testdata.raster.dem_small.chunk((1, 20, 20))
+    feats = testdata.vector.test_circles_small.data.compute().reset_index(
+        drop=True
+    )
+    one = dgpd.from_geopandas(feats, npartitions=1)
+    two = dgpd.from_geopandas(feats, npartitions=2)
+    kw = {
+        "mask": True,
+        "mask_invert": mask_invert,
+        "all_touched": True,
+        "use_spatial_aware": False,
+    }
+    r1 = rasterize.rasterize(one, like, **kw)
+    r2 = rasterize.rasterize(two, like, **kw)
+    assert any(n.startswith("stack") for n in _hlg_layer_names(r2))
+    np.testing.assert_array_equal(r1.to_numpy(), r2.to_numpy())

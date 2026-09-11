@@ -353,10 +353,12 @@ def _reduction_wrapper(
         # gets confused otherwise.
         return x
     # Assuming x has dims (B, Y, X), where B in {1, 2}
-    # Do nothing if input only has one band. Nothing to reduce. Copy in order
-    # to follow dask best practices.
+    # Do nothing if input only has one band. Nothing to reduce. No copy is
+    # needed: the resolvers below allocate fresh outputs via np.where, so this
+    # reduction never mutates its input in place, and each stacked layer feeds
+    # exactly one reduction, so its buffer is not shared.
     if x.shape[0] == 1:
-        return x.copy() if keepdims else x[0].copy()
+        return x if keepdims else x[0]
     # A Python int fill makes np.where inside the resolvers promote small
     # unsigned arrays to int64, so give it the array's own dtype first.
     fill = x.dtype.type(fill)
@@ -366,8 +368,11 @@ def _reduction_wrapper(
     return out[0]
 
 
-def _copy(x, *args, **kwargs):
-    return x.copy()
+def _identity(x, *args, **kwargs):
+    # The reduction's per-chunk step is a no-op. No copy is needed: the
+    # resolvers allocate fresh outputs via np.where, so nothing mutates this
+    # input in place, and each stacked layer feeds exactly one reduction.
+    return x
 
 
 def _reduce_stacked_feature_rasters_custom(
@@ -380,7 +385,7 @@ def _reduce_stacked_feature_rasters_custom(
     )
     reduced = da.reduction(
         stack,
-        chunk=_copy,
+        chunk=_identity,
         combine=agg_func,
         aggregate=agg_func,
         axis=0,
@@ -508,8 +513,16 @@ def _raw_rasterized_chunks_to_dask_array(
                     like_chunk_rasters[fi].data[0], fill, dtype=target_dtype
                 )
             )
+        elif len(oc) == 1:
+            # A single matched partition needs no reduction. oc[0] is the
+            # fresh per-task map_blocks output of _rasterize_onto_chunk or
+            # _mask_onto_chunk: 2D, already on the chunk's grid and in
+            # target_dtype. It is a distinct array per task, so no defensive
+            # copy is needed. Skipping the stack-and-reduce saves three graph
+            # tasks per chunk.
+            processed_chunks.append(oc[0])
         else:
-            # The chunk intersected 1 or more partitions. Reduce stack of
+            # The chunk intersected multiple partitions. Reduce the stack of
             # arrays (partitions rasterized to the chunk's grid) to a single
             # array using the specified overlap resolution method or by merging
             # masks together.
