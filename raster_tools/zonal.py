@@ -156,6 +156,19 @@ _CUSTOM_STAT_AGGS = {
 }
 ZONAL_STAT_FUNCS = frozenset(sorted(_DASK_STAT_NAMES | _CUSTOM_STAT_NAMES))
 
+# Stats computed from per-block moments (size, count, sum, product, min, max,
+# and squared deviations).
+_MOMENT_STATS = frozenset(
+    ("count", "max", "mean", "min", "prod", "size", "std", "sum", "var")
+)
+# Stats computed from per-block (zone, value) counts.
+_COUNT_STATS = frozenset(("asm", "entropy", "mode", "nunique"))
+# Stats returned as int64 rather than float64.
+_INT_STATS = frozenset(("count", "size", "nunique"))
+# Largest zone id used directly as an accumulator index. Larger ids, or any
+# negative id, are factorized with np.unique before accumulation.
+_MAX_DIRECT_ZONE_ID = 2**20
+
 
 def _build_long_format_meta(df):
     return pd.DataFrame(
@@ -237,23 +250,371 @@ def _raster_to_series(raster):
     return dd.from_dask_array(da.concatenate(blocks), columns="raster")
 
 
-def _zonal_stats(features_raster, data_raster, stats):
-    """
-    Convert data to large dask DataFrame, group by the feature zone ids, and
-    apply aggregations specified by `stats` for each band.
-    """
-    stat_names = stats
-    stats, has_median = _find_problem_stats(stats)
-    stats = [
-        s if s in _DASK_STAT_NAMES else _CUSTOM_STAT_AGGS[s] for s in stats
+@nb.jit(nopython=True, nogil=True)
+def _zone_moments_kernel(codes, values, valid, nzones, null_code):
+    # First pass builds size, count, a compensated sum, product, min, and max
+    # for each zone code. The second pass sums squared deviations from each
+    # zone mean so variance can be recombined across blocks.
+    size = np.zeros(nzones, dtype=np.int64)
+    count = np.zeros(nzones, dtype=np.int64)
+    total = np.zeros(nzones, dtype=np.float64)
+    comp = np.zeros(nzones, dtype=np.float64)
+    prod = np.ones(nzones, dtype=np.float64)
+    vmin = np.full(nzones, np.inf)
+    vmax = np.full(nzones, -np.inf)
+    for i in range(codes.size):
+        c = codes[i]
+        if c == null_code:
+            continue
+        size[c] += 1
+        if not valid[i]:
+            continue
+        v = values[i]
+        count[c] += 1
+        # Kahan compensated summation, mirroring pandas' group sums.
+        y = v - comp[c]
+        t = total[c] + y
+        comp[c] = (t - total[c]) - y
+        total[c] = t
+        prod[c] *= v
+        if v < vmin[c]:
+            vmin[c] = v
+        if v > vmax[c]:
+            vmax[c] = v
+    m2 = np.zeros(nzones, dtype=np.float64)
+    for i in range(codes.size):
+        c = codes[i]
+        if c == null_code or not valid[i]:
+            continue
+        d = values[i] - total[c] / count[c]
+        m2[c] += d * d
+    return size, count, total, prod, vmin, vmax, m2
+
+
+def _zone_codes(zones, zone_null):
+    # Map zone ids to dense codes for accumulation. Small non-negative ids are
+    # used directly; wider or negative ids are factorized. Returns ids, codes,
+    # the code count, and the code standing in for the null zone (-1 when no
+    # zone is null). ids[codes] reproduces the input zones.
+    zones = zones.ravel()
+    zmin = int(zones.min())
+    zmax = int(zones.max())
+    if zmin >= 0 and zmax < _MAX_DIRECT_ZONE_ID:
+        nzones = zmax + 1
+        ids = np.arange(nzones, dtype=zones.dtype)
+        codes = zones
+        null_code = -1
+        if zone_null is not None and 0 <= zone_null < nzones:
+            null_code = int(zone_null)
+    else:
+        ids, codes = np.unique(zones, return_inverse=True)
+        codes = codes.ravel()
+        nzones = len(ids)
+        null_code = -1
+        if zone_null is not None:
+            pos = int(np.searchsorted(ids, zone_null))
+            if pos < nzones and ids[pos] == zone_null:
+                null_code = pos
+    return ids, codes, nzones, null_code
+
+
+def _empty_counts(zone_dtype):
+    return pd.DataFrame(
+        {
+            "zone": np.array((), zone_dtype),
+            "band": np.array((), I64),
+            "value": np.array((), F64),
+            "n": np.array((), I64),
+        }
+    )
+
+
+def _block_value_counts(ids, codes, values, valid, null_code, band):
+    # One row per (zone, value) pair present in the block, with its count.
+    # values is already float64 and nulls are already excluded by valid.
+    keep = valid & (codes != null_code)
+    vals_u, vinv = np.unique(values[keep], return_inverse=True)
+    nvals = len(vals_u)
+    if nvals == 0:
+        return _empty_counts(ids.dtype)
+    key = codes[keep].astype(I64) * nvals + vinv.ravel()
+    key_u, n = np.unique(key, return_counts=True)
+    return pd.DataFrame(
+        {
+            "zone": ids[key_u // nvals],
+            "band": np.full(len(key_u), band, dtype=I64),
+            "value": vals_u[key_u % nvals],
+            "n": n,
+        }
+    )
+
+
+def _block_partials(zones, bands, data_null, zone_null, want_counts):
+    # zones is a (1, ny, nx) block; bands is a list of (1, ny, nx) blocks, one
+    # per data band. Returns the moment frame, or (moment frame, count frame)
+    # when value-count stats are requested. All bands share the zone set taken
+    # from band 1's size, which counts cells regardless of data validity.
+    ids, codes, nzones, null_code = _zone_codes(zones, zone_null)
+    moment_parts = []
+    count_parts = []
+    present = None
+    for b, band in enumerate(bands, 1):
+        values = band.ravel().astype(F64, copy=False)
+        valid = ~np.isnan(values)
+        if data_null is not None and not np.isnan(data_null):
+            valid &= values != data_null
+        size, count, total, prod, vmin, vmax, m2 = _zone_moments_kernel(
+            codes, values, valid, nzones, null_code
+        )
+        if present is None:
+            present = np.nonzero(size)[0]
+        index = pd.MultiIndex.from_arrays(
+            [ids[present], np.full(len(present), b, dtype=I64)],
+            names=["zone", "band"],
+        )
+        moment_parts.append(
+            pd.DataFrame(
+                {
+                    "size": size[present],
+                    "count": count[present],
+                    "sum": total[present],
+                    "prod": prod[present],
+                    "min": vmin[present],
+                    "max": vmax[present],
+                    "m2": m2[present],
+                },
+                index=index,
+            )
+        )
+        if want_counts:
+            count_parts.append(
+                _block_value_counts(ids, codes, values, valid, null_code, b)
+            )
+    moments = pd.concat(moment_parts)
+    if want_counts:
+        return moments, pd.concat(count_parts)
+    return moments
+
+
+def _merge_moments(part):
+    # part is indexed by (zone, band) and may hold one row per block for a key.
+    # Combine the rows, recombining squared deviations with the parallel
+    # variance formula M2 = sum(M2_i) + sum(n_i * (mean_i - mean) ** 2).
+    if part.index.is_unique:
+        return part
+    g = part.groupby(level=[0, 1], sort=True)
+    count = g["count"].sum()
+    total = g["sum"].sum()
+    with np.errstate(divide="ignore", invalid="ignore"):
+        mean = total / count
+        delta = (
+            part["count"]
+            * (part["sum"] / part["count"] - mean.reindex(part.index)) ** 2
+        )
+    delta = delta.fillna(0.0)
+    return pd.DataFrame(
+        {
+            "size": g["size"].sum(),
+            "count": count,
+            "sum": total,
+            "prod": g["prod"].prod(),
+            "min": g["min"].min(),
+            "max": g["max"].max(),
+            "m2": g["m2"].sum() + delta.groupby(level=[0, 1]).sum(),
+        }
+    )
+
+
+def _merge_counts(part):
+    return part.groupby(["zone", "band", "value"], sort=True, as_index=False)[
+        "n"
+    ].sum()
+
+
+def _finalize_moments(part, stats):
+    count = part["count"]
+    with np.errstate(divide="ignore", invalid="ignore"):
+        mean = part["sum"] / count
+        var = (part["m2"] / (count - 1)).where(count > 1)
+    cols = {}
+    for s in stats:
+        if s in ("count", "size", "sum", "prod"):
+            cols[s] = part[s]
+        elif s in ("min", "max"):
+            cols[s] = part[s].where(count > 0)
+        elif s == "mean":
+            cols[s] = mean
+        elif s == "var":
+            cols[s] = var
+        elif s == "std":
+            cols[s] = np.sqrt(var)
+    return pd.DataFrame(cols, index=part.index)
+
+
+def _finalize_counts(counts, stats):
+    # counts holds merged (zone, band, value, n) rows. Each stat is computed
+    # vectorized over the groups, with no per-zone Python loop.
+    keys = [counts["zone"], counts["band"]]
+    g = counts.groupby(keys, sort=True)
+    cols = {}
+    if "nunique" in stats:
+        cols["nunique"] = g.size()
+    if "mode" in stats:
+        # Highest count wins; ties break to the lowest value, matching scipy.
+        first = counts.sort_values(
+            ["zone", "band", "n", "value"],
+            ascending=[True, True, False, True],
+        ).drop_duplicates(["zone", "band"])
+        cols["mode"] = pd.Series(
+            first["value"].to_numpy(dtype=F64),
+            index=pd.MultiIndex.from_frame(first[["zone", "band"]]),
+        )
+    if "asm" in stats or "entropy" in stats:
+        p = counts["n"] / g["n"].transform("sum")
+        if "asm" in stats:
+            cols["asm"] = (p * p).groupby(keys).sum()
+        if "entropy" in stats:
+            cols["entropy"] = -(p * np.log(p)).groupby(keys).sum()
+    out = pd.DataFrame(cols)
+    out.index.names = ["zone", "band"]
+    return out
+
+
+def _to_wide(df, nbands, stats):
+    # df is indexed by (zone, band) with one column per stat. Produce a frame
+    # whose columns are (band_b, stat) in the caller's stat order and whose
+    # index is the zone id.
+    wide = df.unstack("band")  # noqa: PD010
+    cols = {}
+    for b in range(1, nbands + 1):
+        for s in stats:
+            if (s, b) in wide.columns:
+                col = wide[(s, b)]
+            else:
+                col = pd.Series(np.nan, index=wide.index)
+            if s in _INT_STATS:
+                col = col.fillna(0).astype(I64)
+            cols[(f"band_{b}", s)] = col
+    out = pd.DataFrame(cols)
+    out.columns = pd.MultiIndex.from_tuples(list(cols))
+    out.index.name = "zone"
+    return out
+
+
+def _finalize_block_stats(moments, counts, mstats, cstats, nbands, stats):
+    res = _finalize_moments(moments, mstats)
+    if counts is not None:
+        res = res.join(_finalize_counts(counts, cstats), how="left")
+    return _to_wide(res, nbands, stats)
+
+
+def _moments_meta(zone_dtype):
+    return pd.DataFrame(
+        {
+            "size": np.array((), I64),
+            "count": np.array((), I64),
+            "sum": np.array((), F64),
+            "prod": np.array((), F64),
+            "min": np.array((), F64),
+            "max": np.array((), F64),
+            "m2": np.array((), F64),
+        },
+        index=pd.MultiIndex.from_arrays(
+            [np.array((), zone_dtype), np.array((), I64)],
+            names=["zone", "band"],
+        ),
+    )
+
+
+def _wide_meta(zone_dtype, nbands, stats):
+    cols = {
+        (f"band_{b}", s): np.array((), I64 if s in _INT_STATS else F64)
+        for b in range(1, nbands + 1)
+        for s in stats
+    }
+    meta = pd.DataFrame(cols, index=np.array((), dtype=zone_dtype))
+    meta.columns = pd.MultiIndex.from_tuples(list(cols))
+    meta.index.name = "zone"
+    return meta
+
+
+def _block_zonal_stats(features_raster, data_raster, stats):
+    # Non-median stats are computed by reducing small per-block partial frames.
+    # The delayed block reads use optimize_graph=False so that they share keys
+    # with the median path's block reads and each block is read only once.
+    zone_null = features_raster.null_value
+    zone_dtype = features_raster.dtype
+    nbands, ny, nx = data_raster.data.numblocks
+    mstats = [s for s in stats if s in _MOMENT_STATS]
+    cstats = [s for s in stats if s in _COUNT_STATS]
+    want_counts = bool(cstats)
+    zone_blocks = features_raster.data.to_delayed(optimize_graph=False)
+    data_blocks = data_raster.data.to_delayed(optimize_graph=False)
+    func = dask.delayed(_block_partials, nout=2 if want_counts else None)
+    parts = [
+        func(
+            zone_blocks[0, i, j],
+            [data_blocks[b, i, j] for b in range(nbands)],
+            data_raster.null_value,
+            zone_null,
+            want_counts,
+        )
+        for i in range(ny)
+        for j in range(nx)
     ]
-    if features_raster.data.chunks[1:] != data_raster.data.chunks[1:]:
-        # Force rasters to have matching chunksizes
-        features_raster = features_raster.chunk(data_raster.data.chunks)
-    # Convert the features raster and data raster bands to dataframes and join
-    # them together. Each cell becomes a row and each chunk becomes a
-    # partition. The order is the same and the chunk boundaries are the same so
-    # they should concat together, cleanly.
+    mmeta = _moments_meta(zone_dtype)
+    moments = dd.from_delayed(
+        [p[0] for p in parts] if want_counts else parts,
+        meta=mmeta,
+        verify_meta=False,
+    ).reduction(
+        chunk=_merge_moments,
+        combine=_merge_moments,
+        aggregate=_merge_moments,
+        meta=mmeta,
+    )
+    wide_meta = _wide_meta(zone_dtype, nbands, stats)
+    if want_counts:
+        cmeta = _empty_counts(zone_dtype)
+        # The value-count stats (asm, entropy, mode, nunique) are intended for
+        # integer or categorical data. On continuous float data each block's
+        # (zone, band, value, count) table is nearly cell-sized, so a smaller
+        # fan-in bounds the peak memory of each merge task.
+        counts = dd.from_delayed(
+            [p[1] for p in parts], meta=cmeta, verify_meta=False
+        ).reduction(
+            chunk=_merge_counts,
+            combine=_merge_counts,
+            aggregate=_merge_counts,
+            meta=cmeta,
+            split_every=4,
+        )
+        return dd.map_partitions(
+            _finalize_block_stats,
+            moments,
+            counts,
+            mstats,
+            cstats,
+            nbands,
+            stats,
+            align_dataframes=False,
+            meta=wide_meta,
+        )
+    return moments.map_partitions(
+        _finalize_block_stats,
+        None,
+        mstats,
+        cstats,
+        nbands,
+        stats,
+        meta=wide_meta,
+    )
+
+
+def _median_stats(features_raster, data_raster):
+    # Median needs the full per-cell frame, so it stays on the group-by path.
+    # It also needs the shuffle argument and cannot share the custom aggs.
+    # ref: https://github.com/dask/dask/issues/10517
     raster_dfs = [_raster_to_series(features_raster).rename("zone")]
     for b in range(1, data_raster.nbands + 1):
         band = _raster_to_series(data_raster.get_bands(b)).rename(f"band_{b}")
@@ -269,35 +630,47 @@ def _zonal_stats(features_raster, data_raster, stats):
         if band.dtype != F64:
             band = band.astype(F64)
         raster_dfs.append(band)
-    # DataFrame structure:
-    #        zone  band_1  band_2  ...
-    # index
-    #     0    --      --      --  ...
     combined_raster_df = dd.concat(raster_dfs, axis=1)
     # Filter out non-feature areas
     combined_raster_df = combined_raster_df[
         combined_raster_df.zone != features_raster.null_value
     ]
     grouped = combined_raster_df.groupby("zone")
-    agg_result_df = None
-    if has_median:
-        # median requires special treatment. It needs the shuffle arg and also
-        # causes TypeErrors when used with custom agg functions.
-        # ref: https://github.com/dask/dask/issues/10517
-        # Stay backword compatible with older versions of dask
-        if version_to_tuple(dask.__version__) < (2024, 1, 1):
-            shuffle_kw = "shuffle"
-        else:
-            shuffle_kw = "shuffle_method"
-        median_df = grouped.agg(["median"], **{shuffle_kw: "tasks"})
-    if len(stats):
-        agg_result_df = grouped.agg(stats)
-        if has_median:
-            agg_result_df = agg_result_df.join(median_df)
+    # Stay backward compatible with older versions of dask
+    if version_to_tuple(dask.__version__) < (2024, 1, 1):
+        shuffle_kw = "shuffle"
     else:
-        # Only median was provided
-        agg_result_df = median_df
+        shuffle_kw = "shuffle_method"
+    return grouped.agg(["median"], **{shuffle_kw: "tasks"})
+
+
+def _zonal_stats(features_raster, data_raster, stats):
+    """
+    Compute zonal statistics per band, grouped by the feature zone ids.
+
+    Non-median stats use a per-block partial-aggregation path. Median stays on
+    the group-by path and is joined onto the other stats afterward.
+    """
+    stat_names = stats
+    stats, has_median = _find_problem_stats(stats)
+    if features_raster.data.chunks[1:] != data_raster.data.chunks[1:]:
+        # Force rasters to have matching chunksizes. The features raster is
+        # single-band, so keep its band axis at one chunk and match only the
+        # spatial chunks; passing the data raster's band chunks would break
+        # when the data raster has multiple bands.
+        features_raster = features_raster.chunk(
+            (1, *data_raster.data.chunks[1:])
+        )
+    agg_result_df = None
+    if len(stats):
+        agg_result_df = _block_zonal_stats(features_raster, data_raster, stats)
     if has_median:
+        median_df = _median_stats(features_raster, data_raster)
+        if agg_result_df is not None:
+            agg_result_df = agg_result_df.join(median_df)
+        else:
+            # Only median was provided
+            agg_result_df = median_df
         # Shuffle columns to be in order of the original stats
         col_tuples = []
         for b in range(1, data_raster.nbands + 1):
@@ -464,6 +837,9 @@ def zonal_stats(
     for stat in stats:
         if stat not in ZONAL_STAT_FUNCS:
             raise ValueError(f"Invalid stats function: {repr(stat)}")
+    duplicate = next((s for s in stats if stats.count(s) > 1), None)
+    if duplicate is not None:
+        raise ValueError(f"Duplicate stats function: {repr(duplicate)}")
 
     if handle_overlap:
         if isinstance(features, Raster):
