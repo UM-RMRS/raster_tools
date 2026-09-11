@@ -9,6 +9,7 @@ import dask.array as da
 import dask_geopandas as dgpd
 import geopandas as gpd
 import numpy as np
+import pandas as pd
 import pytest
 import shapely
 from affine import Affine
@@ -752,6 +753,9 @@ def test_rasterize_no_field_rejects_duplicate_index():
 def test_rasterize_null_value(field, mask):
     features = testdata.vector.test_circles_small
     like = testdata.raster.dem_small
+    # For the field=None cases, null_value=99_000 exceeds the index-derived
+    # value range and must widen the no-field dtype to hold it, so this also
+    # exercises the null_value-widens-dtype path.
     null_value = 99_000
 
     feats = rts.vector.get_vector(features).data.compute()
@@ -776,3 +780,107 @@ def test_rasterize_null_value(field, mask):
 
     assert result.null_value == expected.null_value
     assert np.allclose(result, expected)
+
+
+@pytest.mark.parametrize(
+    "n_features,null_value,expected",
+    [
+        (255, None, np.dtype("uint8")),
+        (256, None, np.dtype("uint16")),
+        (2**16 - 1, None, np.dtype("uint16")),
+        (2**16, None, np.dtype("uint32")),
+        # An explicit null_value wider than the index range widens the dtype.
+        (10, 99_000, np.dtype("uint32")),
+        # A negative null_value would wrap in an unsigned dtype, so fall back.
+        (10, -1, np.dtype("int64")),
+    ],
+)
+def test_resolve_index_value_dtype_boundaries(
+    n_features, null_value, expected
+):
+    gdf = gpd.GeoDataFrame(
+        geometry=[shapely.Point(0, 0)] * n_features,
+        index=pd.RangeIndex(n_features),
+    )
+    dgdf = dgpd.from_geopandas(gdf, npartitions=1)
+    assert rasterize._resolve_index_value_dtype(dgdf, null_value) == expected
+
+
+def test_resolve_index_value_dtype_negative_index_falls_back():
+    gdf = gpd.GeoDataFrame(
+        geometry=[shapely.Point(0, 0)] * 3, index=[-1, 0, 1]
+    )
+    dgdf = dgpd.from_geopandas(gdf, npartitions=1)
+    assert rasterize._resolve_index_value_dtype(dgdf, None) == np.dtype(
+        "int64"
+    )
+
+
+def test_resolve_index_value_dtype_float_index_falls_back():
+    gdf = gpd.GeoDataFrame(
+        geometry=[shapely.Point(0, 0)] * 3, index=[0.0, 1.0, 2.0]
+    )
+    dgdf = dgpd.from_geopandas(gdf, npartitions=1)
+    assert rasterize._resolve_index_value_dtype(dgdf, None) == np.dtype(
+        "int64"
+    )
+
+
+@pytest.mark.parametrize("n,dtype", [(255, "uint8"), (256, "uint16")])
+def test_rasterize_no_field_dtype_boundary_end_to_end(n, dtype):
+    # One unit box per cell on a 20x20 grid, so every index-plus-one value
+    # is burned and the largest value sits exactly at the dtype boundary.
+    boxes = [
+        shapely.box(j, i, j + 1, i + 1) for i in range(16) for j in range(16)
+    ]
+    gdf = gpd.GeoDataFrame(geometry=boxes[:n], crs="EPSG:3857")
+    result = rasterize.rasterize(gdf, _edge_like(), all_touched=False)
+    assert result.dtype == np.dtype(dtype)
+    arr = result.load().to_numpy()
+    assert arr.dtype == np.dtype(dtype)
+    assert set(np.unique(arr)) == set(range(n + 1))
+
+
+@pytest.mark.parametrize(
+    "overlap_resolve_method", ["first", "last", "min", "max"]
+)
+def test_rasterize_no_field_dtype_survives_multi_partition_reduce(
+    overlap_resolve_method,
+):
+    # Two partitions without spatial partitions both land on every chunk,
+    # so the stacked reducers run and must keep the declared small dtype.
+    feats = testdata.vector.test_circles_small.data.compute()
+    feats = feats.reset_index(drop=True)
+    dfeats = dgpd.from_geopandas(feats, npartitions=2)
+    result = rasterize.rasterize(
+        dfeats,
+        testdata.raster.dem_small,
+        overlap_resolve_method=overlap_resolve_method,
+        use_spatial_aware=False,
+    )
+    assert result.dtype == np.dtype("uint8")
+    loaded = result.load()
+    assert loaded.dtype == np.dtype("uint8")
+    assert loaded.to_numpy().max() == len(feats)
+
+
+def test_rasterize_no_field_uses_minimal_dtype(monkeypatch):
+    like = testdata.raster.dem_small
+    features = testdata.vector.test_circles_small
+    n_features = len(rts.vector.get_vector(features).data)
+    # The small fixture has few features, so the burned index-plus-one values
+    # fit in a uint8.
+    assert n_features < 256
+
+    result = rasterize.rasterize(features, like).load()
+    assert result.dtype == np.dtype("uint8")
+
+    # Narrowing the dtype must not change which values get burned. Force the
+    # prior fixed int64 behavior and compare the burned values.
+    def force_i64(gdf, null_value):
+        return np.dtype("int64")
+
+    monkeypatch.setattr(rasterize, "_resolve_index_value_dtype", force_i64)
+    forced = rasterize.rasterize(features, like).load()
+    assert forced.dtype == np.dtype("int64")
+    assert np.array_equal(result.to_numpy().astype("int64"), forced.to_numpy())
