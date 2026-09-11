@@ -212,11 +212,29 @@ def _find_problem_stats(stats):
 
 
 def _raster_to_series(raster):
-    # Convert the underlying dask array into a dask Series
-    # DataArray.to_dask_dataframe is only available in newer versions of xarray
-    if hasattr(raster.xdata, "to_dask_dataframe"):
-        return raster.xdata.to_dask_dataframe(["band", "x", "y"])["raster"]
-    return raster._ds.to_dask_dataframe(["band", "x", "y"])["raster"]
+    # Build one dataframe partition per array block instead of ravelling the
+    # whole 2D block grid with xarray's to_dask_dataframe. Ravelling a grid of
+    # blocks into one long axis is not expressible as a blockwise reshape, so
+    # dask inserts rechunk-split/merge steps that require whole column-bands of
+    # blocks to be resident at once. Reshaping a single block to 1-D is always
+    # a single task with no data movement, so this keeps peak memory to roughly
+    # one block per running task. Two rasters built this way from identical
+    # chunks put the same cell at the same partition and position, so
+    # dd.concat(axis=1) lines them up without an index-based join.
+    data = raster.data
+    if any(np.isnan(size) for axis in data.chunks for size in axis):
+        raise ValueError(
+            "Raster has unknown chunk sizes. Call .chunk(...) or "
+            "compute_chunk_sizes() on it before converting to a series."
+        )
+    nbands, ny, nx = data.numblocks
+    blocks = [
+        data.blocks[b, i, j].reshape(-1)
+        for b in range(nbands)
+        for j in range(nx)
+        for i in range(ny)
+    ]
+    return dd.from_dask_array(da.concatenate(blocks), columns="raster")
 
 
 def _zonal_stats(features_raster, data_raster, stats):

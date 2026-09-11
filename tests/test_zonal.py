@@ -109,6 +109,98 @@ def rasters_to_zonal_df(feat_raster, data_raster):
     return pd.concat(dfs, axis=1)
 
 
+def test_raster_to_series_partitions_and_order():
+    raster = testdata.raster.dem_small.chunk((1, 20, 20))
+    data = raster.data
+    series = _raster_to_series(raster)
+
+    assert series.npartitions == int(np.prod(data.numblocks))
+
+    nbands, ny, nx = data.numblocks
+    # Partitioning guard: expected is rebuilt with the same block-iteration
+    # order as _raster_to_series, so this pins the partition count and the
+    # band-major, x, y-innermost block ordering. It is not an independent
+    # correctness check (that is test_zonal_stats_matches_numpy_oracle).
+    expected = np.concatenate(
+        [
+            data.blocks[b, i, j].compute().reshape(-1)
+            for b in range(nbands)
+            for j in range(nx)
+            for i in range(ny)
+        ]
+    )
+    np.testing.assert_array_equal(series.compute().to_numpy(), expected)
+
+
+def test_raster_to_series_no_strip_rechunk():
+    # Lazy (no compute) guard against the old to_dask_dataframe path, which
+    # rechunked a 2D-chunked array into full-height column strips before
+    # ravelling. The block-aligned path keeps one lazy partition per array
+    # block, so the underlying dask array has one chunk per block. A strip
+    # rechunk would instead collapse each column of blocks into a single chunk.
+    raster = testdata.raster.dem_small.chunk((1, 20, 20))
+    data = raster.data
+    series = _raster_to_series(raster)
+    nblocks = int(np.prod(data.numblocks))
+    assert series.npartitions == nblocks
+    assert len(series.to_dask_array().chunks[0]) == nblocks
+
+
+def test_zonal_stats_matches_numpy_oracle():
+    raster = testdata.raster.dem_small.chunk((1, 20, 20))
+    # Multi-chunk data raster (5x5 block grid).
+    assert raster.data.numblocks[1:] == (5, 5)
+    feat_raster = rts.rasterize.rasterize(testdata.vector.pods_small, raster)
+
+    zones = feat_raster.to_numpy().ravel()
+    values = raster.to_numpy().ravel().astype(np.float64)
+    nv = raster.null_value
+    if nv is not None and not np.isnan(nv):
+        values[values == nv] = np.nan
+    keep = zones != feat_raster.null_value
+    zones = zones[keep]
+    values = values[keep]
+
+    rows = {}
+    for z in np.unique(zones):
+        v = values[zones == z]
+        valid = v[~np.isnan(v)]
+        if valid.size == 0:
+            rows[z] = {
+                "mean": np.nan,
+                "min": np.nan,
+                "max": np.nan,
+                "count": 0.0,
+                "mode": np.nan,
+            }
+        else:
+            rows[z] = {
+                "mean": valid.mean(),
+                "min": valid.min(),
+                "max": valid.max(),
+                "count": float(valid.size),
+                "mode": np.ravel(scipy.stats.mode(valid).mode)[0],
+            }
+    oracle = pd.DataFrame(rows).T.sort_index()
+
+    stats = ["mean", "min", "max", "count", "mode"]
+    result = zonal_stats(testdata.vector.pods_small, raster, stats)
+    result = result.compute().sort_index()
+    # Single band, so drop the band level to line columns up with the oracle.
+    result.columns = result.columns.droplevel(0)
+
+    np.testing.assert_array_equal(
+        oracle.index.to_numpy(), result.index.to_numpy()
+    )
+    for stat in stats:
+        np.testing.assert_allclose(
+            result[stat].to_numpy(),
+            oracle[stat].to_numpy(),
+            rtol=0,
+            atol=1e-8,
+        )
+
+
 @pytest.mark.parametrize(
     "stats",
     [
@@ -263,7 +355,9 @@ def test_zonal_stats_handle_overlap():
         {("band_1", "mean"): [2.5, 10.5, 8.5]},
         index=pd.RangeIndex(2, 5, name="zone"),
     )
-    result = zonal_stats(features, data_raster, "mean").compute()
+    # sort_index because the grouped output row order is not guaranteed; the
+    # per-zone values are what matter here.
+    result = zonal_stats(features, data_raster, "mean").compute().sort_index()
     assert result.equals(expected)
 
     expected = pd.DataFrame(
