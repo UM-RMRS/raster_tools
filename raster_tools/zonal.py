@@ -1,5 +1,4 @@
 from collections.abc import Sequence
-from functools import partial
 
 import dask
 import dask.array as da
@@ -18,144 +17,6 @@ from raster_tools.vector import Vector, get_vector
 __all__ = ["ZONAL_STAT_FUNCS", "extract_points_eager", "zonal_stats"]
 
 
-@nb.jit(nopython=True, nogil=True)
-def _entropy(counts):
-    if len(counts) == 0:
-        return np.nan
-    # Manual stat calculation with a loop is faster than using vectorized numpy
-    # operations, likely due to numpy ops allocating temporary arrays.
-    entropy = 0.0
-    frac = 1 / np.sum(counts)
-    for cnt in counts:
-        p = cnt * frac
-        entropy -= p * np.log(p)
-    return entropy
-
-
-@nb.jit(nopython=True, nogil=True)
-def _asm(counts):
-    if len(counts) == 0:
-        return np.nan
-    # Manual stat calculation with a loop is faster than using vectorized numpy
-    # operations, likely due to numpy ops allocating temporary arrays.
-    asm = 0.0
-    frac = 1 / np.sum(counts)
-    for cnt in counts:
-        p = cnt * frac
-        asm += p * p
-    return asm
-
-
-def _unique_with_counts_chunk(grps):
-    return grps.apply(lambda s: np.unique(s, return_counts=True))
-
-
-def _combine_values_and_counts(s):
-    result = (
-        pd.DataFrame(
-            {
-                "values_": [vs for vs, _ in s.to_numpy()],
-                "counts_": [cs for _, cs in s.to_numpy()],
-            }
-        )
-        .explode(["values_", "counts_"])
-        .groupby("values_")
-        .sum()
-    )
-    # Convert to lists because of weird behavior in finalize step. If the
-    # results are not converted to lists, the finalize step will get a series
-    # where each row is a tuple of arrays of objects instead of a tuple of
-    # lists of numbers. I don't know why this happens, but the following works.
-    return (result.index.to_list(), result.counts_.to_list())
-
-
-def _mode_fin(s):
-    # Final operation of the mode calculation
-    results = np.empty(len(s), dtype=F64)
-    for i, (vs, cs) in enumerate(s.to_numpy()):
-        if len(vs) != 0:
-            # Order the counts descending with values ascending. In the case of
-            # tied counts, lower values come first. This mirrors the behavior
-            # of scipy's mode function.
-            values_and_counts = pd.DataFrame(
-                {"values_": vs, "counts_": cs}
-            ).sort_values(by=["counts_", "values_"], ascending=[False, True])
-            results[i] = values_and_counts.values_.iloc[0]
-        else:
-            results[i] = np.nan
-    return pd.Series(results, index=s.index.copy())
-
-
-def _asm_entropy_fin(s, func):
-    # Final operation of the asm and entropy calculations
-    if len(s) == 0:
-        return pd.Series(np.array((), dtype=F64), index=s.index)
-    result_list = []
-    for _, cs in s.to_numpy():
-        result_list.append(func(np.asarray(cs)))
-    return pd.Series(result_list, index=s.index.copy())
-
-
-# Notes for mode, asm, and entropy aggs:
-# chunk:
-#     Each row is now a 2-tuple of numpy arrays representing the unique values
-#     and their counts
-# agg:
-#     Compbine the values and counts for zone value into a single 2-tuple of
-#     values and counts lists.
-# finalize:
-#     Compute final stat from values and counts.
-_mode_agg = dd.Aggregation(
-    "mode",
-    chunk=lambda grps: grps.apply(lambda s: np.unique(s, return_counts=True)),
-    agg=lambda grps: grps.apply(_combine_values_and_counts),
-    finalize=_mode_fin,
-)
-_asm_agg = dd.Aggregation(
-    "asm",
-    chunk=lambda grps: grps.apply(lambda s: np.unique(s, return_counts=True)),
-    agg=lambda grps: grps.apply(_combine_values_and_counts),
-    finalize=partial(_asm_entropy_fin, func=_asm),
-)
-_entropy_agg = dd.Aggregation(
-    "entropy",
-    chunk=_unique_with_counts_chunk,
-    agg=lambda grps: grps.apply(_combine_values_and_counts),
-    finalize=partial(_asm_entropy_fin, func=_entropy),
-)
-_nunique_agg = dd.Aggregation(
-    name="nunique",
-    chunk=lambda s: s.apply(lambda x: list(set(x.dropna()))),
-    agg=lambda s0: s0.obj.groupby(
-        level=list(range(s0.obj.index.nlevels))
-    ).sum(),
-    finalize=lambda s1: s1.apply(lambda final: len(set(final))),
-)
-
-
-_DASK_STAT_NAMES = frozenset(
-    (
-        "count",
-        "max",
-        "mean",
-        "median",
-        "min",
-        "prod",
-        "size",
-        "std",
-        "sum",
-        "var",
-    )
-)
-_CUSTOM_STAT_NAMES = frozenset(("asm", "entropy", "mode", "nunique"))
-_CUSTOM_STAT_AGGS = {
-    "asm": _asm_agg,
-    "entropy": _entropy_agg,
-    "mode": _mode_agg,
-    "nunique": _nunique_agg,
-}
-ZONAL_STAT_FUNCS = frozenset(sorted(_DASK_STAT_NAMES | _CUSTOM_STAT_NAMES))
-
 # Stats computed from per-block moments (size, count, sum, product, min, max,
 # and squared deviations).
 _MOMENT_STATS = frozenset(
@@ -168,6 +29,8 @@ _INT_STATS = frozenset(("count", "size", "nunique"))
 # Largest zone id used directly as an accumulator index. Larger ids, or any
 # negative id, are factorized with np.unique before accumulation.
 _MAX_DIRECT_ZONE_ID = 2**20
+
+ZONAL_STAT_FUNCS = frozenset(sorted(_MOMENT_STATS | _COUNT_STATS | {"median"}))
 
 
 def _build_long_format_meta(df):
@@ -545,6 +408,9 @@ def _block_zonal_stats(features_raster, data_raster, stats):
     zone_null = features_raster.null_value
     zone_dtype = features_raster.dtype
     nbands, ny, nx = data_raster.data.numblocks
+    # Later code indexes bands by block; that holds only because zonal_stats
+    # rechunks the data raster to one band per block before this runs.
+    assert nbands == data_raster.shape[0], "one band per block required"
     mstats = [s for s in stats if s in _MOMENT_STATS]
     cstats = [s for s in stats if s in _COUNT_STATS]
     want_counts = bool(cstats)
@@ -721,8 +587,8 @@ def zonal_stats(
         features in `features`. Valid string values:
 
         'asm'
-            Angular second moment. Applies -sum(P(g)**2) where P(g) gives the
-            probability of g within the neighborhood.
+            Angular second moment. Applies sum(P(g)**2) where P(g) gives the
+            probability of g within the zone.
         'count'
             Count valid cells.
         'entropy'
