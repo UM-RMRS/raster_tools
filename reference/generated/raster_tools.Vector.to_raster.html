@@ -529,7 +529,13 @@ that the CRSs for both are matched ahead of time.</p>
 will be on the same grid as <cite>like</cite>.</p></li>
 <li><p><strong>field</strong> (<em>str</em><em>, </em><em>optional</em>) – The name of a field to use for cell values when rasterizing the
 vector features. If None or not specified, the underlying
-dataframe’s index is used. The default is to use the index.</p></li>
+dataframe’s index is used. The default is to use the index.
+Without a field, the result uses the smallest unsigned dtype
+(uint8, uint16, or uint32) that holds every index-plus-one value
+and the null value, falling back to int64 if the index is not an
+integer type, contains a negative label, or the null value is
+negative or non-integer. When <cite>field</cite> is given, the result uses
+that field’s dtype.</p></li>
 <li><p><strong>overlap_resolve_method</strong> (<em>str</em><em>, </em><em>optional</em>) – <p>The method used to resolve overlaping features. Default is
 <cite>“last”</cite>. The available methods are:</p>
 <dl class="simple">

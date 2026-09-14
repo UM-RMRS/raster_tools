@@ -1034,6 +1034,12 @@ document.write(`
 <span class="sd">            The name of a field to use for cell values when rasterizing the</span>
 <span class="sd">            vector features. If None or not specified, the underlying</span>
 <span class="sd">            dataframe's index is used. The default is to use the index.</span>
+<span class="sd">            Without a field, the result uses the smallest unsigned dtype</span>
+<span class="sd">            (uint8, uint16, or uint32) that holds every index-plus-one value</span>
+<span class="sd">            and the null value, falling back to int64 if the index is not an</span>
+<span class="sd">            integer type, contains a negative label, or the null value is</span>
+<span class="sd">            negative or non-integer. When `field` is given, the result uses</span>
+<span class="sd">            that field's dtype.</span>
 <span class="sd">        overlap_resolve_method : str, optional</span>
 <span class="sd">            The method used to resolve overlaping features. Default is</span>
 <span class="sd">            `"last"`. The available methods are:</span>

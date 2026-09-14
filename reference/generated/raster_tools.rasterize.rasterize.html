@@ -497,9 +497,17 @@ document.write(`
 particular data field or to create a raster mask of zeros and ones. Using
 values to rasterize is the default. Use <cite>mask=True</cite> to generate a raster
 mask. If no data field is specified, the underlying dataframe’s index plus
-one is used. Vectors opened from a file carry a global, contiguous integer
-index across all partitions, so each feature receives a unique value.
-Cells that do not touch or overlap any features are marked as null.</p>
+one is used, burned into the smallest unsigned dtype that holds every
+index-plus-one value and the null value (see <cite>field</cite> below). Vectors
+opened from a file carry a global, contiguous integer index across all
+partitions, so each feature receives a unique value. Cells that do not
+touch or overlap any features are marked as null.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><a class="reference internal" href="raster_tools.zonal.zonal_stats.html#raster_tools.zonal.zonal_stats" title="raster_tools.zonal.zonal_stats"><code class="xref py py-func docutils literal notranslate"><span class="pre">raster_tools.zonal.zonal_stats()</span></code></a> rasterizes its zone features
+with no field, so the zone ids it reports inherit the dtype rule
+described under <cite>field</cite> rather than always being int64.</p>
+</div>
 <p>A dask dataframe supplied directly must have a unique index for the
 resulting values to identify features. Duplicate index values within a
 partition raise a <code class="docutils literal notranslate"><span class="pre">ValueError</span></code> when the result is computed. To add a
@@ -534,7 +542,12 @@ both are matched ahead of time.</p>
 be on the same grid as <cite>like</cite>.</p></li>
 <li><p><strong>field</strong> (<em>str</em><em>, </em><em>optional</em>) – The name of a field to use for cell values when rasterizing the
 vector features. If None or not specified, the underlying dataframe’s
-index plus 1 is used. The default is to use the index plus 1.</p></li>
+index plus 1 is used. The default is to use the index plus 1. Without
+a field, the result uses the smallest unsigned dtype (uint8, uint16,
+or uint32) that holds every index-plus-one value and the null value,
+falling back to int64 if the index is not an integer type, contains a
+negative label, or the null value is negative or non-integer. When
+<cite>field</cite> is given, the result uses that field’s dtype.</p></li>
 <li><p><strong>overlap_resolve_method</strong> (<em>str</em><em>, </em><em>optional</em>) – <p>The method used to resolve overlaping features. Default is <cite>“last”</cite>.
 The available methods are:</p>
 <dl class="simple">

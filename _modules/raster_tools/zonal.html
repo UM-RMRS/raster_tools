@@ -595,6 +595,19 @@ document.write(`
 <span class="p">}</span>
 <span class="n">ZONAL_STAT_FUNCS</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">_DASK_STAT_NAMES</span> <span class="o">|</span> <span class="n">_CUSTOM_STAT_NAMES</span><span class="p">))</span>
 
+<span class="c1"># Stats computed from per-block moments (size, count, sum, product, min, max,</span>
+<span class="c1"># and squared deviations).</span>
+<span class="n">_MOMENT_STATS</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">(</span>
+    <span class="p">(</span><span class="s2">"count"</span><span class="p">,</span> <span class="s2">"max"</span><span class="p">,</span> <span class="s2">"mean"</span><span class="p">,</span> <span class="s2">"min"</span><span class="p">,</span> <span class="s2">"prod"</span><span class="p">,</span> <span class="s2">"size"</span><span class="p">,</span> <span class="s2">"std"</span><span class="p">,</span> <span class="s2">"sum"</span><span class="p">,</span> <span class="s2">"var"</span><span class="p">)</span>
+<span class="p">)</span>
+<span class="c1"># Stats computed from per-block (zone, value) counts.</span>
+<span class="n">_COUNT_STATS</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">((</span><span class="s2">"asm"</span><span class="p">,</span> <span class="s2">"entropy"</span><span class="p">,</span> <span class="s2">"mode"</span><span class="p">,</span> <span class="s2">"nunique"</span><span class="p">))</span>
+<span class="c1"># Stats returned as int64 rather than float64.</span>
+<span class="n">_INT_STATS</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">((</span><span class="s2">"count"</span><span class="p">,</span> <span class="s2">"size"</span><span class="p">,</span> <span class="s2">"nunique"</span><span class="p">))</span>
+<span class="c1"># Largest zone id used directly as an accumulator index. Larger ids, or any</span>
+<span class="c1"># negative id, are factorized with np.unique before accumulation.</span>
+<span class="n">_MAX_DIRECT_ZONE_ID</span> <span class="o">=</span> <span class="mi">2</span><span class="o">**</span><span class="mi">20</span>
+
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_build_long_format_meta</span><span class="p">(</span><span class="n">df</span><span class="p">):</span>
     <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
@@ -651,30 +664,396 @@ document.write(`
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_raster_to_series</span><span class="p">(</span><span class="n">raster</span><span class="p">):</span>
-    <span class="c1"># Convert the underlying dask array into a dask Series</span>
-    <span class="c1"># DataArray.to_dask_dataframe is only available in newer versions of xarray</span>
-    <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">raster</span><span class="o">.</span><span class="n">xdata</span><span class="p">,</span> <span class="s2">"to_dask_dataframe"</span><span class="p">):</span>
-        <span class="k">return</span> <span class="n">raster</span><span class="o">.</span><span class="n">xdata</span><span class="o">.</span><span class="n">to_dask_dataframe</span><span class="p">([</span><span class="s2">"band"</span><span class="p">,</span> <span class="s2">"x"</span><span class="p">,</span> <span class="s2">"y"</span><span class="p">])[</span><span class="s2">"raster"</span><span class="p">]</span>
-    <span class="k">return</span> <span class="n">raster</span><span class="o">.</span><span class="n">_ds</span><span class="o">.</span><span class="n">to_dask_dataframe</span><span class="p">([</span><span class="s2">"band"</span><span class="p">,</span> <span class="s2">"x"</span><span class="p">,</span> <span class="s2">"y"</span><span class="p">])[</span><span class="s2">"raster"</span><span class="p">]</span>
-
-
-<span class="k">def</span><span class="w"> </span><span class="nf">_zonal_stats</span><span class="p">(</span><span class="n">features_raster</span><span class="p">,</span> <span class="n">data_raster</span><span class="p">,</span> <span class="n">stats</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">"""</span>
-<span class="sd">    Convert data to large dask DataFrame, group by the feature zone ids, and</span>
-<span class="sd">    apply aggregations specified by `stats` for each band.</span>
-<span class="sd">    """</span>
-    <span class="n">stat_names</span> <span class="o">=</span> <span class="n">stats</span>
-    <span class="n">stats</span><span class="p">,</span> <span class="n">has_median</span> <span class="o">=</span> <span class="n">_find_problem_stats</span><span class="p">(</span><span class="n">stats</span><span class="p">)</span>
-    <span class="n">stats</span> <span class="o">=</span> <span class="p">[</span>
-        <span class="n">s</span> <span class="k">if</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">_DASK_STAT_NAMES</span> <span class="k">else</span> <span class="n">_CUSTOM_STAT_AGGS</span><span class="p">[</span><span class="n">s</span><span class="p">]</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">stats</span>
+    <span class="c1"># Build one dataframe partition per array block instead of ravelling the</span>
+    <span class="c1"># whole 2D block grid with xarray's to_dask_dataframe. Ravelling a grid of</span>
+    <span class="c1"># blocks into one long axis is not expressible as a blockwise reshape, so</span>
+    <span class="c1"># dask inserts rechunk-split/merge steps that require whole column-bands of</span>
+    <span class="c1"># blocks to be resident at once. Reshaping a single block to 1-D is always</span>
+    <span class="c1"># a single task with no data movement, so this keeps peak memory to roughly</span>
+    <span class="c1"># one block per running task. Two rasters built this way from identical</span>
+    <span class="c1"># chunks put the same cell at the same partition and position, so</span>
+    <span class="c1"># dd.concat(axis=1) lines them up without an index-based join.</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">data</span>
+    <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">size</span><span class="p">)</span> <span class="k">for</span> <span class="n">axis</span> <span class="ow">in</span> <span class="n">data</span><span class="o">.</span><span class="n">chunks</span> <span class="k">for</span> <span class="n">size</span> <span class="ow">in</span> <span class="n">axis</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">"Raster has unknown chunk sizes. Call .chunk(...) or "</span>
+            <span class="s2">"compute_chunk_sizes() on it before converting to a series."</span>
+        <span class="p">)</span>
+    <span class="n">nbands</span><span class="p">,</span> <span class="n">ny</span><span class="p">,</span> <span class="n">nx</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">numblocks</span>
+    <span class="n">blocks</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">data</span><span class="o">.</span><span class="n">blocks</span><span class="p">[</span><span class="n">b</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nbands</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nx</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">ny</span><span class="p">)</span>
     <span class="p">]</span>
-    <span class="k">if</span> <span class="n">features_raster</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">chunks</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="o">!=</span> <span class="n">data_raster</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">chunks</span><span class="p">[</span><span class="mi">1</span><span class="p">:]:</span>
-        <span class="c1"># Force rasters to have matching chunksizes</span>
-        <span class="n">features_raster</span> <span class="o">=</span> <span class="n">features_raster</span><span class="o">.</span><span class="n">chunk</span><span class="p">(</span><span class="n">data_raster</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">chunks</span><span class="p">)</span>
-    <span class="c1"># Convert the features raster and data raster bands to dataframes and join</span>
-    <span class="c1"># them together. Each cell becomes a row and each chunk becomes a</span>
-    <span class="c1"># partition. The order is the same and the chunk boundaries are the same so</span>
-    <span class="c1"># they should concat together, cleanly.</span>
+    <span class="k">return</span> <span class="n">dd</span><span class="o">.</span><span class="n">from_dask_array</span><span class="p">(</span><span class="n">da</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="n">blocks</span><span class="p">),</span> <span class="n">columns</span><span class="o">=</span><span class="s2">"raster"</span><span class="p">)</span>
+
+
+<span class="nd">@nb</span><span class="o">.</span><span class="n">jit</span><span class="p">(</span><span class="n">nopython</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">nogil</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_zone_moments_kernel</span><span class="p">(</span><span class="n">codes</span><span class="p">,</span> <span class="n">values</span><span class="p">,</span> <span class="n">valid</span><span class="p">,</span> <span class="n">nzones</span><span class="p">,</span> <span class="n">null_code</span><span class="p">):</span>
+    <span class="c1"># First pass builds size, count, a compensated sum, product, min, and max</span>
+    <span class="c1"># for each zone code. The second pass sums squared deviations from each</span>
+    <span class="c1"># zone mean so variance can be recombined across blocks.</span>
+    <span class="n">size</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">nzones</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+    <span class="n">count</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">nzones</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+    <span class="n">total</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">nzones</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+    <span class="n">comp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">nzones</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+    <span class="n">prod</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">nzones</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+    <span class="n">vmin</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">nzones</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">inf</span><span class="p">)</span>
+    <span class="n">vmax</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="n">nzones</span><span class="p">,</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">inf</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">codes</span><span class="o">.</span><span class="n">size</span><span class="p">):</span>
+        <span class="n">c</span> <span class="o">=</span> <span class="n">codes</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">c</span> <span class="o">==</span> <span class="n">null_code</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="n">size</span><span class="p">[</span><span class="n">c</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">valid</span><span class="p">[</span><span class="n">i</span><span class="p">]:</span>
+            <span class="k">continue</span>
+        <span class="n">v</span> <span class="o">=</span> <span class="n">values</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+        <span class="n">count</span><span class="p">[</span><span class="n">c</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="c1"># Kahan compensated summation, mirroring pandas' group sums.</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="n">v</span> <span class="o">-</span> <span class="n">comp</span><span class="p">[</span><span class="n">c</span><span class="p">]</span>
+        <span class="n">t</span> <span class="o">=</span> <span class="n">total</span><span class="p">[</span><span class="n">c</span><span class="p">]</span> <span class="o">+</span> <span class="n">y</span>
+        <span class="n">comp</span><span class="p">[</span><span class="n">c</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">t</span> <span class="o">-</span> <span class="n">total</span><span class="p">[</span><span class="n">c</span><span class="p">])</span> <span class="o">-</span> <span class="n">y</span>
+        <span class="n">total</span><span class="p">[</span><span class="n">c</span><span class="p">]</span> <span class="o">=</span> <span class="n">t</span>
+        <span class="n">prod</span><span class="p">[</span><span class="n">c</span><span class="p">]</span> <span class="o">*=</span> <span class="n">v</span>
+        <span class="k">if</span> <span class="n">v</span> <span class="o">&lt;</span> <span class="n">vmin</span><span class="p">[</span><span class="n">c</span><span class="p">]:</span>
+            <span class="n">vmin</span><span class="p">[</span><span class="n">c</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span>
+        <span class="k">if</span> <span class="n">v</span> <span class="o">&gt;</span> <span class="n">vmax</span><span class="p">[</span><span class="n">c</span><span class="p">]:</span>
+            <span class="n">vmax</span><span class="p">[</span><span class="n">c</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span>
+    <span class="n">m2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">nzones</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">codes</span><span class="o">.</span><span class="n">size</span><span class="p">):</span>
+        <span class="n">c</span> <span class="o">=</span> <span class="n">codes</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">c</span> <span class="o">==</span> <span class="n">null_code</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">valid</span><span class="p">[</span><span class="n">i</span><span class="p">]:</span>
+            <span class="k">continue</span>
+        <span class="n">d</span> <span class="o">=</span> <span class="n">values</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">-</span> <span class="n">total</span><span class="p">[</span><span class="n">c</span><span class="p">]</span> <span class="o">/</span> <span class="n">count</span><span class="p">[</span><span class="n">c</span><span class="p">]</span>
+        <span class="n">m2</span><span class="p">[</span><span class="n">c</span><span class="p">]</span> <span class="o">+=</span> <span class="n">d</span> <span class="o">*</span> <span class="n">d</span>
+    <span class="k">return</span> <span class="n">size</span><span class="p">,</span> <span class="n">count</span><span class="p">,</span> <span class="n">total</span><span class="p">,</span> <span class="n">prod</span><span class="p">,</span> <span class="n">vmin</span><span class="p">,</span> <span class="n">vmax</span><span class="p">,</span> <span class="n">m2</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_zone_codes</span><span class="p">(</span><span class="n">zones</span><span class="p">,</span> <span class="n">zone_null</span><span class="p">):</span>
+    <span class="c1"># Map zone ids to dense codes for accumulation. Small non-negative ids are</span>
+    <span class="c1"># used directly; wider or negative ids are factorized. Returns ids, codes,</span>
+    <span class="c1"># the code count, and the code standing in for the null zone (-1 when no</span>
+    <span class="c1"># zone is null). ids[codes] reproduces the input zones.</span>
+    <span class="n">zones</span> <span class="o">=</span> <span class="n">zones</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+    <span class="n">zmin</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">zones</span><span class="o">.</span><span class="n">min</span><span class="p">())</span>
+    <span class="n">zmax</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">zones</span><span class="o">.</span><span class="n">max</span><span class="p">())</span>
+    <span class="k">if</span> <span class="n">zmin</span> <span class="o">&gt;=</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">zmax</span> <span class="o">&lt;</span> <span class="n">_MAX_DIRECT_ZONE_ID</span><span class="p">:</span>
+        <span class="n">nzones</span> <span class="o">=</span> <span class="n">zmax</span> <span class="o">+</span> <span class="mi">1</span>
+        <span class="n">ids</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">nzones</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">zones</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+        <span class="n">codes</span> <span class="o">=</span> <span class="n">zones</span>
+        <span class="n">null_code</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
+        <span class="k">if</span> <span class="n">zone_null</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">zone_null</span> <span class="o">&lt;</span> <span class="n">nzones</span><span class="p">:</span>
+            <span class="n">null_code</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">zone_null</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">ids</span><span class="p">,</span> <span class="n">codes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">zones</span><span class="p">,</span> <span class="n">return_inverse</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">codes</span> <span class="o">=</span> <span class="n">codes</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+        <span class="n">nzones</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">ids</span><span class="p">)</span>
+        <span class="n">null_code</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
+        <span class="k">if</span> <span class="n">zone_null</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">pos</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">searchsorted</span><span class="p">(</span><span class="n">ids</span><span class="p">,</span> <span class="n">zone_null</span><span class="p">))</span>
+            <span class="k">if</span> <span class="n">pos</span> <span class="o">&lt;</span> <span class="n">nzones</span> <span class="ow">and</span> <span class="n">ids</span><span class="p">[</span><span class="n">pos</span><span class="p">]</span> <span class="o">==</span> <span class="n">zone_null</span><span class="p">:</span>
+                <span class="n">null_code</span> <span class="o">=</span> <span class="n">pos</span>
+    <span class="k">return</span> <span class="n">ids</span><span class="p">,</span> <span class="n">codes</span><span class="p">,</span> <span class="n">nzones</span><span class="p">,</span> <span class="n">null_code</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_empty_counts</span><span class="p">(</span><span class="n">zone_dtype</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+        <span class="p">{</span>
+            <span class="s2">"zone"</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">((),</span> <span class="n">zone_dtype</span><span class="p">),</span>
+            <span class="s2">"band"</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">((),</span> <span class="n">I64</span><span class="p">),</span>
+            <span class="s2">"value"</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">((),</span> <span class="n">F64</span><span class="p">),</span>
+            <span class="s2">"n"</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">((),</span> <span class="n">I64</span><span class="p">),</span>
+        <span class="p">}</span>
+    <span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_block_value_counts</span><span class="p">(</span><span class="n">ids</span><span class="p">,</span> <span class="n">codes</span><span class="p">,</span> <span class="n">values</span><span class="p">,</span> <span class="n">valid</span><span class="p">,</span> <span class="n">null_code</span><span class="p">,</span> <span class="n">band</span><span class="p">):</span>
+    <span class="c1"># One row per (zone, value) pair present in the block, with its count.</span>
+    <span class="c1"># values is already float64 and nulls are already excluded by valid.</span>
+    <span class="n">keep</span> <span class="o">=</span> <span class="n">valid</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">codes</span> <span class="o">!=</span> <span class="n">null_code</span><span class="p">)</span>
+    <span class="n">vals_u</span><span class="p">,</span> <span class="n">vinv</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">values</span><span class="p">[</span><span class="n">keep</span><span class="p">],</span> <span class="n">return_inverse</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">nvals</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">vals_u</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">nvals</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">_empty_counts</span><span class="p">(</span><span class="n">ids</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+    <span class="n">key</span> <span class="o">=</span> <span class="n">codes</span><span class="p">[</span><span class="n">keep</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">I64</span><span class="p">)</span> <span class="o">*</span> <span class="n">nvals</span> <span class="o">+</span> <span class="n">vinv</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+    <span class="n">key_u</span><span class="p">,</span> <span class="n">n</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">return_counts</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+        <span class="p">{</span>
+            <span class="s2">"zone"</span><span class="p">:</span> <span class="n">ids</span><span class="p">[</span><span class="n">key_u</span> <span class="o">//</span> <span class="n">nvals</span><span class="p">],</span>
+            <span class="s2">"band"</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">key_u</span><span class="p">),</span> <span class="n">band</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">I64</span><span class="p">),</span>
+            <span class="s2">"value"</span><span class="p">:</span> <span class="n">vals_u</span><span class="p">[</span><span class="n">key_u</span> <span class="o">%</span> <span class="n">nvals</span><span class="p">],</span>
+            <span class="s2">"n"</span><span class="p">:</span> <span class="n">n</span><span class="p">,</span>
+        <span class="p">}</span>
+    <span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_block_partials</span><span class="p">(</span><span class="n">zones</span><span class="p">,</span> <span class="n">bands</span><span class="p">,</span> <span class="n">data_null</span><span class="p">,</span> <span class="n">zone_null</span><span class="p">,</span> <span class="n">want_counts</span><span class="p">):</span>
+    <span class="c1"># zones is a (1, ny, nx) block; bands is a list of (1, ny, nx) blocks, one</span>
+    <span class="c1"># per data band. Returns the moment frame, or (moment frame, count frame)</span>
+    <span class="c1"># when value-count stats are requested. All bands share the zone set taken</span>
+    <span class="c1"># from band 1's size, which counts cells regardless of data validity.</span>
+    <span class="n">ids</span><span class="p">,</span> <span class="n">codes</span><span class="p">,</span> <span class="n">nzones</span><span class="p">,</span> <span class="n">null_code</span> <span class="o">=</span> <span class="n">_zone_codes</span><span class="p">(</span><span class="n">zones</span><span class="p">,</span> <span class="n">zone_null</span><span class="p">)</span>
+    <span class="n">moment_parts</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">count_parts</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">present</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">for</span> <span class="n">b</span><span class="p">,</span> <span class="n">band</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">bands</span><span class="p">,</span> <span class="mi">1</span><span class="p">):</span>
+        <span class="n">values</span> <span class="o">=</span> <span class="n">band</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">F64</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="n">valid</span> <span class="o">=</span> <span class="o">~</span><span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">values</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">data_null</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">data_null</span><span class="p">):</span>
+            <span class="n">valid</span> <span class="o">&amp;=</span> <span class="n">values</span> <span class="o">!=</span> <span class="n">data_null</span>
+        <span class="n">size</span><span class="p">,</span> <span class="n">count</span><span class="p">,</span> <span class="n">total</span><span class="p">,</span> <span class="n">prod</span><span class="p">,</span> <span class="n">vmin</span><span class="p">,</span> <span class="n">vmax</span><span class="p">,</span> <span class="n">m2</span> <span class="o">=</span> <span class="n">_zone_moments_kernel</span><span class="p">(</span>
+            <span class="n">codes</span><span class="p">,</span> <span class="n">values</span><span class="p">,</span> <span class="n">valid</span><span class="p">,</span> <span class="n">nzones</span><span class="p">,</span> <span class="n">null_code</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">present</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">present</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nonzero</span><span class="p">(</span><span class="n">size</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">index</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">MultiIndex</span><span class="o">.</span><span class="n">from_arrays</span><span class="p">(</span>
+            <span class="p">[</span><span class="n">ids</span><span class="p">[</span><span class="n">present</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">present</span><span class="p">),</span> <span class="n">b</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">I64</span><span class="p">)],</span>
+            <span class="n">names</span><span class="o">=</span><span class="p">[</span><span class="s2">"zone"</span><span class="p">,</span> <span class="s2">"band"</span><span class="p">],</span>
+        <span class="p">)</span>
+        <span class="n">moment_parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+                <span class="p">{</span>
+                    <span class="s2">"size"</span><span class="p">:</span> <span class="n">size</span><span class="p">[</span><span class="n">present</span><span class="p">],</span>
+                    <span class="s2">"count"</span><span class="p">:</span> <span class="n">count</span><span class="p">[</span><span class="n">present</span><span class="p">],</span>
+                    <span class="s2">"sum"</span><span class="p">:</span> <span class="n">total</span><span class="p">[</span><span class="n">present</span><span class="p">],</span>
+                    <span class="s2">"prod"</span><span class="p">:</span> <span class="n">prod</span><span class="p">[</span><span class="n">present</span><span class="p">],</span>
+                    <span class="s2">"min"</span><span class="p">:</span> <span class="n">vmin</span><span class="p">[</span><span class="n">present</span><span class="p">],</span>
+                    <span class="s2">"max"</span><span class="p">:</span> <span class="n">vmax</span><span class="p">[</span><span class="n">present</span><span class="p">],</span>
+                    <span class="s2">"m2"</span><span class="p">:</span> <span class="n">m2</span><span class="p">[</span><span class="n">present</span><span class="p">],</span>
+                <span class="p">},</span>
+                <span class="n">index</span><span class="o">=</span><span class="n">index</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">want_counts</span><span class="p">:</span>
+            <span class="n">count_parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="n">_block_value_counts</span><span class="p">(</span><span class="n">ids</span><span class="p">,</span> <span class="n">codes</span><span class="p">,</span> <span class="n">values</span><span class="p">,</span> <span class="n">valid</span><span class="p">,</span> <span class="n">null_code</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span>
+            <span class="p">)</span>
+    <span class="n">moments</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">moment_parts</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">want_counts</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">moments</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">count_parts</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">moments</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_merge_moments</span><span class="p">(</span><span class="n">part</span><span class="p">):</span>
+    <span class="c1"># part is indexed by (zone, band) and may hold one row per block for a key.</span>
+    <span class="c1"># Combine the rows, recombining squared deviations with the parallel</span>
+    <span class="c1"># variance formula M2 = sum(M2_i) + sum(n_i * (mean_i - mean) ** 2).</span>
+    <span class="k">if</span> <span class="n">part</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">is_unique</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">part</span>
+    <span class="n">g</span> <span class="o">=</span> <span class="n">part</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="n">level</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">sort</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">count</span> <span class="o">=</span> <span class="n">g</span><span class="p">[</span><span class="s2">"count"</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+    <span class="n">total</span> <span class="o">=</span> <span class="n">g</span><span class="p">[</span><span class="s2">"sum"</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+    <span class="k">with</span> <span class="n">np</span><span class="o">.</span><span class="n">errstate</span><span class="p">(</span><span class="n">divide</span><span class="o">=</span><span class="s2">"ignore"</span><span class="p">,</span> <span class="n">invalid</span><span class="o">=</span><span class="s2">"ignore"</span><span class="p">):</span>
+        <span class="n">mean</span> <span class="o">=</span> <span class="n">total</span> <span class="o">/</span> <span class="n">count</span>
+        <span class="n">delta</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">part</span><span class="p">[</span><span class="s2">"count"</span><span class="p">]</span>
+            <span class="o">*</span> <span class="p">(</span><span class="n">part</span><span class="p">[</span><span class="s2">"sum"</span><span class="p">]</span> <span class="o">/</span> <span class="n">part</span><span class="p">[</span><span class="s2">"count"</span><span class="p">]</span> <span class="o">-</span> <span class="n">mean</span><span class="o">.</span><span class="n">reindex</span><span class="p">(</span><span class="n">part</span><span class="o">.</span><span class="n">index</span><span class="p">))</span> <span class="o">**</span> <span class="mi">2</span>
+        <span class="p">)</span>
+    <span class="n">delta</span> <span class="o">=</span> <span class="n">delta</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="mf">0.0</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+        <span class="p">{</span>
+            <span class="s2">"size"</span><span class="p">:</span> <span class="n">g</span><span class="p">[</span><span class="s2">"size"</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">(),</span>
+            <span class="s2">"count"</span><span class="p">:</span> <span class="n">count</span><span class="p">,</span>
+            <span class="s2">"sum"</span><span class="p">:</span> <span class="n">total</span><span class="p">,</span>
+            <span class="s2">"prod"</span><span class="p">:</span> <span class="n">g</span><span class="p">[</span><span class="s2">"prod"</span><span class="p">]</span><span class="o">.</span><span class="n">prod</span><span class="p">(),</span>
+            <span class="s2">"min"</span><span class="p">:</span> <span class="n">g</span><span class="p">[</span><span class="s2">"min"</span><span class="p">]</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span>
+            <span class="s2">"max"</span><span class="p">:</span> <span class="n">g</span><span class="p">[</span><span class="s2">"max"</span><span class="p">]</span><span class="o">.</span><span class="n">max</span><span class="p">(),</span>
+            <span class="s2">"m2"</span><span class="p">:</span> <span class="n">g</span><span class="p">[</span><span class="s2">"m2"</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">+</span> <span class="n">delta</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="n">level</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span><span class="o">.</span><span class="n">sum</span><span class="p">(),</span>
+        <span class="p">}</span>
+    <span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_merge_counts</span><span class="p">(</span><span class="n">part</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">part</span><span class="o">.</span><span class="n">groupby</span><span class="p">([</span><span class="s2">"zone"</span><span class="p">,</span> <span class="s2">"band"</span><span class="p">,</span> <span class="s2">"value"</span><span class="p">],</span> <span class="n">sort</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">as_index</span><span class="o">=</span><span class="kc">False</span><span class="p">)[</span>
+        <span class="s2">"n"</span>
+    <span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_finalize_moments</span><span class="p">(</span><span class="n">part</span><span class="p">,</span> <span class="n">stats</span><span class="p">):</span>
+    <span class="n">count</span> <span class="o">=</span> <span class="n">part</span><span class="p">[</span><span class="s2">"count"</span><span class="p">]</span>
+    <span class="k">with</span> <span class="n">np</span><span class="o">.</span><span class="n">errstate</span><span class="p">(</span><span class="n">divide</span><span class="o">=</span><span class="s2">"ignore"</span><span class="p">,</span> <span class="n">invalid</span><span class="o">=</span><span class="s2">"ignore"</span><span class="p">):</span>
+        <span class="n">mean</span> <span class="o">=</span> <span class="n">part</span><span class="p">[</span><span class="s2">"sum"</span><span class="p">]</span> <span class="o">/</span> <span class="n">count</span>
+        <span class="n">var</span> <span class="o">=</span> <span class="p">(</span><span class="n">part</span><span class="p">[</span><span class="s2">"m2"</span><span class="p">]</span> <span class="o">/</span> <span class="p">(</span><span class="n">count</span> <span class="o">-</span> <span class="mi">1</span><span class="p">))</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">count</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="n">cols</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">stats</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">s</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"count"</span><span class="p">,</span> <span class="s2">"size"</span><span class="p">,</span> <span class="s2">"sum"</span><span class="p">,</span> <span class="s2">"prod"</span><span class="p">):</span>
+            <span class="n">cols</span><span class="p">[</span><span class="n">s</span><span class="p">]</span> <span class="o">=</span> <span class="n">part</span><span class="p">[</span><span class="n">s</span><span class="p">]</span>
+        <span class="k">elif</span> <span class="n">s</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"min"</span><span class="p">,</span> <span class="s2">"max"</span><span class="p">):</span>
+            <span class="n">cols</span><span class="p">[</span><span class="n">s</span><span class="p">]</span> <span class="o">=</span> <span class="n">part</span><span class="p">[</span><span class="n">s</span><span class="p">]</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">count</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">s</span> <span class="o">==</span> <span class="s2">"mean"</span><span class="p">:</span>
+            <span class="n">cols</span><span class="p">[</span><span class="n">s</span><span class="p">]</span> <span class="o">=</span> <span class="n">mean</span>
+        <span class="k">elif</span> <span class="n">s</span> <span class="o">==</span> <span class="s2">"var"</span><span class="p">:</span>
+            <span class="n">cols</span><span class="p">[</span><span class="n">s</span><span class="p">]</span> <span class="o">=</span> <span class="n">var</span>
+        <span class="k">elif</span> <span class="n">s</span> <span class="o">==</span> <span class="s2">"std"</span><span class="p">:</span>
+            <span class="n">cols</span><span class="p">[</span><span class="n">s</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">var</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">cols</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">part</span><span class="o">.</span><span class="n">index</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_finalize_counts</span><span class="p">(</span><span class="n">counts</span><span class="p">,</span> <span class="n">stats</span><span class="p">):</span>
+    <span class="c1"># counts holds merged (zone, band, value, n) rows. Each stat is computed</span>
+    <span class="c1"># vectorized over the groups, with no per-zone Python loop.</span>
+    <span class="n">keys</span> <span class="o">=</span> <span class="p">[</span><span class="n">counts</span><span class="p">[</span><span class="s2">"zone"</span><span class="p">],</span> <span class="n">counts</span><span class="p">[</span><span class="s2">"band"</span><span class="p">]]</span>
+    <span class="n">g</span> <span class="o">=</span> <span class="n">counts</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="n">keys</span><span class="p">,</span> <span class="n">sort</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">cols</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">if</span> <span class="s2">"nunique"</span> <span class="ow">in</span> <span class="n">stats</span><span class="p">:</span>
+        <span class="n">cols</span><span class="p">[</span><span class="s2">"nunique"</span><span class="p">]</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">size</span><span class="p">()</span>
+    <span class="k">if</span> <span class="s2">"mode"</span> <span class="ow">in</span> <span class="n">stats</span><span class="p">:</span>
+        <span class="c1"># Highest count wins; ties break to the lowest value, matching scipy.</span>
+        <span class="n">first</span> <span class="o">=</span> <span class="n">counts</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span>
+            <span class="p">[</span><span class="s2">"zone"</span><span class="p">,</span> <span class="s2">"band"</span><span class="p">,</span> <span class="s2">"n"</span><span class="p">,</span> <span class="s2">"value"</span><span class="p">],</span>
+            <span class="n">ascending</span><span class="o">=</span><span class="p">[</span><span class="kc">True</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="kc">True</span><span class="p">],</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">drop_duplicates</span><span class="p">([</span><span class="s2">"zone"</span><span class="p">,</span> <span class="s2">"band"</span><span class="p">])</span>
+        <span class="n">cols</span><span class="p">[</span><span class="s2">"mode"</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span>
+            <span class="n">first</span><span class="p">[</span><span class="s2">"value"</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="n">F64</span><span class="p">),</span>
+            <span class="n">index</span><span class="o">=</span><span class="n">pd</span><span class="o">.</span><span class="n">MultiIndex</span><span class="o">.</span><span class="n">from_frame</span><span class="p">(</span><span class="n">first</span><span class="p">[[</span><span class="s2">"zone"</span><span class="p">,</span> <span class="s2">"band"</span><span class="p">]]),</span>
+        <span class="p">)</span>
+    <span class="k">if</span> <span class="s2">"asm"</span> <span class="ow">in</span> <span class="n">stats</span> <span class="ow">or</span> <span class="s2">"entropy"</span> <span class="ow">in</span> <span class="n">stats</span><span class="p">:</span>
+        <span class="n">p</span> <span class="o">=</span> <span class="n">counts</span><span class="p">[</span><span class="s2">"n"</span><span class="p">]</span> <span class="o">/</span> <span class="n">g</span><span class="p">[</span><span class="s2">"n"</span><span class="p">]</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="s2">"sum"</span><span class="p">)</span>
+        <span class="k">if</span> <span class="s2">"asm"</span> <span class="ow">in</span> <span class="n">stats</span><span class="p">:</span>
+            <span class="n">cols</span><span class="p">[</span><span class="s2">"asm"</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">p</span> <span class="o">*</span> <span class="n">p</span><span class="p">)</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="n">keys</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+        <span class="k">if</span> <span class="s2">"entropy"</span> <span class="ow">in</span> <span class="n">stats</span><span class="p">:</span>
+            <span class="n">cols</span><span class="p">[</span><span class="s2">"entropy"</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span><span class="p">(</span><span class="n">p</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">p</span><span class="p">))</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="n">keys</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+    <span class="n">out</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">cols</span><span class="p">)</span>
+    <span class="n">out</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">names</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"zone"</span><span class="p">,</span> <span class="s2">"band"</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">out</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_to_wide</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">nbands</span><span class="p">,</span> <span class="n">stats</span><span class="p">):</span>
+    <span class="c1"># df is indexed by (zone, band) with one column per stat. Produce a frame</span>
+    <span class="c1"># whose columns are (band_b, stat) in the caller's stat order and whose</span>
+    <span class="c1"># index is the zone id.</span>
+    <span class="n">wide</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">unstack</span><span class="p">(</span><span class="s2">"band"</span><span class="p">)</span>  <span class="c1"># noqa: PD010</span>
+    <span class="n">cols</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">nbands</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">stats</span><span class="p">:</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span> <span class="ow">in</span> <span class="n">wide</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+                <span class="n">col</span> <span class="o">=</span> <span class="n">wide</span><span class="p">[(</span><span class="n">s</span><span class="p">,</span> <span class="n">b</span><span class="p">)]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">col</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">wide</span><span class="o">.</span><span class="n">index</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">_INT_STATS</span><span class="p">:</span>
+                <span class="n">col</span> <span class="o">=</span> <span class="n">col</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">I64</span><span class="p">)</span>
+            <span class="n">cols</span><span class="p">[(</span><span class="sa">f</span><span class="s2">"band_</span><span class="si">{</span><span class="n">b</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span> <span class="n">s</span><span class="p">)]</span> <span class="o">=</span> <span class="n">col</span>
+    <span class="n">out</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">cols</span><span class="p">)</span>
+    <span class="n">out</span><span class="o">.</span><span class="n">columns</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">MultiIndex</span><span class="o">.</span><span class="n">from_tuples</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">cols</span><span class="p">))</span>
+    <span class="n">out</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s2">"zone"</span>
+    <span class="k">return</span> <span class="n">out</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_finalize_block_stats</span><span class="p">(</span><span class="n">moments</span><span class="p">,</span> <span class="n">counts</span><span class="p">,</span> <span class="n">mstats</span><span class="p">,</span> <span class="n">cstats</span><span class="p">,</span> <span class="n">nbands</span><span class="p">,</span> <span class="n">stats</span><span class="p">):</span>
+    <span class="n">res</span> <span class="o">=</span> <span class="n">_finalize_moments</span><span class="p">(</span><span class="n">moments</span><span class="p">,</span> <span class="n">mstats</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">counts</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">res</span> <span class="o">=</span> <span class="n">res</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">_finalize_counts</span><span class="p">(</span><span class="n">counts</span><span class="p">,</span> <span class="n">cstats</span><span class="p">),</span> <span class="n">how</span><span class="o">=</span><span class="s2">"left"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">_to_wide</span><span class="p">(</span><span class="n">res</span><span class="p">,</span> <span class="n">nbands</span><span class="p">,</span> <span class="n">stats</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_moments_meta</span><span class="p">(</span><span class="n">zone_dtype</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+        <span class="p">{</span>
+            <span class="s2">"size"</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">((),</span> <span class="n">I64</span><span class="p">),</span>
+            <span class="s2">"count"</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">((),</span> <span class="n">I64</span><span class="p">),</span>
+            <span class="s2">"sum"</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">((),</span> <span class="n">F64</span><span class="p">),</span>
+            <span class="s2">"prod"</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">((),</span> <span class="n">F64</span><span class="p">),</span>
+            <span class="s2">"min"</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">((),</span> <span class="n">F64</span><span class="p">),</span>
+            <span class="s2">"max"</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">((),</span> <span class="n">F64</span><span class="p">),</span>
+            <span class="s2">"m2"</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">((),</span> <span class="n">F64</span><span class="p">),</span>
+        <span class="p">},</span>
+        <span class="n">index</span><span class="o">=</span><span class="n">pd</span><span class="o">.</span><span class="n">MultiIndex</span><span class="o">.</span><span class="n">from_arrays</span><span class="p">(</span>
+            <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">((),</span> <span class="n">zone_dtype</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">((),</span> <span class="n">I64</span><span class="p">)],</span>
+            <span class="n">names</span><span class="o">=</span><span class="p">[</span><span class="s2">"zone"</span><span class="p">,</span> <span class="s2">"band"</span><span class="p">],</span>
+        <span class="p">),</span>
+    <span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_wide_meta</span><span class="p">(</span><span class="n">zone_dtype</span><span class="p">,</span> <span class="n">nbands</span><span class="p">,</span> <span class="n">stats</span><span class="p">):</span>
+    <span class="n">cols</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="p">(</span><span class="sa">f</span><span class="s2">"band_</span><span class="si">{</span><span class="n">b</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span> <span class="n">s</span><span class="p">):</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">((),</span> <span class="n">I64</span> <span class="k">if</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">_INT_STATS</span> <span class="k">else</span> <span class="n">F64</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">nbands</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">stats</span>
+    <span class="p">}</span>
+    <span class="n">meta</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">cols</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">((),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">zone_dtype</span><span class="p">))</span>
+    <span class="n">meta</span><span class="o">.</span><span class="n">columns</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">MultiIndex</span><span class="o">.</span><span class="n">from_tuples</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">cols</span><span class="p">))</span>
+    <span class="n">meta</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s2">"zone"</span>
+    <span class="k">return</span> <span class="n">meta</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_block_zonal_stats</span><span class="p">(</span><span class="n">features_raster</span><span class="p">,</span> <span class="n">data_raster</span><span class="p">,</span> <span class="n">stats</span><span class="p">):</span>
+    <span class="c1"># Non-median stats are computed by reducing small per-block partial frames.</span>
+    <span class="c1"># The delayed block reads use optimize_graph=False so that they share keys</span>
+    <span class="c1"># with the median path's block reads and each block is read only once.</span>
+    <span class="n">zone_null</span> <span class="o">=</span> <span class="n">features_raster</span><span class="o">.</span><span class="n">null_value</span>
+    <span class="n">zone_dtype</span> <span class="o">=</span> <span class="n">features_raster</span><span class="o">.</span><span class="n">dtype</span>
+    <span class="n">nbands</span><span class="p">,</span> <span class="n">ny</span><span class="p">,</span> <span class="n">nx</span> <span class="o">=</span> <span class="n">data_raster</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">numblocks</span>
+    <span class="n">mstats</span> <span class="o">=</span> <span class="p">[</span><span class="n">s</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">stats</span> <span class="k">if</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">_MOMENT_STATS</span><span class="p">]</span>
+    <span class="n">cstats</span> <span class="o">=</span> <span class="p">[</span><span class="n">s</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">stats</span> <span class="k">if</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">_COUNT_STATS</span><span class="p">]</span>
+    <span class="n">want_counts</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="n">cstats</span><span class="p">)</span>
+    <span class="n">zone_blocks</span> <span class="o">=</span> <span class="n">features_raster</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">to_delayed</span><span class="p">(</span><span class="n">optimize_graph</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">data_blocks</span> <span class="o">=</span> <span class="n">data_raster</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">to_delayed</span><span class="p">(</span><span class="n">optimize_graph</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="n">func</span> <span class="o">=</span> <span class="n">dask</span><span class="o">.</span><span class="n">delayed</span><span class="p">(</span><span class="n">_block_partials</span><span class="p">,</span> <span class="n">nout</span><span class="o">=</span><span class="mi">2</span> <span class="k">if</span> <span class="n">want_counts</span> <span class="k">else</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="n">parts</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">func</span><span class="p">(</span>
+            <span class="n">zone_blocks</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">],</span>
+            <span class="p">[</span><span class="n">data_blocks</span><span class="p">[</span><span class="n">b</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nbands</span><span class="p">)],</span>
+            <span class="n">data_raster</span><span class="o">.</span><span class="n">null_value</span><span class="p">,</span>
+            <span class="n">zone_null</span><span class="p">,</span>
+            <span class="n">want_counts</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">ny</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nx</span><span class="p">)</span>
+    <span class="p">]</span>
+    <span class="n">mmeta</span> <span class="o">=</span> <span class="n">_moments_meta</span><span class="p">(</span><span class="n">zone_dtype</span><span class="p">)</span>
+    <span class="n">moments</span> <span class="o">=</span> <span class="n">dd</span><span class="o">.</span><span class="n">from_delayed</span><span class="p">(</span>
+        <span class="p">[</span><span class="n">p</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">parts</span><span class="p">]</span> <span class="k">if</span> <span class="n">want_counts</span> <span class="k">else</span> <span class="n">parts</span><span class="p">,</span>
+        <span class="n">meta</span><span class="o">=</span><span class="n">mmeta</span><span class="p">,</span>
+        <span class="n">verify_meta</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span><span class="o">.</span><span class="n">reduction</span><span class="p">(</span>
+        <span class="n">chunk</span><span class="o">=</span><span class="n">_merge_moments</span><span class="p">,</span>
+        <span class="n">combine</span><span class="o">=</span><span class="n">_merge_moments</span><span class="p">,</span>
+        <span class="n">aggregate</span><span class="o">=</span><span class="n">_merge_moments</span><span class="p">,</span>
+        <span class="n">meta</span><span class="o">=</span><span class="n">mmeta</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">wide_meta</span> <span class="o">=</span> <span class="n">_wide_meta</span><span class="p">(</span><span class="n">zone_dtype</span><span class="p">,</span> <span class="n">nbands</span><span class="p">,</span> <span class="n">stats</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">want_counts</span><span class="p">:</span>
+        <span class="n">cmeta</span> <span class="o">=</span> <span class="n">_empty_counts</span><span class="p">(</span><span class="n">zone_dtype</span><span class="p">)</span>
+        <span class="c1"># The value-count stats (asm, entropy, mode, nunique) are intended for</span>
+        <span class="c1"># integer or categorical data. On continuous float data each block's</span>
+        <span class="c1"># (zone, band, value, count) table is nearly cell-sized, so a smaller</span>
+        <span class="c1"># fan-in bounds the peak memory of each merge task.</span>
+        <span class="n">counts</span> <span class="o">=</span> <span class="n">dd</span><span class="o">.</span><span class="n">from_delayed</span><span class="p">(</span>
+            <span class="p">[</span><span class="n">p</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">parts</span><span class="p">],</span> <span class="n">meta</span><span class="o">=</span><span class="n">cmeta</span><span class="p">,</span> <span class="n">verify_meta</span><span class="o">=</span><span class="kc">False</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">reduction</span><span class="p">(</span>
+            <span class="n">chunk</span><span class="o">=</span><span class="n">_merge_counts</span><span class="p">,</span>
+            <span class="n">combine</span><span class="o">=</span><span class="n">_merge_counts</span><span class="p">,</span>
+            <span class="n">aggregate</span><span class="o">=</span><span class="n">_merge_counts</span><span class="p">,</span>
+            <span class="n">meta</span><span class="o">=</span><span class="n">cmeta</span><span class="p">,</span>
+            <span class="n">split_every</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">dd</span><span class="o">.</span><span class="n">map_partitions</span><span class="p">(</span>
+            <span class="n">_finalize_block_stats</span><span class="p">,</span>
+            <span class="n">moments</span><span class="p">,</span>
+            <span class="n">counts</span><span class="p">,</span>
+            <span class="n">mstats</span><span class="p">,</span>
+            <span class="n">cstats</span><span class="p">,</span>
+            <span class="n">nbands</span><span class="p">,</span>
+            <span class="n">stats</span><span class="p">,</span>
+            <span class="n">align_dataframes</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="n">meta</span><span class="o">=</span><span class="n">wide_meta</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="k">return</span> <span class="n">moments</span><span class="o">.</span><span class="n">map_partitions</span><span class="p">(</span>
+        <span class="n">_finalize_block_stats</span><span class="p">,</span>
+        <span class="kc">None</span><span class="p">,</span>
+        <span class="n">mstats</span><span class="p">,</span>
+        <span class="n">cstats</span><span class="p">,</span>
+        <span class="n">nbands</span><span class="p">,</span>
+        <span class="n">stats</span><span class="p">,</span>
+        <span class="n">meta</span><span class="o">=</span><span class="n">wide_meta</span><span class="p">,</span>
+    <span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_median_stats</span><span class="p">(</span><span class="n">features_raster</span><span class="p">,</span> <span class="n">data_raster</span><span class="p">):</span>
+    <span class="c1"># Median needs the full per-cell frame, so it stays on the group-by path.</span>
+    <span class="c1"># It also needs the shuffle argument and cannot share the custom aggs.</span>
+    <span class="c1"># ref: https://github.com/dask/dask/issues/10517</span>
     <span class="n">raster_dfs</span> <span class="o">=</span> <span class="p">[</span><span class="n">_raster_to_series</span><span class="p">(</span><span class="n">features_raster</span><span class="p">)</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="s2">"zone"</span><span class="p">)]</span>
     <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">data_raster</span><span class="o">.</span><span class="n">nbands</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
         <span class="n">band</span> <span class="o">=</span> <span class="n">_raster_to_series</span><span class="p">(</span><span class="n">data_raster</span><span class="o">.</span><span class="n">get_bands</span><span class="p">(</span><span class="n">b</span><span class="p">))</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="sa">f</span><span class="s2">"band_</span><span class="si">{</span><span class="n">b</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
@@ -690,35 +1069,54 @@ document.write(`
         <span class="k">if</span> <span class="n">band</span><span class="o">.</span><span class="n">dtype</span> <span class="o">!=</span> <span class="n">F64</span><span class="p">:</span>
             <span class="n">band</span> <span class="o">=</span> <span class="n">band</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">F64</span><span class="p">)</span>
         <span class="n">raster_dfs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">band</span><span class="p">)</span>
-    <span class="c1"># DataFrame structure:</span>
-    <span class="c1">#        zone  band_1  band_2  ...</span>
-    <span class="c1"># index</span>
-    <span class="c1">#     0    --      --      --  ...</span>
     <span class="n">combined_raster_df</span> <span class="o">=</span> <span class="n">dd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">raster_dfs</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
     <span class="c1"># Filter out non-feature areas</span>
     <span class="n">combined_raster_df</span> <span class="o">=</span> <span class="n">combined_raster_df</span><span class="p">[</span>
         <span class="n">combined_raster_df</span><span class="o">.</span><span class="n">zone</span> <span class="o">!=</span> <span class="n">features_raster</span><span class="o">.</span><span class="n">null_value</span>
     <span class="p">]</span>
     <span class="n">grouped</span> <span class="o">=</span> <span class="n">combined_raster_df</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">"zone"</span><span class="p">)</span>
-    <span class="n">agg_result_df</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="k">if</span> <span class="n">has_median</span><span class="p">:</span>
-        <span class="c1"># median requires special treatment. It needs the shuffle arg and also</span>
-        <span class="c1"># causes TypeErrors when used with custom agg functions.</span>
-        <span class="c1"># ref: https://github.com/dask/dask/issues/10517</span>
-        <span class="c1"># Stay backword compatible with older versions of dask</span>
-        <span class="k">if</span> <span class="n">version_to_tuple</span><span class="p">(</span><span class="n">dask</span><span class="o">.</span><span class="n">__version__</span><span class="p">)</span> <span class="o">&lt;</span> <span class="p">(</span><span class="mi">2024</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">):</span>
-            <span class="n">shuffle_kw</span> <span class="o">=</span> <span class="s2">"shuffle"</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">shuffle_kw</span> <span class="o">=</span> <span class="s2">"shuffle_method"</span>
-        <span class="n">median_df</span> <span class="o">=</span> <span class="n">grouped</span><span class="o">.</span><span class="n">agg</span><span class="p">([</span><span class="s2">"median"</span><span class="p">],</span> <span class="o">**</span><span class="p">{</span><span class="n">shuffle_kw</span><span class="p">:</span> <span class="s2">"tasks"</span><span class="p">})</span>
-    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">stats</span><span class="p">):</span>
-        <span class="n">agg_result_df</span> <span class="o">=</span> <span class="n">grouped</span><span class="o">.</span><span class="n">agg</span><span class="p">(</span><span class="n">stats</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">has_median</span><span class="p">:</span>
-            <span class="n">agg_result_df</span> <span class="o">=</span> <span class="n">agg_result_df</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">median_df</span><span class="p">)</span>
+    <span class="c1"># Stay backward compatible with older versions of dask</span>
+    <span class="k">if</span> <span class="n">version_to_tuple</span><span class="p">(</span><span class="n">dask</span><span class="o">.</span><span class="n">__version__</span><span class="p">)</span> <span class="o">&lt;</span> <span class="p">(</span><span class="mi">2024</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">):</span>
+        <span class="n">shuffle_kw</span> <span class="o">=</span> <span class="s2">"shuffle"</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="c1"># Only median was provided</span>
-        <span class="n">agg_result_df</span> <span class="o">=</span> <span class="n">median_df</span>
+        <span class="n">shuffle_kw</span> <span class="o">=</span> <span class="s2">"shuffle_method"</span>
+    <span class="n">median</span> <span class="o">=</span> <span class="n">grouped</span><span class="o">.</span><span class="n">agg</span><span class="p">([</span><span class="s2">"median"</span><span class="p">],</span> <span class="o">**</span><span class="p">{</span><span class="n">shuffle_kw</span><span class="p">:</span> <span class="s2">"tasks"</span><span class="p">})</span>
+    <span class="c1"># Dask's group-by median splits its output across multiple partitions once</span>
+    <span class="c1"># there are more than fifteen input blocks (split_out is ceil(nblocks /</span>
+    <span class="c1"># 15)). Joining a multi-partition frame that carries MultiIndex columns</span>
+    <span class="c1"># trips a dask-expr merge error on its "_partitions" shuffle helper column,</span>
+    <span class="c1"># so collapse the medians to one partition before returning. The per-zone</span>
+    <span class="c1"># medians are tiny, so a single partition costs nothing.</span>
+    <span class="k">return</span> <span class="n">median</span><span class="o">.</span><span class="n">repartition</span><span class="p">(</span><span class="n">npartitions</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_zonal_stats</span><span class="p">(</span><span class="n">features_raster</span><span class="p">,</span> <span class="n">data_raster</span><span class="p">,</span> <span class="n">stats</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Compute zonal statistics per band, grouped by the feature zone ids.</span>
+
+<span class="sd">    Non-median stats use a per-block partial-aggregation path. Median stays on</span>
+<span class="sd">    the group-by path and is joined onto the other stats afterward.</span>
+<span class="sd">    """</span>
+    <span class="n">stat_names</span> <span class="o">=</span> <span class="n">stats</span>
+    <span class="n">stats</span><span class="p">,</span> <span class="n">has_median</span> <span class="o">=</span> <span class="n">_find_problem_stats</span><span class="p">(</span><span class="n">stats</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">features_raster</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">chunks</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="o">!=</span> <span class="n">data_raster</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">chunks</span><span class="p">[</span><span class="mi">1</span><span class="p">:]:</span>
+        <span class="c1"># Force rasters to have matching chunksizes. The features raster is</span>
+        <span class="c1"># single-band, so keep its band axis at one chunk and match only the</span>
+        <span class="c1"># spatial chunks; passing the data raster's band chunks would break</span>
+        <span class="c1"># when the data raster has multiple bands.</span>
+        <span class="n">features_raster</span> <span class="o">=</span> <span class="n">features_raster</span><span class="o">.</span><span class="n">chunk</span><span class="p">(</span>
+            <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="o">*</span><span class="n">data_raster</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">chunks</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span>
+        <span class="p">)</span>
+    <span class="n">agg_result_df</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">stats</span><span class="p">):</span>
+        <span class="n">agg_result_df</span> <span class="o">=</span> <span class="n">_block_zonal_stats</span><span class="p">(</span><span class="n">features_raster</span><span class="p">,</span> <span class="n">data_raster</span><span class="p">,</span> <span class="n">stats</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">has_median</span><span class="p">:</span>
+        <span class="n">median_df</span> <span class="o">=</span> <span class="n">_median_stats</span><span class="p">(</span><span class="n">features_raster</span><span class="p">,</span> <span class="n">data_raster</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">agg_result_df</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">agg_result_df</span> <span class="o">=</span> <span class="n">agg_result_df</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">median_df</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Only median was provided</span>
+            <span class="n">agg_result_df</span> <span class="o">=</span> <span class="n">median_df</span>
         <span class="c1"># Shuffle columns to be in order of the original stats</span>
         <span class="n">col_tuples</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">data_raster</span><span class="o">.</span><span class="n">nbands</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
@@ -885,6 +1283,9 @@ document.write(`
     <span class="k">for</span> <span class="n">stat</span> <span class="ow">in</span> <span class="n">stats</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">stat</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">ZONAL_STAT_FUNCS</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Invalid stats function: </span><span class="si">{</span><span class="nb">repr</span><span class="p">(</span><span class="n">stat</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="n">duplicate</span> <span class="o">=</span> <span class="nb">next</span><span class="p">((</span><span class="n">s</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">stats</span> <span class="k">if</span> <span class="n">stats</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="n">s</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">),</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">duplicate</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Duplicate stats function: </span><span class="si">{</span><span class="nb">repr</span><span class="p">(</span><span class="n">duplicate</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 
     <span class="k">if</span> <span class="n">handle_overlap</span><span class="p">:</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">features</span><span class="p">,</span> <span class="n">Raster</span><span class="p">):</span>
@@ -912,16 +1313,15 @@ document.write(`
         <span class="k">if</span> <span class="n">features</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="o">!=</span> <span class="n">data_raster</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">:]:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Feature raster shape must match data raster"</span><span class="p">)</span>
 
-    <span class="c1"># Rechunk based on largest (probable) dtype to avoid overly large chunks,</span>
-    <span class="c1"># which could cause memory issues down the pipeline. For instance, if the</span>
-    <span class="c1"># data raster has dtype of f32 but the rasterization of the features</span>
-    <span class="c1"># produces an i64 raster, the features raster will have double the memory</span>
-    <span class="c1"># footprint, for each chunk, compared to the original data raster. This</span>
-    <span class="c1"># causes dask to raise warnings about chunk sizes and drastically increases</span>
-    <span class="c1"># the likelihood of running out of memory at compute time.</span>
-    <span class="c1"># Rechunking to an 8-byte dtype helps mitigate the potential for memory</span>
-    <span class="c1"># pressure at compute time. It is done here because the chunksize of the</span>
-    <span class="c1"># data raster determines the chunksize of the features raster.</span>
+    <span class="c1"># Rechunk based on the largest probable dtype to avoid overly large</span>
+    <span class="c1"># chunks, which could cause memory issues down the pipeline. Feature</span>
+    <span class="c1"># rasterization burns the smallest unsigned dtype that holds the zone ids</span>
+    <span class="c1"># and falls back to int64, so a features raster can reach 8 bytes per cell</span>
+    <span class="c1"># -- up to double the footprint of, say, an f32 data raster, for each</span>
+    <span class="c1"># chunk. That triggers dask chunk-size warnings and raises the likelihood</span>
+    <span class="c1"># of running out of memory at compute time. Rechunking to an 8-byte dtype</span>
+    <span class="c1"># here mitigates that; it is done here because the data raster's chunksize</span>
+    <span class="c1"># determines the features raster's chunksize.</span>
     <span class="n">new_chunksize</span> <span class="o">=</span> <span class="n">da</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span> <span class="o">*</span><span class="n">data_raster</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">:]),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">F64</span><span class="p">)</span><span class="o">.</span><span class="n">chunksize</span>
     <span class="n">data_raster</span> <span class="o">=</span> <span class="n">data_raster</span><span class="o">.</span><span class="n">chunk</span><span class="p">(</span><span class="n">new_chunksize</span><span class="p">)</span>
     <span class="n">features_raster</span> <span class="o">=</span> <span class="kc">None</span>
