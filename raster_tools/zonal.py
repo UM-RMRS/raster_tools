@@ -641,7 +641,14 @@ def _median_stats(features_raster, data_raster):
         shuffle_kw = "shuffle"
     else:
         shuffle_kw = "shuffle_method"
-    return grouped.agg(["median"], **{shuffle_kw: "tasks"})
+    median = grouped.agg(["median"], **{shuffle_kw: "tasks"})
+    # Dask's group-by median splits its output across multiple partitions once
+    # there are more than fifteen input blocks (split_out is ceil(nblocks /
+    # 15)). Joining a multi-partition frame that carries MultiIndex columns
+    # trips a dask-expr merge error on its "_partitions" shuffle helper column,
+    # so collapse the medians to one partition before returning. The per-zone
+    # medians are tiny, so a single partition costs nothing.
+    return median.repartition(npartitions=1)
 
 
 def _zonal_stats(features_raster, data_raster, stats):

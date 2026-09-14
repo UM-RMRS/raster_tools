@@ -358,9 +358,8 @@ def test_zonal_stats_matches_numpy_oracle(build_case):
 def test_zonal_stats_oracle_multiblock_merge(monkeypatch):
     # zonal_stats rechunks the data raster to the auto chunk size before the
     # fast path runs, so a small chunk size is needed to make the block-partial
-    # merge fire. A 10KiB chunk splits dem_small into a 3x3 grid.
-    # SHUFFLED_STATS includes median, whose join currently breaks above nine
-    # blocks, so a coarser grid is used here rather than a finer one.
+    # merge fire. A 10KiB chunk splits dem_small into a 3x3 grid. The
+    # median join at finer grids is covered by its own tests below.
     import raster_tools.zonal as zonal_mod
 
     seen = {}
@@ -742,6 +741,82 @@ def test_zonal_stats_long_format_matches_oracle(build_case):
             rtol=1e-9,
             atol=1e-8,
         )
+
+
+MEDIAN_JOIN_STATS = [
+    ["mean", "median"],
+    ["median", "mean", "count"],
+    ["mean", "median", "count"],
+]
+
+
+def _record_block_numblocks(monkeypatch):
+    # Capture the data raster's block grid at graph-build time, the same way
+    # test_zonal_stats_oracle_multiblock_merge observes it, so the median join
+    # can be exercised above the fifteen-block split_out threshold.
+    import raster_tools.zonal as zonal_mod
+
+    seen = {}
+    real = zonal_mod._block_zonal_stats
+
+    def record_numblocks(features_raster, data_raster, stats):
+        seen["numblocks"] = data_raster.data.numblocks
+        return real(features_raster, data_raster, stats)
+
+    monkeypatch.setattr(zonal_mod, "_block_zonal_stats", record_numblocks)
+    return seen
+
+
+@pytest.mark.parametrize("stats", MEDIAN_JOIN_STATS)
+def test_zonal_median_join_many_blocks_wide(stats, monkeypatch):
+    # A 3KiB chunk size splits dem_small into a 6x6 (36-block) grid. Above
+    # fifteen blocks the median group-by emits split_out > 1, the case that
+    # used to break the median join onto the block stats.
+    seen = _record_block_numblocks(monkeypatch)
+    # Rasterize once outside the chunk-size context; rasterizing the vector on
+    # the finer auto chunking diverges from the oracle on a few boundary cells.
+    dem = testdata.raster.dem_small.chunk((1, 20, 20))
+    feat = rts.rasterize.rasterize(testdata.vector.pods_small, dem)
+    with dask.config.set({"array.chunk-size": "3KiB"}):
+        assert_zonal_matches_oracle(feat, dem, stats)
+    _, ny, nx = seen["numblocks"]
+    assert ny * nx > 15
+
+
+@pytest.mark.parametrize("stats", MEDIAN_JOIN_STATS)
+def test_zonal_median_join_many_blocks_long(stats, monkeypatch):
+    seen = _record_block_numblocks(monkeypatch)
+    dem = testdata.raster.dem_small.chunk((1, 20, 20))
+    feat = rts.rasterize.rasterize(testdata.vector.pods_small, dem)
+    oracle = numpy_zonal_oracle(feat, dem, stats)
+    expected = (
+        oracle.stack(0, future_stack=True)  # noqa: PD013
+        .reset_index()
+        .rename(columns={"level_1": "band"})
+    )
+    expected["band"] = expected.band.apply(lambda x: int(x.split("_")[-1]))
+    expected = expected.sort_values(["band", "zone"]).reset_index(drop=True)
+    with dask.config.set({"array.chunk-size": "3KiB"}):
+        result = zonal_stats(feat, dem, stats, wide_format=False)
+        resultc = (
+            result.compute()
+            .sort_values(["band", "zone"])
+            .reset_index(drop=True)
+        )
+    assert result.columns.equals(expected.columns)
+    assert resultc.dtypes.equals(expected.dtypes)
+    np.testing.assert_array_equal(
+        resultc["zone"].to_numpy(), expected["zone"].to_numpy()
+    )
+    for s in stats:
+        np.testing.assert_allclose(
+            resultc[s].to_numpy(dtype=np.float64),
+            expected[s].to_numpy(dtype=np.float64),
+            rtol=1e-9,
+            atol=1e-8,
+        )
+    _, ny, nx = seen["numblocks"]
+    assert ny * nx > 15
 
 
 def test_merge_moments_matches_direct():
