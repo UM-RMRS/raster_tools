@@ -595,6 +595,12 @@ class Vector:
             The name of a field to use for cell values when rasterizing the
             vector features. If None or not specified, the underlying
             dataframe's index is used. The default is to use the index.
+            Without a field, the result uses the smallest unsigned dtype
+            (uint8, uint16, or uint32) that holds every index-plus-one value
+            and the null value, falling back to int64 if the index is not an
+            integer type, contains a negative label, or the null value is
+            negative or non-integer. When `field` is given, the result uses
+            that field's dtype.
         overlap_resolve_method : str, optional
             The method used to resolve overlaping features. Default is
             `"last"`. The available methods are:

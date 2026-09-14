@@ -9,6 +9,7 @@ import dask.array as da
 import dask_geopandas as dgpd
 import geopandas as gpd
 import numpy as np
+import pandas as pd
 import pytest
 import shapely
 from affine import Affine
@@ -22,6 +23,13 @@ from tests.utils import (
     assert_valid_raster,
     make_raster,
 )
+
+
+def _hlg_layer_names(raster):
+    # High-level-graph layer names carry the op that produced them, so a
+    # stack/reduce layer's presence is a stable structural signal. Inspecting
+    # names avoids asserting spy call counts under dask's threaded compute.
+    return set(raster.data.__dask_graph__().layers)
 
 
 def test_rasterize_partition_chunk_matches():
@@ -752,6 +760,9 @@ def test_rasterize_no_field_rejects_duplicate_index():
 def test_rasterize_null_value(field, mask):
     features = testdata.vector.test_circles_small
     like = testdata.raster.dem_small
+    # For the field=None cases, null_value=99_000 exceeds the index-derived
+    # value range and must widen the no-field dtype to hold it, so this also
+    # exercises the null_value-widens-dtype path.
     null_value = 99_000
 
     feats = rts.vector.get_vector(features).data.compute()
@@ -776,3 +787,175 @@ def test_rasterize_null_value(field, mask):
 
     assert result.null_value == expected.null_value
     assert np.allclose(result, expected)
+
+
+@pytest.mark.parametrize(
+    "n_features,null_value,expected",
+    [
+        (255, None, np.dtype("uint8")),
+        (256, None, np.dtype("uint16")),
+        (2**16 - 1, None, np.dtype("uint16")),
+        (2**16, None, np.dtype("uint32")),
+        # An explicit null_value wider than the index range widens the dtype.
+        (10, 99_000, np.dtype("uint32")),
+        # A negative null_value would wrap in an unsigned dtype, so fall back.
+        (10, -1, np.dtype("int64")),
+    ],
+)
+def test_resolve_index_value_dtype_boundaries(
+    n_features, null_value, expected
+):
+    gdf = gpd.GeoDataFrame(
+        geometry=[shapely.Point(0, 0)] * n_features,
+        index=pd.RangeIndex(n_features),
+    )
+    dgdf = dgpd.from_geopandas(gdf, npartitions=1)
+    assert rasterize._resolve_index_value_dtype(dgdf, null_value) == expected
+
+
+def test_resolve_index_value_dtype_negative_index_falls_back():
+    gdf = gpd.GeoDataFrame(
+        geometry=[shapely.Point(0, 0)] * 3, index=[-1, 0, 1]
+    )
+    dgdf = dgpd.from_geopandas(gdf, npartitions=1)
+    assert rasterize._resolve_index_value_dtype(dgdf, None) == np.dtype(
+        "int64"
+    )
+
+
+def test_resolve_index_value_dtype_float_index_falls_back():
+    gdf = gpd.GeoDataFrame(
+        geometry=[shapely.Point(0, 0)] * 3, index=[0.0, 1.0, 2.0]
+    )
+    dgdf = dgpd.from_geopandas(gdf, npartitions=1)
+    assert rasterize._resolve_index_value_dtype(dgdf, None) == np.dtype(
+        "int64"
+    )
+
+
+@pytest.mark.parametrize("n,dtype", [(255, "uint8"), (256, "uint16")])
+def test_rasterize_no_field_dtype_boundary_end_to_end(n, dtype):
+    # One unit box per cell on a 20x20 grid, so every index-plus-one value
+    # is burned and the largest value sits exactly at the dtype boundary.
+    boxes = [
+        shapely.box(j, i, j + 1, i + 1) for i in range(16) for j in range(16)
+    ]
+    gdf = gpd.GeoDataFrame(geometry=boxes[:n], crs="EPSG:3857")
+    result = rasterize.rasterize(gdf, _edge_like(), all_touched=False)
+    assert result.dtype == np.dtype(dtype)
+    arr = result.load().to_numpy()
+    assert arr.dtype == np.dtype(dtype)
+    assert set(np.unique(arr)) == set(range(n + 1))
+
+
+@pytest.mark.parametrize(
+    "overlap_resolve_method", ["first", "last", "min", "max"]
+)
+def test_rasterize_no_field_dtype_survives_multi_partition_reduce(
+    overlap_resolve_method,
+):
+    # Two partitions without spatial partitions both land on every chunk,
+    # so the stacked reducers run and must keep the declared small dtype.
+    feats = testdata.vector.test_circles_small.data.compute()
+    feats = feats.reset_index(drop=True)
+    dfeats = dgpd.from_geopandas(feats, npartitions=2)
+    result = rasterize.rasterize(
+        dfeats,
+        testdata.raster.dem_small,
+        overlap_resolve_method=overlap_resolve_method,
+        use_spatial_aware=False,
+    )
+    assert result.dtype == np.dtype("uint8")
+    loaded = result.load()
+    assert loaded.dtype == np.dtype("uint8")
+    assert loaded.to_numpy().max() == len(feats)
+
+
+def test_rasterize_no_field_uses_minimal_dtype(monkeypatch):
+    like = testdata.raster.dem_small
+    features = testdata.vector.test_circles_small
+    n_features = len(rts.vector.get_vector(features).data)
+    # The small fixture has few features, so the burned index-plus-one values
+    # fit in a uint8.
+    assert n_features < 256
+
+    result = rasterize.rasterize(features, like).load()
+    assert result.dtype == np.dtype("uint8")
+
+    # Narrowing the dtype must not change which values get burned. Force the
+    # prior fixed int64 behavior and compare the burned values.
+    def force_i64(gdf, null_value):
+        return np.dtype("int64")
+
+    monkeypatch.setattr(rasterize, "_resolve_index_value_dtype", force_i64)
+    forced = rasterize.rasterize(features, like).load()
+    assert forced.dtype == np.dtype("int64")
+    assert np.array_equal(result.to_numpy().astype("int64"), forced.to_numpy())
+
+
+@pytest.mark.parametrize("mask", [False, True])
+def test_single_partition_skips_stack_and_reduce(mask):
+    like = testdata.raster.dem_small.chunk((1, 20, 20))
+    feats = (
+        rts.vector.get_vector(testdata.vector.test_circles_small)
+        .data.compute()
+        .reset_index(drop=True)
+    )
+    one = dgpd.from_geopandas(feats, npartitions=1)
+    assert one.npartitions == 1
+
+    result = rasterize.rasterize(one, like, mask=mask, use_spatial_aware=False)
+    names = _hlg_layer_names(result)
+    # No stack means the reduce (da.reduction, or da.max/da.min for masks) was
+    # never built, since it only runs on a stacked array.
+    assert not any(n.startswith("stack") for n in names)
+
+    # Positive control: two partitions with no spatial info both land on every
+    # chunk, so the stack-and-reduce path stays in the graph.
+    two = dgpd.from_geopandas(feats, npartitions=2)
+    result2 = rasterize.rasterize(
+        two, like, mask=mask, use_spatial_aware=False
+    )
+    assert any(n.startswith("stack") for n in _hlg_layer_names(result2))
+
+
+@pytest.mark.parametrize(
+    "overlap_resolve_method", ["first", "last", "min", "max"]
+)
+def test_two_partition_reduce_matches_single_field(overlap_resolve_method):
+    like = testdata.raster.dem_small.chunk((1, 20, 20))
+    feats = testdata.vector.test_circles_small.data.compute().reset_index(
+        drop=True
+    )
+    one = dgpd.from_geopandas(feats, npartitions=1)
+    two = dgpd.from_geopandas(feats, npartitions=2)
+    kw = {
+        "overlap_resolve_method": overlap_resolve_method,
+        "all_touched": True,
+        "use_spatial_aware": False,
+    }
+    r1 = rasterize.rasterize(one, like, **kw)
+    r2 = rasterize.rasterize(two, like, **kw)
+    # Two partitions with no spatial info keep the reduce path.
+    assert any(n.startswith("stack") for n in _hlg_layer_names(r2))
+    np.testing.assert_array_equal(r1.to_numpy(), r2.to_numpy())
+
+
+@pytest.mark.parametrize("mask_invert", [False, True])
+def test_two_partition_reduce_matches_single_mask(mask_invert):
+    like = testdata.raster.dem_small.chunk((1, 20, 20))
+    feats = testdata.vector.test_circles_small.data.compute().reset_index(
+        drop=True
+    )
+    one = dgpd.from_geopandas(feats, npartitions=1)
+    two = dgpd.from_geopandas(feats, npartitions=2)
+    kw = {
+        "mask": True,
+        "mask_invert": mask_invert,
+        "all_touched": True,
+        "use_spatial_aware": False,
+    }
+    r1 = rasterize.rasterize(one, like, **kw)
+    r2 = rasterize.rasterize(two, like, **kw)
+    assert any(n.startswith("stack") for n in _hlg_layer_names(r2))
+    np.testing.assert_array_equal(r1.to_numpy(), r2.to_numpy())

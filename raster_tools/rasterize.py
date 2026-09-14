@@ -12,7 +12,18 @@ from rasterio.enums import MergeAlg
 from rasterio.env import GDALVersion
 from rasterio.features import rasterize as rio_rasterize
 
-from raster_tools.dtypes import F64, I8, I16, I64, U8, U64, is_float, is_int
+from raster_tools.dtypes import (
+    F64,
+    I8,
+    I16,
+    I64,
+    U8,
+    U16,
+    U32,
+    U64,
+    is_float,
+    is_int,
+)
 from raster_tools.masking import get_default_null_value
 from raster_tools.raster import data_to_raster_like, get_raster
 from raster_tools.utils import list_reshape_2d
@@ -229,6 +240,12 @@ def _rasterize_onto_chunk(
     values = gdf["values"].to_numpy().copy()
     if use_index:
         values += 1
+        # Match out_dtype so the burn does not depend on rasterio accepting
+        # a mismatched values dtype. Neither step range-checks: numpy wraps
+        # a value too large for out_dtype and rasterio would saturate it, so
+        # correctness rests on out_dtype being wide enough, which the
+        # divisions[-1] bound guarantees, not on this cast.
+        values = values.astype(out_dtype)
 
     return _rio_rasterize_wrapper(
         shape_2d, transform, geometry, values, out_dtype, fill, all_touched
@@ -336,16 +353,26 @@ def _reduction_wrapper(
         # gets confused otherwise.
         return x
     # Assuming x has dims (B, Y, X), where B in {1, 2}
-    # Do nothing if input only has one band. Nothing to reduce. Copy in order
-    # to follow dask best practices.
-    out = x.copy() if x.shape[0] == 1 else resolve_func(x, fill=fill)
+    # Do nothing if input only has one band. Nothing to reduce. No copy is
+    # needed: the resolvers below allocate fresh outputs via np.where, so this
+    # reduction never mutates its input in place, and each stacked layer feeds
+    # exactly one reduction, so its buffer is not shared.
+    if x.shape[0] == 1:
+        return x if keepdims else x[0]
+    # A Python int fill makes np.where inside the resolvers promote small
+    # unsigned arrays to int64, so give it the array's own dtype first.
+    fill = x.dtype.type(fill)
+    out = resolve_func(x, fill=fill)
     if keepdims:
         return out
     return out[0]
 
 
-def _copy(x, *args, **kwargs):
-    return x.copy()
+def _identity(x, *args, **kwargs):
+    # The reduction's per-chunk step is a no-op. No copy is needed: the
+    # resolvers allocate fresh outputs via np.where, so nothing mutates this
+    # input in place, and each stacked layer feeds exactly one reduction.
+    return x
 
 
 def _reduce_stacked_feature_rasters_custom(
@@ -358,7 +385,7 @@ def _reduce_stacked_feature_rasters_custom(
     )
     reduced = da.reduction(
         stack,
-        chunk=_copy,
+        chunk=_identity,
         combine=agg_func,
         aggregate=agg_func,
         axis=0,
@@ -486,8 +513,16 @@ def _raw_rasterized_chunks_to_dask_array(
                     like_chunk_rasters[fi].data[0], fill, dtype=target_dtype
                 )
             )
+        elif len(oc) == 1:
+            # A single matched partition needs no reduction. oc[0] is the
+            # fresh per-task map_blocks output of _rasterize_onto_chunk or
+            # _mask_onto_chunk: 2D, already on the chunk's grid and in
+            # target_dtype. It is a distinct array per task, so no defensive
+            # copy is needed. Skipping the stack-and-reduce saves three graph
+            # tasks per chunk.
+            processed_chunks.append(oc[0])
         else:
-            # The chunk intersected 1 or more partitions. Reduce stack of
+            # The chunk intersected multiple partitions. Reduce the stack of
             # arrays (partitions rasterized to the chunk's grid) to a single
             # array using the specified overlap resolution method or by merging
             # masks together.
@@ -614,6 +649,38 @@ def _rasterize_spatial_naive(
     )
 
 
+def _resolve_index_value_dtype(gdf, null_value):
+    """Pick the smallest unsigned dtype for the no-field index values.
+
+    When no field is given, each feature is burned as its index label plus
+    one. Return the smallest unsigned dtype (uint8/uint16/uint32) wide
+    enough to hold every such value and an explicit null_value, if one was
+    given. The largest possible index-plus-one value is ``divisions[-1] +
+    1``; divisions are sorted at construction, so this is never an
+    underestimate of the true maximum label.
+
+    Fall back to I64 -- the prior fixed behavior -- when the index is not an
+    integer type, the index has a negative label (which would wrap around in
+    an unsigned dtype), or null_value is not a non-negative integer. A
+    negative index label colliding with the fill value is a pre-existing
+    edge case this does not change.
+    """
+    if not is_int(gdf.index.dtype):
+        return I64
+    lo, hi = gdf.divisions[0], gdf.divisions[-1]
+    if lo is None or hi is None or lo < 0:
+        return I64
+    needed = int(hi) + 1
+    if null_value is not None:
+        if not is_int(null_value) or null_value < 0:
+            return I64
+        needed = max(needed, int(null_value))
+    for dtype, bits in ((U8, 8), (U16, 16), (U32, 32)):
+        if needed < 2**bits:
+            return dtype
+    return I64
+
+
 def rasterize(
     features,
     like,
@@ -632,9 +699,16 @@ def rasterize(
     particular data field or to create a raster mask of zeros and ones. Using
     values to rasterize is the default. Use `mask=True` to generate a raster
     mask. If no data field is specified, the underlying dataframe's index plus
-    one is used. Vectors opened from a file carry a global, contiguous integer
-    index across all partitions, so each feature receives a unique value.
-    Cells that do not touch or overlap any features are marked as null.
+    one is used, burned into the smallest unsigned dtype that holds every
+    index-plus-one value and the null value (see `field` below). Vectors
+    opened from a file carry a global, contiguous integer index across all
+    partitions, so each feature receives a unique value. Cells that do not
+    touch or overlap any features are marked as null.
+
+    .. note::
+        :func:`raster_tools.zonal.zonal_stats` rasterizes its zone features
+        with no field, so the zone ids it reports inherit the dtype rule
+        described under `field` rather than always being int64.
 
     A dask dataframe supplied directly must have a unique index for the
     resulting values to identify features. Duplicate index values within a
@@ -673,7 +747,12 @@ def rasterize(
     field : str, optional
         The name of a field to use for cell values when rasterizing the
         vector features. If None or not specified, the underlying dataframe's
-        index plus 1 is used. The default is to use the index plus 1.
+        index plus 1 is used. The default is to use the index plus 1. Without
+        a field, the result uses the smallest unsigned dtype (uint8, uint16,
+        or uint32) that holds every index-plus-one value and the null value,
+        falling back to int64 if the index is not an integer type, contains a
+        negative label, or the null value is negative or non-integer. When
+        `field` is given, the result uses that field's dtype.
     overlap_resolve_method : str, optional
         The method used to resolve overlaping features. Default is `"last"`.
         The available methods are:
@@ -730,6 +809,11 @@ def rasterize(
 
     like = get_raster(like)
     if not mask:
+        if null_value is not None and not (
+            is_int(null_value) or is_float(null_value)
+        ):
+            raise TypeError("null_value must be a scalar")
+
         if isinstance(field, str):
             if field not in gdf:
                 raise ValueError(f"Invalid field name: {repr(field)}")
@@ -739,17 +823,14 @@ def rasterize(
                     "The specified field must be a scalar data type"
                 )
             target_dtype = dtype
+            if null_value is None:
+                null_value = get_default_null_value(target_dtype)
         elif field is not None:
             raise ValueError(f"Could not understand 'field' value: {field!r}")
         else:
-            target_dtype = I64
-        if null_value is not None:
-            if not is_int(null_value) and not is_float(null_value):
-                raise TypeError("null_value must be a scalar")
-        elif field is not None:
-            null_value = get_default_null_value(target_dtype)
-        else:
-            null_value = 0
+            target_dtype = _resolve_index_value_dtype(gdf, null_value)
+            if null_value is None:
+                null_value = 0
 
         if overlap_resolve_method not in {"first", "last", "min", "max"}:
             raise ValueError(
