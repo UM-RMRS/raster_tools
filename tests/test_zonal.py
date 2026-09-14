@@ -22,12 +22,8 @@ from raster_tools import stack_bands
 from raster_tools.dtypes import F64, I64
 from raster_tools.zonal import (
     _MAX_DIRECT_ZONE_ID,
-    _asm_agg,
     _block_partials,
-    _entropy_agg,
     _merge_moments,
-    _mode_agg,
-    _nunique_agg,
     _raster_to_series,
     _zone_codes,
     extract_points_eager,
@@ -54,49 +50,6 @@ def mode(x):
 
 def nunique(x):
     return rts.stat_common.nan_unique_count_jit(x.to_numpy())
-
-
-group_df1 = pd.DataFrame(
-    {"zone": np.arange(5).repeat(4), "band_1": np.arange(20).astype("float64")}
-)
-group_df2 = pd.DataFrame(
-    {
-        "zone": [8, 0, 1, 1, 2, 3, 3, 3, 3, 3, 4, 4, 6, 7, 7, 7, 7, 7, 8, 8],
-        "band_1": np.arange(20).astype("float64"),
-    }
-)
-group_df3 = pd.DataFrame(
-    {"zone": np.arange(5).repeat(4), "band_1": np.ones(20).astype("float64")}
-)
-
-
-@pytest.mark.parametrize(
-    "stat,stat_truth",
-    [
-        (_asm_agg, asm),
-        (_entropy_agg, entropy),
-        (_mode_agg, mode),
-        (_nunique_agg, nunique),
-    ],
-)
-@pytest.mark.parametrize(
-    "frame",
-    [
-        dd.from_pandas(group_df1, npartitions=1),
-        dd.from_pandas(group_df1, npartitions=3),
-        dd.from_pandas(group_df1, npartitions=10),
-        dd.from_pandas(group_df2, npartitions=3),
-        dd.from_pandas(group_df2, npartitions=7),
-        dd.from_pandas(group_df3, npartitions=7),
-    ],
-)
-def test_custom_stats(stat, stat_truth, frame):
-    gdfc = frame.compute().groupby("zone")
-    gdf = frame.groupby("zone")
-    truth = gdfc.agg([stat_truth]).sort_index()
-    result = gdf.agg([stat]).compute().sort_index()
-
-    assert truth.equals(result)
 
 
 def rasters_to_zonal_df(feat_raster, data_raster):

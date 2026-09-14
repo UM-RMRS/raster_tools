@@ -356,7 +356,7 @@ def focal(raster, focal_type, width_or_radius, height=None, ignore_null=False):
         'var'
             Finds the variance of the neighborhood.
         'asm'
-            Angular second moment. Applies -sum(P(g)**2) where P(g) gives
+            Angular second moment. Applies sum(P(g)**2) where P(g) gives
             the probability of g within the neighborhood.
         'entropy'
             Calculates the entropy. Applies -sum(P(g) * log(P(g))). See
