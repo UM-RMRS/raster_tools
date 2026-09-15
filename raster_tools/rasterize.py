@@ -38,9 +38,11 @@ __all__ = ["rasterize"]
 
 
 # Selects the rasterization backend used by _rio_rasterize_wrapper and
-# _rio_mask. "rasterio" burns through GDAL; "numba" burns with the kernels in
-# _rasterize_numba and falls back to rasterio for inputs it does not support.
-RASTERIZE_BACKEND = "rasterio"
+# _rio_mask. "numba" burns with the kernels in _rasterize_numba, which
+# reproduce GDAL's output pixel for pixel without rasterio's per-feature
+# GeoJSON conversion, and falls back to rasterio for inputs it does not
+# support. "rasterio" burns everything through GDAL.
+RASTERIZE_BACKEND = "numba"
 
 
 _RIO_64BIT_INTS_SUPPORTED = GDALVersion.runtime().at_least("3.5") and (
