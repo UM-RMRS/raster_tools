@@ -1,6 +1,24 @@
 import pytest
 
+from raster_tools import rasterize
 from tests import testdata
+
+
+@pytest.fixture(params=["rasterio", "numba"])
+def _rasterize_backend(request, monkeypatch):
+    # Runs the requesting test under both rasterization backends. Modules opt
+    # in with ``pytestmark = pytest.mark.usefixtures("_rasterize_backend")``
+    # so the parametrization stays confined to the rasterization tests.
+    # Tests marked rasterio-only or backend-agnostic (see the decorators in
+    # test_rasterize.py) skip the redundant numba run.
+    func = getattr(request, "function", None)
+    if request.param == "numba" and (
+        getattr(func, "_rasterio_only", False)
+        or getattr(func, "_backend_agnostic", False)
+    ):
+        pytest.skip("does not exercise the numba backend")
+    monkeypatch.setattr(rasterize, "RASTERIZE_BACKEND", request.param)
+    return request.param
 
 
 @pytest.fixture

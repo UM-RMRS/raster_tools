@@ -12,6 +12,11 @@ from rasterio.enums import MergeAlg
 from rasterio.env import GDALVersion
 from rasterio.features import rasterize as rio_rasterize
 
+from raster_tools._rasterize_numba import (
+    _NumbaUnsupported,
+    numba_mask,
+    numba_rasterize_wrapper,
+)
 from raster_tools.dtypes import (
     F64,
     I8,
@@ -30,6 +35,12 @@ from raster_tools.utils import list_reshape_2d
 from raster_tools.vector import get_vector
 
 __all__ = ["rasterize"]
+
+
+# Selects the rasterization backend used by _rio_rasterize_wrapper and
+# _rio_mask. "rasterio" burns through GDAL; "numba" burns with the kernels in
+# _rasterize_numba and falls back to rasterio for inputs it does not support.
+RASTERIZE_BACKEND = "rasterio"
 
 
 _RIO_64BIT_INTS_SUPPORTED = GDALVersion.runtime().at_least("3.5") and (
@@ -88,6 +99,19 @@ def _iter_geom_batches(geometry, budget=None):
 def _rio_rasterize_wrapper(
     shape, transform, geometry, values, out_dtype, fill, all_touched
 ):
+    if RASTERIZE_BACKEND == "numba":
+        try:
+            return numba_rasterize_wrapper(
+                shape,
+                transform,
+                geometry,
+                values,
+                out_dtype,
+                fill,
+                all_touched,
+            )
+        except _NumbaUnsupported:
+            pass
     rio_dtype = _get_rio_dtype(out_dtype)
     values_dtype = _get_rio_dtype(values.dtype)
     if values_dtype != values.dtype:
@@ -114,6 +138,11 @@ def _rio_rasterize_wrapper(
 
 
 def _rio_mask(geoms, shape, transform, all_touched, invert):
+    if RASTERIZE_BACKEND == "numba":
+        try:
+            return numba_mask(geoms, shape, transform, all_touched, invert)
+        except _NumbaUnsupported:
+            pass
     fill, geom_value = (1, 0) if invert else (0, 1)
     geoms = np.asarray(geoms)
     out = np.full(shape, fill, dtype=U8)

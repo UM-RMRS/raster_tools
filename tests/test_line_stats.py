@@ -21,6 +21,11 @@ from tests.utils import (
     make_raster,
 )
 
+# length() is the only caller that hands a raw GeoSeries to the rasterize mask
+# path, so run this module under both rasterization backends via the shared
+# conftest fixture.
+pytestmark = pytest.mark.usefixtures("_rasterize_backend")
+
 
 @pytest.mark.parametrize(
     "geoms,n",

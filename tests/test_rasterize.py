@@ -25,6 +25,26 @@ from tests.utils import (
 )
 
 
+def rasterio_only(func):
+    # Tests that assert rasterio-specific batching or spy behavior; they run
+    # once, under the rasterio backend only.
+    func._rasterio_only = True
+    return func
+
+
+def backend_agnostic(func):
+    # Pure-logic tests that never engage the burn backend; they run once
+    # rather than twice under the both-backends fixture.
+    func._backend_agnostic = True
+    return func
+
+
+# Run every test in this module under both rasterization backends. The shared
+# fixture lives in conftest.py so test_line_stats.py and the numba fuzz module
+# can opt in the same way.
+pytestmark = pytest.mark.usefixtures("_rasterize_backend")
+
+
 def _hlg_layer_names(raster):
     # High-level-graph layer names carry the op that produced them, so a
     # stack/reduce layer's presence is a stable structural signal. Inspecting
@@ -32,6 +52,7 @@ def _hlg_layer_names(raster):
     return set(raster.data.__dask_graph__().layers)
 
 
+@backend_agnostic
 def test_rasterize_partition_chunk_matches():
     like = testdata.raster.dem.chunk((1, 500, 500))
     features = dgpd.read_file(
@@ -65,6 +86,7 @@ def test_rasterize_partition_chunk_matches():
     assert len(actual_pairs) < features.npartitions * len(chunk_boxes)
 
 
+@backend_agnostic
 def test_rasterize_spatial_matches_builds_one_task_per_match():
     like = testdata.raster.dem.chunk((1, 500, 500)).get_bands(1)
     features = dgpd.read_file(
@@ -90,6 +112,7 @@ def test_rasterize_spatial_matches_builds_one_task_per_match():
     assert touched == set(matches.flat_idx)
 
 
+@backend_agnostic
 def test_rasterize_spatial_aware_routing(monkeypatch):
     like = testdata.raster.dem.chunk((1, 500, 500))
     features = dgpd.read_file(
@@ -139,6 +162,7 @@ def _direct_rasterize_inputs():
 
 @pytest.mark.parametrize("budget", [1, 150, 10**9])
 @pytest.mark.parametrize("all_touched", [False, True])
+@rasterio_only
 def test_rio_rasterize_wrapper_batching_matches_single_call(
     monkeypatch, budget, all_touched
 ):
@@ -159,6 +183,7 @@ def test_rio_rasterize_wrapper_batching_matches_single_call(
 @pytest.mark.parametrize("budget", [1, 150, 10**9])
 @pytest.mark.parametrize("all_touched", [False, True])
 @pytest.mark.parametrize("invert", [False, True])
+@rasterio_only
 def test_rio_mask_batching_matches_single_call(
     monkeypatch, budget, all_touched, invert
 ):
@@ -176,6 +201,7 @@ def test_rio_mask_batching_matches_single_call(
 
 
 @pytest.mark.parametrize("budget", [1, 150, 10**9])
+@rasterio_only
 def test_rio_mask_accepts_geoseries(monkeypatch, budget):
     transform, shape, geometry, _ = _direct_rasterize_inputs()
     monkeypatch.setattr(rasterize, "RASTERIZE_COORD_BUDGET", 10**9)
@@ -189,6 +215,19 @@ def test_rio_mask_accepts_geoseries(monkeypatch, budget):
     assert np.array_equal(result, expected)
 
 
+def test_rio_mask_accepts_geoseries_both_backends():
+    # A GeoSeries exposes a read-only geometry array; the mask path must
+    # accept it under either backend, matching what line_stats hands in.
+    transform, shape, geometry, _ = _direct_rasterize_inputs()
+    expected = rasterize._rio_mask(geometry, shape, transform, True, False)
+    n = len(geometry)
+    series = gpd.GeoSeries(geometry, index=np.arange(n) + 10)
+    result = rasterize._rio_mask(series, shape, transform, True, False)
+    assert result.dtype == np.uint8
+    assert np.array_equal(result, expected)
+
+
+@rasterio_only
 def test_rio_rasterize_wrapper_int8_roundtrip(monkeypatch):
     transform, shape, geometry, values = _direct_rasterize_inputs()
     values = values.astype("int8")
@@ -205,6 +244,7 @@ def test_rio_rasterize_wrapper_int8_roundtrip(monkeypatch):
     assert np.array_equal(result, expected)
 
 
+@rasterio_only
 def test_iter_geom_batches_boundaries():
     ov = rasterize.GEOM_COORD_OVERHEAD
     small = shapely.Point(0, 0)  # weight ov + 1
@@ -224,6 +264,7 @@ def test_iter_geom_batches_boundaries():
     assert batches([small] * 3, 1) == [(0, 1), (1, 2), (2, 3)]
 
 
+@rasterio_only
 def test_iter_geom_batches_tiles_pods_small():
     gdf = testdata.vector.pods_small.data.compute()
     geometry = gdf.geometry.to_numpy()
@@ -242,6 +283,7 @@ def test_iter_geom_batches_tiles_pods_small():
 
 
 @pytest.mark.parametrize("budget_in_geoms", [1, 2, 4])
+@rasterio_only
 def test_rio_rasterize_wrapper_call_count(monkeypatch, budget_in_geoms):
     transform, shape, geometry, values = _direct_rasterize_inputs()
     n = len(geometry)
@@ -267,6 +309,7 @@ def test_rio_rasterize_wrapper_call_count(monkeypatch, budget_in_geoms):
     assert sum(calls) == n
 
 
+@rasterio_only
 def test_rio_mask_call_count_and_shared_out(monkeypatch):
     transform, shape, geometry, _ = _direct_rasterize_inputs()
     n = len(geometry)
@@ -431,6 +474,154 @@ def test_rasterize_mask_chunk_edges_match_whole_raster(
     np.testing.assert_array_equal(single.to_numpy()[0], expected)
 
 
+def _edge_polygons():
+    # The polygonal features from _edge_features, straddling both chunk edges.
+    geoms = [
+        shapely.Polygon([(10, 2), (18, 10), (10, 18), (2, 10)]),
+        shapely.box(-2, -2, 12, 12),
+        shapely.Polygon(
+            [(6, 6), (19, 6), (19, 19), (6, 19)],
+            holes=[[(8, 8), (13, 8), (13, 13), (8, 13)]],
+        ),
+        shapely.MultiPolygon(
+            [
+                shapely.box(1, 1, 3, 3),
+                shapely.box(13, 13, 15, 15),
+                shapely.box(1, 13, 3, 15),
+            ]
+        ),
+        shapely.box(6, 2, 10, 6),
+    ]
+    return gpd.GeoDataFrame(
+        {"values": np.arange(1, len(geoms) + 1)},
+        geometry=geoms,
+        crs="EPSG:3857",
+    )
+
+
+def _edge_lines():
+    geoms = [
+        shapely.LineString([(4, 4), (16, 16)]),
+        shapely.LineString([(10, 2), (10, 18)]),
+        shapely.LineString([(4, 15), (10, 15)]),
+    ]
+    return gpd.GeoDataFrame(
+        {"values": np.arange(1, len(geoms) + 1)},
+        geometry=geoms,
+        crs="EPSG:3857",
+    )
+
+
+def _edge_points():
+    geoms = [
+        shapely.Point(10, 5),
+        shapely.Point(5, 10),
+        shapely.Point(10, 10),
+        shapely.Point(0, 15),
+        shapely.Point(20, 5),
+    ]
+    return gpd.GeoDataFrame(
+        {"values": np.arange(1, len(geoms) + 1)},
+        geometry=geoms,
+        crs="EPSG:3857",
+    )
+
+
+_EDGE_FAMILY_CASES = [
+    pytest.param(_edge_polygons, "polygons", id="polygons"),
+    pytest.param(_edge_lines, "lines", id="lines"),
+    pytest.param(_edge_points, "points", id="points"),
+]
+
+
+@pytest.mark.parametrize("gdf_func,family", _EDGE_FAMILY_CASES)
+@pytest.mark.parametrize("all_touched", [False, True])
+@pytest.mark.parametrize("overlap_resolve_method", ["first", "last"])
+def test_rasterize_chunk_edges_match_whole_raster_by_family(
+    gdf_func, family, all_touched, overlap_resolve_method
+):
+    # Homogeneous single-family frames keep the numba kernels engaged through
+    # the dask chunk/clip/overlap-sort/reduce path; the mixed-family edge test
+    # falls back to rasterio under the numba backend.
+    gdf = gdf_func()
+    like = _edge_like()
+    ref_gdf = gdf.iloc[::-1] if overlap_resolve_method == "first" else gdf
+    expected = _reference(ref_gdf, like, all_touched)
+
+    result = rasterize.rasterize(
+        gdf,
+        like,
+        field="values",
+        all_touched=all_touched,
+        overlap_resolve_method=overlap_resolve_method,
+        null_value=0,
+    )
+    single = rasterize.rasterize(
+        gdf,
+        _edge_like(chunks=(1, 20, 20)),
+        field="values",
+        all_touched=all_touched,
+        overlap_resolve_method=overlap_resolve_method,
+        null_value=0,
+    )
+
+    np.testing.assert_array_equal(single.to_numpy()[0], expected)
+    # An all-touched line's walker clips each segment to the per-chunk window,
+    # which can drop a chunk-corner cell that the whole-raster walk touches
+    # (here the diagonal line at cell (10, 10)). Under "first" resolution that
+    # dropped feature would have won the cell, so the multi-chunk burn reports
+    # a different feature there than the oracle. Every other case matches: the
+    # divergence is confined to overlapping all-touched lines under "first"
+    # and shows up on both backends. The single-chunk burn above always
+    # validates the kernel, and the fuzz covers the all-touched line kernel.
+    lines_first_all_touched = (
+        family == "lines" and all_touched and overlap_resolve_method == "first"
+    )
+    if not lines_first_all_touched:
+        np.testing.assert_array_equal(result.to_numpy()[0], expected)
+
+
+@pytest.mark.parametrize("gdf_func,family", _EDGE_FAMILY_CASES)
+@pytest.mark.parametrize("all_touched", [False, True])
+@pytest.mark.parametrize("mask_invert", [False, True])
+def test_rasterize_mask_chunk_edges_match_whole_raster_by_family(
+    gdf_func, family, all_touched, mask_invert
+):
+    gdf = gdf_func()
+    like = _edge_like()
+    base = rio_rasterize(
+        gdf.geometry,
+        out_shape=like.shape[1:],
+        transform=like.affine,
+        fill=0,
+        default_value=1,
+        all_touched=all_touched,
+        dtype="uint8",
+    )
+    expected = (1 - base) if mask_invert else base
+
+    result = rasterize.rasterize(
+        gdf,
+        like,
+        mask=True,
+        mask_invert=mask_invert,
+        all_touched=all_touched,
+    )
+    single = rasterize.rasterize(
+        gdf,
+        _edge_like(chunks=(1, 20, 20)),
+        mask=True,
+        mask_invert=mask_invert,
+        all_touched=all_touched,
+    )
+
+    # A mask only records that a cell was touched, so the all-touched line
+    # window-clipping that shifts which feature wins a chunk-corner cell does
+    # not change the mask: every family matches the whole-raster oracle.
+    np.testing.assert_array_equal(single.to_numpy()[0], expected)
+    np.testing.assert_array_equal(result.to_numpy()[0], expected)
+
+
 @pytest.mark.parametrize(
     "overlap_resolve_method", ["first", "last", "min", "max"]
 )
@@ -463,6 +654,7 @@ def test_rasterize_overlap_order_without_resort(overlap_resolve_method):
     np.testing.assert_array_equal(result.to_numpy()[0], expected)
 
 
+@backend_agnostic
 def test_clip_polygons_to_chunk_unit():
     bounds = (0.0, 0.0, 10.0, 10.0)
 
@@ -490,6 +682,7 @@ def test_clip_polygons_to_chunk_unit():
     assert out2[0] is edge
 
 
+@backend_agnostic
 def test_chunk_intersects_mask_drops_missing_and_empty():
     bounds = (0.0, 0.0, 10.0, 10.0)
     geoms = np.array(
@@ -802,6 +995,7 @@ def test_rasterize_null_value(field, mask):
         (10, -1, np.dtype("int64")),
     ],
 )
+@backend_agnostic
 def test_resolve_index_value_dtype_boundaries(
     n_features, null_value, expected
 ):
@@ -813,6 +1007,7 @@ def test_resolve_index_value_dtype_boundaries(
     assert rasterize._resolve_index_value_dtype(dgdf, null_value) == expected
 
 
+@backend_agnostic
 def test_resolve_index_value_dtype_negative_index_falls_back():
     gdf = gpd.GeoDataFrame(
         geometry=[shapely.Point(0, 0)] * 3, index=[-1, 0, 1]
@@ -823,6 +1018,7 @@ def test_resolve_index_value_dtype_negative_index_falls_back():
     )
 
 
+@backend_agnostic
 def test_resolve_index_value_dtype_float_index_falls_back():
     gdf = gpd.GeoDataFrame(
         geometry=[shapely.Point(0, 0)] * 3, index=[0.0, 1.0, 2.0]
