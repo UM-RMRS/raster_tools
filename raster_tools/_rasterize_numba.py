@@ -10,6 +10,35 @@ affines, mixed geometry families, GeometryCollections) raise
 ``_NumbaUnsupported`` so the caller can fall back to the rasterio path.
 """
 
+# The kernels below are a Python port of GDAL's rasterizer. They transcribe
+# the algorithms in these GDAL source files:
+#
+#   alg/llrasterize.cpp    Copyright (c) 2000, Frank Warmerdam
+#                          Copyright (c) 2011, Even Rouault
+#   alg/gdalrasterize.cpp  Copyright (c) 2005, Frank Warmerdam
+#                          Copyright (c) 2008-2013, Even Rouault
+#   ogr/ogrcurve.cpp       Copyright (c) 1999, Frank Warmerdam
+#
+# GDAL is distributed under the MIT license, whose terms follow.
+#
+# Permission is hereby granted, free of charge, to any person obtaining a
+# copy of this software and associated documentation files (the "Software"),
+# to deal in the Software without restriction, including without limitation
+# the rights to use, copy, modify, merge, publish, distribute, sublicense,
+# and/or sell copies of the Software, and to permit persons to whom the
+# Software is furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included
+# in all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+# OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+# IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+# CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+# TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+# SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
 # The kernels transcribe GDAL's rasterizer variable-for-variable (dfX,
 # nDeltaX, iX, ...) so they can be checked line by line against the GDAL
 # source. Keep those names rather than renaming them to snake_case.
