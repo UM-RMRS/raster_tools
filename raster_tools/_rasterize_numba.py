@@ -8,6 +8,11 @@ and ``numba_mask`` mirror the rasterio wrappers they can stand in for.
 Inputs that GDAL handles but these kernels do not (add mode, rotated or sheared
 affines, mixed geometry families, GeometryCollections) raise
 ``_NumbaUnsupported`` so the caller can fall back to the rasterio path.
+
+Coordinates outside the C int range follow GDAL 3.12.1 and later, which skip
+such line segments and clamp polygon crossings. Earlier GDAL releases have no
+defined behaviour there. The rasterize pipeline drops or clips features to
+the chunk before they reach these kernels, so this only affects direct calls.
 """
 
 # The kernels below are derived from GDAL's rasterizer; each kernel's

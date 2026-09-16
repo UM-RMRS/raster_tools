@@ -13,6 +13,7 @@ import pytest
 import shapely
 from affine import Affine
 from rasterio.enums import MergeAlg
+from rasterio.env import GDALVersion
 from rasterio.features import rasterize as rio_rasterize
 
 from raster_tools import _rasterize_numba, rasterize
@@ -349,6 +350,16 @@ def test_polygon_with_hole(all_touched):
     _one(ph, all_touched)
 
 
+# GDAL began skipping line segments and clamping polygon crossings that fall
+# outside the C int range in 3.12.1. The kernels follow that behaviour, so
+# parity on such coordinates can only be checked against a GDAL that has it.
+_needs_int_range_guard = pytest.mark.skipif(
+    not GDALVersion.runtime().at_least("3.12.1"),
+    reason="GDAL before 3.12.1 has no int-range guard in the rasterizer",
+)
+
+
+@_needs_int_range_guard
 def test_far_off_line_endpoint_int_guard():
     tr = Affine(1.0, 0.0, 0.0, 0.0, -1.0, 20.0)
     far = shapely.LineString([(5, 5), (5e10, 5e10)])
@@ -389,6 +400,7 @@ def test_nan_vertex_polygon_does_not_crash_and_matches_gdal(all_touched):
     assert set(np.unique(got).tolist()) <= {0, 7}
 
 
+@_needs_int_range_guard
 @pytest.mark.parametrize("all_touched", [False, True])
 def test_huge_finite_vertex_polygon_matches_gdal(all_touched):
     # A vertex far outside the C int range is clamped exactly as GDAL clamps
