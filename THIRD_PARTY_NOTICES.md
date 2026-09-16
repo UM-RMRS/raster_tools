@@ -6,9 +6,10 @@ licenses whose terms require the notices reproduced here.
 
 ## GDAL
 
-The rasterization kernels in `raster_tools/_rasterize_numba.py` are a Python
-port of GDAL's rasterizer (`alg/llrasterize.cpp`, `alg/gdalrasterize.cpp`,
-and `ogr/ogrcurve.cpp` from https://github.com/OSGeo/gdal).
+The rasterization kernels in `raster_tools/_rasterize_numba.py` are derived
+from GDAL's rasterizer (`alg/llrasterize.cpp`, `alg/gdalrasterize.cpp`, and
+`ogr/ogrcurve.cpp` from https://github.com/OSGeo/gdal); several are direct
+Python ports and the rest reproduce GDAL's per-scanline rules.
 
 Copyright (c) 1999-2005, Frank Warmerdam
 Copyright (c) 2008-2013, Even Rouault

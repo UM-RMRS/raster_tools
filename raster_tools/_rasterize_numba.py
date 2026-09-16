@@ -10,8 +10,9 @@ affines, mixed geometry families, GeometryCollections) raise
 ``_NumbaUnsupported`` so the caller can fall back to the rasterio path.
 """
 
-# The kernels below are a Python port of GDAL's rasterizer. They transcribe
-# the algorithms in these GDAL source files:
+# The kernels below are derived from GDAL's rasterizer; each kernel's
+# docstring names the GDAL function it ports or reproduces. The GDAL source
+# files involved are:
 #
 #   alg/llrasterize.cpp    Copyright (c) 2000, Frank Warmerdam
 #                          Copyright (c) 2011, Even Rouault
@@ -39,7 +40,7 @@ affines, mixed geometry families, GeometryCollections) raise
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-# The kernels transcribe GDAL's rasterizer variable-for-variable (dfX,
+# Kernels documented as direct ports keep GDAL's variable names (dfX,
 # nDeltaX, iX, ...) so they can be checked line by line against the GDAL
 # source. Keep those names rather than renaming them to snake_case.
 # ruff: noqa: N806
@@ -72,6 +73,10 @@ class _NumbaUnsupported(Exception):  # noqa: N818
 
 @nb.jit(nopython=True, nogil=True, cache=True)
 def _burn_point(out, iy, ix, value):
+    """Burn one pixel if it lies inside the raster.
+
+    Direct port of GDALdllImagePoint in GDAL's alg/llrasterize.cpp.
+    """
     if 0 <= ix < out.shape[1] and 0 <= iy < out.shape[0]:
         out[iy, ix] = value
 
@@ -137,6 +142,14 @@ def _max_span(px, py, ring_start, ring_stop, poly_ring_lo, poly_ring_hi, ny):
 
 @nb.jit(nopython=True, nogil=True, cache=True)
 def _fill_one_polygon(out, px, py, ring_start, ring_stop, rev, r0, r1, value):
+    """Fill one polygon by testing every edge on every scanline.
+
+    Direct port of GDALdllImageFilledPolygon in GDAL's alg/llrasterize.cpp
+    for replace mode: even-odd crossings at pixel-center rows, crossing
+    columns rounded with floor(x + 0.5), the half-open row rule, and the
+    bottom-edge-only rule for horizontal edges. Used as the fallback when a
+    polygon exceeds the bucketed kernel's scratch capacity.
+    """
     ny = out.shape[0]
     nx = out.shape[1]
     total = 0
@@ -243,6 +256,11 @@ def _fill_bucketed(
     xs,
 ):
     """Fill one polygon by bucketing edge crossings into per-row slots.
+
+    Reproduces the output of GDALdllImageFilledPolygon in GDAL's
+    alg/llrasterize.cpp, keeping its edge tests, crossing rounding, and
+    horizontal-edge rule, but each scanline reads only the edges bucketed
+    to it instead of every edge of the polygon.
 
     The set of (row, crossing) pairs is identical to the per-row kernel; only
     the visitation order changes, and the per-row sort makes order
@@ -424,6 +442,11 @@ def _fill_bucketed(
 
 @nb.jit(nopython=True, nogil=True, cache=True)
 def _line_bresenham_part(out, px, py, s, e, value):
+    """Burn one line part with GDAL's Bresenham walk.
+
+    Direct port of GDALdllImageLine in GDAL's alg/llrasterize.cpp. The
+    caller has already reversed the part's vertices as GDAL does.
+    """
     ny = out.shape[0]
     nx = out.shape[1]
     for i in range(s + 1, e):
@@ -487,6 +510,11 @@ def _line_bresenham_part(out, px, py, s, e, value):
 
 @nb.jit(nopython=True, nogil=True, cache=True)
 def _line_all_touched_part(out, px, py, s, e, value, intersect_only):
+    """Burn every pixel one line part passes through.
+
+    Direct port of GDALdllImageLineAllTouched in GDAL's alg/llrasterize.cpp,
+    including the intersect-only mode GDAL uses for polygon outlines.
+    """
     ny = out.shape[0]
     nx = out.shape[1]
     nxf = float(nx)
@@ -616,6 +644,12 @@ def _line_all_touched_part(out, px, py, s, e, value, intersect_only):
 
 @nb.jit(nopython=True, nogil=True, cache=True)
 def _burn_points(out, px, py, point_value):
+    """Burn a batch of points in input order.
+
+    Reproduces GDAL's point handling in alg/gdalrasterize.cpp, which
+    burns each point through GDALdllImagePoint after the same pixel
+    rounding and range guard.
+    """
     ny = out.shape[0]
     nx = out.shape[1]
     for i in range(point_value.shape[0]):
@@ -736,11 +770,13 @@ def _reverse_parts(px, py, part_start, part_stop):
 def _ring_reverse_mask(x, y, ring_start, ring_stop):
     """Flag rings GDAL would reverse to normalize them to clockwise.
 
-    Transcribes OGRCurve::isClockwise: the winding is read from the local
-    turn at the lowest-rightmost vertex, falling back to a signed-area sum
-    only for degenerate pivots. For a self-intersecting ring the local turn
-    and the global signed area can disagree, so the two must not be
-    interchanged. A ring GDAL finds counterclockwise is reversed.
+    Direct port of OGRCurve::isClockwise in GDAL's ogr/ogrcurve.cpp, as
+    called from GDALCollectRingsFromGeometry in alg/gdalrasterize.cpp: the
+    winding is read from the local turn at the lowest-rightmost vertex,
+    falling back to a signed-area sum only for degenerate pivots. For a
+    self-intersecting ring the local turn and the global signed area can
+    disagree, so the two must not be interchanged. A ring GDAL finds
+    counterclockwise is reversed.
     """
     eps = 1.0e-5
     nrings = ring_start.shape[0]
