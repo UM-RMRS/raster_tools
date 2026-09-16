@@ -373,6 +373,43 @@ def test_far_off_and_nan_point_burn_nothing():
     assert int((got != 0).sum()) == 0
 
 
+_TR20 = Affine(1.0, 0.0, 0.0, 0.0, -1.0, 20.0)
+
+
+@pytest.mark.parametrize("all_touched", [False, True])
+def test_nan_vertex_polygon_does_not_crash_and_matches_gdal(all_touched):
+    # A NaN vertex is filtered out upstream and GDAL's behaviour on it is
+    # undefined, but the fill kernel must stay memory-safe: it skips edges
+    # touching a NaN vertex rather than indexing with ceil(NaN). Here GDAL
+    # burns nothing, so the kernel must agree and burn only 0s.
+    poly = shapely.Polygon([(2, 2), (8, 2), (8, 8), (np.nan, 8), (2, 2)])
+    got = _numba([poly], [7], (20, 20), _TR20, all_touched, "int32")
+    expected = _rio([poly], [7], (20, 20), _TR20, all_touched, "int32")
+    np.testing.assert_array_equal(got, expected)
+    assert set(np.unique(got).tolist()) <= {0, 7}
+
+
+@pytest.mark.parametrize("all_touched", [False, True])
+def test_huge_finite_vertex_polygon_matches_gdal(all_touched):
+    # A vertex far outside the C int range is clamped exactly as GDAL clamps
+    # it, so the bucketed fill stays pixel-identical to rasterio.
+    poly = shapely.Polygon([(2, 2), (8, 2), (8, 8), (1e300, 8), (2, 2)])
+    got = _numba([poly], [7], (20, 20), _TR20, all_touched, "int32")
+    expected = _rio([poly], [7], (20, 20), _TR20, all_touched, "int32")
+    np.testing.assert_array_equal(got, expected)
+
+
+@pytest.mark.parametrize("all_touched", [False, True])
+def test_inf_vertex_polygon_does_not_crash(all_touched):
+    # An infinite vertex is clamped by the row-window checks before any
+    # integer conversion, so the kernel stays memory-safe and bounded. Its
+    # exact output is not required to match GDAL (the committed kernel does
+    # not either), only to burn valid, in-range values.
+    poly = shapely.Polygon([(2, 2), (8, 2), (8, 8), (np.inf, 8), (2, 2)])
+    got = _numba([poly], [7], (20, 20), _TR20, all_touched, "int32")
+    assert set(np.unique(got).tolist()) <= {0, 7}
+
+
 @pytest.mark.parametrize(
     "value,expected_burn", [(2.7, 3), (2.5, 3), (-2.5, -3)]
 )
@@ -590,3 +627,191 @@ def test_public_rasterize_numba_backend_falls_back(monkeypatch, geoms):
         gdf, like, field="values", all_touched=True, null_value=0
     ).to_numpy()
     np.testing.assert_array_equal(got, ref)
+
+
+# --- Scratch-cap fallback ---
+
+
+def _poly_kernel_arrays(poly, transform):
+    geometry = np.array([poly], dtype=object)
+    ids = shapely.get_type_id(geometry)
+    _, coords, offsets = _rasterize_numba._polygonal_ragged(geometry, ids)
+    px, py = _rasterize_numba._to_pixel(coords, transform)
+    ring_offsets = offsets[0].astype(np.int64)
+    ring_start = np.ascontiguousarray(ring_offsets[:-1])
+    ring_stop = np.ascontiguousarray(ring_offsets[1:])
+    x = np.ascontiguousarray(coords[:, 0])
+    y = np.ascontiguousarray(coords[:, 1])
+    rev = _rasterize_numba._ring_reverse_mask(x, y, ring_start, ring_stop)
+    return px, py, ring_start, ring_stop, rev
+
+
+def _burn_poly_capped(poly, value, shape, transform, all_touched, dtype, cap):
+    geometry = np.array([poly], dtype=object)
+    ids = shapely.get_type_id(geometry)
+    name, coords, offsets = _rasterize_numba._polygonal_ragged(geometry, ids)
+    px, py = _rasterize_numba._to_pixel(coords, transform)
+    values = _rasterize_numba._cast_burn_values(
+        np.array([value]), np.dtype(dtype)
+    )
+    out = np.zeros(shape, dtype=dtype)
+    _rasterize_numba._burn_polygonal(
+        out,
+        px,
+        py,
+        coords,
+        offsets,
+        values,
+        name,
+        all_touched,
+        scratch_cap=cap,
+    )
+    return out
+
+
+@pytest.mark.parametrize("all_touched", [False, True])
+@pytest.mark.parametrize("reverse", [False, True])
+def test_scratch_cap_fallback_matches_rasterio(all_touched, reverse):
+    # A one-entry scratch makes the bucketed fill give up on any real
+    # polygon, so the per-row fallback fills it. The box's horizontal edges
+    # sit on pixel-center scanlines, the only branch in the fallback that
+    # depends on ring orientation, so both windings are checked.
+    tr = _TR20
+    shape = (20, 20)
+    ring = [(2.5, 2.5), (2.5, 12.5), (12.5, 12.5), (12.5, 2.5), (2.5, 2.5)]
+    if reverse:
+        ring = ring[::-1]
+    poly = shapely.Polygon(ring)
+    got = _burn_poly_capped(poly, 7, shape, tr, all_touched, "int32", 1)
+    expected = _rio([poly], [7], shape, tr, all_touched, "int32")
+    np.testing.assert_array_equal(got, expected)
+    assert int((got != 0).sum()) > 0
+
+
+def test_scratch_cap_forces_per_row_fallback():
+    # A one-entry scratch cannot hold the crossings, so _fill_bucketed reports
+    # it did not complete and the caller routes to the per-row kernel; a
+    # scratch large enough lets the bucketed kernel finish. Both kernels
+    # reproduce rasterio, including the horizontal edges on pixel centers.
+    tr = _TR20
+    shape = (20, 20)
+    poly = shapely.box(2.5, 2.5, 12.5, 12.5)
+    px, py, ring_start, ring_stop, rev = _poly_kernel_arrays(poly, tr)
+    nrings = len(ring_start)
+    ny = shape[0]
+    row_count = np.empty(ny + 1, dtype=np.int64)
+    row_off = np.empty(ny + 1, dtype=np.int64)
+
+    tiny = np.empty(1, dtype=np.int64)
+    done = _rasterize_numba._fill_bucketed(
+        np.zeros(shape, dtype="int32"),
+        px,
+        py,
+        ring_start,
+        ring_stop,
+        rev,
+        0,
+        nrings,
+        7,
+        row_count,
+        row_off,
+        tiny,
+    )
+    assert not done
+
+    big = np.empty(10_000, dtype=np.int64)
+    out_bucketed = np.zeros(shape, dtype="int32")
+    done = _rasterize_numba._fill_bucketed(
+        out_bucketed,
+        px,
+        py,
+        ring_start,
+        ring_stop,
+        rev,
+        0,
+        nrings,
+        7,
+        row_count,
+        row_off,
+        big,
+    )
+    assert done
+
+    out_fallback = np.zeros(shape, dtype="int32")
+    _rasterize_numba._fill_one_polygon(
+        out_fallback, px, py, ring_start, ring_stop, rev, 0, nrings, 7
+    )
+    expected = _rio([poly], [7], shape, tr, False, "int32")
+    np.testing.assert_array_equal(out_bucketed, expected)
+    np.testing.assert_array_equal(out_fallback, expected)
+
+
+# --- Missing geometry inside a numba run ---
+
+
+def test_numba_run_drops_none_between_polygons(monkeypatch):
+    # A None between two polygons falls into one numba run; it must be
+    # dropped with its value rather than reaching to_ragged_array.
+    p1 = shapely.box(1, 1, 3, 3)
+    p2 = shapely.box(4, 4, 6, 6)
+    geoms = np.array([p1, None, p2], dtype=object)
+    values = np.array([10, 20, 30])
+    shape = (8, 8)
+    monkeypatch.setattr(rasterize, "RASTERIZE_BACKEND", "numba")
+    got = rasterize._rio_rasterize_wrapper(
+        shape, _TR, geoms, values, np.dtype("int32"), 0, False
+    )
+    monkeypatch.setattr(rasterize, "RASTERIZE_BACKEND", "rasterio")
+    expected = rasterize._rio_rasterize_wrapper(
+        shape,
+        _TR,
+        np.array([p1, p2], dtype=object),
+        np.array([10, 30]),
+        np.dtype("int32"),
+        0,
+        False,
+    )
+    np.testing.assert_array_equal(got, expected)
+    assert set(np.unique(got).tolist()) == {0, 10, 30}
+
+
+def test_numba_mask_run_drops_none_between_polygons(monkeypatch):
+    p1 = shapely.box(1, 1, 3, 3)
+    p2 = shapely.box(4, 4, 6, 6)
+    geoms = np.array([p1, None, p2], dtype=object)
+    shape = (8, 8)
+    monkeypatch.setattr(rasterize, "RASTERIZE_BACKEND", "numba")
+    got = rasterize._rio_mask(geoms, shape, _TR, False, False)
+    monkeypatch.setattr(rasterize, "RASTERIZE_BACKEND", "rasterio")
+    expected = rasterize._rio_mask(
+        np.array([p1, p2], dtype=object), shape, _TR, False, False
+    )
+    np.testing.assert_array_equal(got, expected)
+    assert int((got != 0).sum()) > 0
+
+
+def test_numba_run_drops_none_adjacent_to_geometrycollection(monkeypatch):
+    # A None next to a GeometryCollection joins the numba run of the
+    # neighbouring polygon; the collection stays on the rasterio run.
+    p1 = shapely.box(1, 1, 3, 3)
+    gc = shapely.GeometryCollection(
+        [shapely.Point(5, 5), shapely.box(4, 4, 7, 7)]
+    )
+    geoms = np.array([p1, None, gc], dtype=object)
+    values = np.array([10, 20, 30])
+    shape = (8, 8)
+    monkeypatch.setattr(rasterize, "RASTERIZE_BACKEND", "numba")
+    got = rasterize._rio_rasterize_wrapper(
+        shape, _TR, geoms, values, np.dtype("int32"), 0, False
+    )
+    monkeypatch.setattr(rasterize, "RASTERIZE_BACKEND", "rasterio")
+    expected = rasterize._rio_rasterize_wrapper(
+        shape,
+        _TR,
+        np.array([p1, gc], dtype=object),
+        np.array([10, 30]),
+        np.dtype("int32"),
+        0,
+        False,
+    )
+    np.testing.assert_array_equal(got, expected)

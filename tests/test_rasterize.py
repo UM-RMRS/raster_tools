@@ -94,12 +94,12 @@ def test_rasterize_spatial_matches_builds_one_task_per_match():
     ).to_crs(like.crs)
     features.calculate_spatial_partitions()
 
-    matches = rasterize._compute_partition_chunk_matches(features, like)
-    chunk_rasters = list(like.get_chunk_rasters().ravel())
+    specs = rasterize._chunk_grid_specs(like)
+    matches = rasterize._compute_partition_chunk_matches(features, like, specs)
     out_chunks = rasterize._rasterize_spatial_matches(
         matches,
         features,
-        chunk_rasters,
+        specs,
         all_touched=True,
         fill=0,
         target_dtype=np.dtype("uint8"),
