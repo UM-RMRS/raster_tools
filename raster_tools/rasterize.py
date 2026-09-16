@@ -203,17 +203,21 @@ def _numba_runs_rasterize(
             else:
                 if rio_values is None:
                     rio_values = _rio_ready_values(values)
-                rio_rasterize(
-                    zip(
-                        geometry[start:stop],
-                        rio_values[start:stop],
-                        strict=True,
-                    ),
-                    out=out,
-                    transform=transform,
-                    all_touched=all_touched,
-                    merge_alg=MergeAlg.replace,
-                )
+                # Batch the rasterio run the same way the pure rasterio
+                # path does, so its per-feature conversion stays bounded
+                # even when a run spans most of the chunk.
+                for lo, hi in _iter_geom_batches(geometry[start:stop]):
+                    rio_rasterize(
+                        zip(
+                            geometry[start + lo : start + hi],
+                            rio_values[start + lo : start + hi],
+                            strict=True,
+                        ),
+                        out=out,
+                        transform=transform,
+                        all_touched=all_touched,
+                        merge_alg=MergeAlg.replace,
+                    )
     except _NumbaUnsupported:
         return None
     return out
@@ -280,13 +284,14 @@ def _numba_runs_mask(geoms, shape, transform, all_touched, invert):
                     out, transform, geom_run, value_run, all_touched
                 )
             else:
-                rio_rasterize(
-                    geoms[start:stop],
-                    out=out,
-                    transform=transform,
-                    all_touched=all_touched,
-                    default_value=geom_value,
-                )
+                for lo, hi in _iter_geom_batches(geoms[start:stop]):
+                    rio_rasterize(
+                        geoms[start + lo : start + hi],
+                        out=out,
+                        transform=transform,
+                        all_touched=all_touched,
+                        default_value=geom_value,
+                    )
     except _NumbaUnsupported:
         return None
     return out

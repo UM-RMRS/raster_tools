@@ -815,3 +815,41 @@ def test_numba_run_drops_none_adjacent_to_geometrycollection(monkeypatch):
         False,
     )
     np.testing.assert_array_equal(got, expected)
+
+
+def test_rasterio_runs_inside_numba_path_are_batched(monkeypatch):
+    # A run of GeometryCollections is burned by rasterio in coordinate
+    # budget batches, like the pure rasterio path, and the result matches
+    # a single unbatched rasterio call.
+    gcs = [
+        shapely.GeometryCollection(
+            [shapely.Point(i + 0.5, 1.5), shapely.box(i, 3, i + 1.5, 5)]
+        )
+        for i in range(6)
+    ]
+    geoms = np.array([shapely.box(0, 6, 2, 8), *gcs], dtype=object)
+    values = np.arange(1, len(geoms) + 1)
+    shape = (10, 10)
+    calls = []
+    real = rasterize.rio_rasterize
+
+    def spy(*args, **kwargs):
+        calls.append(1)
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(rasterize, "rio_rasterize", spy)
+    monkeypatch.setattr(rasterize, "RASTERIZE_COORD_BUDGET", 1)
+    monkeypatch.setattr(rasterize, "RASTERIZE_BACKEND", "numba")
+    got = rasterize._rio_rasterize_wrapper(
+        shape, _TR, geoms, values, np.dtype("int32"), 0, False
+    )
+    got_mask = rasterize._rio_mask(geoms, shape, _TR, False, False)
+    assert len(calls) >= 2 * len(gcs)
+    monkeypatch.setattr(rasterize, "RASTERIZE_BACKEND", "rasterio")
+    monkeypatch.setattr(rasterize, "RASTERIZE_COORD_BUDGET", 1_000_000)
+    expected = rasterize._rio_rasterize_wrapper(
+        shape, _TR, geoms, values, np.dtype("int32"), 0, False
+    )
+    expected_mask = rasterize._rio_mask(geoms, shape, _TR, False, False)
+    np.testing.assert_array_equal(got, expected)
+    np.testing.assert_array_equal(got_mask, expected_mask)
