@@ -1,5 +1,5 @@
 affine
-dask
+dask>=2025.1.0
 dask-geopandas
 dask-image
 fiona

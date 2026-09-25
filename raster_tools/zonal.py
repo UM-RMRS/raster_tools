@@ -11,7 +11,6 @@ import pandas as pd
 
 from raster_tools.dtypes import F64, I64, is_float, is_int, is_str
 from raster_tools.raster import Raster, get_raster
-from raster_tools.utils import version_to_tuple
 from raster_tools.vector import Vector, get_vector
 
 __all__ = ["ZONAL_STAT_FUNCS", "extract_points_eager", "zonal_stats"]
@@ -502,12 +501,7 @@ def _median_stats(features_raster, data_raster):
         combined_raster_df.zone != features_raster.null_value
     ]
     grouped = combined_raster_df.groupby("zone")
-    # Stay backward compatible with older versions of dask
-    if version_to_tuple(dask.__version__) < (2024, 1, 1):
-        shuffle_kw = "shuffle"
-    else:
-        shuffle_kw = "shuffle_method"
-    median = grouped.agg(["median"], **{shuffle_kw: "tasks"})
+    median = grouped.agg(["median"], shuffle_method="tasks")
     # Dask's group-by median splits its output across multiple partitions once
     # there are more than fifteen input blocks (split_out is ceil(nblocks /
     # 15)). Joining a multi-partition frame that carries MultiIndex columns
