@@ -1,5 +1,5 @@
-dask>=2025.1.0
-dask-geopandas
+dask[dataframe]>=2025.1.0
+dask-geopandas>=0.4.3
 dask-image
 fiona
 geopandas
