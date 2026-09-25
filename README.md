@@ -44,7 +44,7 @@ pip install raster-tools[io]
 #### Conda
 
 ```sh
-conda install -c conda-forge dask-geopandas dask-image fiona numba odc-geo pyogrio rioxarray scipy
+conda install -c conda-forge "dask>=2025.1.0" "dask-geopandas>=0.4.3" dask-image fiona numba odc-geo pyogrio rioxarray scipy
 pip install --no-deps raster-tools
 ```
 

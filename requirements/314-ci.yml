@@ -5,8 +5,8 @@ dependencies:
   - python=3.14
   - affine
   - cfgrib
-  - dask
-  - dask-geopandas
+  - dask>=2025.1.0
+  - dask-geopandas>=0.4.3
   - dask-image
   - fiona
   - geopandas
