@@ -8,7 +8,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>raster_tools.zonal &#8212; raster_tools 0.13.0 documentation</title>
+    <title>raster_tools.zonal &#8212; raster_tools 0.13.1 documentation</title>
   
   
   
@@ -114,7 +114,7 @@
   
   
   
-    <p class="title logo__title">raster_tools 0.13.0 documentation</p>
+    <p class="title logo__title">raster_tools 0.13.1 documentation</p>
   
 </a></div>
         <div class="sidebar-primary-item"><nav class="bd-links" id="bd-docs-nav" aria-label="Main">
@@ -450,7 +450,6 @@ document.write(`
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.dtypes</span><span class="w"> </span><span class="kn">import</span> <span class="n">F64</span><span class="p">,</span> <span class="n">I64</span><span class="p">,</span> <span class="n">is_float</span><span class="p">,</span> <span class="n">is_int</span><span class="p">,</span> <span class="n">is_str</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.raster</span><span class="w"> </span><span class="kn">import</span> <span class="n">Raster</span><span class="p">,</span> <span class="n">get_raster</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">version_to_tuple</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.vector</span><span class="w"> </span><span class="kn">import</span> <span class="n">Vector</span><span class="p">,</span> <span class="n">get_vector</span>
 
 <span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"ZONAL_STAT_FUNCS"</span><span class="p">,</span> <span class="s2">"extract_points_eager"</span><span class="p">,</span> <span class="s2">"zonal_stats"</span><span class="p">]</span>
@@ -941,12 +940,7 @@ document.write(`
         <span class="n">combined_raster_df</span><span class="o">.</span><span class="n">zone</span> <span class="o">!=</span> <span class="n">features_raster</span><span class="o">.</span><span class="n">null_value</span>
     <span class="p">]</span>
     <span class="n">grouped</span> <span class="o">=</span> <span class="n">combined_raster_df</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">"zone"</span><span class="p">)</span>
-    <span class="c1"># Stay backward compatible with older versions of dask</span>
-    <span class="k">if</span> <span class="n">version_to_tuple</span><span class="p">(</span><span class="n">dask</span><span class="o">.</span><span class="n">__version__</span><span class="p">)</span> <span class="o">&lt;</span> <span class="p">(</span><span class="mi">2024</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">):</span>
-        <span class="n">shuffle_kw</span> <span class="o">=</span> <span class="s2">"shuffle"</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="n">shuffle_kw</span> <span class="o">=</span> <span class="s2">"shuffle_method"</span>
-    <span class="n">median</span> <span class="o">=</span> <span class="n">grouped</span><span class="o">.</span><span class="n">agg</span><span class="p">([</span><span class="s2">"median"</span><span class="p">],</span> <span class="o">**</span><span class="p">{</span><span class="n">shuffle_kw</span><span class="p">:</span> <span class="s2">"tasks"</span><span class="p">})</span>
+    <span class="n">median</span> <span class="o">=</span> <span class="n">grouped</span><span class="o">.</span><span class="n">agg</span><span class="p">([</span><span class="s2">"median"</span><span class="p">],</span> <span class="n">shuffle_method</span><span class="o">=</span><span class="s2">"tasks"</span><span class="p">)</span>
     <span class="c1"># Dask's group-by median splits its output across multiple partitions once</span>
     <span class="c1"># there are more than fifteen input blocks (split_out is ceil(nblocks /</span>
     <span class="c1"># 15)). Joining a multi-partition frame that carries MultiIndex columns</span>
