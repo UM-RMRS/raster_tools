@@ -1,10 +1,3 @@
-# isort: off
-# TODO(pygeos): remove this once shapely is the default backend for geopandas.
-# Force raster_tools._compat to be loaded before geopandas when running tests
-import raster_tools as rts
-
-# isort: on
-
 import dask.array as da
 import dask_geopandas as dgpd
 import geopandas as gpd
@@ -15,6 +8,7 @@ import shapely
 from affine import Affine
 from rasterio.features import rasterize as rio_rasterize
 
+import raster_tools as rts
 from raster_tools import rasterize
 from raster_tools.masking import get_default_null_value
 from tests import testdata

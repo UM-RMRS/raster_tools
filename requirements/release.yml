@@ -10,13 +10,12 @@ dependencies:
   - dask-geopandas>=0.4.3
   - dask-image
   - fiona
-  - geopandas
+  - geopandas>=1.0
   - netcdf4
   - numba
   - numpy
   - pandas
   - pre-commit
-  - pygeos
   - pyogrio
   - pyproj
   - python-build

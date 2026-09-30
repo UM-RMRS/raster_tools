@@ -10,7 +10,7 @@ dependencies:
   - dask-geopandas>=0.4.3
   - dask-image
   - fiona
-  - geopandas
+  - geopandas>=1.0
   - ipython
   - matplotlib
   - netcdf4
