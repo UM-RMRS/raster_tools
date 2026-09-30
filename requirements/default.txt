@@ -3,7 +3,7 @@ dask[dataframe]>=2025.1.0
 dask-geopandas>=0.4.3
 dask-image
 fiona
-geopandas
+geopandas>=1.0
 numba
 numpy>=1.22
 odc-geo
