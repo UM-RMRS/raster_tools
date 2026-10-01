@@ -20,7 +20,7 @@ import pytest
 distributed = pytest.importorskip("distributed")
 
 import raster_tools as rts  # noqa: E402
-from raster_tools import distance, rasterize  # noqa: E402
+from raster_tools import distance, io, rasterize  # noqa: E402
 from tests import testdata  # noqa: E402
 
 pytestmark = [
@@ -279,28 +279,20 @@ def default_client(_cluster_client):
         distributed.get_client()
 
 
-def _resolved_store_lock():
-    # The lock dask.array.store substitutes for lock=True, which is what
-    # Raster.save hands to rioxarray.
-    return dask.utils.get_scheduler_lock(collection=da.Array)
-
-
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason=(
-        "dask resolves lock=True to a process-local SerializableLock unless "
-        "a distributed client is the global default, so Raster.save on a "
-        "non-default client lets worker processes write the same GeoTIFF "
-        "concurrently and corrupt it"
-    ),
+@pytest.mark.parametrize(
+    "client_fixture",
+    [
+        pytest.param("dist_client", id="scheduler_config"),
+        pytest.param("default_client", id="default_client"),
+    ],
 )
-def test_save_lock_is_process_safe_on_non_default_client(dist_client):
-    assert isinstance(_resolved_store_lock(), distributed.Lock)
-
-
-def test_save_round_trip_matches_threads(default_client, tmp_path):
-    assert isinstance(_resolved_store_lock(), distributed.Lock)
+def test_save_round_trip_matches_threads(client_fixture, request, tmp_path):
+    request.getfixturevalue(client_fixture)
+    actual_path = tmp_path / "distributed.tif"
+    # Unsynchronized writers can happen not to collide, so check that the
+    # write lock is shared across processes rather than relying only on
+    # the round trip to expose a race.
+    assert isinstance(io._write_lock(actual_path), distributed.Lock)
 
     # Small dask chunks against the default 256x256 GeoTIFF tiles put many
     # chunk writes into each tile, so unsynchronized writers would collide.
@@ -308,8 +300,8 @@ def test_save_round_trip_matches_threads(default_client, tmp_path):
         return testdata.raster.dem_clipped_small.chunk((1, 25, 25))
 
     expected_path = tmp_path / "threads.tif"
-    actual_path = tmp_path / "distributed.tif"
     with dask.config.set(scheduler="threads"):
+        assert io._write_lock(expected_path) is True
         build().save(expected_path)
         expected = _raster_parts(rts.Raster(expected_path), "threads")
     build().save(actual_path)

@@ -1,4 +1,5 @@
 import os
+import sys
 import urllib
 import warnings
 
@@ -571,6 +572,23 @@ def _attach_color_table(path, color_table):
         ds.write_colormap(1, color_table)
 
 
+def _write_lock(path):
+    # dask resolves lock=True to a lock shared across worker processes only
+    # when the active distributed client is also the global default. A
+    # client supplied through dask.config or a scheduler argument gets a
+    # lock that works within a single process, so workers would write the
+    # same file concurrently and corrupt it. Hand those clients a
+    # distributed lock named after the output file instead.
+    if "distributed" not in sys.modules:
+        return True
+    from distributed import Client, Lock
+
+    get = dask.base.get_scheduler()
+    if isinstance(getattr(get, "__self__", None), Client):
+        return Lock(name=f"raster_tools-write-{os.path.abspath(path)}")
+    return True
+
+
 def write_raster(
     xrs,
     path,
@@ -697,7 +715,9 @@ def write_raster(
         ) as tmpf:
             tmp_path = tmpf.name
         try:
-            xrs.rio.to_raster(tmp_path, lock=True, compute=True)
+            xrs.rio.to_raster(
+                tmp_path, lock=_write_lock(tmp_path), compute=True
+            )
             if color_table is not None:
                 # The COG driver has no palette creation option, but the copy
                 # carries the staged file's color table and photometric tag
@@ -708,7 +728,11 @@ def write_raster(
             if os.path.exists(tmp_path):
                 os.unlink(tmp_path)
     else:
-        to_raster_kwargs = {"lock": True, "compute": True, **creation_opts}
+        to_raster_kwargs = {
+            "lock": _write_lock(path),
+            "compute": True,
+            **creation_opts,
+        }
         if driver is not None:
             to_raster_kwargs["driver"] = driver
         xrs.rio.to_raster(path, **to_raster_kwargs)
