@@ -664,7 +664,7 @@ def normalize_xarray_data(xdata):
     xdata["band"] = np.arange(1, len(xdata.band) + 1)
     if any(dim not in xdata.coords for dim in xdata.dims):
         raise ValueError(
-            "Invalid coordinates on xarray.DataArray object:\n{xdata!r}"
+            f"Invalid coordinates on xarray.DataArray object:\n{xdata!r}"
         )
     if (xdata.rio.x_dim, xdata.rio.y_dim) != ("x", "y"):
         xdata = xdata.rio.set_spatial_dims(x_dim="x", y_dim="y")
@@ -693,7 +693,7 @@ def is_normalized(xdata):
         raise TypeError("Expected a xarray.DataArray object")
     if any(dim not in xdata.coords for dim in xdata.dims):
         raise ValueError(
-            "Invalid coordinates on xarray.DataArray object:\n{xdata!r}"
+            f"Invalid coordinates on xarray.DataArray object:\n{xdata!r}"
         )
 
     return (
