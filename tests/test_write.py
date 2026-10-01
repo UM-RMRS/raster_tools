@@ -1,18 +1,28 @@
+import concurrent.futures
+import multiprocessing
+import multiprocessing.pool
 import os
+import pickle
 import struct
+import sys
+import tempfile
+import threading
 
+import dask
 import numpy as np
 import pytest
 import rasterio
 from affine import Affine
 
 import raster_tools as rts
+from raster_tools import io
 from raster_tools._mosaic import mosaic
 from raster_tools.batch import _batch_parse_save, _BatchScripParserState
 from raster_tools.dtypes import U8, U16
 from raster_tools.exceptions import RasterIOError
 from raster_tools.io import (
     _auto_overview_factors,
+    _FileWriteLock,
     _supports_native_int64,
     normalize_color_table,
     read_color_table,
@@ -20,6 +30,7 @@ from raster_tools.io import (
 )
 from raster_tools.masking import get_default_null_value
 from raster_tools.raster import _ext_for_driver
+from tests import testdata
 from tests.utils import make_raster
 
 
@@ -1234,3 +1245,337 @@ def test_save_chunks_mosaic_round_trip_per_band(tmp_path):
     rebuilt = rts.stack_bands(rebuilt_bands)
     assert rebuilt.shape == src.shape
     assert np.array_equal(rebuilt.to_numpy(), src.to_numpy())
+
+
+# --- Write locks ------------------------------------------------------------
+
+
+def _custom_scheduler(dsk, keys, **kwargs):
+    return dask.get(dsk, keys, **kwargs)
+
+
+@pytest.mark.parametrize("scheduler", [None, "threads", "sync", "processes"])
+def test_write_lock_defers_to_dask_for_known_schedulers(scheduler, tmp_path):
+    with dask.config.set(scheduler=scheduler):
+        assert io._write_lock(tmp_path / "out.tif") is True
+
+
+@pytest.mark.parametrize("kind", ["process_pool", "callable"])
+def test_write_lock_uses_file_lock_for_unknown_schedulers(kind, tmp_path):
+    if kind == "process_pool":
+        scheduler = concurrent.futures.ProcessPoolExecutor(1)
+    else:
+        scheduler = _custom_scheduler
+    try:
+        with dask.config.set(scheduler=scheduler):
+            lock = io._write_lock(tmp_path / "out.tif")
+    finally:
+        if kind == "process_pool":
+            scheduler.shutdown()
+    assert isinstance(lock, _FileWriteLock)
+    assert lock.lock_path == _FileWriteLock(tmp_path / "out.tif").lock_path
+
+
+def test_write_lock_does_not_import_distributed(monkeypatch, tmp_path):
+    # Resolving a callable scheduler does not import distributed, and
+    # neither should choosing the lock for it.
+    monkeypatch.delitem(sys.modules, "distributed", raising=False)
+    with dask.config.set(scheduler=_custom_scheduler):
+        assert isinstance(io._write_lock(tmp_path / "a.tif"), _FileWriteLock)
+    assert "distributed" not in sys.modules
+
+
+class _RecordingLock:
+    def __init__(self):
+        self._lock = threading.Lock()
+        self.used = False
+
+    def acquire(self, *args, **kwargs):
+        self.used = True
+        return self._lock.acquire(*args, **kwargs)
+
+    def release(self):
+        self._lock.release()
+
+    def __enter__(self):
+        self.acquire()
+        return self
+
+    def __exit__(self, *args):
+        self.release()
+
+
+@pytest.mark.parametrize("scheduler", ["threads", _custom_scheduler])
+def test_save_caller_lock_overrides_write_lock(scheduler, tmp_path):
+    data = np.arange(100.0).reshape(10, 10)
+    lock = _RecordingLock()
+    with dask.config.set(scheduler=scheduler):
+        rts.data_to_raster(data).chunk((1, 5, 5)).save(
+            tmp_path / "a.tif", lock=lock
+        )
+        rts.data_to_raster(data).chunk((1, 5, 5)).save(
+            tmp_path / "b.tif", lock=False
+        )
+    assert lock.used
+    for name in ["a.tif", "b.tif"]:
+        np.testing.assert_array_equal(
+            rts.Raster(tmp_path / name).to_numpy()[0], data
+        )
+
+
+def test_file_write_lock_path(tmp_path, monkeypatch):
+    lock = _FileWriteLock(tmp_path / "out.tif")
+    assert os.path.dirname(lock.lock_path) == tempfile.gettempdir()
+    assert str(tmp_path) not in lock.lock_path
+    # Relative and absolute spellings of one output share a lock.
+    monkeypatch.chdir(tmp_path)
+    assert _FileWriteLock("out.tif").lock_path == lock.lock_path
+    assert _FileWriteLock("other.tif").lock_path != lock.lock_path
+
+
+@pytest.fixture
+def file_lock(tmp_path):
+    lock = _FileWriteLock(tmp_path / "out.tif")
+    yield lock
+    lock.remove_file()
+
+
+def test_file_write_lock_pickle_round_trip(file_lock):
+    lock = file_lock
+    with lock:
+        # A held lock still pickles; only the lock file path travels.
+        copy = pickle.loads(pickle.dumps(lock))
+    assert type(copy) is _FileWriteLock
+    assert copy.lock_path == lock.lock_path
+    assert dask.base.tokenize(copy) == dask.base.tokenize(lock)
+    with copy:
+        assert not lock.acquire(blocking=False)
+    assert lock.acquire(blocking=False)
+    lock.release()
+
+
+def _try_acquire_in_thread(lock):
+    result = []
+
+    def attempt():
+        acquired = lock.acquire(blocking=False)
+        if acquired:
+            lock.release()
+        result.append(acquired)
+
+    thread = threading.Thread(target=attempt)
+    thread.start()
+    thread.join()
+    return result[0]
+
+
+def test_file_write_lock_excludes_threads(file_lock):
+    lock = file_lock
+    copy = pickle.loads(pickle.dumps(lock))
+    with lock:
+        # Neither the shared object nor a copy of it may be taken by another
+        # thread of the same process while the lock is held.
+        assert not _try_acquire_in_thread(lock)
+        assert not _try_acquire_in_thread(copy)
+    assert _try_acquire_in_thread(lock)
+    assert _try_acquire_in_thread(copy)
+
+
+def test_file_write_lock_blocking_acquire_waits_for_release(file_lock):
+    lock = file_lock
+    events = []
+
+    def wait_for_lock():
+        with lock:
+            events.append("waiter")
+
+    lock.acquire()
+    waiter = threading.Thread(target=wait_for_lock)
+    waiter.start()
+    # The waiter cannot get in until the release below, so the order of the
+    # recorded events does not depend on timing.
+    events.append("holder")
+    lock.release()
+    waiter.join()
+    assert events == ["holder", "waiter"]
+
+
+def test_file_write_lock_acquire_timeout(file_lock):
+    lock = file_lock
+    with lock:
+        result = []
+        thread = threading.Thread(
+            target=lambda: result.append(lock.acquire(timeout=0.05))
+        )
+        thread.start()
+        thread.join()
+    assert result == [False]
+
+
+def _hold_lock(lock, acquired, release):
+    with lock:
+        acquired.set()
+        release.wait()
+
+
+def _acquire_and_exit(lock, acquired):
+    lock.acquire()
+    acquired.set()
+    os._exit(0)
+
+
+# Tests that start worker processes share the distributed tests' xdist group
+# so they do not compete for cores with a cluster on another xdist worker.
+@pytest.mark.xdist_group("distributed")
+@pytest.mark.timeout(300)
+def test_file_write_lock_excludes_processes(file_lock):
+    ctx = multiprocessing.get_context("spawn")
+    lock = file_lock
+    acquired = ctx.Event()
+    release = ctx.Event()
+    proc = ctx.Process(target=_hold_lock, args=(lock, acquired, release))
+    proc.start()
+    try:
+        assert acquired.wait(120)
+        assert not lock.acquire(blocking=False)
+    finally:
+        release.set()
+        proc.join(120)
+    assert proc.exitcode == 0
+    assert lock.acquire(blocking=False)
+    lock.release()
+
+
+@pytest.mark.xdist_group("distributed")
+@pytest.mark.timeout(300)
+def test_file_write_lock_released_when_holder_exits(file_lock):
+    ctx = multiprocessing.get_context("spawn")
+    lock = file_lock
+    acquired = ctx.Event()
+    proc = ctx.Process(target=_acquire_and_exit, args=(lock, acquired))
+    proc.start()
+    proc.join(120)
+    assert acquired.is_set()
+    assert proc.exitcode == 0
+    # The holder exited without releasing, and the OS dropped its lock.
+    assert lock.acquire(blocking=False)
+    lock.release()
+
+
+def _save_round_trip_matches_threads(tmp_path):
+    # Small dask chunks against the default 256x256 GeoTIFF tiles put many
+    # chunk writes into each tile, so unsynchronized writers would collide.
+    def build():
+        return testdata.raster.dem_clipped_small.chunk((1, 25, 25))
+
+    expected_path = tmp_path / "threads.tif"
+    actual_path = tmp_path / "actual.tif"
+    # Unsynchronized writers can happen not to collide, so check that the
+    # write lock works across processes rather than relying only on the
+    # round trip to expose a race.
+    lock = io._write_lock(actual_path)
+    assert isinstance(lock, _FileWriteLock)
+    build().save(actual_path)
+    assert not os.path.exists(lock.lock_path)
+    with dask.config.set(scheduler="threads"):
+        build().save(expected_path)
+        expected = rts.Raster(expected_path)
+        actual = rts.Raster(actual_path)
+        expected_mask, expected_data, actual_mask, actual_data = dask.compute(
+            expected.mask, expected.data, actual.mask, actual.data
+        )
+    assert expected_mask.any()
+    np.testing.assert_array_equal(actual_mask, expected_mask)
+    np.testing.assert_array_equal(actual_data, expected_data)
+    assert actual.null_value == expected.null_value
+    assert actual.dtype == expected.dtype
+
+
+@pytest.mark.xdist_group("distributed")
+@pytest.mark.timeout(300)
+def test_save_round_trip_process_pool_matches_threads(tmp_path):
+    ctx = multiprocessing.get_context("spawn")
+    with (
+        concurrent.futures.ProcessPoolExecutor(2, mp_context=ctx) as pool,
+        dask.config.set(scheduler=pool),
+    ):
+        _save_round_trip_matches_threads(tmp_path)
+
+
+@pytest.mark.parametrize(
+    "make_pool",
+    [
+        lambda: concurrent.futures.ThreadPoolExecutor(2),
+        lambda: multiprocessing.pool.ThreadPool(2),
+    ],
+    ids=["thread_pool_executor", "multiprocessing_thread_pool"],
+)
+@pytest.mark.parametrize("scheduler", [None, "threads"])
+def test_write_lock_defers_to_dask_for_threaded_pool(
+    scheduler, make_pool, tmp_path
+):
+    pool = make_pool()
+    try:
+        with dask.config.set(scheduler=scheduler, pool=pool):
+            assert io._write_lock(tmp_path / "out.tif") is True
+    finally:
+        if isinstance(pool, multiprocessing.pool.ThreadPool):
+            pool.terminate()
+        else:
+            pool.shutdown()
+
+
+@pytest.mark.xdist_group("distributed")
+@pytest.mark.timeout(300)
+@pytest.mark.parametrize("scheduler", [None, "threads"])
+def test_save_round_trip_threaded_process_pool_matches_threads(
+    scheduler, tmp_path
+):
+    # The threaded scheduler runs tasks on a process pool set in the "pool"
+    # config key, so the save needs a lock that works across processes.
+    def build():
+        return testdata.raster.dem_clipped_small.chunk((1, 25, 25))
+
+    actual_path = tmp_path / "actual.tif"
+    expected_path = tmp_path / "threads.tif"
+    ctx = multiprocessing.get_context("spawn")
+    with (
+        concurrent.futures.ProcessPoolExecutor(2, mp_context=ctx) as pool,
+        dask.config.set(scheduler=scheduler, pool=pool),
+    ):
+        lock = io._write_lock(actual_path)
+        assert isinstance(lock, _FileWriteLock)
+        build().save(actual_path)
+    assert not os.path.exists(lock.lock_path)
+    with dask.config.set(scheduler="threads"):
+        build().save(expected_path)
+        expected = rts.Raster(expected_path)
+        actual = rts.Raster(actual_path)
+        expected_mask, expected_data, actual_mask, actual_data = dask.compute(
+            expected.mask, expected.data, actual.mask, actual.data
+        )
+    assert expected_mask.any()
+    np.testing.assert_array_equal(actual_mask, expected_mask)
+    np.testing.assert_array_equal(actual_data, expected_data)
+
+
+@pytest.mark.xdist_group("distributed")
+@pytest.mark.timeout(300)
+def test_save_round_trip_frisky_matches_threads(tmp_path):
+    frisky = pytest.importorskip("frisky")
+    cluster = frisky.LocalCluster(
+        n_workers=2,
+        threads_per_worker=1,
+        processes=True,
+        silence_summary=True,
+    )
+    try:
+        # Creating the client registers Frisky as dask's global scheduler
+        # until it is closed.
+        client = cluster.get_client()
+        try:
+            _save_round_trip_matches_threads(tmp_path)
+        finally:
+            client.close()
+    finally:
+        cluster.close()

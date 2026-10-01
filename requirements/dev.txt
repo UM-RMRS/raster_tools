@@ -5,6 +5,7 @@ dask[dataframe]>=2025.1.0
 dask-geopandas>=0.4.3
 dask-image
 distributed
+filelock>=3.12
 fiona
 geopandas>=1.0
 netcdf4

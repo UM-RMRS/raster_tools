@@ -1,9 +1,18 @@
+import concurrent.futures
+import contextlib
+import hashlib
+import inspect
+import multiprocessing.pool
 import os
 import sys
+import tempfile
+import threading
 import urllib
 import warnings
 
 import dask
+import dask.threaded
+import filelock
 import numpy as np
 import rasterio as rio
 import rioxarray as xrio
@@ -572,21 +581,139 @@ def _attach_color_table(path, color_table):
         ds.write_colormap(1, color_table)
 
 
-def _write_lock(path):
-    # dask resolves lock=True to a lock shared across worker processes only
-    # when the active distributed client is also the global default. A
-    # client supplied through dask.config or a scheduler argument gets a
-    # lock that works within a single process, so workers would write the
-    # same file concurrently and corrupt it. Hand those clients a
-    # distributed lock named after the output file instead.
-    if "distributed" not in sys.modules:
-        return True
-    from distributed import Client, Lock
+# Where filelock supports it, fail rather than fall back to a marker file
+# lock on filesystems without flock, since a marker left by a dead worker
+# would block later writers forever.
+_FILELOCK_KWARGS = {}
+if "fallback_to_soft" in inspect.signature(filelock.FileLock).parameters:
+    _FILELOCK_KWARGS["fallback_to_soft"] = False
 
+
+class _FileWriteLock:
+    """A lock on an output file that also excludes other local processes.
+
+    Holds only the path of a lock file in the system temporary directory,
+    named from a hash of the output path, so it pickles cheaply and every
+    copy contends on the same OS file lock. The lock is advisory and local:
+    it serializes writers on a single machine only, and an OS file lock is
+    released when its holder exits, so a dead worker cannot leave it held.
+    """
+
+    def __init__(self, path):
+        key = os.path.abspath(os.fspath(path))
+        if hasattr(os, "getuid"):
+            # A failed save leaves its lock file behind, and another user's
+            # lock file may not be writable, so keep each user's locks apart.
+            key = f"{os.getuid()}:{key}"
+        digest = hashlib.sha256(key.encode()).hexdigest()[:32]
+        self.lock_path = os.path.join(
+            tempfile.gettempdir(), f"raster_tools-write-{digest}.lock"
+        )
+        self._local = threading.local()
+
+    def __getstate__(self):
+        return {"lock_path": self.lock_path}
+
+    def __setstate__(self, state):
+        self.lock_path = state["lock_path"]
+        self._local = threading.local()
+
+    def __dask_tokenize__(self):
+        return (type(self).__name__, self.lock_path)
+
+    def __repr__(self):
+        return f"{type(self).__name__}({self.lock_path!r})"
+
+    def _file_lock(self):
+        # Each thread gets its own FileLock instance, and therefore its own
+        # descriptor, so threads in one process exclude each other through
+        # the OS lock just as separate processes do. A FileLock left over
+        # from before a fork is not reused in the child.
+        local = self._local
+        pid = os.getpid()
+        if getattr(local, "pid", None) != pid:
+            local.lock = filelock.FileLock(self.lock_path, **_FILELOCK_KWARGS)
+            local.pid = pid
+        return local.lock
+
+    def acquire(self, blocking=True, timeout=-1):
+        try:
+            self._file_lock().acquire(timeout=timeout, blocking=blocking)
+        except filelock.Timeout:
+            return False
+        return True
+
+    def release(self):
+        self._file_lock().release()
+
+    def __enter__(self):
+        self.acquire()
+        return self
+
+    def __exit__(self, *exc_info):
+        self.release()
+
+    def remove_file(self):
+        """Delete the lock file. Only call once no writer can still use it."""
+        with contextlib.suppress(OSError):
+            os.remove(self.lock_path)
+
+
+def _runs_in_threads(pool):
+    # multiprocessing.pool.ThreadPool subclasses the process Pool, so it has
+    # to be matched explicitly.
+    return pool is None or isinstance(
+        pool,
+        (
+            concurrent.futures.ThreadPoolExecutor,
+            multiprocessing.pool.ThreadPool,
+        ),
+    )
+
+
+def _write_lock(path):
+    """Pick the lock that keeps concurrent chunk writes to `path` apart.
+
+    dask resolves lock=True itself to a lock that is shared across worker
+    processes only for the multiprocessing scheduler and for a distributed
+    client that is also the global default. A distributed client supplied
+    through dask.config or a scheduler argument gets a distributed lock
+    named after the output file. Schedulers dask does not recognize, such
+    as a process pool executor or a third-party scheduler, may run tasks in
+    several processes, so they get a file lock that works across processes.
+    The threaded scheduler is treated the same way when its configured
+    pool is not a thread pool.
+    """
     get = dask.base.get_scheduler()
-    if isinstance(getattr(get, "__self__", None), Client):
-        return Lock(name=f"raster_tools-write-{os.path.abspath(path)}")
-    return True
+    if "distributed" in sys.modules:
+        from distributed import Client, Lock
+
+        if isinstance(getattr(get, "__self__", None), Client):
+            return Lock(name=f"raster_tools-write-{os.path.abspath(path)}")
+    if get is None or get is dask.threaded.get:
+        # The threaded scheduler runs tasks on the executor in the "pool"
+        # config key when one is set, and that executor may be a process
+        # pool.
+        if _runs_in_threads(dask.config.get("pool", None)):
+            return True
+        return _FileWriteLock(path)
+    if get in dask.base.named_schedulers.values():
+        return True
+    return _FileWriteLock(path)
+
+
+def _store_raster(xrs, path, **to_raster_kwargs):
+    if "lock" in to_raster_kwargs:
+        # A caller-supplied lock overrides the automatic choice.
+        xrs.rio.to_raster(path, **to_raster_kwargs)
+        return
+    lock = _write_lock(path)
+    xrs.rio.to_raster(path, lock=lock, **to_raster_kwargs)
+    if isinstance(lock, _FileWriteLock):
+        # Every chunk write of this save has finished, so nothing in it can
+        # still be waiting on the lock file. Saves of the same path running
+        # at once in separate processes would corrupt the output anyway.
+        lock.remove_file()
 
 
 def write_raster(
@@ -715,9 +842,7 @@ def write_raster(
         ) as tmpf:
             tmp_path = tmpf.name
         try:
-            xrs.rio.to_raster(
-                tmp_path, lock=_write_lock(tmp_path), compute=True
-            )
+            _store_raster(xrs, tmp_path, compute=True)
             if color_table is not None:
                 # The COG driver has no palette creation option, but the copy
                 # carries the staged file's color table and photometric tag
@@ -728,14 +853,10 @@ def write_raster(
             if os.path.exists(tmp_path):
                 os.unlink(tmp_path)
     else:
-        to_raster_kwargs = {
-            "lock": _write_lock(path),
-            "compute": True,
-            **creation_opts,
-        }
+        to_raster_kwargs = {"compute": True, **creation_opts}
         if driver is not None:
             to_raster_kwargs["driver"] = driver
-        xrs.rio.to_raster(path, **to_raster_kwargs)
+        _store_raster(xrs, path, **to_raster_kwargs)
         if color_table is not None:
             _attach_color_table(path, color_table)
 

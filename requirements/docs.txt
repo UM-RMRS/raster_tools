@@ -1,6 +1,7 @@
 dask[dataframe]>=2025.1.0
 dask-geopandas>=0.4.3
 dask-image
+filelock>=3.12
 fiona
 geopandas>=1.0
 numba

@@ -44,7 +44,7 @@ pip install raster-tools[io]
 #### Conda
 
 ```sh
-conda install -c conda-forge "dask>=2025.1.0" "dask-geopandas>=0.4.3" "geopandas>=1.0" dask-image fiona numba odc-geo pyogrio rioxarray scipy
+conda install -c conda-forge "dask>=2025.1.0" "dask-geopandas>=0.4.3" "geopandas>=1.0" "filelock>=3.12" dask-image fiona numba odc-geo pyogrio rioxarray scipy
 pip install --no-deps raster-tools
 ```
 
@@ -64,6 +64,7 @@ netCDF and GRIB files.
 - [dask](https://dask.org/)
 - [dask_image](https://image.dask.org/en/latest/)
 - [dask-geopandas](https://dask-geopandas.readthedocs.io/en/stable/)
+- [filelock](https://py-filelock.readthedocs.io/en/latest/)
 - [fiona](https://fiona.readthedocs.io/en/stable/)
 - [geopandas](https://geopandas.org/en/stable/)
 - [netcdf](https://unidata.github.io/netcdf4-python/)
