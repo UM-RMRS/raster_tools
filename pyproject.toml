@@ -54,6 +54,12 @@ version = {attr = "raster_tools._version.__version__"}
 [tool.setuptools.packages.find]
 exclude = ["docs*", "tests*"]
 
+[tool.pytest.ini_options]
+# loadgroup keeps tests marked with the same xdist_group on one worker so
+# expensive shared resources, like a distributed cluster, are created once.
+# Ungrouped tests are scheduled exactly as with the default "load" mode.
+addopts = "--dist loadgroup"
+
 [tool.ruff]
 line-length = 79
 exclude = [
