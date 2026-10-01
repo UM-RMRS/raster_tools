@@ -438,6 +438,7 @@ document.write(`
                   
   <h1>Source code for raster_tools.io</h1><div class="highlight"><pre>
 <span></span><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">urllib</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
 
@@ -1010,6 +1011,23 @@ document.write(`
         <span class="n">ds</span><span class="o">.</span><span class="n">write_colormap</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">color_table</span><span class="p">)</span>
 
 
+<span class="k">def</span><span class="w"> </span><span class="nf">_write_lock</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+    <span class="c1"># dask resolves lock=True to a lock shared across worker processes only</span>
+    <span class="c1"># when the active distributed client is also the global default. A</span>
+    <span class="c1"># client supplied through dask.config or a scheduler argument gets a</span>
+    <span class="c1"># lock that works within a single process, so workers would write the</span>
+    <span class="c1"># same file concurrently and corrupt it. Hand those clients a</span>
+    <span class="c1"># distributed lock named after the output file instead.</span>
+    <span class="k">if</span> <span class="s2">"distributed"</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">sys</span><span class="o">.</span><span class="n">modules</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">True</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">distributed</span><span class="w"> </span><span class="kn">import</span> <span class="n">Client</span><span class="p">,</span> <span class="n">Lock</span>
+
+    <span class="n">get</span> <span class="o">=</span> <span class="n">dask</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">get_scheduler</span><span class="p">()</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">get</span><span class="p">,</span> <span class="s2">"__self__"</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span> <span class="n">Client</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">Lock</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">"raster_tools-write-</span><span class="si">{</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">path</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="kc">True</span>
+
+
 <span class="k">def</span><span class="w"> </span><span class="nf">write_raster</span><span class="p">(</span>
     <span class="n">xrs</span><span class="p">,</span>
     <span class="n">path</span><span class="p">,</span>
@@ -1136,7 +1154,9 @@ document.write(`
         <span class="p">)</span> <span class="k">as</span> <span class="n">tmpf</span><span class="p">:</span>
             <span class="n">tmp_path</span> <span class="o">=</span> <span class="n">tmpf</span><span class="o">.</span><span class="n">name</span>
         <span class="k">try</span><span class="p">:</span>
-            <span class="n">xrs</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">to_raster</span><span class="p">(</span><span class="n">tmp_path</span><span class="p">,</span> <span class="n">lock</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">compute</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">xrs</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">to_raster</span><span class="p">(</span>
+                <span class="n">tmp_path</span><span class="p">,</span> <span class="n">lock</span><span class="o">=</span><span class="n">_write_lock</span><span class="p">(</span><span class="n">tmp_path</span><span class="p">),</span> <span class="n">compute</span><span class="o">=</span><span class="kc">True</span>
+            <span class="p">)</span>
             <span class="k">if</span> <span class="n">color_table</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="c1"># The COG driver has no palette creation option, but the copy</span>
                 <span class="c1"># carries the staged file's color table and photometric tag</span>
@@ -1147,7 +1167,11 @@ document.write(`
             <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">tmp_path</span><span class="p">):</span>
                 <span class="n">os</span><span class="o">.</span><span class="n">unlink</span><span class="p">(</span><span class="n">tmp_path</span><span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="n">to_raster_kwargs</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"lock"</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span> <span class="s2">"compute"</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span> <span class="o">**</span><span class="n">creation_opts</span><span class="p">}</span>
+        <span class="n">to_raster_kwargs</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">"lock"</span><span class="p">:</span> <span class="n">_write_lock</span><span class="p">(</span><span class="n">path</span><span class="p">),</span>
+            <span class="s2">"compute"</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">creation_opts</span><span class="p">,</span>
+        <span class="p">}</span>
         <span class="k">if</span> <span class="n">driver</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">to_raster_kwargs</span><span class="p">[</span><span class="s2">"driver"</span><span class="p">]</span> <span class="o">=</span> <span class="n">driver</span>
         <span class="n">xrs</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">to_raster</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="o">**</span><span class="n">to_raster_kwargs</span><span class="p">)</span>
