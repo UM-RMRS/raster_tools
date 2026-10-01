@@ -4,6 +4,7 @@ cfgrib
 dask[dataframe]>=2025.1.0
 dask-geopandas>=0.4.3
 dask-image
+distributed
 fiona
 geopandas>=1.0
 netcdf4
@@ -16,6 +17,7 @@ pyarrow
 pyogrio
 pyproj
 pytest
+pytest-timeout
 pytest-xdist
 rasterio
 rioxarray

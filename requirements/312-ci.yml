@@ -18,6 +18,7 @@ dependencies:
   - pyogrio
   - pyproj
   - pytest
+  - pytest-timeout
   - pytest-xdist
   - rasterio
   - rioxarray
