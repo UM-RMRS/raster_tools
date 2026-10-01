@@ -291,10 +291,7 @@ def test_data_to_xr_raster_like_shape_mismatch_raises(
     shape, mod, match_chunks
 ):
     xlike = testdata.raster.dem_small.xdata
-    # With match_chunks, rechunking to the template's chunks fails before
-    # the explicit shape check is reached, so only the type is pinned.
-    match = None if match_chunks else "did not match xlike"
-    with pytest.raises(ValueError, match=match):
+    with pytest.raises(ValueError, match="did not match xlike"):
         rts.data_to_xr_raster_like(
             mod.ones(shape), xlike, match_chunks=match_chunks
         )
@@ -503,9 +500,8 @@ def test_data_to_xr_raster_ds_like_mask_and_burn(nv, burn):
         ((100, 100), (100, 99), False, "data and mask dimensions"),
         ((100, 100), (2, 100, 100), False, "data and mask dimensions"),
         ((100, 100), (2, 100, 100), True, "data and mask dimensions"),
-        # Rechunking to the template's chunks fails first
-        ((100, 99), (100, 99), True, None),
-        ((100, 100), (100, 99), True, None),
+        ((100, 99), (100, 99), True, "did not match xlike"),
+        ((100, 100), (100, 99), True, "data and mask dimensions"),
     ],
 )
 def test_data_to_xr_raster_ds_like_shape_mismatch_raises(

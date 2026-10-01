@@ -780,6 +780,18 @@ def data_to_xr_raster(data, x=None, y=None, affine=None, crs=None, nv=None):
     return normalize_xarray_data(xdata)
 
 
+def _check_yx_shape(data, yx_shape, msg):
+    # Rechunking to a template's chunks fails with an opaque dask error when
+    # the sizes differ, so compare before normalizing. Invalid types and
+    # ranks are left for normalize_data to report.
+    if (
+        isinstance(data, (np.ndarray, da.Array))
+        and data.ndim in (2, 3)
+        and data.shape[-2:] != tuple(yx_shape)
+    ):
+        raise ValueError(msg)
+
+
 def data_to_xr_raster_like(
     data, xlike, nv=None, match_band_dim=False, match_chunks=True
 ):
@@ -815,9 +827,8 @@ def data_to_xr_raster_like(
 
     """
     yx_chunks = xlike.data.chunks[1:] if match_chunks else None
+    _check_yx_shape(data, xlike.shape[1:], "data x/y dims did not match xlike")
     data = normalize_data(data, yx_chunks=yx_chunks)
-    if data.shape[-2:] != xlike.shape[1:]:
-        raise ValueError("data x/y dims did not match xlike")
 
     if data.shape[0] == 1 and match_band_dim:
         data = da.stack([data[0] for i in range(xlike.shape[0])], axis=0)
@@ -942,12 +953,14 @@ def data_to_xr_raster_ds_like(
 
     """
     yx_chunks = xlike.data.chunks[1:] if match_chunks else None
+    _check_yx_shape(data, xlike.shape[1:], "data x/y dims did not match xlike")
     data = normalize_data(data, yx_chunks=yx_chunks)
-    if data.shape[-2:] != xlike.shape[1:]:
-        raise ValueError("data x/y dims did not match xlike")
     if mask is not None:
         if nv is None:
             nv = get_default_null_value(data.dtype)
+        _check_yx_shape(
+            mask, data.shape[-2:], "data and mask dimensions do not match"
+        )
         mask = normalize_data(mask, yx_chunks=yx_chunks)
         if mask.shape != data.shape:
             raise ValueError("data and mask dimensions do not match")
