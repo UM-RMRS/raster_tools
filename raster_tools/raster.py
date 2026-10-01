@@ -664,7 +664,7 @@ def normalize_xarray_data(xdata):
     xdata["band"] = np.arange(1, len(xdata.band) + 1)
     if any(dim not in xdata.coords for dim in xdata.dims):
         raise ValueError(
-            "Invalid coordinates on xarray.DataArray object:\n{xdata!r}"
+            f"Invalid coordinates on xarray.DataArray object:\n{xdata!r}"
         )
     if (xdata.rio.x_dim, xdata.rio.y_dim) != ("x", "y"):
         xdata = xdata.rio.set_spatial_dims(x_dim="x", y_dim="y")
@@ -693,7 +693,7 @@ def is_normalized(xdata):
         raise TypeError("Expected a xarray.DataArray object")
     if any(dim not in xdata.coords for dim in xdata.dims):
         raise ValueError(
-            "Invalid coordinates on xarray.DataArray object:\n{xdata!r}"
+            f"Invalid coordinates on xarray.DataArray object:\n{xdata!r}"
         )
 
     return (
@@ -718,16 +718,17 @@ def data_to_xr_raster(data, x=None, y=None, affine=None, crs=None, nv=None):
     ----------
     data : np.ndarray, dask.array.Array
         The data array.
-    x : list, np.ndarra, optional
-        The x coordinate value. If `x` and `y` are not specified, `affine` is
-        used to generate x and y coordinates.
-    y : list, np.ndarra, optional
-        The y coordinate value. If `x` and `y` are not specified, `affine` is
-        used to generate x and y coordinates.
+    x : np.ndarray, optional
+        The x coordinate values. Must be given together with `y`. Ignored
+        if `affine` is given.
+    y : np.ndarray, optional
+        The y coordinate values. Must be given together with `x`. Ignored
+        if `affine` is given.
     affine : affine.Affine, optional
-        If ``None``, the affine matrix is created using `x` and `y`. If
-        `affine` is ``None`` and `x` and `y` are not specified, default affine
-        matrix of:
+        The affine matrix used to generate the x and y coordinates. If
+        given, it takes precedence over `x` and `y`, which are ignored. If
+        ``None``, the coordinates are taken from `x` and `y`. If `affine`,
+        `x`, and `y` are all ``None``, the default affine matrix is:
         ::
 
             | 1.0  0.0 0.0 |
@@ -759,7 +760,7 @@ def data_to_xr_raster(data, x=None, y=None, affine=None, crs=None, nv=None):
             y = np.arange(data.shape[1])[::-1] + 0.5
         elif any(xi is None for xi in (x, y)):
             raise ValueError("Must specify both x and y or neither.")
-        if not isinstance(x, np.ndarray) or not isinstance(x, np.ndarray):
+        if not isinstance(x, np.ndarray) or not isinstance(y, np.ndarray):
             raise TypeError("x and y must be numpy arrays")
         x = x.ravel()
         y = y.ravel()
@@ -777,6 +778,18 @@ def data_to_xr_raster(data, x=None, y=None, affine=None, crs=None, nv=None):
         xdata = xdata.rio.write_crs(crs)
     xdata = xdata.rio.write_nodata(nv)
     return normalize_xarray_data(xdata)
+
+
+def _check_yx_shape(data, yx_shape, msg):
+    # Rechunking to a template's chunks fails with an opaque dask error when
+    # the sizes differ, so compare before normalizing. Invalid types and
+    # ranks are left for normalize_data to report.
+    if (
+        isinstance(data, (np.ndarray, da.Array))
+        and data.ndim in (2, 3)
+        and data.shape[-2:] != tuple(yx_shape)
+    ):
+        raise ValueError(msg)
 
 
 def data_to_xr_raster_like(
@@ -814,9 +827,8 @@ def data_to_xr_raster_like(
 
     """
     yx_chunks = xlike.data.chunks[1:] if match_chunks else None
+    _check_yx_shape(data, xlike.shape[1:], "data x/y dims did not match xlike")
     data = normalize_data(data, yx_chunks=yx_chunks)
-    if data.shape[-2:] != xlike.shape[1:]:
-        raise ValueError("data x/y dims did not match xlike")
 
     if data.shape[0] == 1 and match_band_dim:
         data = da.stack([data[0] for i in range(xlike.shape[0])], axis=0)
@@ -850,20 +862,21 @@ def data_to_xr_raster_ds(
     mask : np.ndarray, dask.array.Array
         A boolean mask array. The default is to generate a mask from the data
         using `nv`.
-    x : list, np.ndarra, optional
-        The x coordinate value. If `x` and `y` are not specified, `affine` is
-        used to generate x and y coordinates.
-    y : list, np.ndarra, optional
-        The y coordinate value. If `x` and `y` are not specified, `affine` is
-        used to generate x and y coordinates.
+    x : np.ndarray, optional
+        The x coordinate values. Must be given together with `y`. Ignored
+        if `affine` is given.
+    y : np.ndarray, optional
+        The y coordinate values. Must be given together with `x`. Ignored
+        if `affine` is given.
     affine : affine.Affine, optional
-        If ``None``, the affine matrix is created using `x` and `y`. If
-        `affine` is ``None`` and `x` and `y` are not specified, default affine
-        matrix of:
+        The affine matrix used to generate the x and y coordinates. If
+        given, it takes precedence over `x` and `y`, which are ignored. If
+        ``None``, the coordinates are taken from `x` and `y`. If `affine`,
+        `x`, and `y` are all ``None``, the default affine matrix is:
         ::
 
-            | 1.0 0.0 0.0 |
-            | 0.0 1.0   N |
+            | 1.0  0.0 0.0 |
+            | 0.0 -1.0   N |
 
         where N is the size of the y dim.
     crs : int, str, rasterio.CRS, optional
@@ -940,12 +953,14 @@ def data_to_xr_raster_ds_like(
 
     """
     yx_chunks = xlike.data.chunks[1:] if match_chunks else None
+    _check_yx_shape(data, xlike.shape[1:], "data x/y dims did not match xlike")
     data = normalize_data(data, yx_chunks=yx_chunks)
-    if data.shape[-2:] != xlike.shape[1:]:
-        raise ValueError("data x/y dims did not match xlike")
     if mask is not None:
         if nv is None:
             nv = get_default_null_value(data.dtype)
+        _check_yx_shape(
+            mask, data.shape[-2:], "data and mask dimensions do not match"
+        )
         mask = normalize_data(mask, yx_chunks=yx_chunks)
         if mask.shape != data.shape:
             raise ValueError("data and mask dimensions do not match")
@@ -972,20 +987,21 @@ def data_to_raster(
     mask : np.ndarray, dask.array.Array
         A boolean mask array. The default is to generate a mask from the data
         using `nv`.
-    x : list, np.ndarra, optional
-        The x coordinate value. If `x` and `y` are not specified, `affine` is
-        used to generate x and y coordinates.
-    y : list, np.ndarra, optional
-        The y coordinate value. If `x` and `y` are not specified, `affine` is
-        used to generate x and y coordinates.
+    x : np.ndarray, optional
+        The x coordinate values. Must be given together with `y`. Ignored
+        if `affine` is given.
+    y : np.ndarray, optional
+        The y coordinate values. Must be given together with `x`. Ignored
+        if `affine` is given.
     affine : affine.Affine, optional
-        If ``None``, the affine matrix is created using `x` and `y`. If
-        `affine` is ``None`` and `x` and `y` are not specified, default affine
-        matrix of:
+        The affine matrix used to generate the x and y coordinates. If
+        given, it takes precedence over `x` and `y`, which are ignored. If
+        ``None``, the coordinates are taken from `x` and `y`. If `affine`,
+        `x`, and `y` are all ``None``, the default affine matrix is:
         ::
 
-            | 1.0 0.0 0.0 |
-            | 0.0 1.0   N |
+            | 1.0  0.0 0.0 |
+            | 0.0 -1.0   N |
 
         where N is the size of the y dim.
     crs : int, str, rasterio.CRS, optional
@@ -1026,7 +1042,7 @@ def data_to_raster_like(
 ):
     """Create a Raster, based on a template Raster, from a data array.
 
-    The CRS and x/y information are pulled from `xlike`.
+    The CRS and x/y information are pulled from `like`.
 
     Parameters
     ----------
@@ -1044,7 +1060,7 @@ def data_to_raster_like(
         If ``True``, `mask` is used to 'burn' the null value into the data
         array (e.g. `np.where(mask, nv, data)`). The default is ``False``.
     match_chunks : bool, optional
-        If ``True``, the chunks of the output will match the chunks in `xlike`.
+        If ``True``, the chunks of the output will match the chunks in `like`.
         The default is ``True``.
 
     Returns
@@ -1104,8 +1120,9 @@ def dataarray_to_xr_raster_ds(xdata, xmask=None, crs=None):
         The object to convert to a raster Dataset
     xmask : xarray.DataArray[bool], optional
         The matching mask to use with the `xdata` object when creating the
-        raster Dataset. Must have boolean dtype. The default is to generate a
-        mask from `xdata` based on the value returned by `xdata.rio.nodata`.
+        raster Dataset. Must have boolean dtype and the same shape and
+        coordinates as `xdata`. The default is to generate a mask from
+        `xdata` based on the value returned by `xdata.rio.nodata`.
     crs : int, str, rasterio.CRS, optional
         The CRS to use when creating the result. The default is to take the CRS
         from `xdata`, if present.
@@ -1128,6 +1145,18 @@ def dataarray_to_xr_raster_ds(xdata, xmask=None, crs=None):
         xmask = get_mask_from_data(xdata, xdata.rio.nodata)
     else:
         xmask = dataarray_to_xr_raster(xmask)
+        if not is_bool(xmask.dtype):
+            raise TypeError(
+                f"xmask must have boolean dtype, got {xmask.dtype}"
+            )
+        # Building the Dataset would otherwise silently outer-join
+        # mismatched grids, filling the gaps with NaN.
+        try:
+            xr.align(xdata, xmask, join="exact")
+        except ValueError as err:
+            raise ValueError(
+                "xmask shape and coordinates must match xdata"
+            ) from err
     ds = make_raster_ds(xdata, xmask)
     if crs is not None:
         ds = ds.rio.write_crs(crs)
@@ -1145,8 +1174,9 @@ def dataarray_to_raster(xdata, xmask=None, crs=None):
         The object to make a Raster from.
     xmask : xarray.DataArray, optional
         The matching mask to use with the `xdata` object when creating the
-        raster Dataset. Must have boolean dtype. The default is to generate a
-        mask from `xdata` based on the value returned by `xdata.rio.nodata`.
+        raster Dataset. Must have boolean dtype and the same shape and
+        coordinates as `xdata`. The default is to generate a mask from
+        `xdata` based on the value returned by `xdata.rio.nodata`.
     crs : int, str, rasterio.CRS, optional
         The CRS to use when creating the result. The default is to take the CRS
         from `xdata`, if present.
