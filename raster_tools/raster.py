@@ -718,16 +718,17 @@ def data_to_xr_raster(data, x=None, y=None, affine=None, crs=None, nv=None):
     ----------
     data : np.ndarray, dask.array.Array
         The data array.
-    x : list, np.ndarra, optional
-        The x coordinate value. If `x` and `y` are not specified, `affine` is
-        used to generate x and y coordinates.
-    y : list, np.ndarra, optional
-        The y coordinate value. If `x` and `y` are not specified, `affine` is
-        used to generate x and y coordinates.
+    x : np.ndarray, optional
+        The x coordinate values. Must be given together with `y`. Ignored
+        if `affine` is given.
+    y : np.ndarray, optional
+        The y coordinate values. Must be given together with `x`. Ignored
+        if `affine` is given.
     affine : affine.Affine, optional
-        If ``None``, the affine matrix is created using `x` and `y`. If
-        `affine` is ``None`` and `x` and `y` are not specified, default affine
-        matrix of:
+        The affine matrix used to generate the x and y coordinates. If
+        given, it takes precedence over `x` and `y`, which are ignored. If
+        ``None``, the coordinates are taken from `x` and `y`. If `affine`,
+        `x`, and `y` are all ``None``, the default affine matrix is:
         ::
 
             | 1.0  0.0 0.0 |
@@ -759,7 +760,7 @@ def data_to_xr_raster(data, x=None, y=None, affine=None, crs=None, nv=None):
             y = np.arange(data.shape[1])[::-1] + 0.5
         elif any(xi is None for xi in (x, y)):
             raise ValueError("Must specify both x and y or neither.")
-        if not isinstance(x, np.ndarray) or not isinstance(x, np.ndarray):
+        if not isinstance(x, np.ndarray) or not isinstance(y, np.ndarray):
             raise TypeError("x and y must be numpy arrays")
         x = x.ravel()
         y = y.ravel()
@@ -850,20 +851,21 @@ def data_to_xr_raster_ds(
     mask : np.ndarray, dask.array.Array
         A boolean mask array. The default is to generate a mask from the data
         using `nv`.
-    x : list, np.ndarra, optional
-        The x coordinate value. If `x` and `y` are not specified, `affine` is
-        used to generate x and y coordinates.
-    y : list, np.ndarra, optional
-        The y coordinate value. If `x` and `y` are not specified, `affine` is
-        used to generate x and y coordinates.
+    x : np.ndarray, optional
+        The x coordinate values. Must be given together with `y`. Ignored
+        if `affine` is given.
+    y : np.ndarray, optional
+        The y coordinate values. Must be given together with `x`. Ignored
+        if `affine` is given.
     affine : affine.Affine, optional
-        If ``None``, the affine matrix is created using `x` and `y`. If
-        `affine` is ``None`` and `x` and `y` are not specified, default affine
-        matrix of:
+        The affine matrix used to generate the x and y coordinates. If
+        given, it takes precedence over `x` and `y`, which are ignored. If
+        ``None``, the coordinates are taken from `x` and `y`. If `affine`,
+        `x`, and `y` are all ``None``, the default affine matrix is:
         ::
 
-            | 1.0 0.0 0.0 |
-            | 0.0 1.0   N |
+            | 1.0  0.0 0.0 |
+            | 0.0 -1.0   N |
 
         where N is the size of the y dim.
     crs : int, str, rasterio.CRS, optional
@@ -972,20 +974,21 @@ def data_to_raster(
     mask : np.ndarray, dask.array.Array
         A boolean mask array. The default is to generate a mask from the data
         using `nv`.
-    x : list, np.ndarra, optional
-        The x coordinate value. If `x` and `y` are not specified, `affine` is
-        used to generate x and y coordinates.
-    y : list, np.ndarra, optional
-        The y coordinate value. If `x` and `y` are not specified, `affine` is
-        used to generate x and y coordinates.
+    x : np.ndarray, optional
+        The x coordinate values. Must be given together with `y`. Ignored
+        if `affine` is given.
+    y : np.ndarray, optional
+        The y coordinate values. Must be given together with `x`. Ignored
+        if `affine` is given.
     affine : affine.Affine, optional
-        If ``None``, the affine matrix is created using `x` and `y`. If
-        `affine` is ``None`` and `x` and `y` are not specified, default affine
-        matrix of:
+        The affine matrix used to generate the x and y coordinates. If
+        given, it takes precedence over `x` and `y`, which are ignored. If
+        ``None``, the coordinates are taken from `x` and `y`. If `affine`,
+        `x`, and `y` are all ``None``, the default affine matrix is:
         ::
 
-            | 1.0 0.0 0.0 |
-            | 0.0 1.0   N |
+            | 1.0  0.0 0.0 |
+            | 0.0 -1.0   N |
 
         where N is the size of the y dim.
     crs : int, str, rasterio.CRS, optional
