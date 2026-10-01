@@ -1107,8 +1107,9 @@ def dataarray_to_xr_raster_ds(xdata, xmask=None, crs=None):
         The object to convert to a raster Dataset
     xmask : xarray.DataArray[bool], optional
         The matching mask to use with the `xdata` object when creating the
-        raster Dataset. Must have boolean dtype. The default is to generate a
-        mask from `xdata` based on the value returned by `xdata.rio.nodata`.
+        raster Dataset. Must have boolean dtype and the same shape and
+        coordinates as `xdata`. The default is to generate a mask from
+        `xdata` based on the value returned by `xdata.rio.nodata`.
     crs : int, str, rasterio.CRS, optional
         The CRS to use when creating the result. The default is to take the CRS
         from `xdata`, if present.
@@ -1131,6 +1132,18 @@ def dataarray_to_xr_raster_ds(xdata, xmask=None, crs=None):
         xmask = get_mask_from_data(xdata, xdata.rio.nodata)
     else:
         xmask = dataarray_to_xr_raster(xmask)
+        if not is_bool(xmask.dtype):
+            raise TypeError(
+                f"xmask must have boolean dtype, got {xmask.dtype}"
+            )
+        # Building the Dataset would otherwise silently outer-join
+        # mismatched grids, filling the gaps with NaN.
+        try:
+            xr.align(xdata, xmask, join="exact")
+        except ValueError as err:
+            raise ValueError(
+                "xmask shape and coordinates must match xdata"
+            ) from err
     ds = make_raster_ds(xdata, xmask)
     if crs is not None:
         ds = ds.rio.write_crs(crs)
@@ -1148,8 +1161,9 @@ def dataarray_to_raster(xdata, xmask=None, crs=None):
         The object to make a Raster from.
     xmask : xarray.DataArray, optional
         The matching mask to use with the `xdata` object when creating the
-        raster Dataset. Must have boolean dtype. The default is to generate a
-        mask from `xdata` based on the value returned by `xdata.rio.nodata`.
+        raster Dataset. Must have boolean dtype and the same shape and
+        coordinates as `xdata`. The default is to generate a mask from
+        `xdata` based on the value returned by `xdata.rio.nodata`.
     crs : int, str, rasterio.CRS, optional
         The CRS to use when creating the result. The default is to take the CRS
         from `xdata`, if present.

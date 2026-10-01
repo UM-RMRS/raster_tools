@@ -716,6 +716,48 @@ def test_dataarray_to_xr_raster_ds_explicit_mask():
     assert_dataarrays_similar(ds.raster, ds.mask)
 
 
+def _mask_like_latlon(lat=None, lon=None, nbands=None, dtype=bool):
+    lat = [0.5, 1.5, 2.5] if lat is None else lat
+    lon = [0.5, 1.5, 2.5, 3.5] if lon is None else lon
+    shape = (len(lat), len(lon))
+    dims = ("lat", "lon")
+    coords = {"lat": lat, "lon": lon}
+    if nbands is not None:
+        shape = (nbands, *shape)
+        dims = ("band", *dims)
+        coords["band"] = np.arange(1, nbands + 1)
+    return xr.DataArray(np.zeros(shape, dtype=dtype), dims=dims, coords=coords)
+
+
+@pytest.mark.parametrize(
+    "xmask",
+    [
+        _mask_like_latlon(lat=[0.5, 1.5]),
+        _mask_like_latlon(lon=[0.5, 1.5, 2.5, 3.5, 4.5]),
+        _mask_like_latlon(lon=[0.75, 1.75, 2.75, 3.75]),
+        _mask_like_latlon(nbands=2),
+    ],
+    ids=["fewer_rows", "more_cols", "shifted_x", "extra_band"],
+)
+@pytest.mark.parametrize(
+    "func", [rts.dataarray_to_xr_raster_ds, rts.dataarray_to_raster]
+)
+def test_dataarray_to_xr_raster_ds_mismatched_mask_raises(func, xmask):
+    xdata = _latlon_dataarray(nodata=5.0)
+    with pytest.raises(ValueError, match="must match xdata"):
+        func(xdata, xmask=xmask)
+
+
+@pytest.mark.parametrize("dtype", ["float64", "int8", "uint8"])
+@pytest.mark.parametrize(
+    "func", [rts.dataarray_to_xr_raster_ds, rts.dataarray_to_raster]
+)
+def test_dataarray_to_xr_raster_ds_non_bool_mask_raises(func, dtype):
+    xdata = _latlon_dataarray(nodata=5.0)
+    with pytest.raises(TypeError, match="boolean dtype"):
+        func(xdata, xmask=_mask_like_latlon(dtype=dtype))
+
+
 @pytest.mark.parametrize("src_crs", [None, 4326])
 def test_dataarray_to_xr_raster_ds_crs_override(src_crs):
     xdata = _latlon_dataarray(crs=src_crs)
