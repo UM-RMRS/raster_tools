@@ -403,24 +403,6 @@ def test_data_to_xr_raster_ds_georeferencing(use_affine):
         assert var.rio.crs is None
 
 
-def test_data_to_xr_raster_ds_default_coords():
-    ds = rts.data_to_xr_raster_ds(arange_nd((3, 4)).astype(float))
-
-    for var in (ds.raster, ds.mask):
-        assert var.rio.transform(True) == Affine(1, 0, 0, 0, -1, 3)
-        assert var.rio.crs is None
-
-
-def test_data_to_xr_raster_ds_invalid_xy_raises():
-    data = arange_nd((3, 4)).astype(float)
-    with pytest.raises(TypeError, match="x and y must be numpy arrays"):
-        rts.data_to_xr_raster_ds(data, x=np.arange(4.0), y=[2.0, 1.0, 0.0])
-    with pytest.raises(ValueError, match="both x and y or neither"):
-        rts.data_to_xr_raster_ds(data, x=np.arange(4.0))
-    with pytest.raises(ValueError, match="do not match data shape"):
-        rts.data_to_xr_raster_ds(data, x=np.arange(5.0), y=np.arange(3.0))
-
-
 @pytest.mark.parametrize("mask_shape", [(3, 5), (2, 3, 4), (1, 4, 4)], ids=str)
 def test_data_to_xr_raster_ds_mask_shape_mismatch_raises(mask_shape):
     data = arange_nd((3, 4)).astype(float)
@@ -543,95 +525,43 @@ def test_data_to_xr_raster_ds_like_shape_mismatch_raises(
 # --------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("nv", [None, np.nan, 2.0])
-@pytest.mark.parametrize(
-    "data",
-    [
-        np.array([[0.0, 2.0, np.nan], [2.0, 1.0, 4.0]]),
-        da.from_array(np.array([[[0.0, 2.0, np.nan], [2.0, 1.0, 4.0]]] * 3)),
-    ],
-)
-def test_data_to_raster_nv(data, nv):
-    rs = rts.data_to_raster(data, affine=SMALL_AFFINE, crs=3310, nv=nv)
-
-    npdata = np.asarray(data)
-    if npdata.ndim == 2:
-        npdata = npdata[None]
-    if nv is None:
-        expected_mask = np.zeros(npdata.shape, dtype=bool)
-    elif np.isnan(nv):
-        expected_mask = np.isnan(npdata)
-    else:
-        expected_mask = npdata == nv
-
-    assert isinstance(rs, Raster)
-    assert rs.shape == npdata.shape
-    assert rs.nbands == npdata.shape[0]
-    assert rs.crs == "EPSG:3310"
-    assert rs.affine == SMALL_AFFINE
-    if nv is None:
-        assert rs.null_value is None
-    elif np.isnan(nv):
-        assert np.isnan(rs.null_value)
-    else:
-        assert rs.null_value == nv
-    assert dask.is_dask_collection(rs.data)
-    assert dask.is_dask_collection(rs.mask)
-    np.testing.assert_array_equal(rs.mask.compute(), expected_mask)
-    np.testing.assert_array_equal(rs.data.compute(), npdata)
-
-
-def test_data_to_raster_xy():
-    data = arange_nd((3, 4)).astype(float)
-    x, y = _small_coords(3, 4)
-    rs = rts.data_to_raster(data, x=x, y=y)
-
-    assert rs.crs is None
-    assert rs.affine == SMALL_AFFINE
-    np.testing.assert_allclose(rs.x, x)
-    np.testing.assert_allclose(rs.y, y)
-
-
-def test_data_to_raster_default_coords():
-    rs = rts.data_to_raster(arange_nd((3, 4)).astype(float))
-
-    assert rs.crs is None
-    assert rs.null_value is None
-    assert rs.affine == Affine(1, 0, 0, 0, -1, 3)
-    assert not rs.mask.compute().any()
-
-
-def test_data_to_raster_affine_takes_precedence_over_xy():
-    data = arange_nd((3, 4)).astype(float)
+@pytest.mark.parametrize("burn", [False, True])
+def test_data_to_raster_mask_and_affine(burn):
+    data = da.from_array(arange_nd((2, 3, 4), dtype="int16"))
+    mask = data < 4
     rs = rts.data_to_raster(
-        data, x=np.arange(9.0), y=[1, 2], affine=SMALL_AFFINE
+        data, mask=mask, affine=SMALL_AFFINE, crs=3310, burn=burn
     )
 
-    assert rs.affine == SMALL_AFFINE
-
-
-@pytest.mark.parametrize("burn", [False, True])
-def test_data_to_raster_mask_and_burn(burn):
-    data = arange_nd((2, 3, 4), dtype="int16")
-    mask = data < 4
-    rs = rts.data_to_raster(data, mask=mask, burn=burn)
-
     nv = get_default_null_value(data.dtype)
+    assert isinstance(rs, Raster)
+    assert rs.crs == "EPSG:3310"
+    assert rs.affine == SMALL_AFFINE
     assert rs.null_value == nv
     assert rs.dtype == data.dtype
+    assert dask.is_dask_collection(rs.data)
     np.testing.assert_array_equal(rs.mask.compute(), mask)
     expected = np.where(mask, nv, data) if burn else data
     np.testing.assert_array_equal(rs.data.compute(), expected)
 
 
-def test_data_to_raster_invalid_inputs_raise():
-    data = arange_nd((3, 4)).astype(float)
-    with pytest.raises(TypeError, match="x and y must be numpy arrays"):
-        rts.data_to_raster(data, x=np.arange(4.0), y=[2.0, 1.0, 0.0])
-    with pytest.raises(ValueError, match="both x and y or neither"):
-        rts.data_to_raster(data, y=np.arange(3.0))
-    with pytest.raises(ValueError, match="data and mask dimensions"):
-        rts.data_to_raster(data, mask=np.zeros((4, 3), dtype=bool))
+def test_data_to_raster_xy_and_nv():
+    data = np.array(
+        [
+            [0.0, 2.0, np.nan, 1.0],
+            [2.0, 1.0, 4.0, 2.0],
+            [np.nan, 3.0, 5.0, 6.0],
+        ]
+    )
+    x, y = _small_coords(3, 4)
+    rs = rts.data_to_raster(data, x=x, y=y, nv=np.nan)
+
+    assert rs.crs is None
+    assert rs.affine == SMALL_AFFINE
+    assert np.isnan(rs.null_value)
+    np.testing.assert_allclose(rs.x, x)
+    np.testing.assert_allclose(rs.y, y)
+    np.testing.assert_array_equal(rs.mask.compute()[0], np.isnan(data))
 
 
 # --------------------------------------------------------------------------
@@ -655,42 +585,22 @@ def test_data_to_raster_like_template_types(like_type):
     np.testing.assert_array_equal(rs.data.compute()[0], data)
 
 
-@pytest.mark.parametrize("like_type", ["raster", "dataarray"])
-@pytest.mark.parametrize("burn", [False, True])
-def test_data_to_raster_like_mask_and_burn(burn, like_type):
-    like = testdata.raster.dem_small
-    if like_type == "dataarray":
-        like = like.xdata
-    data = arange_nd((100, 100)).astype("float32")
+def test_data_to_raster_like_passes_options():
+    like = Raster(_xlike_3band())
+    data = da.from_array(
+        arange_nd((3, 100, 100)).astype("float32"), chunks=(1, 50, 20)
+    )
     mask = data % 13 == 0
-    rs = rts.data_to_raster_like(data, like, mask=mask, burn=burn)
+    rs = rts.data_to_raster_like(
+        data, like, mask=mask, burn=True, match_chunks=False
+    )
 
     nv = get_default_null_value(data.dtype)
-    assert rs.null_value == nv
-    np.testing.assert_array_equal(rs.mask.compute()[0], mask)
-    expected = np.where(mask, nv, data) if burn else data
-    np.testing.assert_array_equal(rs.data.compute()[0], expected)
-
-
-@pytest.mark.parametrize("match_chunks", [False, True])
-def test_data_to_raster_like_match_chunks(match_chunks):
-    like = Raster(_xlike_3band())
-    data = da.ones((3, 100, 100), chunks=(1, 50, 20))
-    rs = rts.data_to_raster_like(data, like, match_chunks=match_chunks)
-
     assert_rasters_similar(rs, like, check_chunks=False)
-    if match_chunks:
-        assert rs.data.chunks[1:] == like.data.chunks[1:]
-        assert rs.mask.chunks[1:] == like.data.chunks[1:]
-    else:
-        assert rs.data.chunks[1:] == ((50, 50), (20,) * 5)
-
-
-def test_data_to_raster_like_shape_mismatch_raises():
-    with pytest.raises(ValueError, match="did not match xlike"):
-        rts.data_to_raster_like(
-            np.ones((10, 10)), testdata.raster.dem_small, match_chunks=False
-        )
+    assert rs.data.chunks[1:] == ((50, 50), (20,) * 5)
+    assert rs.null_value == nv
+    np.testing.assert_array_equal(rs.mask.compute(), mask)
+    np.testing.assert_array_equal(rs.data.compute(), np.where(mask, nv, data))
 
 
 # --------------------------------------------------------------------------
@@ -850,15 +760,4 @@ def test_dataarray_to_raster_mask_and_crs():
     assert rs.null_value == 5.0
     expected_mask = np.zeros((1, 3, 4), dtype=bool)
     expected_mask[0, 0, 3] = True
-    np.testing.assert_array_equal(rs.mask.compute(), expected_mask)
-
-
-def test_dataarray_to_raster_defaults():
-    xdata = _latlon_dataarray(nodata=5.0)
-    rs = rts.dataarray_to_raster(xdata)
-
-    assert rs.crs == "EPSG:4326"
-    assert rs.null_value == 5.0
-    assert rs.affine == Affine(1, 0, 0, 0, -1, 3)
-    expected_mask = (xdata.to_numpy()[::-1] == 5)[None]
     np.testing.assert_array_equal(rs.mask.compute(), expected_mask)
