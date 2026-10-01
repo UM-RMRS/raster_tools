@@ -1042,7 +1042,7 @@ def data_to_raster_like(
 ):
     """Create a Raster, based on a template Raster, from a data array.
 
-    The CRS and x/y information are pulled from `xlike`.
+    The CRS and x/y information are pulled from `like`.
 
     Parameters
     ----------
@@ -1060,7 +1060,7 @@ def data_to_raster_like(
         If ``True``, `mask` is used to 'burn' the null value into the data
         array (e.g. `np.where(mask, nv, data)`). The default is ``False``.
     match_chunks : bool, optional
-        If ``True``, the chunks of the output will match the chunks in `xlike`.
+        If ``True``, the chunks of the output will match the chunks in `like`.
         The default is ``True``.
 
     Returns
