@@ -493,7 +493,7 @@ document.write(`
 <dt class="sig sig-object py" id="raster_tools.data_to_raster_like">
 <span class="sig-prename descclassname"><span class="pre">raster_tools.</span></span><span class="sig-name descname"><span class="pre">data_to_raster_like</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">like</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mask</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nv</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">burn</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">match_chunks</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/raster_tools/raster.html#data_to_raster_like"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.data_to_raster_like" title="Permalink to this definition">#</a></dt>
 <dd><p>Create a Raster, based on a template Raster, from a data array.</p>
-<p>The CRS and x/y information are pulled from <cite>xlike</cite>.</p>
+<p>The CRS and x/y information are pulled from <cite>like</cite>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
@@ -505,7 +505,7 @@ using <cite>nv</cite>.</p></li>
 <li><p><strong>nv</strong> (<em>scalar</em><em>, </em><em>optional</em>) – The nodata/null value to use. The default is no null value.</p></li>
 <li><p><strong>burn</strong> (<em>bool</em><em>, </em><em>optional</em>) – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, <cite>mask</cite> is used to ‘burn’ the null value into the data
 array (e.g. <cite>np.where(mask, nv, data)</cite>). The default is <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p></li>
-<li><p><strong>match_chunks</strong> (<em>bool</em><em>, </em><em>optional</em>) – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, the chunks of the output will match the chunks in <cite>xlike</cite>.
+<li><p><strong>match_chunks</strong> (<em>bool</em><em>, </em><em>optional</em>) – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, the chunks of the output will match the chunks in <cite>like</cite>.
 The default is <code class="docutils literal notranslate"><span class="pre">True</span></code>.</p></li>
 </ul>
 </dd>

@@ -499,8 +499,9 @@ document.write(`
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>xdata</strong> (<em>xarray.DataArray</em>) – The object to make a Raster from.</p></li>
 <li><p><strong>xmask</strong> (<em>xarray.DataArray</em><em>, </em><em>optional</em>) – The matching mask to use with the <cite>xdata</cite> object when creating the
-raster Dataset. Must have boolean dtype. The default is to generate a
-mask from <cite>xdata</cite> based on the value returned by <cite>xdata.rio.nodata</cite>.</p></li>
+raster Dataset. Must have boolean dtype and the same shape and
+coordinates as <cite>xdata</cite>. The default is to generate a mask from
+<cite>xdata</cite> based on the value returned by <cite>xdata.rio.nodata</cite>.</p></li>
 <li><p><strong>crs</strong> (<em>int</em><em>, </em><em>str</em><em>, </em><em>rasterio.CRS</em><em>, </em><em>optional</em>) – The CRS to use when creating the result. The default is to take the CRS
 from <cite>xdata</cite>, if present.</p></li>
 </ul>

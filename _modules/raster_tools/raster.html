@@ -1103,7 +1103,7 @@ document.write(`
     <span class="n">xdata</span><span class="p">[</span><span class="s2">"band"</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">xdata</span><span class="o">.</span><span class="n">band</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
     <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">dim</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">xdata</span><span class="o">.</span><span class="n">coords</span> <span class="k">for</span> <span class="n">dim</span> <span class="ow">in</span> <span class="n">xdata</span><span class="o">.</span><span class="n">dims</span><span class="p">):</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-            <span class="s2">"Invalid coordinates on xarray.DataArray object:</span><span class="se">\n</span><span class="si">{xdata!r}</span><span class="s2">"</span>
+            <span class="sa">f</span><span class="s2">"Invalid coordinates on xarray.DataArray object:</span><span class="se">\n</span><span class="si">{</span><span class="n">xdata</span><span class="si">!r}</span><span class="s2">"</span>
         <span class="p">)</span>
     <span class="k">if</span> <span class="p">(</span><span class="n">xdata</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">x_dim</span><span class="p">,</span> <span class="n">xdata</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">y_dim</span><span class="p">)</span> <span class="o">!=</span> <span class="p">(</span><span class="s2">"x"</span><span class="p">,</span> <span class="s2">"y"</span><span class="p">):</span>
         <span class="n">xdata</span> <span class="o">=</span> <span class="n">xdata</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">set_spatial_dims</span><span class="p">(</span><span class="n">x_dim</span><span class="o">=</span><span class="s2">"x"</span><span class="p">,</span> <span class="n">y_dim</span><span class="o">=</span><span class="s2">"y"</span><span class="p">)</span>
@@ -1132,7 +1132,7 @@ document.write(`
         <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">"Expected a xarray.DataArray object"</span><span class="p">)</span>
     <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">dim</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">xdata</span><span class="o">.</span><span class="n">coords</span> <span class="k">for</span> <span class="n">dim</span> <span class="ow">in</span> <span class="n">xdata</span><span class="o">.</span><span class="n">dims</span><span class="p">):</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-            <span class="s2">"Invalid coordinates on xarray.DataArray object:</span><span class="se">\n</span><span class="si">{xdata!r}</span><span class="s2">"</span>
+            <span class="sa">f</span><span class="s2">"Invalid coordinates on xarray.DataArray object:</span><span class="se">\n</span><span class="si">{</span><span class="n">xdata</span><span class="si">!r}</span><span class="s2">"</span>
         <span class="p">)</span>
 
     <span class="k">return</span> <span class="p">(</span>
@@ -1157,16 +1157,17 @@ document.write(`
 <span class="sd">    ----------</span>
 <span class="sd">    data : np.ndarray, dask.array.Array</span>
 <span class="sd">        The data array.</span>
-<span class="sd">    x : list, np.ndarra, optional</span>
-<span class="sd">        The x coordinate value. If `x` and `y` are not specified, `affine` is</span>
-<span class="sd">        used to generate x and y coordinates.</span>
-<span class="sd">    y : list, np.ndarra, optional</span>
-<span class="sd">        The y coordinate value. If `x` and `y` are not specified, `affine` is</span>
-<span class="sd">        used to generate x and y coordinates.</span>
+<span class="sd">    x : np.ndarray, optional</span>
+<span class="sd">        The x coordinate values. Must be given together with `y`. Ignored</span>
+<span class="sd">        if `affine` is given.</span>
+<span class="sd">    y : np.ndarray, optional</span>
+<span class="sd">        The y coordinate values. Must be given together with `x`. Ignored</span>
+<span class="sd">        if `affine` is given.</span>
 <span class="sd">    affine : affine.Affine, optional</span>
-<span class="sd">        If ``None``, the affine matrix is created using `x` and `y`. If</span>
-<span class="sd">        `affine` is ``None`` and `x` and `y` are not specified, default affine</span>
-<span class="sd">        matrix of:</span>
+<span class="sd">        The affine matrix used to generate the x and y coordinates. If</span>
+<span class="sd">        given, it takes precedence over `x` and `y`, which are ignored. If</span>
+<span class="sd">        ``None``, the coordinates are taken from `x` and `y`. If `affine`,</span>
+<span class="sd">        `x`, and `y` are all ``None``, the default affine matrix is:</span>
 <span class="sd">        ::</span>
 
 <span class="sd">            | 1.0  0.0 0.0 |</span>
@@ -1198,7 +1199,7 @@ document.write(`
             <span class="n">y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="mf">0.5</span>
         <span class="k">elif</span> <span class="nb">any</span><span class="p">(</span><span class="n">xi</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">for</span> <span class="n">xi</span> <span class="ow">in</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)):</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Must specify both x and y or neither."</span><span class="p">)</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">"x and y must be numpy arrays"</span><span class="p">)</span>
         <span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
         <span class="n">y</span> <span class="o">=</span> <span class="n">y</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
@@ -1216,6 +1217,18 @@ document.write(`
         <span class="n">xdata</span> <span class="o">=</span> <span class="n">xdata</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_crs</span><span class="p">(</span><span class="n">crs</span><span class="p">)</span>
     <span class="n">xdata</span> <span class="o">=</span> <span class="n">xdata</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_nodata</span><span class="p">(</span><span class="n">nv</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">normalize_xarray_data</span><span class="p">(</span><span class="n">xdata</span><span class="p">)</span></div>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_check_yx_shape</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">yx_shape</span><span class="p">,</span> <span class="n">msg</span><span class="p">):</span>
+    <span class="c1"># Rechunking to a template's chunks fails with an opaque dask error when</span>
+    <span class="c1"># the sizes differ, so compare before normalizing. Invalid types and</span>
+    <span class="c1"># ranks are left for normalize_data to report.</span>
+    <span class="k">if</span> <span class="p">(</span>
+        <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">da</span><span class="o">.</span><span class="n">Array</span><span class="p">))</span>
+        <span class="ow">and</span> <span class="n">data</span><span class="o">.</span><span class="n">ndim</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+        <span class="ow">and</span> <span class="n">data</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">:]</span> <span class="o">!=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">yx_shape</span><span class="p">)</span>
+    <span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
 
 
 <div class="viewcode-block" id="data_to_xr_raster_like"><a class="viewcode-back" href="../../reference/generated/raster_tools.data_to_xr_raster_like.html#raster_tools.data_to_xr_raster_like">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">data_to_xr_raster_like</span><span class="p">(</span>
@@ -1253,9 +1266,8 @@ document.write(`
 
 <span class="sd">    """</span>
     <span class="n">yx_chunks</span> <span class="o">=</span> <span class="n">xlike</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">chunks</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="k">if</span> <span class="n">match_chunks</span> <span class="k">else</span> <span class="kc">None</span>
+    <span class="n">_check_yx_shape</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">xlike</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="s2">"data x/y dims did not match xlike"</span><span class="p">)</span>
     <span class="n">data</span> <span class="o">=</span> <span class="n">normalize_data</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">yx_chunks</span><span class="o">=</span><span class="n">yx_chunks</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">data</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">:]</span> <span class="o">!=</span> <span class="n">xlike</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">:]:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"data x/y dims did not match xlike"</span><span class="p">)</span>
 
     <span class="k">if</span> <span class="n">data</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">match_band_dim</span><span class="p">:</span>
         <span class="n">data</span> <span class="o">=</span> <span class="n">da</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">xlike</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
@@ -1289,20 +1301,21 @@ document.write(`
 <span class="sd">    mask : np.ndarray, dask.array.Array</span>
 <span class="sd">        A boolean mask array. The default is to generate a mask from the data</span>
 <span class="sd">        using `nv`.</span>
-<span class="sd">    x : list, np.ndarra, optional</span>
-<span class="sd">        The x coordinate value. If `x` and `y` are not specified, `affine` is</span>
-<span class="sd">        used to generate x and y coordinates.</span>
-<span class="sd">    y : list, np.ndarra, optional</span>
-<span class="sd">        The y coordinate value. If `x` and `y` are not specified, `affine` is</span>
-<span class="sd">        used to generate x and y coordinates.</span>
+<span class="sd">    x : np.ndarray, optional</span>
+<span class="sd">        The x coordinate values. Must be given together with `y`. Ignored</span>
+<span class="sd">        if `affine` is given.</span>
+<span class="sd">    y : np.ndarray, optional</span>
+<span class="sd">        The y coordinate values. Must be given together with `x`. Ignored</span>
+<span class="sd">        if `affine` is given.</span>
 <span class="sd">    affine : affine.Affine, optional</span>
-<span class="sd">        If ``None``, the affine matrix is created using `x` and `y`. If</span>
-<span class="sd">        `affine` is ``None`` and `x` and `y` are not specified, default affine</span>
-<span class="sd">        matrix of:</span>
+<span class="sd">        The affine matrix used to generate the x and y coordinates. If</span>
+<span class="sd">        given, it takes precedence over `x` and `y`, which are ignored. If</span>
+<span class="sd">        ``None``, the coordinates are taken from `x` and `y`. If `affine`,</span>
+<span class="sd">        `x`, and `y` are all ``None``, the default affine matrix is:</span>
 <span class="sd">        ::</span>
 
-<span class="sd">            | 1.0 0.0 0.0 |</span>
-<span class="sd">            | 0.0 1.0   N |</span>
+<span class="sd">            | 1.0  0.0 0.0 |</span>
+<span class="sd">            | 0.0 -1.0   N |</span>
 
 <span class="sd">        where N is the size of the y dim.</span>
 <span class="sd">    crs : int, str, rasterio.CRS, optional</span>
@@ -1379,12 +1392,14 @@ document.write(`
 
 <span class="sd">    """</span>
     <span class="n">yx_chunks</span> <span class="o">=</span> <span class="n">xlike</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">chunks</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="k">if</span> <span class="n">match_chunks</span> <span class="k">else</span> <span class="kc">None</span>
+    <span class="n">_check_yx_shape</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">xlike</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="s2">"data x/y dims did not match xlike"</span><span class="p">)</span>
     <span class="n">data</span> <span class="o">=</span> <span class="n">normalize_data</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">yx_chunks</span><span class="o">=</span><span class="n">yx_chunks</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">data</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">:]</span> <span class="o">!=</span> <span class="n">xlike</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">:]:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"data x/y dims did not match xlike"</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">mask</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">nv</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">nv</span> <span class="o">=</span> <span class="n">get_default_null_value</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+        <span class="n">_check_yx_shape</span><span class="p">(</span>
+            <span class="n">mask</span><span class="p">,</span> <span class="n">data</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">2</span><span class="p">:],</span> <span class="s2">"data and mask dimensions do not match"</span>
+        <span class="p">)</span>
         <span class="n">mask</span> <span class="o">=</span> <span class="n">normalize_data</span><span class="p">(</span><span class="n">mask</span><span class="p">,</span> <span class="n">yx_chunks</span><span class="o">=</span><span class="n">yx_chunks</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">mask</span><span class="o">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="n">data</span><span class="o">.</span><span class="n">shape</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"data and mask dimensions do not match"</span><span class="p">)</span>
@@ -1411,20 +1426,21 @@ document.write(`
 <span class="sd">    mask : np.ndarray, dask.array.Array</span>
 <span class="sd">        A boolean mask array. The default is to generate a mask from the data</span>
 <span class="sd">        using `nv`.</span>
-<span class="sd">    x : list, np.ndarra, optional</span>
-<span class="sd">        The x coordinate value. If `x` and `y` are not specified, `affine` is</span>
-<span class="sd">        used to generate x and y coordinates.</span>
-<span class="sd">    y : list, np.ndarra, optional</span>
-<span class="sd">        The y coordinate value. If `x` and `y` are not specified, `affine` is</span>
-<span class="sd">        used to generate x and y coordinates.</span>
+<span class="sd">    x : np.ndarray, optional</span>
+<span class="sd">        The x coordinate values. Must be given together with `y`. Ignored</span>
+<span class="sd">        if `affine` is given.</span>
+<span class="sd">    y : np.ndarray, optional</span>
+<span class="sd">        The y coordinate values. Must be given together with `x`. Ignored</span>
+<span class="sd">        if `affine` is given.</span>
 <span class="sd">    affine : affine.Affine, optional</span>
-<span class="sd">        If ``None``, the affine matrix is created using `x` and `y`. If</span>
-<span class="sd">        `affine` is ``None`` and `x` and `y` are not specified, default affine</span>
-<span class="sd">        matrix of:</span>
+<span class="sd">        The affine matrix used to generate the x and y coordinates. If</span>
+<span class="sd">        given, it takes precedence over `x` and `y`, which are ignored. If</span>
+<span class="sd">        ``None``, the coordinates are taken from `x` and `y`. If `affine`,</span>
+<span class="sd">        `x`, and `y` are all ``None``, the default affine matrix is:</span>
 <span class="sd">        ::</span>
 
-<span class="sd">            | 1.0 0.0 0.0 |</span>
-<span class="sd">            | 0.0 1.0   N |</span>
+<span class="sd">            | 1.0  0.0 0.0 |</span>
+<span class="sd">            | 0.0 -1.0   N |</span>
 
 <span class="sd">        where N is the size of the y dim.</span>
 <span class="sd">    crs : int, str, rasterio.CRS, optional</span>
@@ -1465,7 +1481,7 @@ document.write(`
 <span class="p">):</span>
 <span class="w">    </span><span class="sd">"""Create a Raster, based on a template Raster, from a data array.</span>
 
-<span class="sd">    The CRS and x/y information are pulled from `xlike`.</span>
+<span class="sd">    The CRS and x/y information are pulled from `like`.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
@@ -1483,7 +1499,7 @@ document.write(`
 <span class="sd">        If ``True``, `mask` is used to 'burn' the null value into the data</span>
 <span class="sd">        array (e.g. `np.where(mask, nv, data)`). The default is ``False``.</span>
 <span class="sd">    match_chunks : bool, optional</span>
-<span class="sd">        If ``True``, the chunks of the output will match the chunks in `xlike`.</span>
+<span class="sd">        If ``True``, the chunks of the output will match the chunks in `like`.</span>
 <span class="sd">        The default is ``True``.</span>
 
 <span class="sd">    Returns</span>
@@ -1543,8 +1559,9 @@ document.write(`
 <span class="sd">        The object to convert to a raster Dataset</span>
 <span class="sd">    xmask : xarray.DataArray[bool], optional</span>
 <span class="sd">        The matching mask to use with the `xdata` object when creating the</span>
-<span class="sd">        raster Dataset. Must have boolean dtype. The default is to generate a</span>
-<span class="sd">        mask from `xdata` based on the value returned by `xdata.rio.nodata`.</span>
+<span class="sd">        raster Dataset. Must have boolean dtype and the same shape and</span>
+<span class="sd">        coordinates as `xdata`. The default is to generate a mask from</span>
+<span class="sd">        `xdata` based on the value returned by `xdata.rio.nodata`.</span>
 <span class="sd">    crs : int, str, rasterio.CRS, optional</span>
 <span class="sd">        The CRS to use when creating the result. The default is to take the CRS</span>
 <span class="sd">        from `xdata`, if present.</span>
@@ -1567,6 +1584,18 @@ document.write(`
         <span class="n">xmask</span> <span class="o">=</span> <span class="n">get_mask_from_data</span><span class="p">(</span><span class="n">xdata</span><span class="p">,</span> <span class="n">xdata</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">nodata</span><span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="n">xmask</span> <span class="o">=</span> <span class="n">dataarray_to_xr_raster</span><span class="p">(</span><span class="n">xmask</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">is_bool</span><span class="p">(</span><span class="n">xmask</span><span class="o">.</span><span class="n">dtype</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"xmask must have boolean dtype, got </span><span class="si">{</span><span class="n">xmask</span><span class="o">.</span><span class="n">dtype</span><span class="si">}</span><span class="s2">"</span>
+            <span class="p">)</span>
+        <span class="c1"># Building the Dataset would otherwise silently outer-join</span>
+        <span class="c1"># mismatched grids, filling the gaps with NaN.</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">xr</span><span class="o">.</span><span class="n">align</span><span class="p">(</span><span class="n">xdata</span><span class="p">,</span> <span class="n">xmask</span><span class="p">,</span> <span class="n">join</span><span class="o">=</span><span class="s2">"exact"</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">err</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">"xmask shape and coordinates must match xdata"</span>
+            <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">err</span>
     <span class="n">ds</span> <span class="o">=</span> <span class="n">make_raster_ds</span><span class="p">(</span><span class="n">xdata</span><span class="p">,</span> <span class="n">xmask</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">crs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">ds</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_crs</span><span class="p">(</span><span class="n">crs</span><span class="p">)</span>
@@ -1584,8 +1613,9 @@ document.write(`
 <span class="sd">        The object to make a Raster from.</span>
 <span class="sd">    xmask : xarray.DataArray, optional</span>
 <span class="sd">        The matching mask to use with the `xdata` object when creating the</span>
-<span class="sd">        raster Dataset. Must have boolean dtype. The default is to generate a</span>
-<span class="sd">        mask from `xdata` based on the value returned by `xdata.rio.nodata`.</span>
+<span class="sd">        raster Dataset. Must have boolean dtype and the same shape and</span>
+<span class="sd">        coordinates as `xdata`. The default is to generate a mask from</span>
+<span class="sd">        `xdata` based on the value returned by `xdata.rio.nodata`.</span>
 <span class="sd">    crs : int, str, rasterio.CRS, optional</span>
 <span class="sd">        The CRS to use when creating the result. The default is to take the CRS</span>
 <span class="sd">        from `xdata`, if present.</span>

@@ -499,15 +499,16 @@ document.write(`
 <li><p><strong>data</strong> (<em>np.ndarray</em><em>, </em><em>dask.array.Array</em>) – The data array.</p></li>
 <li><p><strong>mask</strong> (<em>np.ndarray</em><em>, </em><em>dask.array.Array</em>) – A boolean mask array. The default is to generate a mask from the data
 using <cite>nv</cite>.</p></li>
-<li><p><strong>x</strong> (<em>list</em><em>, </em><em>np.ndarra</em><em>, </em><em>optional</em>) – The x coordinate value. If <cite>x</cite> and <cite>y</cite> are not specified, <cite>affine</cite> is
-used to generate x and y coordinates.</p></li>
-<li><p><strong>y</strong> (<em>list</em><em>, </em><em>np.ndarra</em><em>, </em><em>optional</em>) – The y coordinate value. If <cite>x</cite> and <cite>y</cite> are not specified, <cite>affine</cite> is
-used to generate x and y coordinates.</p></li>
-<li><p><strong>affine</strong> (<em>affine.Affine</em><em>, </em><em>optional</em>) – <p>If <code class="docutils literal notranslate"><span class="pre">None</span></code>, the affine matrix is created using <cite>x</cite> and <cite>y</cite>. If
-<cite>affine</cite> is <code class="docutils literal notranslate"><span class="pre">None</span></code> and <cite>x</cite> and <cite>y</cite> are not specified, default affine
-matrix of:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">|</span> <span class="mf">1.0</span> <span class="mf">0.0</span> <span class="mf">0.0</span> <span class="o">|</span>
-<span class="o">|</span> <span class="mf">0.0</span> <span class="mf">1.0</span>   <span class="n">N</span> <span class="o">|</span>
+<li><p><strong>x</strong> (<em>np.ndarray</em><em>, </em><em>optional</em>) – The x coordinate values. Must be given together with <cite>y</cite>. Ignored
+if <cite>affine</cite> is given.</p></li>
+<li><p><strong>y</strong> (<em>np.ndarray</em><em>, </em><em>optional</em>) – The y coordinate values. Must be given together with <cite>x</cite>. Ignored
+if <cite>affine</cite> is given.</p></li>
+<li><p><strong>affine</strong> (<em>affine.Affine</em><em>, </em><em>optional</em>) – <p>The affine matrix used to generate the x and y coordinates. If
+given, it takes precedence over <cite>x</cite> and <cite>y</cite>, which are ignored. If
+<code class="docutils literal notranslate"><span class="pre">None</span></code>, the coordinates are taken from <cite>x</cite> and <cite>y</cite>. If <cite>affine</cite>,
+<cite>x</cite>, and <cite>y</cite> are all <code class="docutils literal notranslate"><span class="pre">None</span></code>, the default affine matrix is:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">|</span> <span class="mf">1.0</span>  <span class="mf">0.0</span> <span class="mf">0.0</span> <span class="o">|</span>
+<span class="o">|</span> <span class="mf">0.0</span> <span class="o">-</span><span class="mf">1.0</span>   <span class="n">N</span> <span class="o">|</span>
 </pre></div>
 </div>
 <p>where N is the size of the y dim.</p>

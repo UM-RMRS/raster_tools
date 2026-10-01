@@ -437,12 +437,21 @@ document.write(`
                 <article class="bd-article" role="main">
                   
   <h1>Source code for raster_tools.io</h1><div class="highlight"><pre>
-<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">concurrent.futures</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">contextlib</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">hashlib</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">inspect</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">multiprocessing.pool</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">tempfile</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">threading</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">urllib</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">dask</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">dask.threaded</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">filelock</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">rasterio</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">rio</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">rioxarray</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">xrio</span>
@@ -1011,21 +1020,139 @@ document.write(`
         <span class="n">ds</span><span class="o">.</span><span class="n">write_colormap</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">color_table</span><span class="p">)</span>
 
 
-<span class="k">def</span><span class="w"> </span><span class="nf">_write_lock</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
-    <span class="c1"># dask resolves lock=True to a lock shared across worker processes only</span>
-    <span class="c1"># when the active distributed client is also the global default. A</span>
-    <span class="c1"># client supplied through dask.config or a scheduler argument gets a</span>
-    <span class="c1"># lock that works within a single process, so workers would write the</span>
-    <span class="c1"># same file concurrently and corrupt it. Hand those clients a</span>
-    <span class="c1"># distributed lock named after the output file instead.</span>
-    <span class="k">if</span> <span class="s2">"distributed"</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">sys</span><span class="o">.</span><span class="n">modules</span><span class="p">:</span>
-        <span class="k">return</span> <span class="kc">True</span>
-    <span class="kn">from</span><span class="w"> </span><span class="nn">distributed</span><span class="w"> </span><span class="kn">import</span> <span class="n">Client</span><span class="p">,</span> <span class="n">Lock</span>
+<span class="c1"># Where filelock supports it, fail rather than fall back to a marker file</span>
+<span class="c1"># lock on filesystems without flock, since a marker left by a dead worker</span>
+<span class="c1"># would block later writers forever.</span>
+<span class="n">_FILELOCK_KWARGS</span> <span class="o">=</span> <span class="p">{}</span>
+<span class="k">if</span> <span class="s2">"fallback_to_soft"</span> <span class="ow">in</span> <span class="n">inspect</span><span class="o">.</span><span class="n">signature</span><span class="p">(</span><span class="n">filelock</span><span class="o">.</span><span class="n">FileLock</span><span class="p">)</span><span class="o">.</span><span class="n">parameters</span><span class="p">:</span>
+    <span class="n">_FILELOCK_KWARGS</span><span class="p">[</span><span class="s2">"fallback_to_soft"</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span>
 
+
+<span class="k">class</span><span class="w"> </span><span class="nc">_FileWriteLock</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""A lock on an output file that also excludes other local processes.</span>
+
+<span class="sd">    Holds only the path of a lock file in the system temporary directory,</span>
+<span class="sd">    named from a hash of the output path, so it pickles cheaply and every</span>
+<span class="sd">    copy contends on the same OS file lock. The lock is advisory and local:</span>
+<span class="sd">    it serializes writers on a single machine only, and an OS file lock is</span>
+<span class="sd">    released when its holder exits, so a dead worker cannot leave it held.</span>
+<span class="sd">    """</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">):</span>
+        <span class="n">key</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">fspath</span><span class="p">(</span><span class="n">path</span><span class="p">))</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">os</span><span class="p">,</span> <span class="s2">"getuid"</span><span class="p">):</span>
+            <span class="c1"># A failed save leaves its lock file behind, and another user's</span>
+            <span class="c1"># lock file may not be writable, so keep each user's locks apart.</span>
+            <span class="n">key</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">os</span><span class="o">.</span><span class="n">getuid</span><span class="p">()</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">"</span>
+        <span class="n">digest</span> <span class="o">=</span> <span class="n">hashlib</span><span class="o">.</span><span class="n">sha256</span><span class="p">(</span><span class="n">key</span><span class="o">.</span><span class="n">encode</span><span class="p">())</span><span class="o">.</span><span class="n">hexdigest</span><span class="p">()[:</span><span class="mi">32</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">lock_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+            <span class="n">tempfile</span><span class="o">.</span><span class="n">gettempdir</span><span class="p">(),</span> <span class="sa">f</span><span class="s2">"raster_tools-write-</span><span class="si">{</span><span class="n">digest</span><span class="si">}</span><span class="s2">.lock"</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_local</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">local</span><span class="p">()</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">__getstate__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">{</span><span class="s2">"lock_path"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">lock_path</span><span class="p">}</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">__setstate__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">lock_path</span> <span class="o">=</span> <span class="n">state</span><span class="p">[</span><span class="s2">"lock_path"</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_local</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">local</span><span class="p">()</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">__dask_tokenize__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">lock_path</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">lock_path</span><span class="si">!r}</span><span class="s2">)"</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_file_lock</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># Each thread gets its own FileLock instance, and therefore its own</span>
+        <span class="c1"># descriptor, so threads in one process exclude each other through</span>
+        <span class="c1"># the OS lock just as separate processes do. A FileLock left over</span>
+        <span class="c1"># from before a fork is not reused in the child.</span>
+        <span class="n">local</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_local</span>
+        <span class="n">pid</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getpid</span><span class="p">()</span>
+        <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">local</span><span class="p">,</span> <span class="s2">"pid"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="o">!=</span> <span class="n">pid</span><span class="p">:</span>
+            <span class="n">local</span><span class="o">.</span><span class="n">lock</span> <span class="o">=</span> <span class="n">filelock</span><span class="o">.</span><span class="n">FileLock</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">lock_path</span><span class="p">,</span> <span class="o">**</span><span class="n">_FILELOCK_KWARGS</span><span class="p">)</span>
+            <span class="n">local</span><span class="o">.</span><span class="n">pid</span> <span class="o">=</span> <span class="n">pid</span>
+        <span class="k">return</span> <span class="n">local</span><span class="o">.</span><span class="n">lock</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">acquire</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">blocking</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=-</span><span class="mi">1</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_file_lock</span><span class="p">()</span><span class="o">.</span><span class="n">acquire</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="n">timeout</span><span class="p">,</span> <span class="n">blocking</span><span class="o">=</span><span class="n">blocking</span><span class="p">)</span>
+        <span class="k">except</span> <span class="n">filelock</span><span class="o">.</span><span class="n">Timeout</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">return</span> <span class="kc">True</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">release</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_file_lock</span><span class="p">()</span><span class="o">.</span><span class="n">release</span><span class="p">()</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__enter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">acquire</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__exit__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">exc_info</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">release</span><span class="p">()</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">remove_file</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Delete the lock file. Only call once no writer can still use it."""</span>
+        <span class="k">with</span> <span class="n">contextlib</span><span class="o">.</span><span class="n">suppress</span><span class="p">(</span><span class="ne">OSError</span><span class="p">):</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">lock_path</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_runs_in_threads</span><span class="p">(</span><span class="n">pool</span><span class="p">):</span>
+    <span class="c1"># multiprocessing.pool.ThreadPool subclasses the process Pool, so it has</span>
+    <span class="c1"># to be matched explicitly.</span>
+    <span class="k">return</span> <span class="n">pool</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span>
+        <span class="n">pool</span><span class="p">,</span>
+        <span class="p">(</span>
+            <span class="n">concurrent</span><span class="o">.</span><span class="n">futures</span><span class="o">.</span><span class="n">ThreadPoolExecutor</span><span class="p">,</span>
+            <span class="n">multiprocessing</span><span class="o">.</span><span class="n">pool</span><span class="o">.</span><span class="n">ThreadPool</span><span class="p">,</span>
+        <span class="p">),</span>
+    <span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_write_lock</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Pick the lock that keeps concurrent chunk writes to `path` apart.</span>
+
+<span class="sd">    dask resolves lock=True itself to a lock that is shared across worker</span>
+<span class="sd">    processes only for the multiprocessing scheduler and for a distributed</span>
+<span class="sd">    client that is also the global default. A distributed client supplied</span>
+<span class="sd">    through dask.config or a scheduler argument gets a distributed lock</span>
+<span class="sd">    named after the output file. Schedulers dask does not recognize, such</span>
+<span class="sd">    as a process pool executor or a third-party scheduler, may run tasks in</span>
+<span class="sd">    several processes, so they get a file lock that works across processes.</span>
+<span class="sd">    The threaded scheduler is treated the same way when its configured</span>
+<span class="sd">    pool is not a thread pool.</span>
+<span class="sd">    """</span>
     <span class="n">get</span> <span class="o">=</span> <span class="n">dask</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">get_scheduler</span><span class="p">()</span>
-    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">get</span><span class="p">,</span> <span class="s2">"__self__"</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span> <span class="n">Client</span><span class="p">):</span>
-        <span class="k">return</span> <span class="n">Lock</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">"raster_tools-write-</span><span class="si">{</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">path</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-    <span class="k">return</span> <span class="kc">True</span>
+    <span class="k">if</span> <span class="s2">"distributed"</span> <span class="ow">in</span> <span class="n">sys</span><span class="o">.</span><span class="n">modules</span><span class="p">:</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">distributed</span><span class="w"> </span><span class="kn">import</span> <span class="n">Client</span><span class="p">,</span> <span class="n">Lock</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">get</span><span class="p">,</span> <span class="s2">"__self__"</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span> <span class="n">Client</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">Lock</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">"raster_tools-write-</span><span class="si">{</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">path</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">get</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">get</span> <span class="ow">is</span> <span class="n">dask</span><span class="o">.</span><span class="n">threaded</span><span class="o">.</span><span class="n">get</span><span class="p">:</span>
+        <span class="c1"># The threaded scheduler runs tasks on the executor in the "pool"</span>
+        <span class="c1"># config key when one is set, and that executor may be a process</span>
+        <span class="c1"># pool.</span>
+        <span class="k">if</span> <span class="n">_runs_in_threads</span><span class="p">(</span><span class="n">dask</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"pool"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)):</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">return</span> <span class="n">_FileWriteLock</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">get</span> <span class="ow">in</span> <span class="n">dask</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">named_schedulers</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+        <span class="k">return</span> <span class="kc">True</span>
+    <span class="k">return</span> <span class="n">_FileWriteLock</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_store_raster</span><span class="p">(</span><span class="n">xrs</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="o">**</span><span class="n">to_raster_kwargs</span><span class="p">):</span>
+    <span class="k">if</span> <span class="s2">"lock"</span> <span class="ow">in</span> <span class="n">to_raster_kwargs</span><span class="p">:</span>
+        <span class="c1"># A caller-supplied lock overrides the automatic choice.</span>
+        <span class="n">xrs</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">to_raster</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="o">**</span><span class="n">to_raster_kwargs</span><span class="p">)</span>
+        <span class="k">return</span>
+    <span class="n">lock</span> <span class="o">=</span> <span class="n">_write_lock</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+    <span class="n">xrs</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">to_raster</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">lock</span><span class="o">=</span><span class="n">lock</span><span class="p">,</span> <span class="o">**</span><span class="n">to_raster_kwargs</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">lock</span><span class="p">,</span> <span class="n">_FileWriteLock</span><span class="p">):</span>
+        <span class="c1"># Every chunk write of this save has finished, so nothing in it can</span>
+        <span class="c1"># still be waiting on the lock file. Saves of the same path running</span>
+        <span class="c1"># at once in separate processes would corrupt the output anyway.</span>
+        <span class="n">lock</span><span class="o">.</span><span class="n">remove_file</span><span class="p">()</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">write_raster</span><span class="p">(</span>
@@ -1154,9 +1281,7 @@ document.write(`
         <span class="p">)</span> <span class="k">as</span> <span class="n">tmpf</span><span class="p">:</span>
             <span class="n">tmp_path</span> <span class="o">=</span> <span class="n">tmpf</span><span class="o">.</span><span class="n">name</span>
         <span class="k">try</span><span class="p">:</span>
-            <span class="n">xrs</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">to_raster</span><span class="p">(</span>
-                <span class="n">tmp_path</span><span class="p">,</span> <span class="n">lock</span><span class="o">=</span><span class="n">_write_lock</span><span class="p">(</span><span class="n">tmp_path</span><span class="p">),</span> <span class="n">compute</span><span class="o">=</span><span class="kc">True</span>
-            <span class="p">)</span>
+            <span class="n">_store_raster</span><span class="p">(</span><span class="n">xrs</span><span class="p">,</span> <span class="n">tmp_path</span><span class="p">,</span> <span class="n">compute</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">color_table</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="c1"># The COG driver has no palette creation option, but the copy</span>
                 <span class="c1"># carries the staged file's color table and photometric tag</span>
@@ -1167,14 +1292,10 @@ document.write(`
             <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">tmp_path</span><span class="p">):</span>
                 <span class="n">os</span><span class="o">.</span><span class="n">unlink</span><span class="p">(</span><span class="n">tmp_path</span><span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="n">to_raster_kwargs</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="s2">"lock"</span><span class="p">:</span> <span class="n">_write_lock</span><span class="p">(</span><span class="n">path</span><span class="p">),</span>
-            <span class="s2">"compute"</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
-            <span class="o">**</span><span class="n">creation_opts</span><span class="p">,</span>
-        <span class="p">}</span>
+        <span class="n">to_raster_kwargs</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"compute"</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span> <span class="o">**</span><span class="n">creation_opts</span><span class="p">}</span>
         <span class="k">if</span> <span class="n">driver</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">to_raster_kwargs</span><span class="p">[</span><span class="s2">"driver"</span><span class="p">]</span> <span class="o">=</span> <span class="n">driver</span>
-        <span class="n">xrs</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">to_raster</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="o">**</span><span class="n">to_raster_kwargs</span><span class="p">)</span>
+        <span class="n">_store_raster</span><span class="p">(</span><span class="n">xrs</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="o">**</span><span class="n">to_raster_kwargs</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">color_table</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">_attach_color_table</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">color_table</span><span class="p">)</span>
 
