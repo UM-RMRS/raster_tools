@@ -1,3 +1,4 @@
+import math
 import numbers
 import os
 import warnings
@@ -18,7 +19,11 @@ from numba import jit
 from shapely.geometry import box
 
 from raster_tools._compat import NUMPY_GE_2, NUMPY_GE_2_2, PY_VER_310_PLUS
-from raster_tools._grids import build_x_coord, build_y_coord
+from raster_tools._grids import (
+    GRID_PIXEL_TOLERANCE,
+    build_x_coord,
+    build_y_coord,
+)
 from raster_tools.dask_utils import (
     dask_nanmax,
     dask_nanmin,
@@ -83,23 +88,51 @@ _NAN_REDUCTION_FUNCS = (
 
 
 _REDUCTION_DOCSTRING = """\
-    Reduce the raster to a single dask value by applying `{}` across all bands.
+    Reduce the raster to one dask value by applying `{0}` across all bands.
 
-    All arguments are ignored.
+    The reduction always covers every non-null cell of every band. The method
+    accepts numpy's reduction arguments only so that ``np.{0}(raster)`` can
+    dispatch to it. Passing a positional argument or an unsupported keyword
+    raises a TypeError, and passing a value other than the default (e.g.
+    ``axis=0``) raises a ValueError.
 """
 
+# The reduction arguments numpy forwards to a method when called as
+# np.<name>(raster), with the only values a Raster reduction accepts.
+_REDUCTION_ARG_DEFAULTS = {
+    "axis": None,
+    "dtype": None,
+    "out": None,
+    "keepdims": False,
+}
+_REDUCTION_ARG_DEFAULTS_DDOF = {**_REDUCTION_ARG_DEFAULTS, "ddof": 0}
 
-def _inject_reductions(cls):
-    pass
-    funcs = [(name, getattr(np, name)) for name in _REDUCTION_FUNCS]
-    funcs += [
-        (name, getattr(np, "nan" + name)) for name in _NAN_REDUCTION_FUNCS
-    ]
-    for name, f in funcs:
-        func = cls._build_reduce_method(f)
-        func.__name__ = name
-        func.__doc__ = _REDUCTION_DOCSTRING.format(name)
-        setattr(cls, name, func)
+
+def _check_reduction_args(name, args, kwargs):
+    if args:
+        raise TypeError(
+            f"Raster.{name}() does not accept positional arguments."
+        )
+    defaults = (
+        _REDUCTION_ARG_DEFAULTS_DDOF
+        if name in ("std", "var")
+        else _REDUCTION_ARG_DEFAULTS
+    )
+    for key, value in kwargs.items():
+        if key not in defaults:
+            raise TypeError(
+                f"Raster.{name}() got an unsupported keyword argument {key!r}."
+            )
+        default = defaults[key]
+        if default is None:
+            is_default = value is None
+        else:
+            is_default = np.isscalar(value) and value == default
+        if not is_default:
+            raise ValueError(
+                f"Raster.{name}() always reduces over all cells of all bands"
+                f" and does not support {key}={value!r}."
+            )
 
 
 _MIN_MAX_FUNC_MAP = {
@@ -110,6 +143,32 @@ _MIN_MAX_FUNC_MAP = {
 }
 
 
+def _build_reduce_method(name, func):
+    func = _MIN_MAX_FUNC_MAP.get(func, func)
+
+    def method(self, *args, **kwargs):
+        # Take args and kwargs to stay compatible with numpy
+        _check_reduction_args(name, args, kwargs)
+        data = self.data
+        values = data[~self._ds.mask.data]
+        return func(values)
+
+    method.__name__ = name
+    method.__doc__ = _REDUCTION_DOCSTRING.format(name)
+    return method
+
+
+def _add_reductions(cls):
+    funcs = [(name, getattr(np, name)) for name in _REDUCTION_FUNCS]
+    funcs += [
+        (name, getattr(np, "nan" + name)) for name in _NAN_REDUCTION_FUNCS
+    ]
+    for name, func in funcs:
+        setattr(cls, name, _build_reduce_method(name, func))
+    return cls
+
+
+@_add_reductions
 class _ReductionsMixin:
     """
     This mixin class adds reduction methods like `all`, `sum`, etc to the
@@ -119,23 +178,6 @@ class _ReductionsMixin:
     """
 
     __slots__ = ()
-
-    def __init_subclass__(cls, **kwargs):
-        _inject_reductions(cls)
-        super().__init_subclass__(**kwargs)
-
-    @classmethod
-    def _build_reduce_method(cls, func):
-        if func in _MIN_MAX_FUNC_MAP:
-            func = _MIN_MAX_FUNC_MAP[func]
-
-        def method(self, *args, **kwargs):
-            # Take args and kwargs to stay compatible with numpy
-            data = self.data
-            values = data[~self._ds.mask.data]
-            return func(values)
-
-        return method
 
 
 # Curated driver -> extension table, consulted before rasterio's reverse
@@ -173,12 +215,9 @@ def _ext_for_driver(driver):
 
 
 def _normalize_ufunc_other(other, this):
-    if other is None or isinstance(other, numbers.Number):
+    if isinstance(other, numbers.Number):
         return other
-
-    if isinstance(other, xr.Dataset):
-        return Raster(other)
-    elif isinstance(other, (list, tuple, range, np.ndarray, da.Array)):
+    if isinstance(other, (list, tuple, range, np.ndarray, da.Array)):
         # allow only if broadcastable
         if isinstance(other, da.Array) and np.isnan(other.size):
             raise ValueError("Dask arrays must have known chunks")
@@ -192,39 +231,267 @@ def _normalize_ufunc_other(other, this):
                 msg += " Did you mean to use Raster.bandwise?"
             raise ValueError(msg)
         return other
-    elif isinstance(other, xr.DataArray):
+    if isinstance(other, xr.DataArray):
         return Raster(other)
-    else:
-        assert isinstance(other, Raster)
+    assert isinstance(other, Raster)
     return other
 
 
-def _apply_ufunc(ufunc, this, left, right=None, kwargs=None, out=None):
-    ufname = ufunc.__name__
-    if NUMPY_GE_2:
-        # If the ufunc is ldexp and the left arg is a python scalar, casting
-        # causes the resulting dtype to be different from the analongous
-        # (scalar X numpy-array) combination. So we disable casting for this
-        # special case.
-        if type(left) in (int, float) and ufname != "ldexp":
-            left = np.int64(left) if type(left) is int else np.float64(left)
-        if type(right) in (int, float):
-            right = (
-                np.int64(right) if type(right) is int else np.float64(right)
+_GRID_MISMATCH_HINT = (
+    " Use reproject(other, raster.geobox) to put one raster on the other's"
+    " grid first."
+)
+
+
+def _axis_step(raster, dim):
+    """Signed cell step along `dim`, derived from the coordinates alone.
+
+    Returns None for an axis of length 1.
+    """
+    coords = raster._ds[dim].data
+    if len(coords) < 2:
+        # A length-1 axis has no cell size derivable from its coordinates,
+        # so only lattice alignment can be checked along it.
+        return None
+    return (coords[-1] - coords[0]) / (len(coords) - 1)
+
+
+def _lattice_step(rasters, dim):
+    """The cell step shared by `rasters` along `dim`, or None if unknown.
+
+    The step is known if any raster has more than one cell along `dim`.
+    Raises ValueError if two known steps differ in orientation, or in size by
+    enough that the grids drift apart by more than GRID_PIXEL_TOLERANCE of a
+    cell across the longest axis.
+    """
+    ncells = max(len(r._ds[dim]) for r in rasters)
+    lattice = None
+    for r in rasters:
+        step = _axis_step(r, dim)
+        if step is None:
+            continue
+        if lattice is None:
+            lattice = step
+            continue
+        if np.sign(step) != np.sign(lattice):
+            raise ValueError(
+                f"Raster grids do not match: the {dim} axis orientation"
+                " differs (the coordinates increase in one raster and"
+                " decrease in the other)." + _GRID_MISMATCH_HINT
             )
-    args = [left]
-    if right is not None:
-        args.append(right)
-    other = left if left is not this else right
+        drift = ncells * abs(step - lattice) / abs(lattice)
+        if drift > GRID_PIXEL_TOLERANCE:
+            raise ValueError(
+                "Raster grids do not match: resolution differs along"
+                f" {dim} ({abs(lattice)} vs {abs(step)}; across {ncells}"
+                f" cells the grids drift apart by {drift:g} cells)."
+                + _GRID_MISMATCH_HINT
+            )
+    return lattice
+
+
+def _cell_offset(ref, raster, dim, lattice):
+    """Whole-cell offset of `raster`'s first cell from `ref`'s along `dim`.
+
+    The offset is in units of `lattice`, the shared cell step. If `lattice`
+    is None, every raster is one cell wide along `dim` and the coordinates
+    must be equal, up to float noise. Raises ValueError if the offset is not
+    a whole number of cells, within GRID_PIXEL_TOLERANCE of a cell.
+    """
+    start = raster._ds[dim].data[0]
+    ref_start = ref._ds[dim].data[0]
+    if lattice is None:
+        # With no cell size to scale a tolerance, allow only float noise
+        if math.isclose(start, ref_start, rel_tol=1e-9):
+            return 0
+        raise ValueError(
+            f"Raster grids do not match: the rasters are one cell wide along"
+            f" {dim}, so the cell size is unknown, and their cell centers"
+            f" differ ({ref_start} vs {start})." + _GRID_MISMATCH_HINT
+        )
+    shift = (start - ref_start) / lattice
+    ishift = round(shift)
+    if abs(shift - ishift) > GRID_PIXEL_TOLERANCE:
+        raise ValueError(
+            "Raster grids do not match: grids are offset by a non-integer"
+            f" number of cells ({shift:g} along {dim})." + _GRID_MISMATCH_HINT
+        )
+    return ishift
+
+
+def _cell_bounds(raster, steps):
+    """(minx, miny, maxx, maxy) of the raster's cells for the given steps."""
+    lows = []
+    highs = []
+    for dim in ("x", "y"):
+        coords = raster._ds[dim].data
+        half = 0 if steps[dim] is None else abs(steps[dim]) / 2
+        lows.append(float(coords.min() - half))
+        highs.append(float(coords.max() + half))
+    return (*lows, *highs)
+
+
+def _crop_to_overlap(rasters):
+    """Crop the rasters to their overlap on the first raster's coordinates.
+
+    Returns the cropped Datasets.
+    """
+    ref = rasters[0]
+    others = rasters[1:]
+    # [start, stop) cell index windows into the reference grid
+    window = {"x": (0, len(ref.x)), "y": (0, len(ref.y))}
+    steps = {dim: _lattice_step(rasters, dim) for dim in window}
+    offsets = []
+    for r in others:
+        offset = {dim: _cell_offset(ref, r, dim, steps[dim]) for dim in window}
+        for dim, (start, stop) in window.items():
+            window[dim] = (
+                max(start, offset[dim]),
+                min(stop, offset[dim] + len(r._ds[dim])),
+            )
+        offsets.append(offset)
+    if any(start >= stop for start, stop in window.values()):
+        bounds = " and ".join(str(_cell_bounds(r, steps)) for r in rasters)
+        raise ValueError(
+            "Raster grids do not overlap. Bounds (minx, miny, maxx, maxy):"
+            f" {bounds}." + _GRID_MISMATCH_HINT
+        )
+
+    ref_ds = ref._ds.isel(
+        {dim: slice(start, stop) for dim, (start, stop) in window.items()}
+    )
+    datasets = [ref_ds]
+    for r, offset in zip(others, offsets, strict=True):
+        ds = r._ds.isel(
+            {
+                dim: slice(start - offset[dim], stop - offset[dim])
+                for dim, (start, stop) in window.items()
+            }
+        ).assign_coords(x=ref_ds.x.data, y=ref_ds.y.data)
+        datasets.append(ds)
+    return datasets
+
+
+def _coord_values(ds, dim):
+    # Reading the index avoids building a coordinate DataArray, which matters
+    # on the identical-grid path that every Raster-Raster op takes.
+    return ds.indexes[dim].to_numpy()
+
+
+def _match_bands(datasets):
+    """Match the band dims of the Datasets by position.
+
+    The Datasets must have the same number of bands, or a single band, which
+    is repeated to the common band count. All results take the band labels of
+    the first Dataset with the most bands. Returns None if the band dims
+    already match.
+    """
+    bands = [_coord_values(ds, "band") for ds in datasets]
+    counts = [len(b) for b in bands]
+    nbands = max(counts)
+    if any(n not in (1, nbands) for n in counts):
+        raise ValueError(
+            "Raster band counts do not match"
+            f" ({' vs '.join(str(n) for n in counts)}). The rasters must have"
+            " the same number of bands, or one of them must have a single"
+            " band."
+        )
+    labels = bands[counts.index(nbands)]
+    if all(np.array_equal(b, labels) for b in bands):
+        return None
+    matched = []
+    for ds, n in zip(datasets, counts, strict=True):
+        if n != nbands:
+            ds = ds.isel(band=[0] * nbands)
+        matched.append(ds.assign_coords(band=labels))
+    return matched
+
+
+def _match_raster_grids(rasters):
+    """Put the rasters on a common grid and band count.
+
+    The rasters must share a CRS (a missing CRS matches any CRS) and cell
+    size, and their cells must be offset by a whole number of cells. Cell
+    sizes and offsets are derived from the x/y coordinates alone. If the
+    coordinates differ, every raster is cropped to the common extent and given
+    the first raster's coordinates, so that xarray does not have to align
+    them by exact float labels. Bands are matched by position, as described in
+    `_match_bands`. Rasters that already match are returned unchanged.
+    """
+    ref = rasters[0]
+    others = rasters[1:]
+    ref_crs = ref.crs
+    for r in others:
+        crs = r.crs
+        if ref_crs is not None and crs is not None and ref_crs != crs:
+            raise ValueError(
+                f"Raster grids do not match: CRS differs ({ref_crs} vs {crs})."
+                + _GRID_MISMATCH_HINT
+            )
+    ref_x = _coord_values(ref._ds, "x")
+    ref_y = _coord_values(ref._ds, "y")
+    if all(
+        np.array_equal(_coord_values(r._ds, "x"), ref_x)
+        and np.array_equal(_coord_values(r._ds, "y"), ref_y)
+        for r in others
+    ):
+        datasets = [r._ds for r in rasters]
+        changed = False
+    else:
+        datasets = _crop_to_overlap(rasters)
+        changed = True
+    matched = _match_bands(datasets)
+    if matched is None:
+        if not changed:
+            return rasters
+        matched = datasets
+    return [Raster(ds, _fast_path=True) for ds in matched]
+
+
+def _cast_python_scalars(args, ufname, rasters):
+    if (
+        not NUMPY_GE_2
+        or not any(type(a) in (int, float) for a in args)
+        or all(r.dtype.kind in "fc" for r in rasters)
+    ):
+        # Float and complex rasters follow NumPy's weak promotion for Python
+        # scalars, which keeps the raster's dtype (float32 * 2.0 -> float32).
+        return args
+    # Promote integer and bool rasters by casting Python scalars to 64-bit
+    # numpy scalars. This avoids silent wraparound, such as a uint16 raster
+    # multiplied by 10. If the ufunc is ldexp and the left arg is a Python
+    # scalar, casting causes the resulting dtype to differ from the analogous
+    # (scalar X numpy-array) combination, so that case is left alone.
+    return [
+        (np.int64(a) if type(a) is int else np.float64(a))
+        if type(a) in (int, float) and not (i == 0 and ufname == "ldexp")
+        else a
+        for i, a in enumerate(args)
+    ]
+
+
+def _same_grid(a, b):
+    return (
+        a.shape == b.shape
+        and np.array_equal(a.x.data, b.x.data)
+        and np.array_equal(a.y.data, b.y.data)
+    )
+
+
+def _apply_ufunc(ufunc, this, args, out=None):
+    ufname = ufunc.__name__
+    rasters = [a for a in args if isinstance(a, Raster)]
+    if len(rasters) > 1:
+        matched = iter(_match_raster_grids(rasters))
+        args = [next(matched) if isinstance(a, Raster) else a for a in args]
+        rasters = [a for a in args if isinstance(a, Raster)]
+    args = _cast_python_scalars(args, ufname, rasters)
     types = [getattr(a, "dtype", type(a)) for a in args]
-    masked = any(getattr(r, "_masked", False) for r in args)
+    masked = any(r._masked for r in rasters)
     ufunc_args = [getattr(a, "xdata", a) for a in args]
-    kwargs = kwargs or {}
-    out_crs = None
-    if this.crs is not None:
-        out_crs = this.crs
-    elif isinstance(other, Raster) and other.crs is not None:
-        out_crs = other.crs
+    out_crs = this.crs
+    if out_crs is None:
+        out_crs = next((r.crs for r in rasters if r.crs is not None), None)
 
     if ufname.startswith("bitwise") and any(is_float(t) for t in types):
         raise TypeError(
@@ -239,49 +506,41 @@ def _apply_ufunc(ufunc, this, left, right=None, kwargs=None, out=None):
             " integer dtype (e.g. 'raster.astype(int)')."
         )
 
-    xr_out = ufunc(*ufunc_args, **kwargs)
-    multi_out = ufunc.nout > 1
-    if not masked:
-        mask = get_mask_from_data(xr_out, None)
-        if not multi_out:
-            xmask = xr.DataArray(mask, dims=xr_out.dims, coords=xr_out.coords)
-            xr_out = xr_out.rio.write_nodata(None)
-            ds_out = make_raster_ds(xr_out, xmask)
+    xr_outs = ufunc(*ufunc_args)
+    if ufunc.nout == 1:
+        xr_outs = (xr_outs,)
+    if out is not None and not _same_grid(xr_outs[0], out.xdata):
+        if xr_outs[0].shape != out.shape:
+            change = f"shape from {out.shape} to {xr_outs[0].shape}"
         else:
-            xmask = xr.DataArray(
-                mask, dims=xr_out[0].dims, coords=xr_out[0].coords
-            )
-            xr_out = [x.rio.write_nodata(None) for x in xr_out]
-            ds_out = [make_raster_ds(x, xmask) for x in xr_out]
+            change = "coordinates"
+        raise ValueError(
+            "An in-place operation cannot change the grid or band count of"
+            f" the raster it modifies, but this one would change its {change}."
+            " Use a regular operation, such as 'a = a + b', instead."
+        )
+    if masked:
+        xmask = merge_masks([r.xmask for r in rasters])
     else:
-        xmask = merge_masks([r.xmask for r in args if isinstance(r, Raster)])
-        if not multi_out:
+        xmask = get_mask_from_data(xr_outs[0], None)
+    ds_outs = []
+    for xr_out in xr_outs:
+        nv = None
+        if masked:
             nv = get_default_null_value(xr_out.dtype)
-            xr_out = xr.where(xmask, nv, xr_out).rio.write_nodata(nv)
-            ds_out = make_raster_ds(xr_out, xmask)
-        else:
-            nvs = [get_default_null_value(x.dtype) for x in xr_out]
-            xr_out = [
-                xr.where(xmask, nv, x).rio.write_nodata(nv)
-                for x, nv in zip(xr_out, nvs, strict=True)
-            ]
-            ds_out = [make_raster_ds(x, xmask) for x in xr_out]
-    if out_crs is not None:
-        if multi_out:
-            ds_out = [x.rio.write_crs(out_crs) for x in ds_out]
-        else:
-            ds_out = ds_out.rio.write_crs(out_crs)
+            xr_out = xr.where(xmask, nv, xr_out)
+        ds = make_raster_ds(xr_out.rio.write_nodata(nv), xmask)
+        if out_crs is not None:
+            ds = ds.rio.write_crs(out_crs)
+        ds_outs.append(ds)
 
     if out is not None:
         # "Inplace"
-        out._ds = ds_out
+        (out._ds,) = ds_outs
         return out
 
-    if not multi_out:
-        return Raster(ds_out, _fast_path=True)
-
-    rs_outs = tuple(Raster(x, _fast_path=True) for x in ds_out)
-    return rs_outs
+    rs_outs = tuple(Raster(ds, _fast_path=True) for ds in ds_outs)
+    return rs_outs if ufunc.nout > 1 else rs_outs[0]
 
 
 _UNARY_UFUNCS = frozenset(
@@ -291,6 +550,33 @@ _UNSUPPORED_UFUNCS = [np.isnat, np.matmul]
 if NUMPY_GE_2_2:
     _UNSUPPORED_UFUNCS.extend([np.matvec, np.vecmat])
 _UNSUPPORED_UFUNCS = frozenset(_UNSUPPORED_UFUNCS)
+
+
+def _validate_ufunc_call(ufunc, method, ninputs, kwargs, target):
+    """Reject ufunc calls that `target` cannot handle.
+
+    `kwargs` holds the ufunc keyword arguments other than ``out``, none of
+    which are supported. `target` names the receiving objects in error
+    messages, e.g. "Raster objects".
+    """
+    if kwargs:
+        names = ", ".join(repr(k) for k in kwargs)
+        raise TypeError(
+            f"ufunc keyword argument(s) {names} are not supported for"
+            f" {target}."
+        )
+    if ufunc in _UNSUPPORED_UFUNCS:
+        raise TypeError(f"ufunc {ufunc!r} is not supported for {target}.")
+    if ufunc.signature is not None:
+        raise NotImplementedError("Raster does not support gufuncs")
+    if method != "__call__":
+        raise NotImplementedError(
+            f"{method} for ufunc {ufunc!r} is not implemented for {target}."
+        )
+    if ninputs > ufunc.nin:
+        raise TypeError(
+            f"Too many inputs for ufunc: inputs={ninputs}, ufunc={ufunc!r}"
+        )
 
 
 class _RasterBase(np.lib.mixins.NDArrayOperatorsMixin, _ReductionsMixin):
@@ -307,8 +593,6 @@ class _RasterBase(np.lib.mixins.NDArrayOperatorsMixin, _ReductionsMixin):
         tuple,
         range,
     )
-    # Higher than xarray objects
-    __array_priority__ = 70
 
     def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
         out = kwargs.pop("out", ())
@@ -316,25 +600,9 @@ class _RasterBase(np.lib.mixins.NDArrayOperatorsMixin, _ReductionsMixin):
             if not isinstance(x, self._HANDLED_TYPES + (_RasterBase,)):
                 return NotImplemented
 
-        if ufunc in _UNSUPPORED_UFUNCS:
-            raise TypeError(
-                f"Raster objects are not supported for ufunc: '{ufunc}'."
-            )
-
-        if ufunc.signature is not None:
-            raise NotImplementedError("Raster does not support gufuncs")
-
-        if method != "__call__":
-            raise NotImplementedError(
-                f"{method} for ufunc {ufunc} is not implemented on Raster "
-                "objects."
-            )
-
-        if len(inputs) > ufunc.nin:
-            raise TypeError(
-                "Too many inputs for ufunc:"
-                f" inputs={len(inputs)}, ufunc={ufunc!r}"
-            )
+        _validate_ufunc_call(
+            ufunc, method, len(inputs), kwargs, "Raster objects"
+        )
 
         if len(out):
             if len(out) > 1:
@@ -350,35 +618,28 @@ class _RasterBase(np.lib.mixins.NDArrayOperatorsMixin, _ReductionsMixin):
         else:
             out = None
 
-        left = inputs[0]
-        right = inputs[1] if ufunc.nin == 2 else None
-        other = left if left is not self else right
-        other = _normalize_ufunc_other(other, self)
-        if self is left:
-            right = other
-        else:
-            left = other
-
+        args = [
+            x if x is self else _normalize_ufunc_other(x, self) for x in inputs
+        ]
         try:
-            return _apply_ufunc(ufunc, self, left, right=right, out=out)
+            return _apply_ufunc(ufunc, self, args, out=out)
         except TypeError as err:
-            if right is not None and str(err).startswith(
-                "operand type(s) all returned NotImplemented from "
-                "__array_ufunc__"
+            # The xarray/dask layers report a dtype combination the ufunc has
+            # no loop for in terms of dask arrays. Restate it with the types
+            # the caller passed.
+            if ufunc.nin == 2 and str(err).startswith(
+                "operand type(s) all returned NotImplemented from"
+                " __array_ufunc__"
             ):
-                msgs = []
-                for obj in (left, right):
-                    if isinstance(obj, Raster):
-                        msg = f"Raster<{obj.dtype}>"
-                    else:
-                        msg = type(obj)
-                    msgs.append(msg)
-                left_msg, right_msg = msgs
+                left_msg, right_msg = (
+                    f"Raster<{a.dtype}>" if isinstance(a, Raster) else type(a)
+                    for a in args
+                )
                 raise TypeError(
-                    f"Could not apply {ufunc} to types "
-                    f"{left_msg} and {right_msg}"
+                    f"Could not apply {ufunc} to types {left_msg} and"
+                    f" {right_msg}"
                 ) from err
-            raise err
+            raise
 
     def __array__(self, dtype=None, copy=None):
         kwargs = {}
@@ -419,8 +680,6 @@ class BandwiseOperationAdapter(np.lib.mixins.NDArrayOperatorsMixin):
         tuple,
         range,
     )
-    # Higher than xarray objects
-    __array_priority__ = 70
 
     def __init__(self, raster):
         self._raster = raster
@@ -449,43 +708,22 @@ class BandwiseOperationAdapter(np.lib.mixins.NDArrayOperatorsMixin):
                 f" {len(inputs)} given."
             )
 
-        if ufunc in _UNSUPPORED_UFUNCS:
-            raise TypeError(
-                "The given ufunc is not supported for bandwise operations:"
-                f" {ufunc!r}."
-            )
-
-        if ufunc.signature is not None:
-            raise NotImplementedError("Raster does not support gufuncs")
-
-        if method != "__call__":
-            raise NotImplementedError(
-                f"{method} for ufunc {ufunc} is not implemented for bandwise "
-                " operations."
-            )
-
-        if len(inputs) > ufunc.nin:
-            raise TypeError(
-                "Too many inputs for ufunc:"
-                f" inputs={len(inputs)}, ufunc={ufunc!r}"
-            )
+        _validate_ufunc_call(
+            ufunc, method, len(inputs), kwargs, "bandwise operations"
+        )
 
         if out is not None:
             raise NotImplementedError(
                 "The 'out' keyword is not supported for bandwise operations"
             )
 
-        left, right = inputs
-        other = left if left is not self else right
-        other = _normalize_bandwise_other(other, self._raster.shape)
-        if self is left:
-            left = self._raster
-            right = other
-        else:
-            left = other
-            right = self._raster
-
-        return ufunc(left, right, **kwargs)
+        args = [
+            self._raster
+            if x is self
+            else _normalize_bandwise_other(x, self._raster.shape)
+            for x in inputs
+        ]
+        return ufunc(*args)
 
 
 def xr_where_with_meta(cond, left, right, crs=None, nv=None):
@@ -1350,6 +1588,23 @@ class Raster(_RasterBase):
     sources to be built in a lazy fashion and then evaluated effiently.
     Most mathematical operations have been overloaded so operations such as
     ``z = x - y`` and ``r = x**2`` are possible.
+
+    Two Rasters can be combined if they share a CRS and cell size and their
+    grids are offset by a whole number of cells. The result covers their
+    overlap. Otherwise a ValueError is raised and one raster must be
+    reprojected onto the other's grid first. Bands are matched by position:
+    the Rasters must have the same number of bands, or one of them must have
+    a single band, which is applied to every band of the other. In-place
+    operations (``x += y``) raise a ValueError if the result would not have
+    the same grid and band count as ``x``.
+
+    When combining a Raster with an :class:`xarray.DataArray`, the Raster must
+    be the left operand (``raster + dataarray``), or the DataArray should be
+    wrapped first (``Raster(dataarray) + raster``). With the DataArray on the
+    left, xarray converts the Raster to a numpy array through ``__array__``.
+    This computes the Raster eagerly and drops its null mask, so its null
+    cells enter the operation as plain values, and the result is a
+    numpy-backed DataArray rather than a Raster.
 
     All operations on a Raster return a new Raster.
 

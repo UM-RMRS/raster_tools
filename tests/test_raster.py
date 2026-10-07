@@ -1,5 +1,6 @@
 import operator
 import pathlib
+import re
 import unittest
 import warnings
 
@@ -24,6 +25,7 @@ import raster_tools.raster
 from raster_tools import Raster, stack_bands
 from raster_tools._compat import NUMPY_GE_2, NUMPY_GE_2_2
 from raster_tools.dtypes import (
+    BOOL,
     DTYPE_INPUT_TO_DTYPE,
     F16,
     F32,
@@ -951,9 +953,18 @@ def ops_test_array_data():
     return data
 
 
-def _safe_operand(operand):
-    """Cast Python scalars for numpy 2 dtype consistency."""
-    if NUMPY_GE_2 and type(operand) in (int, float):
+def _safe_operand(operand, raster_dtype):
+    """Scalar to use with the raw numpy data to get a raster op's result.
+
+    Float rasters follow numpy's promotion for Python scalars, so the scalar
+    is used as is. Under numpy 2, integer and bool rasters are promoted as if
+    the scalar were a 64-bit numpy scalar, which prevents wraparound.
+    """
+    if (
+        NUMPY_GE_2
+        and not is_float(raster_dtype)
+        and type(operand) in (int, float)
+    ):
         return (
             np.int64(operand) if type(operand) is int else np.float64(operand)
         )
@@ -991,7 +1002,7 @@ def test_simple_binary_ops_arithmetic_against_scalar(
     x = ops_test_array_data.astype(raster_type)
     raster = Raster(x).set_null_value(0).set_crs("EPSG:3857")
     mask = raster.mask.compute()
-    safe = _safe_operand(operand)
+    safe = _safe_operand(operand, x.dtype)
 
     # Forward: raster op scalar
     expected = _apply_null_to_expected(op(x, safe), mask)
@@ -1012,7 +1023,7 @@ def test_binary_op_pow_against_scalar(
     x = ops_test_array_data.astype(raster_type)
     raster = Raster(x).set_null_value(0).set_crs("EPSG:3857")
     mask = raster.mask.compute()
-    safe = _safe_operand(operand)
+    safe = _safe_operand(operand, x.dtype)
     # In numpy 2, np.power and operator.pow sometimes produce different
     # output dtypes. __array_ufunc__ on Raster uses np.power so we test
     # against that API.
@@ -1050,7 +1061,7 @@ def test_binary_comparison_ops_against_scalar(
     x = ops_test_array_data.astype(raster_type)
     raster = Raster(x).set_null_value(0).set_crs("EPSG:3857")
     mask = raster.mask.compute()
-    safe = _safe_operand(operand)
+    safe = _safe_operand(operand, x.dtype)
 
     for args, np_args in [
         ((raster, operand), (x, safe)),
@@ -1063,6 +1074,46 @@ def test_binary_comparison_ops_against_scalar(
         assert is_bool(result.dtype)
         assert is_bool(result.null_value)
         assert result.null_value == get_default_null_value(bool)
+
+
+@pytest.mark.parametrize(
+    "raster_type,op,operand,expected_type",
+    [
+        (F32, operator.mul, 2.0, F32),
+        (F32, operator.add, 1, F32),
+        (F32, operator.truediv, 3, F32),
+        (F16, operator.add, 1.5, F16),
+        (F64, operator.add, 1, F64),
+        (U8, operator.add, 1, I64),
+        (U16, operator.mul, 10, I64),
+        (I8, operator.sub, 1, I64),
+        (U8, operator.mul, 1.5, F64),
+        (I32, operator.mul, 2.0, F64),
+        (BOOL, operator.add, 1, I64),
+        (np.complex64, operator.add, 1.0, np.complex64),
+        (np.complex64, operator.mul, 2, np.complex64),
+        (np.complex128, operator.sub, 1.5, np.complex128),
+    ],
+)
+def test_binary_op_python_scalar_promotion(
+    raster_type, op, operand, expected_type
+):
+    data = np.ones((1, 3, 3), dtype=raster_type)
+    raster = Raster(data).set_crs("EPSG:3857")
+    if NUMPY_GE_2:
+        assert op(raster, operand).dtype == expected_type
+        assert op(operand, raster).dtype == expected_type
+    else:
+        assert op(raster, operand).dtype == op(data, operand).dtype
+        assert op(operand, raster).dtype == op(operand, data).dtype
+
+
+@pytest.mark.skipif(not NUMPY_GE_2, reason="numpy 2 promotion rules")
+def test_binary_op_python_scalar_no_wraparound():
+    data = np.full((1, 3, 3), 60_000, dtype=U16)
+    raster = Raster(data)
+    result = raster * 10
+    assert np.all(result.to_numpy() == 600_000)
 
 
 unknown_chunk_array = dask.array.ones((5, 5))
@@ -1214,6 +1265,43 @@ def test_ufuncs_unsupported(ufunc):
         NotImplementedError if ufunc.__name__ == "vecdot" else TypeError
     ):
         ufunc(*args)
+
+
+@pytest.mark.parametrize(
+    "call,types",
+    [
+        (lambda rs: rs - rs, "Raster<bool> and Raster<bool>"),
+        (lambda rs: rs - True, "Raster<bool> and <class 'bool'>"),
+        (lambda rs: True - rs, "<class 'bool'> and Raster<bool>"),
+    ],
+)
+def test_ufuncs_no_loop_for_types_error(call, types):
+    rs = Raster(np.ones((1, 2, 2), dtype=BOOL))
+    match = re.escape(f"Could not apply <ufunc 'subtract'> to types {types}")
+    with pytest.raises(TypeError, match=match):
+        call(rs)
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"dtype": F32},
+        {"where": True},
+        {"casting": "unsafe"},
+        {"order": "C"},
+        {"subok": False},
+        {"signature": (F64, F64, F64)},
+    ],
+)
+def test_ufuncs_reject_keyword_args(kwargs):
+    rs = make_raster("arange", shape=(2, 3, 3), dtype=float)
+    (name,) = kwargs
+    with pytest.raises(TypeError, match=f"'{name}'"):
+        np.add(rs, 1, **kwargs)
+    with pytest.raises(TypeError, match=f"'{name}'"):
+        np.add(1, rs, **kwargs)
+    with pytest.raises(TypeError, match=f"'{name}'"):
+        np.add(rs.bandwise, [1, 2], **kwargs)
 
 
 @pytest.mark.parametrize("ufunc", _NP_UFUNCS_NIN_SINGLE)
@@ -1413,6 +1501,37 @@ def test_ufuncs_multiple_input_against_raster(ops_test_array_data, ufunc):
             assert np.allclose(r._ds.mask, mask, equal_nan=True)
 
 
+@pytest.mark.parametrize(
+    "ufunc,args",
+    [
+        (np.modf, ()),
+        (np.frexp, ()),
+        (np.divmod, (3,)),
+    ],
+)
+@pytest.mark.parametrize("null", [None, 0])
+def test_ufuncs_multiple_outputs(ufunc, args, null):
+    rs = make_raster("arange", shape=(2, 3, 3), dtype=float, null=null)
+    rs = rs / 4
+    data = rs.to_numpy()
+    mask = rs.mask.compute()
+    results = ufunc(rs, *args)
+    expected = ufunc(data, *args)
+    assert isinstance(results, tuple)
+    assert len(results) == ufunc.nout
+    for result, truth in zip(results, expected, strict=True):
+        assert_valid_raster(result)
+        assert_rasters_similar(result, rs)
+        assert result.dtype == truth.dtype
+        assert result._masked == (null is not None)
+        assert np.array_equal(result.mask.compute(), mask)
+        assert np.array_equal(result.to_numpy()[~mask], truth[~mask])
+        if null is not None:
+            assert np.all(
+                result.to_numpy()[mask] == get_default_null_value(truth.dtype)
+            )
+
+
 def test_ufunc_different_masks():
     r1 = make_raster("arange", shape=(3, 3), crs=None).set_null_value(0)
     r1.mask[..., :2, :] = True
@@ -1449,6 +1568,353 @@ def test_ufunc_different_masks():
     assert np.allclose(r2.mask.compute(), r2_mask)
     result_data = np.where(result_mask, result.null_value, 64)
     assert np.allclose(result, result_data)
+
+
+def _grid_raster(x0, y0=4, res=1, crs="EPSG:3857", null=None):
+    data = np.arange(1, 17, dtype=U8).reshape((4, 4))
+    rs = make_raster(data, affine=Affine(res, 0, x0, 0, -res, y0), crs=crs)
+    if null is not None:
+        rs = rs.set_null_value(null)
+    return rs
+
+
+@pytest.mark.parametrize("left_null", [None, 6])
+@pytest.mark.parametrize("right_null", [None, 2])
+def test_ufunc_rasters_offset_by_whole_cells(left_null, right_null):
+    # right is shifted one cell right and one cell down from left
+    left = _grid_raster(0, null=left_null)
+    right = _grid_raster(1, 3, null=right_null)
+    left_data = left.to_numpy()[:, 1:, 1:]
+    right_data = right.to_numpy()[:, :3, :3]
+    mask = np.zeros((1, 3, 3), dtype=bool)
+    if left_null is not None:
+        mask |= left_data == left_null
+    if right_null is not None:
+        mask |= right_data == right_null
+
+    for result, expected in [
+        (left + right, left_data + right_data),
+        (right - left, right_data - left_data),
+    ]:
+        assert_valid_raster(result)
+        assert result.shape == (1, 3, 3)
+        assert np.array_equal(result.x, left.x[1:])
+        assert np.array_equal(result.y, left.y[1:])
+        assert result.crs == left.crs
+        assert result._masked == (
+            left_null is not None or right_null is not None
+        )
+        assert np.array_equal(result.mask.compute(), mask)
+        assert np.array_equal(result.to_numpy()[~mask], expected[~mask])
+
+
+def test_ufunc_rasters_offset_within_tolerance():
+    left = _grid_raster(0, null=6)
+    right = _grid_raster(1 + 1e-6, 4 - 1e-6)
+    result = left * right
+    assert_valid_raster(result)
+    assert result.shape == (1, 4, 3)
+    assert np.array_equal(result.x, left.x[1:])
+    assert np.array_equal(result.y, left.y)
+    expected = left.to_numpy()[:, :, 1:] * right.to_numpy()[:, :, :3]
+    mask = left.mask.compute()[:, :, 1:]
+    assert np.array_equal(result.mask.compute(), mask)
+    assert np.array_equal(result.to_numpy()[~mask], expected[~mask])
+
+
+def test_ufunc_rasters_missing_crs_matches_any_crs():
+    left = _grid_raster(0, crs=None)
+    right = _grid_raster(1)
+    assert (left + right).crs == right.crs
+    assert (right + left).crs == right.crs
+
+
+@pytest.mark.parametrize("masked", [False, True])
+@pytest.mark.parametrize(
+    "right_grid,match",
+    [
+        ({"x0": 0.5}, "non-integer number of cells"),
+        ({"x0": 0, "y0": 3.5}, "non-integer number of cells"),
+        ({"x0": 0, "res": 2}, "resolution differs"),
+        ({"x0": 0, "crs": "EPSG:4326"}, "CRS differs"),
+        ({"x0": 1, "crs": "EPSG:4326"}, "CRS differs"),
+        ({"x0": 4}, "do not overlap"),
+        ({"x0": -1, "y0": 8}, "do not overlap"),
+    ],
+)
+def test_ufunc_rasters_grid_mismatch_errors(right_grid, match, masked):
+    left = _grid_raster(0, null=6 if masked else None)
+    right = _grid_raster(**right_grid)
+    with pytest.raises(ValueError, match=match):
+        left + right
+    with pytest.raises(ValueError, match=match):
+        right + left
+    with pytest.raises(ValueError, match=r"reproject\(other"):
+        np.add(left, right)
+
+
+def test_ufunc_rasters_no_overlap_error_reports_bounds():
+    left = _grid_raster(0)
+    right = _grid_raster(4)
+    match = (
+        r"do not overlap.*\(0\.0, 0\.0, 4\.0, 4\.0\) and"
+        r" \(4\.0, 0\.0, 8\.0, 4\.0\).*reproject\(other"
+    )
+    with pytest.raises(ValueError, match=match):
+        left + right
+
+
+def _strip_raster(shape, x0, res, null=None):
+    data = np.arange(1, np.prod(shape) + 1, dtype=F64).reshape(shape)
+    rs = make_raster(data, affine=Affine(res, 0, x0, 0, -res, 8))
+    if null is not None:
+        rs = rs.set_null_value(null)
+    return rs
+
+
+@pytest.mark.parametrize("masked", [False, True])
+@pytest.mark.parametrize(
+    "rebuild",
+    [
+        lambda rs: rs,
+        lambda rs: rs.set_null_value(3),
+        lambda rs: rs.where(rs > 0, 0),
+        lambda rs: Raster(rs.xdata),
+    ],
+    ids=["as_built", "set_null_value", "where", "from_dataarray"],
+)
+def test_ufunc_rasters_one_cell_wide_on_lattice(masked, rebuild):
+    # The column's single x coordinate (3) is the second cell center of the
+    # grid (1, 3, 5, 7). The result must not depend on how the column was
+    # produced.
+    column = rebuild(_strip_raster((4, 1), 2, 2, null=3 if masked else None))
+    grid = _strip_raster((4, 4), 0, 2)
+    assert np.array_equal(column.x, [3])
+    expected = column.to_numpy() + grid.to_numpy()[:, :, 1:2]
+    column_mask = column.mask.compute()
+    for result in (column + grid, grid + column):
+        assert_valid_raster(result)
+        assert result.shape == (1, 4, 1)
+        assert np.array_equal(result.x, column.x)
+        assert np.array_equal(result.y, grid.y)
+        assert result._masked == column._masked
+        mask = result.mask.compute()
+        assert np.array_equal(mask, column_mask)
+        assert np.array_equal(result.to_numpy()[~mask], expected[~mask])
+
+
+@pytest.mark.parametrize("masked", [False, True])
+@pytest.mark.parametrize(
+    "left_grid,right_grid,match",
+    [
+        # The column's x coordinate (2) falls between the grid's cell centers
+        (((4, 1), 1, 2), ((4, 4), 0, 2), "non-integer number of cells"),
+        # One cell each, with different cell centers
+        (((1, 1), 0, 2), ((1, 1), 2, 2), "cell size is unknown"),
+        (((1, 1), 0, 2), ((1, 1), 0.5, 2), "cell size is unknown"),
+    ],
+)
+def test_ufunc_rasters_one_cell_wide_mismatch_errors(
+    left_grid, right_grid, match, masked
+):
+    left = _strip_raster(*left_grid, null=1 if masked else None)
+    right = _strip_raster(*right_grid)
+    with pytest.raises(ValueError, match=match):
+        left + right
+    with pytest.raises(ValueError, match=match):
+        right + left
+
+
+def test_ufunc_rasters_one_cell_float_noise():
+    left = _strip_raster((1, 1), 0, 2, null=9)
+    noisy = _strip_raster((1, 1), 1e-12, 2)
+    assert not np.array_equal(left.x, noisy.x)
+    expected = left.to_numpy() + noisy.to_numpy()
+    for result, first in [(left + noisy, left), (noisy + left, noisy)]:
+        assert_valid_raster(result)
+        assert result.shape == (1, 1, 1)
+        assert np.array_equal(result.x, first.x)
+        assert np.array_equal(result.y, first.y)
+        assert np.array_equal(result.to_numpy(), expected)
+    shifted = _strip_raster((1, 1), 1e-3, 2)
+    with pytest.raises(ValueError, match="cell size is unknown"):
+        left + shifted
+
+
+def _long_raster(res):
+    data = np.ones((2, 5000), dtype=F32)
+    return make_raster(data, affine=Affine(res, 0, 0, 0, -1, 2))
+
+
+def test_ufunc_rasters_resolution_drift_errors():
+    # The cell sizes differ by 0.05%, which drifts by 2.5 cells across 5000
+    # cells.
+    left = _long_raster(1.0)
+    right = _long_raster(1.0005)
+    with pytest.raises(ValueError, match="resolution differs along x"):
+        left + right
+    with pytest.raises(ValueError, match="resolution differs along x"):
+        right + left
+
+
+def test_ufunc_rasters_resolution_within_drift_tolerance():
+    left = _long_raster(1.0)
+    right = _long_raster(1.0 + 1e-9)
+    result = left + right
+    assert_valid_raster(result)
+    assert result.shape == left.shape
+    assert np.array_equal(result.x, left.x)
+
+
+@pytest.mark.parametrize("masked", [False, True])
+def test_ufunc_rasters_flipped_axis_errors(masked):
+    left = _grid_raster(0, null=6 if masked else None)
+    flipped = Raster(left._ds.isel(y=slice(None, None, -1)))
+    assert np.array_equal(flipped.y, left.y[::-1])
+    with pytest.raises(ValueError, match="y axis orientation differs"):
+        left + flipped
+    with pytest.raises(ValueError, match="y axis orientation differs"):
+        flipped + left
+
+
+def _band_raster(nbands, null=None):
+    data = np.arange(1, nbands * 16 + 1, dtype=F64).reshape((nbands, 4, 4))
+    rs = make_raster(data)
+    if null is not None:
+        rs = rs.set_null_value(null)
+    return rs
+
+
+@pytest.mark.parametrize("multi_null", [None, 20])
+@pytest.mark.parametrize("single_null", [None, 2])
+def test_ufunc_rasters_single_band_broadcasts(multi_null, single_null):
+    multi = _band_raster(3, null=multi_null)
+    single = _band_raster(1, null=single_null)
+    multi_data = multi.to_numpy()
+    single_data = single.to_numpy()
+    mask = multi.mask.compute() | single.mask.compute()
+    for result, expected in [
+        (multi - single, multi_data - single_data),
+        (single - multi, single_data - multi_data),
+    ]:
+        assert_valid_raster(result)
+        assert result.shape == (3, 4, 4)
+        assert np.array_equal(result.band, [1, 2, 3])
+        assert result._masked == (
+            multi_null is not None or single_null is not None
+        )
+        assert np.array_equal(result.mask.compute(), mask)
+        assert np.array_equal(result.to_numpy()[~mask], expected[~mask])
+
+
+@pytest.mark.parametrize("masked", [False, True])
+def test_ufunc_rasters_bands_match_by_position(masked):
+    left = _band_raster(2, null=5 if masked else None)
+    # Band labels other than 1..n are not standard, but they can reach a
+    # ufunc through the Dataset constructor.
+    right = Raster(_band_raster(2, null=20)._ds.assign_coords(band=[3, 4]))
+    assert np.array_equal(right.band, [3, 4])
+    mask = left.mask.compute() | right.mask.compute()
+    assert_valid_raster(left + right)
+    for result, expected, band in [
+        (left + right, left.to_numpy() + right.to_numpy(), [1, 2]),
+        (right + left, right.to_numpy() + left.to_numpy(), [3, 4]),
+    ]:
+        assert result.shape == (2, 4, 4)
+        assert np.array_equal(result.band, band)
+        assert np.array_equal(result.mask.compute(), mask)
+        assert np.array_equal(result.to_numpy()[~mask], expected[~mask])
+
+
+@pytest.mark.parametrize("masked", [False, True])
+def test_ufunc_rasters_band_count_mismatch_errors(masked):
+    left = _band_raster(3, null=5 if masked else None)
+    right = _band_raster(2)
+    with pytest.raises(ValueError, match=r"band counts do not match \(3 vs 2"):
+        left + right
+    with pytest.raises(ValueError, match=r"band counts do not match \(2 vs 3"):
+        right + left
+
+
+def test_ufunc_rasters_inplace_keeps_grid():
+    rs = _band_raster(3, null=5)
+    single = _band_raster(1)
+    expected = rs.to_numpy() + single.to_numpy()
+    mask = rs.mask.compute()
+    result = rs
+    result += single
+    assert result is rs
+    assert_valid_raster(result)
+    assert result.shape == (3, 4, 4)
+    assert np.array_equal(result.mask.compute(), mask)
+    assert np.array_equal(result.to_numpy()[~mask], expected[~mask])
+
+
+@pytest.mark.parametrize(
+    "make_other",
+    [
+        lambda: _grid_raster(1),
+        lambda: _grid_raster(0, 3),
+        lambda: _band_raster(3),
+    ],
+    ids=["offset_x", "offset_y", "more_bands"],
+)
+def test_ufunc_rasters_inplace_grid_change_errors(make_other):
+    rs = _grid_raster(0, null=6)
+    ds = rs._ds
+    with pytest.raises(ValueError, match="in-place operation cannot change"):
+        rs += make_other()
+    assert rs._ds is ds
+
+
+def test_ufunc_rasters_inplace_against_containing_raster():
+    rs = _grid_raster(1, 3, null=6)
+    # A 6x6 grid whose cells 1..4 along each axis are rs's cells
+    big_data = np.arange(100, 136, dtype=U8).reshape((6, 6))
+    big = make_raster(big_data, affine=Affine(1, 0, 0, 0, -1, 4))
+    x, y = rs.x, rs.y
+    expected = rs.to_numpy() + big_data[1:5, 1:5]
+    mask = rs.mask.compute()
+    result = rs
+    result += big
+    assert result is rs
+    assert_valid_raster(result)
+    assert result.shape == (1, 4, 4)
+    assert np.array_equal(result.x, x)
+    assert np.array_equal(result.y, y)
+    assert np.array_equal(result.mask.compute(), mask)
+    assert np.array_equal(result.to_numpy()[~mask], expected[~mask])
+
+
+@pytest.mark.filterwarnings("ignore:divide by zero")
+@pytest.mark.filterwarnings("ignore:invalid value encountered")
+def test_ufunc_rasters_multiple_outputs_offset_grids_and_bands():
+    multi_data = np.arange(1, 49, dtype=F64).reshape((3, 4, 4))
+    multi = make_raster(
+        multi_data, affine=Affine(1, 0, 0, 0, -1, 4)
+    ).set_null_value(20)
+    # One cell right of and one cell below multi
+    single_data = np.arange(2, 18, dtype=F64).reshape((1, 4, 4)) % 5
+    single = make_raster(
+        single_data, affine=Affine(1, 0, 1, 0, -1, 3)
+    ).set_null_value(0)
+    multi_crop = multi_data[:, 1:, 1:]
+    single_crop = single_data[:, :3, :3]
+    mask = (multi_crop == 20) | (single_crop == 0)
+    assert mask.any()
+    for results, expected in [
+        (np.divmod(multi, single), np.divmod(multi_crop, single_crop)),
+        (np.divmod(single, multi), np.divmod(single_crop, multi_crop)),
+    ]:
+        assert len(results) == 2
+        for result, truth in zip(results, expected, strict=True):
+            assert_valid_raster(result)
+            assert result.shape == (3, 3, 3)
+            assert np.array_equal(result.x, multi.x[1:])
+            assert np.array_equal(result.y, multi.y[1:])
+            assert result._masked
+            assert np.array_equal(result.mask.compute(), mask)
+            assert np.array_equal(result.to_numpy()[~mask], truth[~mask])
 
 
 def test_invert():
@@ -1518,6 +1984,45 @@ def test_reductions(func):
         truth = func(data[valid])
         assert np.allclose(func(rs), truth, equal_nan=True)
         assert np.allclose(getattr(rs, fname)(), truth, equal_nan=True)
+
+
+@pytest.mark.parametrize(
+    "call",
+    [
+        lambda rs: np.sum(rs, keepdims=False),
+        lambda rs: np.std(rs, ddof=0),
+        lambda rs: rs.sum(axis=None, out=None),
+        lambda rs: rs.mean(dtype=None),
+    ],
+)
+def test_reductions_accept_default_args(call):
+    rs = make_raster("arange", shape=(2, 3, 3), dtype=float)
+    data = rs.to_numpy()
+    result = call(rs)
+    assert isinstance(result, dask.array.Array)
+    assert np.allclose(result, call(data))
+
+
+@pytest.mark.parametrize(
+    "call,error",
+    [
+        (lambda rs: np.sum(rs, axis=0), ValueError),
+        (lambda rs: np.max(rs, axis=(1, 2)), ValueError),
+        (lambda rs: np.sum(rs, keepdims=True), ValueError),
+        (lambda rs: np.mean(rs, dtype=F32), ValueError),
+        (lambda rs: np.std(rs, ddof=1), ValueError),
+        (lambda rs: np.sum(rs, out=np.zeros(())), ValueError),
+        (lambda rs: np.sum(rs, initial=1), TypeError),
+        (lambda rs: np.all(rs, where=True), TypeError),
+        (lambda rs: rs.sum(0), TypeError),
+        (lambda rs: rs.max(foo=1), TypeError),
+        (lambda rs: rs.mean(ddof=0), TypeError),
+    ],
+)
+def test_reductions_reject_args(call, error):
+    rs = make_raster("arange", shape=(2, 3, 3), dtype=float)
+    with pytest.raises(error):
+        call(rs)
 
 
 @pytest.mark.parametrize(
