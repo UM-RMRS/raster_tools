@@ -492,8 +492,12 @@ document.write(`
 <dl class="py method">
 <dt class="sig sig-object py" id="raster_tools.Raster.min">
 <span class="sig-prename descclassname"><span class="pre">Raster.</span></span><span class="sig-name descname"><span class="pre">min</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#raster_tools.Raster.min" title="Permalink to this definition">#</a></dt>
-<dd><p>Reduce the raster to a single dask value by applying <cite>min</cite> across all bands.</p>
-<p>All arguments are ignored.</p>
+<dd><p>Reduce the raster to one dask value by applying <cite>min</cite> across all bands.</p>
+<p>The reduction always covers every non-null cell of every band. The method
+accepts numpy’s reduction arguments only so that <code class="docutils literal notranslate"><span class="pre">np.min(raster)</span></code> can
+dispatch to it. Passing a positional argument or an unsupported keyword
+raises a TypeError, and passing a value other than the default (e.g.
+<code class="docutils literal notranslate"><span class="pre">axis=0</span></code>) raises a ValueError.</p>
 </dd></dl>
 
 </section>

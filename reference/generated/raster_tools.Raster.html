@@ -499,6 +499,21 @@ evaluation. It allows a pipeline of operations on underlying raster
 sources to be built in a lazy fashion and then evaluated effiently.
 Most mathematical operations have been overloaded so operations such as
 <code class="docutils literal notranslate"><span class="pre">z</span> <span class="pre">=</span> <span class="pre">x</span> <span class="pre">-</span> <span class="pre">y</span></code> and <code class="docutils literal notranslate"><span class="pre">r</span> <span class="pre">=</span> <span class="pre">x**2</span></code> are possible.</p>
+<p>Two Rasters can be combined if they share a CRS and cell size and their
+grids are offset by a whole number of cells. The result covers their
+overlap. Otherwise a ValueError is raised and one raster must be
+reprojected onto the other’s grid first. Bands are matched by position:
+the Rasters must have the same number of bands, or one of them must have
+a single band, which is applied to every band of the other. In-place
+operations (<code class="docutils literal notranslate"><span class="pre">x</span> <span class="pre">+=</span> <span class="pre">y</span></code>) raise a ValueError if the result would not have
+the same grid and band count as <code class="docutils literal notranslate"><span class="pre">x</span></code>.</p>
+<p>When combining a Raster with an <code class="xref py py-class docutils literal notranslate"><span class="pre">xarray.DataArray</span></code>, the Raster must
+be the left operand (<code class="docutils literal notranslate"><span class="pre">raster</span> <span class="pre">+</span> <span class="pre">dataarray</span></code>), or the DataArray should be
+wrapped first (<code class="docutils literal notranslate"><span class="pre">Raster(dataarray)</span> <span class="pre">+</span> <span class="pre">raster</span></code>). With the DataArray on the
+left, xarray converts the Raster to a numpy array through <code class="docutils literal notranslate"><span class="pre">__array__</span></code>.
+This computes the Raster eagerly and drops its null mask, so its null
+cells enter the operation as plain values, and the result is a
+numpy-backed DataArray rather than a Raster.</p>
 <p>All operations on a Raster return a new Raster.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -527,10 +542,10 @@ variable must have boolean dtype.</p>
 <td><p></p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="raster_tools.Raster.all.html#raster_tools.Raster.all" title="raster_tools.Raster.all"><code class="xref py py-obj docutils literal notranslate"><span class="pre">all</span></code></a>(*args, **kwargs)</p></td>
-<td><p>Reduce the raster to a single dask value by applying <cite>all</cite> across all bands.</p></td>
+<td><p>Reduce the raster to one dask value by applying <cite>all</cite> across all bands.</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="raster_tools.Raster.any.html#raster_tools.Raster.any" title="raster_tools.Raster.any"><code class="xref py py-obj docutils literal notranslate"><span class="pre">any</span></code></a>(*args, **kwargs)</p></td>
-<td><p>Reduce the raster to a single dask value by applying <cite>any</cite> across all bands.</p></td>
+<td><p>Reduce the raster to one dask value by applying <cite>any</cite> across all bands.</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="raster_tools.Raster.astype.html#raster_tools.Raster.astype" title="raster_tools.Raster.astype"><code class="xref py py-obj docutils literal notranslate"><span class="pre">astype</span></code></a>(dtype[, new_null_value, ...])</p></td>
 <td><p>Return a copy of the Raster cast to the specified type.</p></td>
@@ -584,13 +599,13 @@ variable must have boolean dtype.</p>
 <td><p>Apply <code class="docutils literal notranslate"><span class="pre">func</span></code> block-wise with overlap across one or more rasters.</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="raster_tools.Raster.max.html#raster_tools.Raster.max" title="raster_tools.Raster.max"><code class="xref py py-obj docutils literal notranslate"><span class="pre">max</span></code></a>(*args, **kwargs)</p></td>
-<td><p>Reduce the raster to a single dask value by applying <cite>max</cite> across all bands.</p></td>
+<td><p>Reduce the raster to one dask value by applying <cite>max</cite> across all bands.</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="raster_tools.Raster.mean.html#raster_tools.Raster.mean" title="raster_tools.Raster.mean"><code class="xref py py-obj docutils literal notranslate"><span class="pre">mean</span></code></a>(*args, **kwargs)</p></td>
-<td><p>Reduce the raster to a single dask value by applying <cite>mean</cite> across all bands.</p></td>
+<td><p>Reduce the raster to one dask value by applying <cite>mean</cite> across all bands.</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="raster_tools.Raster.min.html#raster_tools.Raster.min" title="raster_tools.Raster.min"><code class="xref py py-obj docutils literal notranslate"><span class="pre">min</span></code></a>(*args, **kwargs)</p></td>
-<td><p>Reduce the raster to a single dask value by applying <cite>min</cite> across all bands.</p></td>
+<td><p>Reduce the raster to one dask value by applying <cite>min</cite> across all bands.</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="raster_tools.Raster.model_predict.html#raster_tools.Raster.model_predict" title="raster_tools.Raster.model_predict"><code class="xref py py-obj docutils literal notranslate"><span class="pre">model_predict</span></code></a>(model[, n_outputs])</p></td>
 <td><p>Generate a new raster using the provided model to predict new values.</p></td>
@@ -602,7 +617,7 @@ variable must have boolean dtype.</p>
 <td><p>Plot the raster.</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="raster_tools.Raster.prod.html#raster_tools.Raster.prod" title="raster_tools.Raster.prod"><code class="xref py py-obj docutils literal notranslate"><span class="pre">prod</span></code></a>(*args, **kwargs)</p></td>
-<td><p>Reduce the raster to a single dask value by applying <cite>prod</cite> across all bands.</p></td>
+<td><p>Reduce the raster to one dask value by applying <cite>prod</cite> across all bands.</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="raster_tools.Raster.reclassify.html#raster_tools.Raster.reclassify" title="raster_tools.Raster.reclassify"><code class="xref py py-obj docutils literal notranslate"><span class="pre">reclassify</span></code></a>(remapping[, unmapped_to_null])</p></td>
 <td><p>Reclassify raster values based on a mapping.</p></td>
@@ -638,10 +653,10 @@ variable must have boolean dtype.</p>
 <td><p>Split this raster into a list of single-band rasters.</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="raster_tools.Raster.std.html#raster_tools.Raster.std" title="raster_tools.Raster.std"><code class="xref py py-obj docutils literal notranslate"><span class="pre">std</span></code></a>(*args, **kwargs)</p></td>
-<td><p>Reduce the raster to a single dask value by applying <cite>std</cite> across all bands.</p></td>
+<td><p>Reduce the raster to one dask value by applying <cite>std</cite> across all bands.</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="raster_tools.Raster.sum.html#raster_tools.Raster.sum" title="raster_tools.Raster.sum"><code class="xref py py-obj docutils literal notranslate"><span class="pre">sum</span></code></a>(*args, **kwargs)</p></td>
-<td><p>Reduce the raster to a single dask value by applying <cite>sum</cite> across all bands.</p></td>
+<td><p>Reduce the raster to one dask value by applying <cite>sum</cite> across all bands.</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="raster_tools.Raster.to_dataset.html#raster_tools.Raster.to_dataset" title="raster_tools.Raster.to_dataset"><code class="xref py py-obj docutils literal notranslate"><span class="pre">to_dataset</span></code></a>()</p></td>
 <td><p>Returns the underlying <cite>xarray.Dataset</cite>.</p></td>
@@ -665,7 +680,7 @@ variable must have boolean dtype.</p>
 <td><p>Convert the raster to a vector.</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="raster_tools.Raster.var.html#raster_tools.Raster.var" title="raster_tools.Raster.var"><code class="xref py py-obj docutils literal notranslate"><span class="pre">var</span></code></a>(*args, **kwargs)</p></td>
-<td><p>Reduce the raster to a single dask value by applying <cite>var</cite> across all bands.</p></td>
+<td><p>Reduce the raster to one dask value by applying <cite>var</cite> across all bands.</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="raster_tools.Raster.where.html#raster_tools.Raster.where" title="raster_tools.Raster.where"><code class="xref py py-obj docutils literal notranslate"><span class="pre">where</span></code></a>(condition, other)</p></td>
 <td><p>Filter elements from this raster according to <cite>condition</cite>.</p></td>

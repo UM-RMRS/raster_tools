@@ -437,7 +437,8 @@ document.write(`
                 <article class="bd-article" role="main">
                   
   <h1>Source code for raster_tools.raster</h1><div class="highlight"><pre>
-<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numbers</span>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">math</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numbers</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">namedtuple</span>
@@ -457,7 +458,11 @@ document.write(`
 <span class="kn">from</span><span class="w"> </span><span class="nn">shapely.geometry</span><span class="w"> </span><span class="kn">import</span> <span class="n">box</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools._compat</span><span class="w"> </span><span class="kn">import</span> <span class="n">NUMPY_GE_2</span><span class="p">,</span> <span class="n">NUMPY_GE_2_2</span><span class="p">,</span> <span class="n">PY_VER_310_PLUS</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools._grids</span><span class="w"> </span><span class="kn">import</span> <span class="n">build_x_coord</span><span class="p">,</span> <span class="n">build_y_coord</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools._grids</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">GRID_PIXEL_TOLERANCE</span><span class="p">,</span>
+    <span class="n">build_x_coord</span><span class="p">,</span>
+    <span class="n">build_y_coord</span><span class="p">,</span>
+<span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.dask_utils</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">dask_nanmax</span><span class="p">,</span>
     <span class="n">dask_nanmin</span><span class="p">,</span>
@@ -522,23 +527,51 @@ document.write(`
 
 
 <span class="n">_REDUCTION_DOCSTRING</span> <span class="o">=</span> <span class="s2">"""</span><span class="se">\</span>
-<span class="s2">    Reduce the raster to a single dask value by applying `</span><span class="si">{}</span><span class="s2">` across all bands.</span>
+<span class="s2">    Reduce the raster to one dask value by applying `</span><span class="si">{0}</span><span class="s2">` across all bands.</span>
 
-<span class="s2">    All arguments are ignored.</span>
+<span class="s2">    The reduction always covers every non-null cell of every band. The method</span>
+<span class="s2">    accepts numpy's reduction arguments only so that ``np.</span><span class="si">{0}</span><span class="s2">(raster)`` can</span>
+<span class="s2">    dispatch to it. Passing a positional argument or an unsupported keyword</span>
+<span class="s2">    raises a TypeError, and passing a value other than the default (e.g.</span>
+<span class="s2">    ``axis=0``) raises a ValueError.</span>
 <span class="s2">"""</span>
 
+<span class="c1"># The reduction arguments numpy forwards to a method when called as</span>
+<span class="c1"># np.&lt;name&gt;(raster), with the only values a Raster reduction accepts.</span>
+<span class="n">_REDUCTION_ARG_DEFAULTS</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">"axis"</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="s2">"dtype"</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="s2">"out"</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="s2">"keepdims"</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+<span class="p">}</span>
+<span class="n">_REDUCTION_ARG_DEFAULTS_DDOF</span> <span class="o">=</span> <span class="p">{</span><span class="o">**</span><span class="n">_REDUCTION_ARG_DEFAULTS</span><span class="p">,</span> <span class="s2">"ddof"</span><span class="p">:</span> <span class="mi">0</span><span class="p">}</span>
 
-<span class="k">def</span><span class="w"> </span><span class="nf">_inject_reductions</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
-    <span class="k">pass</span>
-    <span class="n">funcs</span> <span class="o">=</span> <span class="p">[(</span><span class="n">name</span><span class="p">,</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">np</span><span class="p">,</span> <span class="n">name</span><span class="p">))</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">_REDUCTION_FUNCS</span><span class="p">]</span>
-    <span class="n">funcs</span> <span class="o">+=</span> <span class="p">[</span>
-        <span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">np</span><span class="p">,</span> <span class="s2">"nan"</span> <span class="o">+</span> <span class="n">name</span><span class="p">))</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">_NAN_REDUCTION_FUNCS</span>
-    <span class="p">]</span>
-    <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">funcs</span><span class="p">:</span>
-        <span class="n">func</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_build_reduce_method</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
-        <span class="n">func</span><span class="o">.</span><span class="vm">__name__</span> <span class="o">=</span> <span class="n">name</span>
-        <span class="n">func</span><span class="o">.</span><span class="vm">__doc__</span> <span class="o">=</span> <span class="n">_REDUCTION_DOCSTRING</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
-        <span class="nb">setattr</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">func</span><span class="p">)</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_check_reduction_args</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">args</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">args</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"Raster.</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">() does not accept positional arguments."</span>
+        <span class="p">)</span>
+    <span class="n">defaults</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">_REDUCTION_ARG_DEFAULTS_DDOF</span>
+        <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"std"</span><span class="p">,</span> <span class="s2">"var"</span><span class="p">)</span>
+        <span class="k">else</span> <span class="n">_REDUCTION_ARG_DEFAULTS</span>
+    <span class="p">)</span>
+    <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">defaults</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"Raster.</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">() got an unsupported keyword argument </span><span class="si">{</span><span class="n">key</span><span class="si">!r}</span><span class="s2">."</span>
+            <span class="p">)</span>
+        <span class="n">default</span> <span class="o">=</span> <span class="n">defaults</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">default</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">is_default</span> <span class="o">=</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">is_default</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">isscalar</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="ow">and</span> <span class="n">value</span> <span class="o">==</span> <span class="n">default</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">is_default</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"Raster.</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">() always reduces over all cells of all bands"</span>
+                <span class="sa">f</span><span class="s2">" and does not support </span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">=</span><span class="si">{</span><span class="n">value</span><span class="si">!r}</span><span class="s2">."</span>
+            <span class="p">)</span>
 
 
 <span class="n">_MIN_MAX_FUNC_MAP</span> <span class="o">=</span> <span class="p">{</span>
@@ -549,6 +582,32 @@ document.write(`
 <span class="p">}</span>
 
 
+<span class="k">def</span><span class="w"> </span><span class="nf">_build_reduce_method</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">func</span><span class="p">):</span>
+    <span class="n">func</span> <span class="o">=</span> <span class="n">_MIN_MAX_FUNC_MAP</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">func</span><span class="p">,</span> <span class="n">func</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">method</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="c1"># Take args and kwargs to stay compatible with numpy</span>
+        <span class="n">_check_reduction_args</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">args</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">)</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span>
+        <span class="n">values</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="o">~</span><span class="bp">self</span><span class="o">.</span><span class="n">_ds</span><span class="o">.</span><span class="n">mask</span><span class="o">.</span><span class="n">data</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">func</span><span class="p">(</span><span class="n">values</span><span class="p">)</span>
+
+    <span class="n">method</span><span class="o">.</span><span class="vm">__name__</span> <span class="o">=</span> <span class="n">name</span>
+    <span class="n">method</span><span class="o">.</span><span class="vm">__doc__</span> <span class="o">=</span> <span class="n">_REDUCTION_DOCSTRING</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">method</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_add_reductions</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
+    <span class="n">funcs</span> <span class="o">=</span> <span class="p">[(</span><span class="n">name</span><span class="p">,</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">np</span><span class="p">,</span> <span class="n">name</span><span class="p">))</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">_REDUCTION_FUNCS</span><span class="p">]</span>
+    <span class="n">funcs</span> <span class="o">+=</span> <span class="p">[</span>
+        <span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">np</span><span class="p">,</span> <span class="s2">"nan"</span> <span class="o">+</span> <span class="n">name</span><span class="p">))</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">_NAN_REDUCTION_FUNCS</span>
+    <span class="p">]</span>
+    <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">func</span> <span class="ow">in</span> <span class="n">funcs</span><span class="p">:</span>
+        <span class="nb">setattr</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">_build_reduce_method</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">func</span><span class="p">))</span>
+    <span class="k">return</span> <span class="bp">cls</span>
+
+
+<span class="nd">@_add_reductions</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">_ReductionsMixin</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""</span>
 <span class="sd">    This mixin class adds reduction methods like `all`, `sum`, etc to the</span>
@@ -558,23 +617,6 @@ document.write(`
 <span class="sd">    """</span>
 
     <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">()</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="nf">__init_subclass__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-        <span class="n">_inject_reductions</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">__init_subclass__</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
-
-    <span class="nd">@classmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">_build_reduce_method</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">func</span><span class="p">):</span>
-        <span class="k">if</span> <span class="n">func</span> <span class="ow">in</span> <span class="n">_MIN_MAX_FUNC_MAP</span><span class="p">:</span>
-            <span class="n">func</span> <span class="o">=</span> <span class="n">_MIN_MAX_FUNC_MAP</span><span class="p">[</span><span class="n">func</span><span class="p">]</span>
-
-        <span class="k">def</span><span class="w"> </span><span class="nf">method</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-            <span class="c1"># Take args and kwargs to stay compatible with numpy</span>
-            <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span>
-            <span class="n">values</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="o">~</span><span class="bp">self</span><span class="o">.</span><span class="n">_ds</span><span class="o">.</span><span class="n">mask</span><span class="o">.</span><span class="n">data</span><span class="p">]</span>
-            <span class="k">return</span> <span class="n">func</span><span class="p">(</span><span class="n">values</span><span class="p">)</span>
-
-        <span class="k">return</span> <span class="n">method</span>
 
 
 <span class="c1"># Curated driver -&gt; extension table, consulted before rasterio's reverse</span>
@@ -612,12 +654,9 @@ document.write(`
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_normalize_ufunc_other</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">this</span><span class="p">):</span>
-    <span class="k">if</span> <span class="n">other</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">numbers</span><span class="o">.</span><span class="n">Number</span><span class="p">):</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">numbers</span><span class="o">.</span><span class="n">Number</span><span class="p">):</span>
         <span class="k">return</span> <span class="n">other</span>
-
-    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">xr</span><span class="o">.</span><span class="n">Dataset</span><span class="p">):</span>
-        <span class="k">return</span> <span class="n">Raster</span><span class="p">(</span><span class="n">other</span><span class="p">)</span>
-    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="p">(</span><span class="nb">list</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">,</span> <span class="nb">range</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">da</span><span class="o">.</span><span class="n">Array</span><span class="p">)):</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="p">(</span><span class="nb">list</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">,</span> <span class="nb">range</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">da</span><span class="o">.</span><span class="n">Array</span><span class="p">)):</span>
         <span class="c1"># allow only if broadcastable</span>
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">da</span><span class="o">.</span><span class="n">Array</span><span class="p">)</span> <span class="ow">and</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">other</span><span class="o">.</span><span class="n">size</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Dask arrays must have known chunks"</span><span class="p">)</span>
@@ -631,39 +670,267 @@ document.write(`
                 <span class="n">msg</span> <span class="o">+=</span> <span class="s2">" Did you mean to use Raster.bandwise?"</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">other</span>
-    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">):</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">):</span>
         <span class="k">return</span> <span class="n">Raster</span><span class="p">(</span><span class="n">other</span><span class="p">)</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">Raster</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">Raster</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">other</span>
 
 
-<span class="k">def</span><span class="w"> </span><span class="nf">_apply_ufunc</span><span class="p">(</span><span class="n">ufunc</span><span class="p">,</span> <span class="n">this</span><span class="p">,</span> <span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">kwargs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-    <span class="n">ufname</span> <span class="o">=</span> <span class="n">ufunc</span><span class="o">.</span><span class="vm">__name__</span>
-    <span class="k">if</span> <span class="n">NUMPY_GE_2</span><span class="p">:</span>
-        <span class="c1"># If the ufunc is ldexp and the left arg is a python scalar, casting</span>
-        <span class="c1"># causes the resulting dtype to be different from the analongous</span>
-        <span class="c1"># (scalar X numpy-array) combination. So we disable casting for this</span>
-        <span class="c1"># special case.</span>
-        <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">left</span><span class="p">)</span> <span class="ow">in</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">)</span> <span class="ow">and</span> <span class="n">ufname</span> <span class="o">!=</span> <span class="s2">"ldexp"</span><span class="p">:</span>
-            <span class="n">left</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">(</span><span class="n">left</span><span class="p">)</span> <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">left</span><span class="p">)</span> <span class="ow">is</span> <span class="nb">int</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">(</span><span class="n">left</span><span class="p">)</span>
-        <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">right</span><span class="p">)</span> <span class="ow">in</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">):</span>
-            <span class="n">right</span> <span class="o">=</span> <span class="p">(</span>
-                <span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">(</span><span class="n">right</span><span class="p">)</span> <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">right</span><span class="p">)</span> <span class="ow">is</span> <span class="nb">int</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">(</span><span class="n">right</span><span class="p">)</span>
+<span class="n">_GRID_MISMATCH_HINT</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="s2">" Use reproject(other, raster.geobox) to put one raster on the other's"</span>
+    <span class="s2">" grid first."</span>
+<span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_axis_step</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">dim</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Signed cell step along `dim`, derived from the coordinates alone.</span>
+
+<span class="sd">    Returns None for an axis of length 1.</span>
+<span class="sd">    """</span>
+    <span class="n">coords</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">_ds</span><span class="p">[</span><span class="n">dim</span><span class="p">]</span><span class="o">.</span><span class="n">data</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">coords</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="c1"># A length-1 axis has no cell size derivable from its coordinates,</span>
+        <span class="c1"># so only lattice alignment can be checked along it.</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">coords</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">coords</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">/</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">coords</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_lattice_step</span><span class="p">(</span><span class="n">rasters</span><span class="p">,</span> <span class="n">dim</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""The cell step shared by `rasters` along `dim`, or None if unknown.</span>
+
+<span class="sd">    The step is known if any raster has more than one cell along `dim`.</span>
+<span class="sd">    Raises ValueError if two known steps differ in orientation, or in size by</span>
+<span class="sd">    enough that the grids drift apart by more than GRID_PIXEL_TOLERANCE of a</span>
+<span class="sd">    cell across the longest axis.</span>
+<span class="sd">    """</span>
+    <span class="n">ncells</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">_ds</span><span class="p">[</span><span class="n">dim</span><span class="p">])</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">rasters</span><span class="p">)</span>
+    <span class="n">lattice</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">rasters</span><span class="p">:</span>
+        <span class="n">step</span> <span class="o">=</span> <span class="n">_axis_step</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">dim</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">step</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="k">if</span> <span class="n">lattice</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">lattice</span> <span class="o">=</span> <span class="n">step</span>
+            <span class="k">continue</span>
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">sign</span><span class="p">(</span><span class="n">step</span><span class="p">)</span> <span class="o">!=</span> <span class="n">np</span><span class="o">.</span><span class="n">sign</span><span class="p">(</span><span class="n">lattice</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"Raster grids do not match: the </span><span class="si">{</span><span class="n">dim</span><span class="si">}</span><span class="s2"> axis orientation"</span>
+                <span class="s2">" differs (the coordinates increase in one raster and"</span>
+                <span class="s2">" decrease in the other)."</span> <span class="o">+</span> <span class="n">_GRID_MISMATCH_HINT</span>
             <span class="p">)</span>
-    <span class="n">args</span> <span class="o">=</span> <span class="p">[</span><span class="n">left</span><span class="p">]</span>
-    <span class="k">if</span> <span class="n">right</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">args</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">right</span><span class="p">)</span>
-    <span class="n">other</span> <span class="o">=</span> <span class="n">left</span> <span class="k">if</span> <span class="n">left</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">this</span> <span class="k">else</span> <span class="n">right</span>
+        <span class="n">drift</span> <span class="o">=</span> <span class="n">ncells</span> <span class="o">*</span> <span class="nb">abs</span><span class="p">(</span><span class="n">step</span> <span class="o">-</span> <span class="n">lattice</span><span class="p">)</span> <span class="o">/</span> <span class="nb">abs</span><span class="p">(</span><span class="n">lattice</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">drift</span> <span class="o">&gt;</span> <span class="n">GRID_PIXEL_TOLERANCE</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">"Raster grids do not match: resolution differs along"</span>
+                <span class="sa">f</span><span class="s2">" </span><span class="si">{</span><span class="n">dim</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="nb">abs</span><span class="p">(</span><span class="n">lattice</span><span class="p">)</span><span class="si">}</span><span class="s2"> vs </span><span class="si">{</span><span class="nb">abs</span><span class="p">(</span><span class="n">step</span><span class="p">)</span><span class="si">}</span><span class="s2">; across </span><span class="si">{</span><span class="n">ncells</span><span class="si">}</span><span class="s2">"</span>
+                <span class="sa">f</span><span class="s2">" cells the grids drift apart by </span><span class="si">{</span><span class="n">drift</span><span class="si">:</span><span class="s2">g</span><span class="si">}</span><span class="s2"> cells)."</span>
+                <span class="o">+</span> <span class="n">_GRID_MISMATCH_HINT</span>
+            <span class="p">)</span>
+    <span class="k">return</span> <span class="n">lattice</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_cell_offset</span><span class="p">(</span><span class="n">ref</span><span class="p">,</span> <span class="n">raster</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">lattice</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Whole-cell offset of `raster`'s first cell from `ref`'s along `dim`.</span>
+
+<span class="sd">    The offset is in units of `lattice`, the shared cell step. If `lattice`</span>
+<span class="sd">    is None, every raster is one cell wide along `dim` and the coordinates</span>
+<span class="sd">    must be equal, up to float noise. Raises ValueError if the offset is not</span>
+<span class="sd">    a whole number of cells, within GRID_PIXEL_TOLERANCE of a cell.</span>
+<span class="sd">    """</span>
+    <span class="n">start</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">_ds</span><span class="p">[</span><span class="n">dim</span><span class="p">]</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">ref_start</span> <span class="o">=</span> <span class="n">ref</span><span class="o">.</span><span class="n">_ds</span><span class="p">[</span><span class="n">dim</span><span class="p">]</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">lattice</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># With no cell size to scale a tolerance, allow only float noise</span>
+        <span class="k">if</span> <span class="n">math</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">ref_start</span><span class="p">,</span> <span class="n">rel_tol</span><span class="o">=</span><span class="mf">1e-9</span><span class="p">):</span>
+            <span class="k">return</span> <span class="mi">0</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"Raster grids do not match: the rasters are one cell wide along"</span>
+            <span class="sa">f</span><span class="s2">" </span><span class="si">{</span><span class="n">dim</span><span class="si">}</span><span class="s2">, so the cell size is unknown, and their cell centers"</span>
+            <span class="sa">f</span><span class="s2">" differ (</span><span class="si">{</span><span class="n">ref_start</span><span class="si">}</span><span class="s2"> vs </span><span class="si">{</span><span class="n">start</span><span class="si">}</span><span class="s2">)."</span> <span class="o">+</span> <span class="n">_GRID_MISMATCH_HINT</span>
+        <span class="p">)</span>
+    <span class="n">shift</span> <span class="o">=</span> <span class="p">(</span><span class="n">start</span> <span class="o">-</span> <span class="n">ref_start</span><span class="p">)</span> <span class="o">/</span> <span class="n">lattice</span>
+    <span class="n">ishift</span> <span class="o">=</span> <span class="nb">round</span><span class="p">(</span><span class="n">shift</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">abs</span><span class="p">(</span><span class="n">shift</span> <span class="o">-</span> <span class="n">ishift</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">GRID_PIXEL_TOLERANCE</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">"Raster grids do not match: grids are offset by a non-integer"</span>
+            <span class="sa">f</span><span class="s2">" number of cells (</span><span class="si">{</span><span class="n">shift</span><span class="si">:</span><span class="s2">g</span><span class="si">}</span><span class="s2"> along </span><span class="si">{</span><span class="n">dim</span><span class="si">}</span><span class="s2">)."</span> <span class="o">+</span> <span class="n">_GRID_MISMATCH_HINT</span>
+        <span class="p">)</span>
+    <span class="k">return</span> <span class="n">ishift</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_cell_bounds</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">steps</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""(minx, miny, maxx, maxy) of the raster's cells for the given steps."""</span>
+    <span class="n">lows</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">highs</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">dim</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"x"</span><span class="p">,</span> <span class="s2">"y"</span><span class="p">):</span>
+        <span class="n">coords</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">_ds</span><span class="p">[</span><span class="n">dim</span><span class="p">]</span><span class="o">.</span><span class="n">data</span>
+        <span class="n">half</span> <span class="o">=</span> <span class="mi">0</span> <span class="k">if</span> <span class="n">steps</span><span class="p">[</span><span class="n">dim</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">abs</span><span class="p">(</span><span class="n">steps</span><span class="p">[</span><span class="n">dim</span><span class="p">])</span> <span class="o">/</span> <span class="mi">2</span>
+        <span class="n">lows</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">coords</span><span class="o">.</span><span class="n">min</span><span class="p">()</span> <span class="o">-</span> <span class="n">half</span><span class="p">))</span>
+        <span class="n">highs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">coords</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="o">+</span> <span class="n">half</span><span class="p">))</span>
+    <span class="k">return</span> <span class="p">(</span><span class="o">*</span><span class="n">lows</span><span class="p">,</span> <span class="o">*</span><span class="n">highs</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_crop_to_overlap</span><span class="p">(</span><span class="n">rasters</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Crop the rasters to their overlap on the first raster's coordinates.</span>
+
+<span class="sd">    Returns the cropped Datasets.</span>
+<span class="sd">    """</span>
+    <span class="n">ref</span> <span class="o">=</span> <span class="n">rasters</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">others</span> <span class="o">=</span> <span class="n">rasters</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
+    <span class="c1"># [start, stop) cell index windows into the reference grid</span>
+    <span class="n">window</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"x"</span><span class="p">:</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">ref</span><span class="o">.</span><span class="n">x</span><span class="p">)),</span> <span class="s2">"y"</span><span class="p">:</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">ref</span><span class="o">.</span><span class="n">y</span><span class="p">))}</span>
+    <span class="n">steps</span> <span class="o">=</span> <span class="p">{</span><span class="n">dim</span><span class="p">:</span> <span class="n">_lattice_step</span><span class="p">(</span><span class="n">rasters</span><span class="p">,</span> <span class="n">dim</span><span class="p">)</span> <span class="k">for</span> <span class="n">dim</span> <span class="ow">in</span> <span class="n">window</span><span class="p">}</span>
+    <span class="n">offsets</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">others</span><span class="p">:</span>
+        <span class="n">offset</span> <span class="o">=</span> <span class="p">{</span><span class="n">dim</span><span class="p">:</span> <span class="n">_cell_offset</span><span class="p">(</span><span class="n">ref</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">steps</span><span class="p">[</span><span class="n">dim</span><span class="p">])</span> <span class="k">for</span> <span class="n">dim</span> <span class="ow">in</span> <span class="n">window</span><span class="p">}</span>
+        <span class="k">for</span> <span class="n">dim</span><span class="p">,</span> <span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">stop</span><span class="p">)</span> <span class="ow">in</span> <span class="n">window</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">window</span><span class="p">[</span><span class="n">dim</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="nb">max</span><span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">offset</span><span class="p">[</span><span class="n">dim</span><span class="p">]),</span>
+                <span class="nb">min</span><span class="p">(</span><span class="n">stop</span><span class="p">,</span> <span class="n">offset</span><span class="p">[</span><span class="n">dim</span><span class="p">]</span> <span class="o">+</span> <span class="nb">len</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">_ds</span><span class="p">[</span><span class="n">dim</span><span class="p">])),</span>
+            <span class="p">)</span>
+        <span class="n">offsets</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">offset</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">start</span> <span class="o">&gt;=</span> <span class="n">stop</span> <span class="k">for</span> <span class="n">start</span><span class="p">,</span> <span class="n">stop</span> <span class="ow">in</span> <span class="n">window</span><span class="o">.</span><span class="n">values</span><span class="p">()):</span>
+        <span class="n">bounds</span> <span class="o">=</span> <span class="s2">" and "</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">_cell_bounds</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">steps</span><span class="p">))</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">rasters</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">"Raster grids do not overlap. Bounds (minx, miny, maxx, maxy):"</span>
+            <span class="sa">f</span><span class="s2">" </span><span class="si">{</span><span class="n">bounds</span><span class="si">}</span><span class="s2">."</span> <span class="o">+</span> <span class="n">_GRID_MISMATCH_HINT</span>
+        <span class="p">)</span>
+
+    <span class="n">ref_ds</span> <span class="o">=</span> <span class="n">ref</span><span class="o">.</span><span class="n">_ds</span><span class="o">.</span><span class="n">isel</span><span class="p">(</span>
+        <span class="p">{</span><span class="n">dim</span><span class="p">:</span> <span class="nb">slice</span><span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">stop</span><span class="p">)</span> <span class="k">for</span> <span class="n">dim</span><span class="p">,</span> <span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">stop</span><span class="p">)</span> <span class="ow">in</span> <span class="n">window</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+    <span class="p">)</span>
+    <span class="n">datasets</span> <span class="o">=</span> <span class="p">[</span><span class="n">ref_ds</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">r</span><span class="p">,</span> <span class="n">offset</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">others</span><span class="p">,</span> <span class="n">offsets</span><span class="p">,</span> <span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="n">ds</span> <span class="o">=</span> <span class="n">r</span><span class="o">.</span><span class="n">_ds</span><span class="o">.</span><span class="n">isel</span><span class="p">(</span>
+            <span class="p">{</span>
+                <span class="n">dim</span><span class="p">:</span> <span class="nb">slice</span><span class="p">(</span><span class="n">start</span> <span class="o">-</span> <span class="n">offset</span><span class="p">[</span><span class="n">dim</span><span class="p">],</span> <span class="n">stop</span> <span class="o">-</span> <span class="n">offset</span><span class="p">[</span><span class="n">dim</span><span class="p">])</span>
+                <span class="k">for</span> <span class="n">dim</span><span class="p">,</span> <span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">stop</span><span class="p">)</span> <span class="ow">in</span> <span class="n">window</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+            <span class="p">}</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">assign_coords</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="n">ref_ds</span><span class="o">.</span><span class="n">x</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="n">ref_ds</span><span class="o">.</span><span class="n">y</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
+        <span class="n">datasets</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ds</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">datasets</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_coord_values</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="n">dim</span><span class="p">):</span>
+    <span class="c1"># Reading the index avoids building a coordinate DataArray, which matters</span>
+    <span class="c1"># on the identical-grid path that every Raster-Raster op takes.</span>
+    <span class="k">return</span> <span class="n">ds</span><span class="o">.</span><span class="n">indexes</span><span class="p">[</span><span class="n">dim</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_match_bands</span><span class="p">(</span><span class="n">datasets</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Match the band dims of the Datasets by position.</span>
+
+<span class="sd">    The Datasets must have the same number of bands, or a single band, which</span>
+<span class="sd">    is repeated to the common band count. All results take the band labels of</span>
+<span class="sd">    the first Dataset with the most bands. Returns None if the band dims</span>
+<span class="sd">    already match.</span>
+<span class="sd">    """</span>
+    <span class="n">bands</span> <span class="o">=</span> <span class="p">[</span><span class="n">_coord_values</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="s2">"band"</span><span class="p">)</span> <span class="k">for</span> <span class="n">ds</span> <span class="ow">in</span> <span class="n">datasets</span><span class="p">]</span>
+    <span class="n">counts</span> <span class="o">=</span> <span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">b</span><span class="p">)</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">bands</span><span class="p">]</span>
+    <span class="n">nbands</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">counts</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">n</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">nbands</span><span class="p">)</span> <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">counts</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">"Raster band counts do not match"</span>
+            <span class="sa">f</span><span class="s2">" (</span><span class="si">{</span><span class="s1">' vs '</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">n</span><span class="p">)</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">n</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">counts</span><span class="p">)</span><span class="si">}</span><span class="s2">). The rasters must have"</span>
+            <span class="s2">" the same number of bands, or one of them must have a single"</span>
+            <span class="s2">" band."</span>
+        <span class="p">)</span>
+    <span class="n">labels</span> <span class="o">=</span> <span class="n">bands</span><span class="p">[</span><span class="n">counts</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">nbands</span><span class="p">)]</span>
+    <span class="k">if</span> <span class="nb">all</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array_equal</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">labels</span><span class="p">)</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">bands</span><span class="p">):</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="n">matched</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">ds</span><span class="p">,</span> <span class="n">n</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">datasets</span><span class="p">,</span> <span class="n">counts</span><span class="p">,</span> <span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">n</span> <span class="o">!=</span> <span class="n">nbands</span><span class="p">:</span>
+            <span class="n">ds</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">isel</span><span class="p">(</span><span class="n">band</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">nbands</span><span class="p">)</span>
+        <span class="n">matched</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ds</span><span class="o">.</span><span class="n">assign_coords</span><span class="p">(</span><span class="n">band</span><span class="o">=</span><span class="n">labels</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">matched</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_match_raster_grids</span><span class="p">(</span><span class="n">rasters</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Put the rasters on a common grid and band count.</span>
+
+<span class="sd">    The rasters must share a CRS (a missing CRS matches any CRS) and cell</span>
+<span class="sd">    size, and their cells must be offset by a whole number of cells. Cell</span>
+<span class="sd">    sizes and offsets are derived from the x/y coordinates alone. If the</span>
+<span class="sd">    coordinates differ, every raster is cropped to the common extent and given</span>
+<span class="sd">    the first raster's coordinates, so that xarray does not have to align</span>
+<span class="sd">    them by exact float labels. Bands are matched by position, as described in</span>
+<span class="sd">    `_match_bands`. Rasters that already match are returned unchanged.</span>
+<span class="sd">    """</span>
+    <span class="n">ref</span> <span class="o">=</span> <span class="n">rasters</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">others</span> <span class="o">=</span> <span class="n">rasters</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
+    <span class="n">ref_crs</span> <span class="o">=</span> <span class="n">ref</span><span class="o">.</span><span class="n">crs</span>
+    <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">others</span><span class="p">:</span>
+        <span class="n">crs</span> <span class="o">=</span> <span class="n">r</span><span class="o">.</span><span class="n">crs</span>
+        <span class="k">if</span> <span class="n">ref_crs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">crs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">ref_crs</span> <span class="o">!=</span> <span class="n">crs</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"Raster grids do not match: CRS differs (</span><span class="si">{</span><span class="n">ref_crs</span><span class="si">}</span><span class="s2"> vs </span><span class="si">{</span><span class="n">crs</span><span class="si">}</span><span class="s2">)."</span>
+                <span class="o">+</span> <span class="n">_GRID_MISMATCH_HINT</span>
+            <span class="p">)</span>
+    <span class="n">ref_x</span> <span class="o">=</span> <span class="n">_coord_values</span><span class="p">(</span><span class="n">ref</span><span class="o">.</span><span class="n">_ds</span><span class="p">,</span> <span class="s2">"x"</span><span class="p">)</span>
+    <span class="n">ref_y</span> <span class="o">=</span> <span class="n">_coord_values</span><span class="p">(</span><span class="n">ref</span><span class="o">.</span><span class="n">_ds</span><span class="p">,</span> <span class="s2">"y"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">all</span><span class="p">(</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">array_equal</span><span class="p">(</span><span class="n">_coord_values</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">_ds</span><span class="p">,</span> <span class="s2">"x"</span><span class="p">),</span> <span class="n">ref_x</span><span class="p">)</span>
+        <span class="ow">and</span> <span class="n">np</span><span class="o">.</span><span class="n">array_equal</span><span class="p">(</span><span class="n">_coord_values</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">_ds</span><span class="p">,</span> <span class="s2">"y"</span><span class="p">),</span> <span class="n">ref_y</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">others</span>
+    <span class="p">):</span>
+        <span class="n">datasets</span> <span class="o">=</span> <span class="p">[</span><span class="n">r</span><span class="o">.</span><span class="n">_ds</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">rasters</span><span class="p">]</span>
+        <span class="n">changed</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">datasets</span> <span class="o">=</span> <span class="n">_crop_to_overlap</span><span class="p">(</span><span class="n">rasters</span><span class="p">)</span>
+        <span class="n">changed</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">matched</span> <span class="o">=</span> <span class="n">_match_bands</span><span class="p">(</span><span class="n">datasets</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">matched</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">changed</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">rasters</span>
+        <span class="n">matched</span> <span class="o">=</span> <span class="n">datasets</span>
+    <span class="k">return</span> <span class="p">[</span><span class="n">Raster</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="n">_fast_path</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="k">for</span> <span class="n">ds</span> <span class="ow">in</span> <span class="n">matched</span><span class="p">]</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_cast_python_scalars</span><span class="p">(</span><span class="n">args</span><span class="p">,</span> <span class="n">ufname</span><span class="p">,</span> <span class="n">rasters</span><span class="p">):</span>
+    <span class="k">if</span> <span class="p">(</span>
+        <span class="ow">not</span> <span class="n">NUMPY_GE_2</span>
+        <span class="ow">or</span> <span class="ow">not</span> <span class="nb">any</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="ow">in</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">)</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">args</span><span class="p">)</span>
+        <span class="ow">or</span> <span class="nb">all</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">dtype</span><span class="o">.</span><span class="n">kind</span> <span class="ow">in</span> <span class="s2">"fc"</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">rasters</span><span class="p">)</span>
+    <span class="p">):</span>
+        <span class="c1"># Float and complex rasters follow NumPy's weak promotion for Python</span>
+        <span class="c1"># scalars, which keeps the raster's dtype (float32 * 2.0 -&gt; float32).</span>
+        <span class="k">return</span> <span class="n">args</span>
+    <span class="c1"># Promote integer and bool rasters by casting Python scalars to 64-bit</span>
+    <span class="c1"># numpy scalars. This avoids silent wraparound, such as a uint16 raster</span>
+    <span class="c1"># multiplied by 10. If the ufunc is ldexp and the left arg is a Python</span>
+    <span class="c1"># scalar, casting causes the resulting dtype to differ from the analogous</span>
+    <span class="c1"># (scalar X numpy-array) combination, so that case is left alone.</span>
+    <span class="k">return</span> <span class="p">[</span>
+        <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="ow">is</span> <span class="nb">int</span> <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">(</span><span class="n">a</span><span class="p">))</span>
+        <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="ow">in</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="p">(</span><span class="n">i</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">ufname</span> <span class="o">==</span> <span class="s2">"ldexp"</span><span class="p">)</span>
+        <span class="k">else</span> <span class="n">a</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">a</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">args</span><span class="p">)</span>
+    <span class="p">]</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_same_grid</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
+    <span class="k">return</span> <span class="p">(</span>
+        <span class="n">a</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="n">b</span><span class="o">.</span><span class="n">shape</span>
+        <span class="ow">and</span> <span class="n">np</span><span class="o">.</span><span class="n">array_equal</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">x</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">b</span><span class="o">.</span><span class="n">x</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
+        <span class="ow">and</span> <span class="n">np</span><span class="o">.</span><span class="n">array_equal</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">y</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">b</span><span class="o">.</span><span class="n">y</span><span class="o">.</span><span class="n">data</span><span class="p">)</span>
+    <span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_apply_ufunc</span><span class="p">(</span><span class="n">ufunc</span><span class="p">,</span> <span class="n">this</span><span class="p">,</span> <span class="n">args</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="n">ufname</span> <span class="o">=</span> <span class="n">ufunc</span><span class="o">.</span><span class="vm">__name__</span>
+    <span class="n">rasters</span> <span class="o">=</span> <span class="p">[</span><span class="n">a</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">args</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">Raster</span><span class="p">)]</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">rasters</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">matched</span> <span class="o">=</span> <span class="nb">iter</span><span class="p">(</span><span class="n">_match_raster_grids</span><span class="p">(</span><span class="n">rasters</span><span class="p">))</span>
+        <span class="n">args</span> <span class="o">=</span> <span class="p">[</span><span class="nb">next</span><span class="p">(</span><span class="n">matched</span><span class="p">)</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">Raster</span><span class="p">)</span> <span class="k">else</span> <span class="n">a</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">args</span><span class="p">]</span>
+        <span class="n">rasters</span> <span class="o">=</span> <span class="p">[</span><span class="n">a</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">args</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">Raster</span><span class="p">)]</span>
+    <span class="n">args</span> <span class="o">=</span> <span class="n">_cast_python_scalars</span><span class="p">(</span><span class="n">args</span><span class="p">,</span> <span class="n">ufname</span><span class="p">,</span> <span class="n">rasters</span><span class="p">)</span>
     <span class="n">types</span> <span class="o">=</span> <span class="p">[</span><span class="nb">getattr</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="s2">"dtype"</span><span class="p">,</span> <span class="nb">type</span><span class="p">(</span><span class="n">a</span><span class="p">))</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">args</span><span class="p">]</span>
-    <span class="n">masked</span> <span class="o">=</span> <span class="nb">any</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="s2">"_masked"</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">args</span><span class="p">)</span>
+    <span class="n">masked</span> <span class="o">=</span> <span class="nb">any</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">_masked</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">rasters</span><span class="p">)</span>
     <span class="n">ufunc_args</span> <span class="o">=</span> <span class="p">[</span><span class="nb">getattr</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="s2">"xdata"</span><span class="p">,</span> <span class="n">a</span><span class="p">)</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">args</span><span class="p">]</span>
-    <span class="n">kwargs</span> <span class="o">=</span> <span class="n">kwargs</span> <span class="ow">or</span> <span class="p">{}</span>
-    <span class="n">out_crs</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="k">if</span> <span class="n">this</span><span class="o">.</span><span class="n">crs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">out_crs</span> <span class="o">=</span> <span class="n">this</span><span class="o">.</span><span class="n">crs</span>
-    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">Raster</span><span class="p">)</span> <span class="ow">and</span> <span class="n">other</span><span class="o">.</span><span class="n">crs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">out_crs</span> <span class="o">=</span> <span class="n">other</span><span class="o">.</span><span class="n">crs</span>
+    <span class="n">out_crs</span> <span class="o">=</span> <span class="n">this</span><span class="o">.</span><span class="n">crs</span>
+    <span class="k">if</span> <span class="n">out_crs</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">out_crs</span> <span class="o">=</span> <span class="nb">next</span><span class="p">((</span><span class="n">r</span><span class="o">.</span><span class="n">crs</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">rasters</span> <span class="k">if</span> <span class="n">r</span><span class="o">.</span><span class="n">crs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">),</span> <span class="kc">None</span><span class="p">)</span>
 
     <span class="k">if</span> <span class="n">ufname</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">"bitwise"</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">any</span><span class="p">(</span><span class="n">is_float</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">types</span><span class="p">):</span>
         <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
@@ -678,49 +945,41 @@ document.write(`
             <span class="s2">" integer dtype (e.g. 'raster.astype(int)')."</span>
         <span class="p">)</span>
 
-    <span class="n">xr_out</span> <span class="o">=</span> <span class="n">ufunc</span><span class="p">(</span><span class="o">*</span><span class="n">ufunc_args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
-    <span class="n">multi_out</span> <span class="o">=</span> <span class="n">ufunc</span><span class="o">.</span><span class="n">nout</span> <span class="o">&gt;</span> <span class="mi">1</span>
-    <span class="k">if</span> <span class="ow">not</span> <span class="n">masked</span><span class="p">:</span>
-        <span class="n">mask</span> <span class="o">=</span> <span class="n">get_mask_from_data</span><span class="p">(</span><span class="n">xr_out</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">multi_out</span><span class="p">:</span>
-            <span class="n">xmask</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">(</span><span class="n">mask</span><span class="p">,</span> <span class="n">dims</span><span class="o">=</span><span class="n">xr_out</span><span class="o">.</span><span class="n">dims</span><span class="p">,</span> <span class="n">coords</span><span class="o">=</span><span class="n">xr_out</span><span class="o">.</span><span class="n">coords</span><span class="p">)</span>
-            <span class="n">xr_out</span> <span class="o">=</span> <span class="n">xr_out</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_nodata</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
-            <span class="n">ds_out</span> <span class="o">=</span> <span class="n">make_raster_ds</span><span class="p">(</span><span class="n">xr_out</span><span class="p">,</span> <span class="n">xmask</span><span class="p">)</span>
+    <span class="n">xr_outs</span> <span class="o">=</span> <span class="n">ufunc</span><span class="p">(</span><span class="o">*</span><span class="n">ufunc_args</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">ufunc</span><span class="o">.</span><span class="n">nout</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">xr_outs</span> <span class="o">=</span> <span class="p">(</span><span class="n">xr_outs</span><span class="p">,)</span>
+    <span class="k">if</span> <span class="n">out</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">_same_grid</span><span class="p">(</span><span class="n">xr_outs</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">out</span><span class="o">.</span><span class="n">xdata</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">xr_outs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="n">out</span><span class="o">.</span><span class="n">shape</span><span class="p">:</span>
+            <span class="n">change</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"shape from </span><span class="si">{</span><span class="n">out</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2"> to </span><span class="si">{</span><span class="n">xr_outs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">"</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">xmask</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">(</span>
-                <span class="n">mask</span><span class="p">,</span> <span class="n">dims</span><span class="o">=</span><span class="n">xr_out</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">dims</span><span class="p">,</span> <span class="n">coords</span><span class="o">=</span><span class="n">xr_out</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">coords</span>
-            <span class="p">)</span>
-            <span class="n">xr_out</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_nodata</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">xr_out</span><span class="p">]</span>
-            <span class="n">ds_out</span> <span class="o">=</span> <span class="p">[</span><span class="n">make_raster_ds</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">xmask</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">xr_out</span><span class="p">]</span>
+            <span class="n">change</span> <span class="o">=</span> <span class="s2">"coordinates"</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">"An in-place operation cannot change the grid or band count of"</span>
+            <span class="sa">f</span><span class="s2">" the raster it modifies, but this one would change its </span><span class="si">{</span><span class="n">change</span><span class="si">}</span><span class="s2">."</span>
+            <span class="s2">" Use a regular operation, such as 'a = a + b', instead."</span>
+        <span class="p">)</span>
+    <span class="k">if</span> <span class="n">masked</span><span class="p">:</span>
+        <span class="n">xmask</span> <span class="o">=</span> <span class="n">merge_masks</span><span class="p">([</span><span class="n">r</span><span class="o">.</span><span class="n">xmask</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">rasters</span><span class="p">])</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="n">xmask</span> <span class="o">=</span> <span class="n">merge_masks</span><span class="p">([</span><span class="n">r</span><span class="o">.</span><span class="n">xmask</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">args</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">Raster</span><span class="p">)])</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">multi_out</span><span class="p">:</span>
+        <span class="n">xmask</span> <span class="o">=</span> <span class="n">get_mask_from_data</span><span class="p">(</span><span class="n">xr_outs</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="n">ds_outs</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">xr_out</span> <span class="ow">in</span> <span class="n">xr_outs</span><span class="p">:</span>
+        <span class="n">nv</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">masked</span><span class="p">:</span>
             <span class="n">nv</span> <span class="o">=</span> <span class="n">get_default_null_value</span><span class="p">(</span><span class="n">xr_out</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
-            <span class="n">xr_out</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">xmask</span><span class="p">,</span> <span class="n">nv</span><span class="p">,</span> <span class="n">xr_out</span><span class="p">)</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_nodata</span><span class="p">(</span><span class="n">nv</span><span class="p">)</span>
-            <span class="n">ds_out</span> <span class="o">=</span> <span class="n">make_raster_ds</span><span class="p">(</span><span class="n">xr_out</span><span class="p">,</span> <span class="n">xmask</span><span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">nvs</span> <span class="o">=</span> <span class="p">[</span><span class="n">get_default_null_value</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">xr_out</span><span class="p">]</span>
-            <span class="n">xr_out</span> <span class="o">=</span> <span class="p">[</span>
-                <span class="n">xr</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">xmask</span><span class="p">,</span> <span class="n">nv</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_nodata</span><span class="p">(</span><span class="n">nv</span><span class="p">)</span>
-                <span class="k">for</span> <span class="n">x</span><span class="p">,</span> <span class="n">nv</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">xr_out</span><span class="p">,</span> <span class="n">nvs</span><span class="p">,</span> <span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-            <span class="p">]</span>
-            <span class="n">ds_out</span> <span class="o">=</span> <span class="p">[</span><span class="n">make_raster_ds</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">xmask</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">xr_out</span><span class="p">]</span>
-    <span class="k">if</span> <span class="n">out_crs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">if</span> <span class="n">multi_out</span><span class="p">:</span>
-            <span class="n">ds_out</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_crs</span><span class="p">(</span><span class="n">out_crs</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">ds_out</span><span class="p">]</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">ds_out</span> <span class="o">=</span> <span class="n">ds_out</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_crs</span><span class="p">(</span><span class="n">out_crs</span><span class="p">)</span>
+            <span class="n">xr_out</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">xmask</span><span class="p">,</span> <span class="n">nv</span><span class="p">,</span> <span class="n">xr_out</span><span class="p">)</span>
+        <span class="n">ds</span> <span class="o">=</span> <span class="n">make_raster_ds</span><span class="p">(</span><span class="n">xr_out</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_nodata</span><span class="p">(</span><span class="n">nv</span><span class="p">),</span> <span class="n">xmask</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">out_crs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">ds</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_crs</span><span class="p">(</span><span class="n">out_crs</span><span class="p">)</span>
+        <span class="n">ds_outs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ds</span><span class="p">)</span>
 
     <span class="k">if</span> <span class="n">out</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="c1"># "Inplace"</span>
-        <span class="n">out</span><span class="o">.</span><span class="n">_ds</span> <span class="o">=</span> <span class="n">ds_out</span>
+        <span class="p">(</span><span class="n">out</span><span class="o">.</span><span class="n">_ds</span><span class="p">,)</span> <span class="o">=</span> <span class="n">ds_outs</span>
         <span class="k">return</span> <span class="n">out</span>
 
-    <span class="k">if</span> <span class="ow">not</span> <span class="n">multi_out</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">Raster</span><span class="p">(</span><span class="n">ds_out</span><span class="p">,</span> <span class="n">_fast_path</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-
-    <span class="n">rs_outs</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">Raster</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">_fast_path</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">ds_out</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">rs_outs</span>
+    <span class="n">rs_outs</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">Raster</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="n">_fast_path</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="k">for</span> <span class="n">ds</span> <span class="ow">in</span> <span class="n">ds_outs</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">rs_outs</span> <span class="k">if</span> <span class="n">ufunc</span><span class="o">.</span><span class="n">nout</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="k">else</span> <span class="n">rs_outs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
 
 
 <span class="n">_UNARY_UFUNCS</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">(</span>
@@ -730,6 +989,33 @@ document.write(`
 <span class="k">if</span> <span class="n">NUMPY_GE_2_2</span><span class="p">:</span>
     <span class="n">_UNSUPPORED_UFUNCS</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">matvec</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">vecmat</span><span class="p">])</span>
 <span class="n">_UNSUPPORED_UFUNCS</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">(</span><span class="n">_UNSUPPORED_UFUNCS</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_validate_ufunc_call</span><span class="p">(</span><span class="n">ufunc</span><span class="p">,</span> <span class="n">method</span><span class="p">,</span> <span class="n">ninputs</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">,</span> <span class="n">target</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Reject ufunc calls that `target` cannot handle.</span>
+
+<span class="sd">    `kwargs` holds the ufunc keyword arguments other than ``out``, none of</span>
+<span class="sd">    which are supported. `target` names the receiving objects in error</span>
+<span class="sd">    messages, e.g. "Raster objects".</span>
+<span class="sd">    """</span>
+    <span class="k">if</span> <span class="n">kwargs</span><span class="p">:</span>
+        <span class="n">names</span> <span class="o">=</span> <span class="s2">", "</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">repr</span><span class="p">(</span><span class="n">k</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"ufunc keyword argument(s) </span><span class="si">{</span><span class="n">names</span><span class="si">}</span><span class="s2"> are not supported for"</span>
+            <span class="sa">f</span><span class="s2">" </span><span class="si">{</span><span class="n">target</span><span class="si">}</span><span class="s2">."</span>
+        <span class="p">)</span>
+    <span class="k">if</span> <span class="n">ufunc</span> <span class="ow">in</span> <span class="n">_UNSUPPORED_UFUNCS</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"ufunc </span><span class="si">{</span><span class="n">ufunc</span><span class="si">!r}</span><span class="s2"> is not supported for </span><span class="si">{</span><span class="n">target</span><span class="si">}</span><span class="s2">."</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">ufunc</span><span class="o">.</span><span class="n">signature</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">"Raster does not support gufuncs"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">method</span> <span class="o">!=</span> <span class="s2">"__call__"</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">method</span><span class="si">}</span><span class="s2"> for ufunc </span><span class="si">{</span><span class="n">ufunc</span><span class="si">!r}</span><span class="s2"> is not implemented for </span><span class="si">{</span><span class="n">target</span><span class="si">}</span><span class="s2">."</span>
+        <span class="p">)</span>
+    <span class="k">if</span> <span class="n">ninputs</span> <span class="o">&gt;</span> <span class="n">ufunc</span><span class="o">.</span><span class="n">nin</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"Too many inputs for ufunc: inputs=</span><span class="si">{</span><span class="n">ninputs</span><span class="si">}</span><span class="s2">, ufunc=</span><span class="si">{</span><span class="n">ufunc</span><span class="si">!r}</span><span class="s2">"</span>
+        <span class="p">)</span>
 
 
 <span class="k">class</span><span class="w"> </span><span class="nc">_RasterBase</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">lib</span><span class="o">.</span><span class="n">mixins</span><span class="o">.</span><span class="n">NDArrayOperatorsMixin</span><span class="p">,</span> <span class="n">_ReductionsMixin</span><span class="p">):</span>
@@ -746,8 +1032,6 @@ document.write(`
         <span class="nb">tuple</span><span class="p">,</span>
         <span class="nb">range</span><span class="p">,</span>
     <span class="p">)</span>
-    <span class="c1"># Higher than xarray objects</span>
-    <span class="n">__array_priority__</span> <span class="o">=</span> <span class="mi">70</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">__array_ufunc__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ufunc</span><span class="p">,</span> <span class="n">method</span><span class="p">,</span> <span class="o">*</span><span class="n">inputs</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="n">out</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">"out"</span><span class="p">,</span> <span class="p">())</span>
@@ -755,25 +1039,9 @@ document.write(`
             <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_HANDLED_TYPES</span> <span class="o">+</span> <span class="p">(</span><span class="n">_RasterBase</span><span class="p">,)):</span>
                 <span class="k">return</span> <span class="bp">NotImplemented</span>
 
-        <span class="k">if</span> <span class="n">ufunc</span> <span class="ow">in</span> <span class="n">_UNSUPPORED_UFUNCS</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">"Raster objects are not supported for ufunc: '</span><span class="si">{</span><span class="n">ufunc</span><span class="si">}</span><span class="s2">'."</span>
-            <span class="p">)</span>
-
-        <span class="k">if</span> <span class="n">ufunc</span><span class="o">.</span><span class="n">signature</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">"Raster does not support gufuncs"</span><span class="p">)</span>
-
-        <span class="k">if</span> <span class="n">method</span> <span class="o">!=</span> <span class="s2">"__call__"</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">method</span><span class="si">}</span><span class="s2"> for ufunc </span><span class="si">{</span><span class="n">ufunc</span><span class="si">}</span><span class="s2"> is not implemented on Raster "</span>
-                <span class="s2">"objects."</span>
-            <span class="p">)</span>
-
-        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">inputs</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">ufunc</span><span class="o">.</span><span class="n">nin</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
-                <span class="s2">"Too many inputs for ufunc:"</span>
-                <span class="sa">f</span><span class="s2">" inputs=</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">inputs</span><span class="p">)</span><span class="si">}</span><span class="s2">, ufunc=</span><span class="si">{</span><span class="n">ufunc</span><span class="si">!r}</span><span class="s2">"</span>
-            <span class="p">)</span>
+        <span class="n">_validate_ufunc_call</span><span class="p">(</span>
+            <span class="n">ufunc</span><span class="p">,</span> <span class="n">method</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">inputs</span><span class="p">),</span> <span class="n">kwargs</span><span class="p">,</span> <span class="s2">"Raster objects"</span>
+        <span class="p">)</span>
 
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">out</span><span class="p">):</span>
             <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">out</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
@@ -789,35 +1057,28 @@ document.write(`
         <span class="k">else</span><span class="p">:</span>
             <span class="n">out</span> <span class="o">=</span> <span class="kc">None</span>
 
-        <span class="n">left</span> <span class="o">=</span> <span class="n">inputs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-        <span class="n">right</span> <span class="o">=</span> <span class="n">inputs</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">if</span> <span class="n">ufunc</span><span class="o">.</span><span class="n">nin</span> <span class="o">==</span> <span class="mi">2</span> <span class="k">else</span> <span class="kc">None</span>
-        <span class="n">other</span> <span class="o">=</span> <span class="n">left</span> <span class="k">if</span> <span class="n">left</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">self</span> <span class="k">else</span> <span class="n">right</span>
-        <span class="n">other</span> <span class="o">=</span> <span class="n">_normalize_ufunc_other</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span>
-        <span class="k">if</span> <span class="bp">self</span> <span class="ow">is</span> <span class="n">left</span><span class="p">:</span>
-            <span class="n">right</span> <span class="o">=</span> <span class="n">other</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">left</span> <span class="o">=</span> <span class="n">other</span>
-
+        <span class="n">args</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">x</span> <span class="k">if</span> <span class="n">x</span> <span class="ow">is</span> <span class="bp">self</span> <span class="k">else</span> <span class="n">_normalize_ufunc_other</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">inputs</span>
+        <span class="p">]</span>
         <span class="k">try</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">_apply_ufunc</span><span class="p">(</span><span class="n">ufunc</span><span class="p">,</span> <span class="bp">self</span><span class="p">,</span> <span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="o">=</span><span class="n">right</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="n">out</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">_apply_ufunc</span><span class="p">(</span><span class="n">ufunc</span><span class="p">,</span> <span class="bp">self</span><span class="p">,</span> <span class="n">args</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="n">out</span><span class="p">)</span>
         <span class="k">except</span> <span class="ne">TypeError</span> <span class="k">as</span> <span class="n">err</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">right</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">str</span><span class="p">(</span><span class="n">err</span><span class="p">)</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span>
-                <span class="s2">"operand type(s) all returned NotImplemented from "</span>
-                <span class="s2">"__array_ufunc__"</span>
+            <span class="c1"># The xarray/dask layers report a dtype combination the ufunc has</span>
+            <span class="c1"># no loop for in terms of dask arrays. Restate it with the types</span>
+            <span class="c1"># the caller passed.</span>
+            <span class="k">if</span> <span class="n">ufunc</span><span class="o">.</span><span class="n">nin</span> <span class="o">==</span> <span class="mi">2</span> <span class="ow">and</span> <span class="nb">str</span><span class="p">(</span><span class="n">err</span><span class="p">)</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span>
+                <span class="s2">"operand type(s) all returned NotImplemented from"</span>
+                <span class="s2">" __array_ufunc__"</span>
             <span class="p">):</span>
-                <span class="n">msgs</span> <span class="o">=</span> <span class="p">[]</span>
-                <span class="k">for</span> <span class="n">obj</span> <span class="ow">in</span> <span class="p">(</span><span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">):</span>
-                    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">Raster</span><span class="p">):</span>
-                        <span class="n">msg</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"Raster&lt;</span><span class="si">{</span><span class="n">obj</span><span class="o">.</span><span class="n">dtype</span><span class="si">}</span><span class="s2">&gt;"</span>
-                    <span class="k">else</span><span class="p">:</span>
-                        <span class="n">msg</span> <span class="o">=</span> <span class="nb">type</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span>
-                    <span class="n">msgs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
-                <span class="n">left_msg</span><span class="p">,</span> <span class="n">right_msg</span> <span class="o">=</span> <span class="n">msgs</span>
+                <span class="n">left_msg</span><span class="p">,</span> <span class="n">right_msg</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">"Raster&lt;</span><span class="si">{</span><span class="n">a</span><span class="o">.</span><span class="n">dtype</span><span class="si">}</span><span class="s2">&gt;"</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">Raster</span><span class="p">)</span> <span class="k">else</span> <span class="nb">type</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+                    <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">args</span>
+                <span class="p">)</span>
                 <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">"Could not apply </span><span class="si">{</span><span class="n">ufunc</span><span class="si">}</span><span class="s2"> to types "</span>
-                    <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">left_msg</span><span class="si">}</span><span class="s2"> and </span><span class="si">{</span><span class="n">right_msg</span><span class="si">}</span><span class="s2">"</span>
+                    <span class="sa">f</span><span class="s2">"Could not apply </span><span class="si">{</span><span class="n">ufunc</span><span class="si">}</span><span class="s2"> to types </span><span class="si">{</span><span class="n">left_msg</span><span class="si">}</span><span class="s2"> and"</span>
+                    <span class="sa">f</span><span class="s2">" </span><span class="si">{</span><span class="n">right_msg</span><span class="si">}</span><span class="s2">"</span>
                 <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">err</span>
-            <span class="k">raise</span> <span class="n">err</span>
+            <span class="k">raise</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">__array__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="n">kwargs</span> <span class="o">=</span> <span class="p">{}</span>
@@ -858,8 +1119,6 @@ document.write(`
         <span class="nb">tuple</span><span class="p">,</span>
         <span class="nb">range</span><span class="p">,</span>
     <span class="p">)</span>
-    <span class="c1"># Higher than xarray objects</span>
-    <span class="n">__array_priority__</span> <span class="o">=</span> <span class="mi">70</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">raster</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_raster</span> <span class="o">=</span> <span class="n">raster</span>
@@ -888,43 +1147,22 @@ document.write(`
                 <span class="sa">f</span><span class="s2">" </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">inputs</span><span class="p">)</span><span class="si">}</span><span class="s2"> given."</span>
             <span class="p">)</span>
 
-        <span class="k">if</span> <span class="n">ufunc</span> <span class="ow">in</span> <span class="n">_UNSUPPORED_UFUNCS</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
-                <span class="s2">"The given ufunc is not supported for bandwise operations:"</span>
-                <span class="sa">f</span><span class="s2">" </span><span class="si">{</span><span class="n">ufunc</span><span class="si">!r}</span><span class="s2">."</span>
-            <span class="p">)</span>
-
-        <span class="k">if</span> <span class="n">ufunc</span><span class="o">.</span><span class="n">signature</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">"Raster does not support gufuncs"</span><span class="p">)</span>
-
-        <span class="k">if</span> <span class="n">method</span> <span class="o">!=</span> <span class="s2">"__call__"</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">method</span><span class="si">}</span><span class="s2"> for ufunc </span><span class="si">{</span><span class="n">ufunc</span><span class="si">}</span><span class="s2"> is not implemented for bandwise "</span>
-                <span class="s2">" operations."</span>
-            <span class="p">)</span>
-
-        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">inputs</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">ufunc</span><span class="o">.</span><span class="n">nin</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
-                <span class="s2">"Too many inputs for ufunc:"</span>
-                <span class="sa">f</span><span class="s2">" inputs=</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">inputs</span><span class="p">)</span><span class="si">}</span><span class="s2">, ufunc=</span><span class="si">{</span><span class="n">ufunc</span><span class="si">!r}</span><span class="s2">"</span>
-            <span class="p">)</span>
+        <span class="n">_validate_ufunc_call</span><span class="p">(</span>
+            <span class="n">ufunc</span><span class="p">,</span> <span class="n">method</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">inputs</span><span class="p">),</span> <span class="n">kwargs</span><span class="p">,</span> <span class="s2">"bandwise operations"</span>
+        <span class="p">)</span>
 
         <span class="k">if</span> <span class="n">out</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
                 <span class="s2">"The 'out' keyword is not supported for bandwise operations"</span>
             <span class="p">)</span>
 
-        <span class="n">left</span><span class="p">,</span> <span class="n">right</span> <span class="o">=</span> <span class="n">inputs</span>
-        <span class="n">other</span> <span class="o">=</span> <span class="n">left</span> <span class="k">if</span> <span class="n">left</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">self</span> <span class="k">else</span> <span class="n">right</span>
-        <span class="n">other</span> <span class="o">=</span> <span class="n">_normalize_bandwise_other</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_raster</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
-        <span class="k">if</span> <span class="bp">self</span> <span class="ow">is</span> <span class="n">left</span><span class="p">:</span>
-            <span class="n">left</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_raster</span>
-            <span class="n">right</span> <span class="o">=</span> <span class="n">other</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">left</span> <span class="o">=</span> <span class="n">other</span>
-            <span class="n">right</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_raster</span>
-
-        <span class="k">return</span> <span class="n">ufunc</span><span class="p">(</span><span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="n">args</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_raster</span>
+            <span class="k">if</span> <span class="n">x</span> <span class="ow">is</span> <span class="bp">self</span>
+            <span class="k">else</span> <span class="n">_normalize_bandwise_other</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_raster</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">inputs</span>
+        <span class="p">]</span>
+        <span class="k">return</span> <span class="n">ufunc</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">xr_where_with_meta</span><span class="p">(</span><span class="n">cond</span><span class="p">,</span> <span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">,</span> <span class="n">crs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">nv</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
@@ -1789,6 +2027,23 @@ document.write(`
 <span class="sd">    sources to be built in a lazy fashion and then evaluated effiently.</span>
 <span class="sd">    Most mathematical operations have been overloaded so operations such as</span>
 <span class="sd">    ``z = x - y`` and ``r = x**2`` are possible.</span>
+
+<span class="sd">    Two Rasters can be combined if they share a CRS and cell size and their</span>
+<span class="sd">    grids are offset by a whole number of cells. The result covers their</span>
+<span class="sd">    overlap. Otherwise a ValueError is raised and one raster must be</span>
+<span class="sd">    reprojected onto the other's grid first. Bands are matched by position:</span>
+<span class="sd">    the Rasters must have the same number of bands, or one of them must have</span>
+<span class="sd">    a single band, which is applied to every band of the other. In-place</span>
+<span class="sd">    operations (``x += y``) raise a ValueError if the result would not have</span>
+<span class="sd">    the same grid and band count as ``x``.</span>
+
+<span class="sd">    When combining a Raster with an :class:`xarray.DataArray`, the Raster must</span>
+<span class="sd">    be the left operand (``raster + dataarray``), or the DataArray should be</span>
+<span class="sd">    wrapped first (``Raster(dataarray) + raster``). With the DataArray on the</span>
+<span class="sd">    left, xarray converts the Raster to a numpy array through ``__array__``.</span>
+<span class="sd">    This computes the Raster eagerly and drops its null mask, so its null</span>
+<span class="sd">    cells enter the operation as plain values, and the result is a</span>
+<span class="sd">    numpy-backed DataArray rather than a Raster.</span>
 
 <span class="sd">    All operations on a Raster return a new Raster.</span>
 
