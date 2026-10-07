@@ -89,19 +89,6 @@ _REDUCTION_DOCSTRING = """\
 """
 
 
-def _inject_reductions(cls):
-    pass
-    funcs = [(name, getattr(np, name)) for name in _REDUCTION_FUNCS]
-    funcs += [
-        (name, getattr(np, "nan" + name)) for name in _NAN_REDUCTION_FUNCS
-    ]
-    for name, f in funcs:
-        func = cls._build_reduce_method(f)
-        func.__name__ = name
-        func.__doc__ = _REDUCTION_DOCSTRING.format(name)
-        setattr(cls, name, func)
-
-
 _MIN_MAX_FUNC_MAP = {
     np.max: dask_nanmax,
     np.nanmax: dask_nanmax,
@@ -110,6 +97,31 @@ _MIN_MAX_FUNC_MAP = {
 }
 
 
+def _build_reduce_method(name, func):
+    func = _MIN_MAX_FUNC_MAP.get(func, func)
+
+    def method(self, *args, **kwargs):
+        # Take args and kwargs to stay compatible with numpy
+        data = self.data
+        values = data[~self._ds.mask.data]
+        return func(values)
+
+    method.__name__ = name
+    method.__doc__ = _REDUCTION_DOCSTRING.format(name)
+    return method
+
+
+def _add_reductions(cls):
+    funcs = [(name, getattr(np, name)) for name in _REDUCTION_FUNCS]
+    funcs += [
+        (name, getattr(np, "nan" + name)) for name in _NAN_REDUCTION_FUNCS
+    ]
+    for name, func in funcs:
+        setattr(cls, name, _build_reduce_method(name, func))
+    return cls
+
+
+@_add_reductions
 class _ReductionsMixin:
     """
     This mixin class adds reduction methods like `all`, `sum`, etc to the
@@ -119,23 +131,6 @@ class _ReductionsMixin:
     """
 
     __slots__ = ()
-
-    def __init_subclass__(cls, **kwargs):
-        _inject_reductions(cls)
-        super().__init_subclass__(**kwargs)
-
-    @classmethod
-    def _build_reduce_method(cls, func):
-        if func in _MIN_MAX_FUNC_MAP:
-            func = _MIN_MAX_FUNC_MAP[func]
-
-        def method(self, *args, **kwargs):
-            # Take args and kwargs to stay compatible with numpy
-            data = self.data
-            values = data[~self._ds.mask.data]
-            return func(values)
-
-        return method
 
 
 # Curated driver -> extension table, consulted before rasterio's reverse
@@ -173,12 +168,9 @@ def _ext_for_driver(driver):
 
 
 def _normalize_ufunc_other(other, this):
-    if other is None or isinstance(other, numbers.Number):
+    if isinstance(other, numbers.Number):
         return other
-
-    if isinstance(other, xr.Dataset):
-        return Raster(other)
-    elif isinstance(other, (list, tuple, range, np.ndarray, da.Array)):
+    if isinstance(other, (list, tuple, range, np.ndarray, da.Array)):
         # allow only if broadcastable
         if isinstance(other, da.Array) and np.isnan(other.size):
             raise ValueError("Dask arrays must have known chunks")
@@ -192,39 +184,32 @@ def _normalize_ufunc_other(other, this):
                 msg += " Did you mean to use Raster.bandwise?"
             raise ValueError(msg)
         return other
-    elif isinstance(other, xr.DataArray):
+    if isinstance(other, xr.DataArray):
         return Raster(other)
-    else:
-        assert isinstance(other, Raster)
+    assert isinstance(other, Raster)
     return other
 
 
-def _apply_ufunc(ufunc, this, left, right=None, kwargs=None, out=None):
+def _apply_ufunc(ufunc, this, args, out=None):
     ufname = ufunc.__name__
     if NUMPY_GE_2:
         # If the ufunc is ldexp and the left arg is a python scalar, casting
         # causes the resulting dtype to be different from the analongous
         # (scalar X numpy-array) combination. So we disable casting for this
         # special case.
-        if type(left) in (int, float) and ufname != "ldexp":
-            left = np.int64(left) if type(left) is int else np.float64(left)
-        if type(right) in (int, float):
-            right = (
-                np.int64(right) if type(right) is int else np.float64(right)
-            )
-    args = [left]
-    if right is not None:
-        args.append(right)
-    other = left if left is not this else right
+        args = [
+            (np.int64(a) if type(a) is int else np.float64(a))
+            if type(a) in (int, float) and not (i == 0 and ufname == "ldexp")
+            else a
+            for i, a in enumerate(args)
+        ]
+    rasters = [a for a in args if isinstance(a, Raster)]
     types = [getattr(a, "dtype", type(a)) for a in args]
-    masked = any(getattr(r, "_masked", False) for r in args)
+    masked = any(r._masked for r in rasters)
     ufunc_args = [getattr(a, "xdata", a) for a in args]
-    kwargs = kwargs or {}
-    out_crs = None
-    if this.crs is not None:
-        out_crs = this.crs
-    elif isinstance(other, Raster) and other.crs is not None:
-        out_crs = other.crs
+    out_crs = this.crs
+    if out_crs is None:
+        out_crs = next((r.crs for r in rasters if r.crs is not None), None)
 
     if ufname.startswith("bitwise") and any(is_float(t) for t in types):
         raise TypeError(
@@ -239,49 +224,31 @@ def _apply_ufunc(ufunc, this, left, right=None, kwargs=None, out=None):
             " integer dtype (e.g. 'raster.astype(int)')."
         )
 
-    xr_out = ufunc(*ufunc_args, **kwargs)
-    multi_out = ufunc.nout > 1
-    if not masked:
-        mask = get_mask_from_data(xr_out, None)
-        if not multi_out:
-            xmask = xr.DataArray(mask, dims=xr_out.dims, coords=xr_out.coords)
-            xr_out = xr_out.rio.write_nodata(None)
-            ds_out = make_raster_ds(xr_out, xmask)
-        else:
-            xmask = xr.DataArray(
-                mask, dims=xr_out[0].dims, coords=xr_out[0].coords
-            )
-            xr_out = [x.rio.write_nodata(None) for x in xr_out]
-            ds_out = [make_raster_ds(x, xmask) for x in xr_out]
+    xr_outs = ufunc(*ufunc_args)
+    if ufunc.nout == 1:
+        xr_outs = (xr_outs,)
+    if masked:
+        xmask = merge_masks([r.xmask for r in rasters])
     else:
-        xmask = merge_masks([r.xmask for r in args if isinstance(r, Raster)])
-        if not multi_out:
+        xmask = get_mask_from_data(xr_outs[0], None)
+    ds_outs = []
+    for xr_out in xr_outs:
+        nv = None
+        if masked:
             nv = get_default_null_value(xr_out.dtype)
-            xr_out = xr.where(xmask, nv, xr_out).rio.write_nodata(nv)
-            ds_out = make_raster_ds(xr_out, xmask)
-        else:
-            nvs = [get_default_null_value(x.dtype) for x in xr_out]
-            xr_out = [
-                xr.where(xmask, nv, x).rio.write_nodata(nv)
-                for x, nv in zip(xr_out, nvs, strict=True)
-            ]
-            ds_out = [make_raster_ds(x, xmask) for x in xr_out]
-    if out_crs is not None:
-        if multi_out:
-            ds_out = [x.rio.write_crs(out_crs) for x in ds_out]
-        else:
-            ds_out = ds_out.rio.write_crs(out_crs)
+            xr_out = xr.where(xmask, nv, xr_out)
+        ds = make_raster_ds(xr_out.rio.write_nodata(nv), xmask)
+        if out_crs is not None:
+            ds = ds.rio.write_crs(out_crs)
+        ds_outs.append(ds)
 
     if out is not None:
         # "Inplace"
-        out._ds = ds_out
+        (out._ds,) = ds_outs
         return out
 
-    if not multi_out:
-        return Raster(ds_out, _fast_path=True)
-
-    rs_outs = tuple(Raster(x, _fast_path=True) for x in ds_out)
-    return rs_outs
+    rs_outs = tuple(Raster(ds, _fast_path=True) for ds in ds_outs)
+    return rs_outs if ufunc.nout > 1 else rs_outs[0]
 
 
 _UNARY_UFUNCS = frozenset(
@@ -291,6 +258,26 @@ _UNSUPPORED_UFUNCS = [np.isnat, np.matmul]
 if NUMPY_GE_2_2:
     _UNSUPPORED_UFUNCS.extend([np.matvec, np.vecmat])
 _UNSUPPORED_UFUNCS = frozenset(_UNSUPPORED_UFUNCS)
+
+
+def _validate_ufunc_call(ufunc, method, ninputs, target):
+    """Reject ufunc calls that `target` cannot handle.
+
+    `target` names the receiving objects in error messages, e.g. "Raster
+    objects".
+    """
+    if ufunc in _UNSUPPORED_UFUNCS:
+        raise TypeError(f"ufunc {ufunc!r} is not supported for {target}.")
+    if ufunc.signature is not None:
+        raise NotImplementedError("Raster does not support gufuncs")
+    if method != "__call__":
+        raise NotImplementedError(
+            f"{method} for ufunc {ufunc!r} is not implemented for {target}."
+        )
+    if ninputs > ufunc.nin:
+        raise TypeError(
+            f"Too many inputs for ufunc: inputs={ninputs}, ufunc={ufunc!r}"
+        )
 
 
 class _RasterBase(np.lib.mixins.NDArrayOperatorsMixin, _ReductionsMixin):
@@ -307,8 +294,6 @@ class _RasterBase(np.lib.mixins.NDArrayOperatorsMixin, _ReductionsMixin):
         tuple,
         range,
     )
-    # Higher than xarray objects
-    __array_priority__ = 70
 
     def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
         out = kwargs.pop("out", ())
@@ -316,25 +301,7 @@ class _RasterBase(np.lib.mixins.NDArrayOperatorsMixin, _ReductionsMixin):
             if not isinstance(x, self._HANDLED_TYPES + (_RasterBase,)):
                 return NotImplemented
 
-        if ufunc in _UNSUPPORED_UFUNCS:
-            raise TypeError(
-                f"Raster objects are not supported for ufunc: '{ufunc}'."
-            )
-
-        if ufunc.signature is not None:
-            raise NotImplementedError("Raster does not support gufuncs")
-
-        if method != "__call__":
-            raise NotImplementedError(
-                f"{method} for ufunc {ufunc} is not implemented on Raster "
-                "objects."
-            )
-
-        if len(inputs) > ufunc.nin:
-            raise TypeError(
-                "Too many inputs for ufunc:"
-                f" inputs={len(inputs)}, ufunc={ufunc!r}"
-            )
+        _validate_ufunc_call(ufunc, method, len(inputs), "Raster objects")
 
         if len(out):
             if len(out) > 1:
@@ -350,35 +317,28 @@ class _RasterBase(np.lib.mixins.NDArrayOperatorsMixin, _ReductionsMixin):
         else:
             out = None
 
-        left = inputs[0]
-        right = inputs[1] if ufunc.nin == 2 else None
-        other = left if left is not self else right
-        other = _normalize_ufunc_other(other, self)
-        if self is left:
-            right = other
-        else:
-            left = other
-
+        args = [
+            x if x is self else _normalize_ufunc_other(x, self) for x in inputs
+        ]
         try:
-            return _apply_ufunc(ufunc, self, left, right=right, out=out)
+            return _apply_ufunc(ufunc, self, args, out=out)
         except TypeError as err:
-            if right is not None and str(err).startswith(
-                "operand type(s) all returned NotImplemented from "
-                "__array_ufunc__"
+            # The xarray/dask layers report a dtype combination the ufunc has
+            # no loop for in terms of dask arrays. Restate it with the types
+            # the caller passed.
+            if ufunc.nin == 2 and str(err).startswith(
+                "operand type(s) all returned NotImplemented from"
+                " __array_ufunc__"
             ):
-                msgs = []
-                for obj in (left, right):
-                    if isinstance(obj, Raster):
-                        msg = f"Raster<{obj.dtype}>"
-                    else:
-                        msg = type(obj)
-                    msgs.append(msg)
-                left_msg, right_msg = msgs
+                left_msg, right_msg = (
+                    f"Raster<{a.dtype}>" if isinstance(a, Raster) else type(a)
+                    for a in args
+                )
                 raise TypeError(
-                    f"Could not apply {ufunc} to types "
-                    f"{left_msg} and {right_msg}"
+                    f"Could not apply {ufunc} to types {left_msg} and"
+                    f" {right_msg}"
                 ) from err
-            raise err
+            raise
 
     def __array__(self, dtype=None, copy=None):
         kwargs = {}
@@ -419,8 +379,6 @@ class BandwiseOperationAdapter(np.lib.mixins.NDArrayOperatorsMixin):
         tuple,
         range,
     )
-    # Higher than xarray objects
-    __array_priority__ = 70
 
     def __init__(self, raster):
         self._raster = raster
@@ -449,43 +407,20 @@ class BandwiseOperationAdapter(np.lib.mixins.NDArrayOperatorsMixin):
                 f" {len(inputs)} given."
             )
 
-        if ufunc in _UNSUPPORED_UFUNCS:
-            raise TypeError(
-                "The given ufunc is not supported for bandwise operations:"
-                f" {ufunc!r}."
-            )
-
-        if ufunc.signature is not None:
-            raise NotImplementedError("Raster does not support gufuncs")
-
-        if method != "__call__":
-            raise NotImplementedError(
-                f"{method} for ufunc {ufunc} is not implemented for bandwise "
-                " operations."
-            )
-
-        if len(inputs) > ufunc.nin:
-            raise TypeError(
-                "Too many inputs for ufunc:"
-                f" inputs={len(inputs)}, ufunc={ufunc!r}"
-            )
+        _validate_ufunc_call(ufunc, method, len(inputs), "bandwise operations")
 
         if out is not None:
             raise NotImplementedError(
                 "The 'out' keyword is not supported for bandwise operations"
             )
 
-        left, right = inputs
-        other = left if left is not self else right
-        other = _normalize_bandwise_other(other, self._raster.shape)
-        if self is left:
-            left = self._raster
-            right = other
-        else:
-            left = other
-            right = self._raster
-
-        return ufunc(left, right, **kwargs)
+        args = [
+            self._raster
+            if x is self
+            else _normalize_bandwise_other(x, self._raster.shape)
+            for x in inputs
+        ]
+        return ufunc(*args, **kwargs)
 
 
 def xr_where_with_meta(cond, left, right, crs=None, nv=None):
