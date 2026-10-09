@@ -535,7 +535,8 @@ corresponding source location.</p>
 <li><p><strong>costs</strong> (<a class="reference internal" href="raster_tools.Raster.html#raster_tools.Raster" title="raster_tools.Raster"><em>Raster</em></a><em> or </em><em>raster path</em>) – A raster representing a cost surface. Values less than 0 are treated as
 null values.</p></li>
 <li><p><strong>sources</strong> (<a class="reference internal" href="raster_tools.Raster.html#raster_tools.Raster" title="raster_tools.Raster"><em>Raster</em></a><em> or </em><em>raster path</em><em>, or </em><em>sequence</em>) – A raster or sequence of indices. If a raster, pixels that are not null
-are used as source locations. The raster must have a null value set.
+are used as source locations. The raster must have a null value set
+and be on the same grid as <cite>costs</cite>.
 The values at valid locations are used as the corresponding values in
 the allocation output. If a sequence, must have shape (M, 2) where M is
 the number of source pixels. Each item represents an index into <cite>costs</cite>

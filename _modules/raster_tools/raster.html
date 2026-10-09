@@ -1325,17 +1325,52 @@ document.write(`
     <span class="k">return</span> <span class="n">xdata</span>
 
 
+<span class="k">def</span><span class="w"> </span><span class="nf">stored_transform</span><span class="p">(</span><span class="n">xdata</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""The affine transform stored with raster xarray data, or None.</span>
+
+<span class="sd">    Reads the GDAL GeoTransform attribute of the CF grid-mapping coordinate,</span>
+<span class="sd">    where rioxarray (write_transform, write_crs, open_rasterio) and odc-geo</span>
+<span class="sd">    store it. Works for DataArray and Dataset objects. Returns None if there</span>
+<span class="sd">    is no such coordinate or attribute. A GeoTransform that is not a string</span>
+<span class="sd">    of six finite numbers is ignored with a warning.</span>
+<span class="sd">    """</span>
+    <span class="n">coord</span> <span class="o">=</span> <span class="n">xdata</span><span class="o">.</span><span class="n">coords</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">xdata</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">grid_mapping</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">coord</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="n">text</span> <span class="o">=</span> <span class="n">coord</span><span class="o">.</span><span class="n">attrs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"GeoTransform"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">text</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="n">values</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">text</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">values</span> <span class="o">=</span> <span class="p">[</span><span class="nb">float</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">text</span><span class="o">.</span><span class="n">split</span><span class="p">()]</span>
+        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+            <span class="n">values</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">values</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">6</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">values</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">():</span>
+        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"Ignoring the GeoTransform attribute </span><span class="si">{</span><span class="n">text</span><span class="si">!r}</span><span class="s2"> on the "</span>
+            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">coord</span><span class="o">.</span><span class="n">name</span><span class="si">!r}</span><span class="s2"> coordinate because it is not a string of six "</span>
+            <span class="s2">"finite numbers. The grid is taken from the x and y coordinates "</span>
+            <span class="s2">"instead."</span><span class="p">,</span>
+            <span class="ne">UserWarning</span><span class="p">,</span>
+            <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="k">return</span> <span class="n">Affine</span><span class="o">.</span><span class="n">from_gdal</span><span class="p">(</span><span class="o">*</span><span class="n">values</span><span class="p">)</span>
+
+
 <span class="k">def</span><span class="w"> </span><span class="nf">grid_transform</span><span class="p">(</span><span class="n">xdata</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">"""Affine transform of raster xarray data with x increasing, y decreasing.</span>
 
 <span class="sd">    The cell size along an axis with more than one cell comes from the</span>
-<span class="sd">    coordinates. Along a length-1 axis, it is the size in the transform</span>
-<span class="sd">    stored with the data, if there is one. Otherwise cells are assumed to be</span>
-<span class="sd">    square, and a 1x1 raster gets cells of size 1. The origin always comes</span>
-<span class="sd">    from the coordinates, so a slice of a raster keeps its parent's cell size</span>
-<span class="sd">    and gets its own origin.</span>
+<span class="sd">    coordinates. Along a length-1 axis, it is the size in the GeoTransform</span>
+<span class="sd">    stored on the grid-mapping coordinate, if there is one (see</span>
+<span class="sd">    stored_transform). Otherwise cells are assumed to be square, and a 1x1</span>
+<span class="sd">    raster gets cells of size 1. The origin always comes from the</span>
+<span class="sd">    coordinates, so a slice of a raster keeps its parent's cell size and gets</span>
+<span class="sd">    its own origin. A rotated or sheared stored transform is returned as is.</span>
 <span class="sd">    """</span>
-    <span class="n">stored</span> <span class="o">=</span> <span class="n">xdata</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">_cached_transform</span><span class="p">()</span>
+    <span class="n">stored</span> <span class="o">=</span> <span class="n">stored_transform</span><span class="p">(</span><span class="n">xdata</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">stored</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="p">(</span><span class="n">stored</span><span class="o">.</span><span class="n">b</span> <span class="ow">or</span> <span class="n">stored</span><span class="o">.</span><span class="n">d</span><span class="p">):</span>
         <span class="c1"># Coordinates cannot describe a rotated or sheared grid</span>
         <span class="k">return</span> <span class="n">stored</span>

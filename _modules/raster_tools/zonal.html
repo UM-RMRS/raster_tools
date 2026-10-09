@@ -449,6 +449,8 @@ document.write(`
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
 
+<span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools._align</span><span class="w"> </span><span class="kn">import</span> <span class="n">_raster_geobox</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools._grids</span><span class="w"> </span><span class="kn">import</span> <span class="n">are_all_grids_same</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.dtypes</span><span class="w"> </span><span class="kn">import</span> <span class="n">F64</span><span class="p">,</span> <span class="n">I64</span><span class="p">,</span> <span class="n">is_float</span><span class="p">,</span> <span class="n">is_int</span><span class="p">,</span> <span class="n">is_str</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.raster</span><span class="w"> </span><span class="kn">import</span> <span class="n">Raster</span><span class="p">,</span> <span class="n">get_raster</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.vector</span><span class="w"> </span><span class="kn">import</span> <span class="n">Vector</span><span class="p">,</span> <span class="n">get_vector</span>
@@ -1011,7 +1013,9 @@ document.write(`
 <span class="sd">        A `Vector` or path string pointing to a vector file or a categorical</span>
 <span class="sd">        Raster. The vector features are used like cookie cutters to pull data</span>
 <span class="sd">        from the `data_raster` bands. If `features` is a Raster, it must be an</span>
-<span class="sd">        int dtype and have only one band.</span>
+<span class="sd">        int dtype, have only one band, and be on the same grid (CRS, affine,</span>
+<span class="sd">        shape) as `data_raster`. Use :func:`~raster_tools.align` to put it on</span>
+<span class="sd">        the grid of `data_raster` first if needed.</span>
 <span class="sd">    data_raster : Raster, str</span>
 <span class="sd">        A `Raster` or path string pointing to a raster file. The data raster</span>
 <span class="sd">        to pull data from and apply the stat functions to.</span>
@@ -1172,7 +1176,19 @@ document.write(`
         <span class="k">if</span> <span class="n">features</span><span class="o">.</span><span class="n">crs</span> <span class="o">!=</span> <span class="n">data_raster</span><span class="o">.</span><span class="n">crs</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Feature raster CRS must match data raster"</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">features</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="o">!=</span> <span class="n">data_raster</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">:]:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Feature raster shape must match data raster"</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">"features raster shape must match the data raster. "</span>
+                <span class="sa">f</span><span class="s2">"Expected </span><span class="si">{</span><span class="n">data_raster</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span><span class="si">}</span><span class="s2">, got </span><span class="si">{</span><span class="n">features</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span><span class="si">}</span><span class="s2">."</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">are_all_grids_same</span><span class="p">(</span>
+            <span class="p">[</span><span class="n">_raster_geobox</span><span class="p">(</span><span class="n">features</span><span class="p">),</span> <span class="n">_raster_geobox</span><span class="p">(</span><span class="n">data_raster</span><span class="p">)]</span>
+        <span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">"features raster must be on the same grid (CRS, affine,"</span>
+                <span class="s2">" shape) as the data raster. Use raster_tools.align to put"</span>
+                <span class="s2">" the features raster on the data raster's grid first, e.g."</span>
+                <span class="s2">" data, features = align([data, features], dst_grid=data)."</span>
+            <span class="p">)</span>
 
     <span class="c1"># Rechunk based on the largest probable dtype to avoid overly large</span>
     <span class="c1"># chunks, which could cause memory issues down the pipeline. Feature</span>
@@ -1199,11 +1215,6 @@ document.write(`
     <span class="k">else</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">features</span><span class="o">.</span><span class="n">nbands</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"features raster must have a single band"</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">features</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="o">!=</span> <span class="n">data_raster</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">:]:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="s2">"features raster shape must match the data raster. "</span>
-                <span class="sa">f</span><span class="s2">"Expected </span><span class="si">{</span><span class="n">data_raster</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span><span class="si">}</span><span class="s2">, got </span><span class="si">{</span><span class="n">features</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span><span class="si">}</span><span class="s2">."</span>
-            <span class="p">)</span>
         <span class="n">features_raster</span> <span class="o">=</span> <span class="n">features</span>
 
     <span class="n">zonal_result_df</span> <span class="o">=</span> <span class="n">_zonal_stats</span><span class="p">(</span><span class="n">features_raster</span><span class="p">,</span> <span class="n">data_raster</span><span class="p">,</span> <span class="n">stats</span><span class="p">)</span>

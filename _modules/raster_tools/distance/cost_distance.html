@@ -443,7 +443,10 @@ document.write(`
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">xarray</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">xr</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">numba.types</span><span class="w"> </span><span class="kn">import</span> <span class="n">float64</span><span class="p">,</span> <span class="n">int8</span><span class="p">,</span> <span class="n">int64</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">odc.geo.geobox</span><span class="w"> </span><span class="kn">import</span> <span class="n">GeoBox</span>
 
+<span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools._align</span><span class="w"> </span><span class="kn">import</span> <span class="n">_raster_geobox</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools._grids</span><span class="w"> </span><span class="kn">import</span> <span class="n">are_all_grids_same</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.distance._heap</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">init_heap_data</span><span class="p">,</span>
     <span class="n">pop</span><span class="p">,</span>
@@ -905,6 +908,26 @@ document.write(`
 <span class="n">_TRACEBACK_NOT_REACHED</span> <span class="o">=</span> <span class="o">-</span><span class="mi">2</span>
 
 
+<span class="k">def</span><span class="w"> </span><span class="nf">_check_on_costs_grid</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">costs</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Raise if `raster` is not on the grid of the `costs` raster.</span>
+
+<span class="sd">    The CRS is compared only when both rasters have one, so a raster that</span>
+<span class="sd">    is missing a CRS is still accepted if its cells line up with `costs`.</span>
+<span class="sd">    """</span>
+    <span class="n">grid</span> <span class="o">=</span> <span class="n">_raster_geobox</span><span class="p">(</span><span class="n">raster</span><span class="p">)</span>
+    <span class="n">costs_grid</span> <span class="o">=</span> <span class="n">_raster_geobox</span><span class="p">(</span><span class="n">costs</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">raster</span><span class="o">.</span><span class="n">crs</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">costs</span><span class="o">.</span><span class="n">crs</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">grid</span> <span class="o">=</span> <span class="n">GeoBox</span><span class="p">(</span><span class="n">grid</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">grid</span><span class="o">.</span><span class="n">affine</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="n">costs_grid</span> <span class="o">=</span> <span class="n">GeoBox</span><span class="p">(</span><span class="n">costs_grid</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">costs_grid</span><span class="o">.</span><span class="n">affine</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">are_all_grids_same</span><span class="p">([</span><span class="n">grid</span><span class="p">,</span> <span class="n">costs_grid</span><span class="p">]):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">name</span><span class="o">.</span><span class="n">capitalize</span><span class="p">()</span><span class="si">}</span><span class="s2"> raster must be on the same grid (CRS,"</span>
+            <span class="s2">" affine, shape) as the costs raster. Use raster_tools.align to"</span>
+            <span class="sa">f</span><span class="s2">" put the </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> raster on the costs raster's grid first, e.g."</span>
+            <span class="sa">f</span><span class="s2">" costs, </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> = align([costs, </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">], dst_grid=costs)."</span>
+        <span class="p">)</span>
+
+
 <div class="viewcode-block" id="cost_distance_analysis"><a class="viewcode-back" href="../../../reference/generated/raster_tools.distance.cost_distance_analysis.html#raster_tools.distance.cost_distance_analysis">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">cost_distance_analysis</span><span class="p">(</span><span class="n">costs</span><span class="p">,</span> <span class="n">sources</span><span class="p">,</span> <span class="n">elevation</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">connectivity</span><span class="o">=</span><span class="mi">8</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">"""Calculate accumulated cost distance, traceback, and allocation.</span>
 
@@ -954,7 +977,8 @@ document.write(`
 <span class="sd">        null values.</span>
 <span class="sd">    sources : Raster or raster path, or sequence</span>
 <span class="sd">        A raster or sequence of indices. If a raster, pixels that are not null</span>
-<span class="sd">        are used as source locations. The raster must have a null value set.</span>
+<span class="sd">        are used as source locations. The raster must have a null value set</span>
+<span class="sd">        and be on the same grid as `costs`.</span>
 <span class="sd">        The values at valid locations are used as the corresponding values in</span>
 <span class="sd">        the allocation output. If a sequence, must have shape (M, 2) where M is</span>
 <span class="sd">        the number of source pixels. Each item represents an index into `costs`</span>
@@ -1002,6 +1026,7 @@ document.write(`
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                 <span class="s2">"Costs and elevation rasters must have the same shape"</span>
             <span class="p">)</span>
+        <span class="n">_check_on_costs_grid</span><span class="p">(</span><span class="n">elevation</span><span class="p">,</span> <span class="n">costs</span><span class="p">,</span> <span class="s2">"elevation"</span><span class="p">)</span>
 
     <span class="n">src_idxs</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">sources</span><span class="p">,</span> <span class="n">Raster</span><span class="p">)</span> <span class="ow">or</span> <span class="n">is_str</span><span class="p">(</span><span class="n">sources</span><span class="p">):</span>
@@ -1009,6 +1034,7 @@ document.write(`
             <span class="n">sources</span> <span class="o">=</span> <span class="n">Raster</span><span class="p">(</span><span class="n">sources</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">sources</span><span class="o">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="n">costs</span><span class="o">.</span><span class="n">shape</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Cost and sources raster shapes must match"</span><span class="p">)</span>
+        <span class="n">_check_on_costs_grid</span><span class="p">(</span><span class="n">sources</span><span class="p">,</span> <span class="n">costs</span><span class="p">,</span> <span class="s2">"sources"</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">sources</span><span class="o">.</span><span class="n">dtype</span><span class="o">.</span><span class="n">kind</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"u"</span><span class="p">,</span> <span class="s2">"i"</span><span class="p">):</span>
             <span class="n">msg</span> <span class="o">=</span> <span class="p">(</span>
                 <span class="s2">"Sources raster must be an integer type, got "</span>
@@ -1132,7 +1158,8 @@ document.write(`
 <span class="sd">        null values.</span>
 <span class="sd">    sources : Raster or raster path, or sequence</span>
 <span class="sd">        A raster or sequence of indices. If a raster, pixels that are not null</span>
-<span class="sd">        are used as source locations. The raster must have a null value set.</span>
+<span class="sd">        are used as source locations. The raster must have a null value set</span>
+<span class="sd">        and be on the same grid as `costs`.</span>
 <span class="sd">        The values at valid locations are used as the corresponding values in</span>
 <span class="sd">        the allocation output. If a sequence, must have shape (M, 2) where M is</span>
 <span class="sd">        the number of source pixels. Each item represents an index into `costs`</span>
@@ -1176,7 +1203,8 @@ document.write(`
 <span class="sd">        null values.</span>
 <span class="sd">    sources : Raster or raster path, or sequence</span>
 <span class="sd">        A raster or sequence of indices. If a raster, pixels that are not null</span>
-<span class="sd">        are used as source locations. The raster must have a null value set.</span>
+<span class="sd">        are used as source locations. The raster must have a null value set</span>
+<span class="sd">        and be on the same grid as `costs`.</span>
 <span class="sd">        The values at valid locations are used as the corresponding values in</span>
 <span class="sd">        the allocation output. If a sequence, must have shape (M, 2) where M is</span>
 <span class="sd">        the number of source pixels. Each item represents an index into `costs`</span>
@@ -1218,7 +1246,8 @@ document.write(`
 <span class="sd">        null values.</span>
 <span class="sd">    sources : Raster or raster path, or sequence</span>
 <span class="sd">        A raster or sequence of indices. If a raster, pixels that are not null</span>
-<span class="sd">        are used as source locations. The raster must have a null value set.</span>
+<span class="sd">        are used as source locations. The raster must have a null value set</span>
+<span class="sd">        and be on the same grid as `costs`.</span>
 <span class="sd">        The values at valid locations are used as the corresponding values in</span>
 <span class="sd">        the allocation output. If a sequence, must have shape (M, 2) where M is</span>
 <span class="sd">        the number of source pixels. Each item represents an index into `costs`</span>

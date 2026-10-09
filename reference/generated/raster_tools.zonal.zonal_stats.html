@@ -499,7 +499,9 @@ document.write(`
 <li><p><strong>features</strong> (<em>str</em><em>, </em><a class="reference internal" href="raster_tools.Vector.html#raster_tools.Vector" title="raster_tools.Vector"><em>Vector</em></a><em>, </em><a class="reference internal" href="raster_tools.Raster.html#raster_tools.Raster" title="raster_tools.Raster"><em>Raster</em></a>) – A <cite>Vector</cite> or path string pointing to a vector file or a categorical
 Raster. The vector features are used like cookie cutters to pull data
 from the <cite>data_raster</cite> bands. If <cite>features</cite> is a Raster, it must be an
-int dtype and have only one band.</p></li>
+int dtype, have only one band, and be on the same grid (CRS, affine,
+shape) as <cite>data_raster</cite>. Use <a class="reference internal" href="raster_tools.align.html#raster_tools.align" title="raster_tools.align"><code class="xref py py-func docutils literal notranslate"><span class="pre">align()</span></code></a> to put it on
+the grid of <cite>data_raster</cite> first if needed.</p></li>
 <li><p><strong>data_raster</strong> (<a class="reference internal" href="raster_tools.Raster.html#raster_tools.Raster" title="raster_tools.Raster"><em>Raster</em></a><em>, </em><em>str</em>) – A <cite>Raster</cite> or path string pointing to a raster file. The data raster
 to pull data from and apply the stat functions to.</p></li>
 <li><p><strong>stats</strong> (<em>str</em><em>, </em><em>list of str</em>) – <p>A single string or list of strings corresponding to stat functions.
