@@ -1,11 +1,51 @@
+"""Parser for raster batch scripts (``.bch`` files).
+
+A batch script holds one assignment per line::
+
+    name = FUNCTION(arg;arg;...)
+
+Text after ``#`` is a comment and blank lines are skipped. Function names
+are case-insensitive. A raster argument is either a name assigned on an
+earlier line or a path to a raster file; relative paths are resolved
+against the directory holding the script. The script's result is the
+raster assigned on its last line.
+
+Functions:
+
+``OPENRASTER(path)``
+    Open the raster at `path`.
+``ARITHMETIC(left;right;op)``
+    Apply a binary operation. `left` and `right` are rasters or numbers,
+    and at least one must be a raster. `op` is one of ``+``, ``-``,
+    ``*``, ``/``, ``%`` (modulo), ``**`` or the equivalent ArcObjects name
+    ``esriRasterPlus``, ``esriRasterMinus``, ``esriRasterMultiply``,
+    ``esriRasterDivide``, ``esriRasterMode`` or ``esriRasterPower``.
+``EXTRACTBAND(raster;band[;band...])``
+    Extract one or more bands, in the order given. Bands are integers
+    starting at 1.
+``NULLTOVALUE(raster;value)``
+    Replace null cells with `value`.
+``REMAP(raster;min:max:new[,min:max:new...])``
+    Set cells in ``[min, max)`` to `new`. Earlier groups take precedence
+    where ranges overlap.
+``SETNULL(raster;min:max[;min:max...])``
+    Mark cells in ``[min, max)`` as null. The raster's null value is kept
+    if it has one; otherwise the default null value for its data type is
+    used. Bounds may be negative, e.g. ``SETNULL(dem;-9999:-1)``.
+``COMPOSITE(raster;raster[;raster...])``
+    Stack the bands of two or more rasters into one raster.
+``SAVEFUNCTIONRASTER(raster;name;directory;type[;nodata[;bw[;bh]]])``
+    Save `raster` to ``directory/name`` with the extension for `type`
+    (only ``TIFF`` is supported). `nodata` defaults to 0. `bw` and `bh`
+    set the tile width and height; `bw` alone gives square tiles.
+"""
+
 import operator
 import os
 import re
 
 from raster_tools._stack import stack_bands
-from raster_tools.dtypes import is_int, is_scalar
 from raster_tools.exceptions import BatchScriptParseError
-from raster_tools.masking import get_default_null_value
 from raster_tools.raster import Raster
 from raster_tools.utils import validate_file
 
@@ -16,16 +56,6 @@ def _split_strip(s, delimeter):
 
 def _batch_error(msg, line_no):
     raise BatchScriptParseError(f"Script Line {line_no}: {msg}")
-
-
-def _parse_user_number(str_val):
-    from ast import literal_eval
-
-    # This may raise a ValueError if the string is not a valid literal
-    val = literal_eval(str_val)
-    if not is_scalar(val):
-        raise TypeError("Must be a scalar")
-    return val
 
 
 FTYPE_TO_EXT = {
@@ -42,6 +72,8 @@ _ESRI_OP_TO_OP = {
     "*": "*",
     "esriRasterDivide": "/",
     "/": "/",
+    # ArcObjects documents esriRasterMode as "The mode operation (%)", so
+    # it is treated as the modulo operator.
     "esriRasterMode": "%",
     "%": "%",
     "esriRasterPower": "**",
@@ -105,19 +137,23 @@ def _batch_parse_arithmetic(state, args_str, line_no):
 
 
 def _batch_parse_extract_band(state, args_str, line_no):
-    rs = state.get_raster(args_str.pop(0))
-    bands = []
-    for sb in args_str:
-        try:
-            b = _parse_user_number(sb)
-            if not is_int(b):
-                raise ValueError()
-        except ValueError:
-            _batch_error("Error parsing band value", line_no)
-        except TypeError:
-            _batch_error("Band values must be integers", line_no)
-        bands.append(b)
-    return rs.get_bands(bands)
+    raster, *band_args = _split_strip(args_str, ";")
+    if not band_args:
+        _batch_error(
+            "EXTRACTBAND Error: requires a raster and at least one band",
+            line_no,
+        )
+    try:
+        bands = [int(sb) for sb in band_args]
+    except ValueError:
+        _batch_error(
+            "EXTRACTBAND Error: band values must be integers", line_no
+        )
+    rs = state.get_raster(raster)
+    try:
+        return rs.get_bands(bands)
+    except IndexError as e:
+        _batch_error(f"EXTRACTBAND Error: {e}", line_no)
 
 
 def _batch_parse_null_to_value(state, args_str, line_no):
@@ -156,11 +192,10 @@ def _batch_parse_remap(state, args_str, line_no):
 
 
 def _batch_parse_composite(state, args_str, line_no):
-    on_line = f" on line {line_no}"
     rasters = [state.get_raster(path) for path in _split_strip(args_str, ";")]
     if len(rasters) < 2:
         _batch_error(
-            "COMPOSITE Error: at least 2 rasters are required", on_line
+            "COMPOSITE Error: at least 2 rasters are required", line_no
         )
     return stack_bands(rasters)
 
@@ -209,21 +244,35 @@ def _batch_parse_save(state, args_str, line_no):
 
 
 def _batch_parse_set_null(state, args_str, line_no):
-    rs = state.get_raster(args_str.pop(0))
-    if not rs._masked:
-        rs.set_null_value(get_default_null_value(rs.dtype))
-    sranges = [_split_strip(r, "-") for r in args_str]
+    raster, *range_args = _split_strip(args_str, ";")
+    if not range_args:
+        _batch_error(
+            "SETNULL Error: requires a raster and at least one min:max range",
+            line_no,
+        )
     ranges = []
-    try:
-        for sr in sranges:
-            lh = _parse_user_number(sr[0])
-            rh = _parse_user_number(sr[1])
-            ranges.extend((lh, rh, rs.null_value))
-    except ValueError:
-        _batch_error("Error parsing range value", line_no)
-    except TypeError:
-        _batch_error("Range bounds must be numbers", line_no)
-    return rs.remap_range(*ranges).set_null_value(rs.null_value)
+    for sr in range_args:
+        bounds = _split_strip(sr, ":")
+        if len(bounds) != 2:
+            _batch_error(
+                f"SETNULL Error: ranges must be min:max pairs: {sr!r}",
+                line_no,
+            )
+        try:
+            left, right = (float(b) for b in bounds)
+        except ValueError:
+            _batch_error(
+                f"SETNULL Error: range bounds must be numbers: {sr!r}",
+                line_no,
+            )
+        if not left < right:
+            _batch_error(
+                "SETNULL Error: the min value must be less than the max value",
+                line_no,
+            )
+        ranges.append((left, right, None))
+    # A None replacement value marks the matching cells as null
+    return state.get_raster(raster).remap_range(ranges)
 
 
 _FUNC_TO_PARSER = {
