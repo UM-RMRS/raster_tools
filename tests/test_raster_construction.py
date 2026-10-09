@@ -7,6 +7,7 @@ import dask
 import dask.array as da
 import numpy as np
 import pytest
+import rasterio as rio
 import xarray as xr
 from affine import Affine
 
@@ -799,3 +800,105 @@ def test_dataarray_to_raster_mask_and_crs():
     expected_mask = np.zeros((1, 3, 4), dtype=bool)
     expected_mask[0, 0, 3] = True
     np.testing.assert_array_equal(rs.mask.compute(), expected_mask)
+
+
+# --------------------------------------------------------------------------
+# Transform of rasters one cell wide along an axis
+# --------------------------------------------------------------------------
+
+
+def _assert_transform(rs, expected):
+    assert rs.affine == expected
+    assert rs.geobox.affine == expected
+    assert rs._ds.rio.transform() == expected
+    assert rs.xdata.rio.transform() == expected
+
+
+def _parent_30m():
+    return rts.data_to_raster(
+        np.arange(100).reshape((1, 10, 10)),
+        x=np.arange(10) * 30 + 15,
+        y=np.arange(10) * -30 + 285,
+        crs=5070,
+    )
+
+
+def test_one_row_slice_keeps_parent_cell_size():
+    one = Raster(_parent_30m().xdata.isel(y=slice(3, 4)))
+    _assert_transform(one, Affine(30, 0, 0, 0, -30, 210))
+
+
+def test_one_column_slice_keeps_parent_cell_size():
+    one = Raster(_parent_30m().xdata.isel(x=slice(6, 7)))
+    _assert_transform(one, Affine(30, 0, 180, 0, -30, 300))
+
+
+def test_one_cell_slice_keeps_parent_cell_size():
+    one = Raster(_parent_30m().xdata.isel(x=slice(6, 7), y=slice(3, 4)))
+    _assert_transform(one, Affine(30, 0, 180, 0, -30, 210))
+
+
+def test_one_row_from_coordinates_has_square_cells():
+    rs = rts.data_to_raster(
+        np.ones((1, 1, 4)), x=np.arange(4) * 2.0, y=np.array([5.0]), crs=5070
+    )
+    _assert_transform(rs, Affine(2, 0, -1, 0, -2, 6))
+
+
+def test_one_column_from_coordinates_has_square_cells():
+    rs = rts.data_to_raster(
+        np.ones((1, 4, 1)),
+        x=np.array([5.0]),
+        y=np.arange(4)[::-1] * 2.0,
+        crs=5070,
+    )
+    _assert_transform(rs, Affine(2, 0, 4, 0, -2, 7))
+
+
+def test_one_cell_from_coordinates_has_unit_cells():
+    rs = rts.data_to_raster(
+        np.ones((1, 1, 1)), x=np.array([5.0]), y=np.array([5.0]), crs=5070
+    )
+    _assert_transform(rs, Affine(1, 0, 4.5, 0, -1, 5.5))
+
+
+@pytest.mark.parametrize("shape", [(1, 1, 4), (1, 4, 1), (1, 1, 1)])
+def test_data_to_raster_affine_keeps_cell_size_of_length_one_axes(shape):
+    affine = Affine(3, 0, 0, 0, -2, 30)
+    rs = rts.data_to_raster(np.ones(shape), affine=affine, crs=5070)
+    _assert_transform(rs, affine)
+
+
+def test_one_row_file_keeps_cell_size(tmp_path):
+    path = str(tmp_path / "row.tif")
+    affine = Affine(3, 0, 0, 0, -2, 30)
+    with rio.open(
+        path,
+        "w",
+        driver="GTiff",
+        width=5,
+        height=1,
+        count=1,
+        dtype="float64",
+        crs="EPSG:5070",
+        transform=affine,
+    ) as dst:
+        dst.write(np.ones((1, 1, 5)))
+    _assert_transform(Raster(path), affine)
+
+
+@pytest.mark.parametrize("shape", [(1, 1, 4), (1, 4, 1), (1, 1, 1)])
+@pytest.mark.parametrize("like_type", ["raster", "dataarray"])
+def test_data_to_raster_like_keeps_cell_size_of_length_one_axes(
+    shape, like_type
+):
+    affine = Affine(3, 0, 0, 0, -2, 30)
+    like = rts.data_to_raster(np.ones(shape), affine=affine, crs=5070)
+    template = like if like_type == "raster" else like.xdata
+    rs = rts.data_to_raster_like(np.zeros(shape), template)
+    _assert_transform(rs, affine)
+    mask = np.zeros(shape, dtype=bool)
+    rs = rts.data_to_raster_like(np.zeros(shape), template, mask=mask)
+    _assert_transform(rs, affine)
+    xd = rts.data_to_xr_raster_like(np.zeros(shape), like.xdata)
+    assert xd.rio.transform() == affine

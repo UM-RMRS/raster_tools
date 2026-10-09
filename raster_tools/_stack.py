@@ -2,11 +2,14 @@ import numbers
 
 import dask.array as da
 import numpy as np
-import rasterio as rio
-from odc.geo.geobox import GeoBox
 
 import raster_tools as rts
-from raster_tools._grids import are_all_grids_same, combine_grids
+from raster_tools._align import (
+    build_target,
+    conform,
+    parse_dst_grid,
+    raster_on_target,
+)
 from raster_tools.utils import null_values_equal
 from raster_tools.warp import SUPPORTED_RESAMPLE_METHODS
 
@@ -32,9 +35,11 @@ def stack_bands(
     """Stack input rasters into a multi-band raster.
 
     All input bands are concatenated along the band axis onto a single
-    destination grid. Inputs with differing grids, resolutions, or CRSs are
-    reprojected onto the destination grid before stacking. The output has
-    ``sum(r.nbands for r in rasters)`` bands.
+    destination grid. Inputs are put on the destination grid as
+    :func:`raster_tools.align` does: inputs that share the grid's cell
+    lattice are cut and padded, and inputs with differing resolutions or
+    CRSs are reprojected. The output has ``sum(r.nbands for r in rasters)``
+    bands.
 
     Parameters
     ----------
@@ -63,6 +68,7 @@ def stack_bands(
         'inner'
             Use the intersection of the input grid bounds. Only pixels
             covered by every input appear in the output. This is the default.
+            Inputs that do not overlap raise a ``ValueError``.
         'outer'
             Use the union of the input grid bounds. Pixels not covered by a
             given input are filled with that band's null value.
@@ -141,28 +147,9 @@ def stack_bands(
     ):
         raise TypeError('null_value must be a scalar, None, or "default"')
 
-    if dst_grid is not None:
-        if isinstance(dst_grid, (str, rts.Raster)):
-            dst_grid = rts.get_raster(dst_grid).geobox
-        elif not isinstance(dst_grid, GeoBox):
-            raise TypeError(
-                f"Expected dst_grid to have type GeoBox. Got {type(dst_grid)}"
-            )
-        if dst_crs is not None:
-            parsed = rio.CRS.from_user_input(dst_crs)
-            if dst_grid.crs != parsed:
-                raise ValueError(
-                    "dst_crs does not match dst_grid.crs: "
-                    f"{parsed} vs {dst_grid.crs}"
-                )
-        if resolution is not None:
-            raise ValueError(
-                "resolution cannot be specified together with dst_grid"
-            )
+    dst_grid = parse_dst_grid(dst_grid, dst_crs, resolution)
 
     src_rasters = [rts.get_raster(r) for r in rasters]
-    src_grids = [r.geobox for r in src_rasters]
-    src_grids_same = are_all_grids_same(src_grids)
 
     dtype = (
         np.dtype(dtype)
@@ -190,49 +177,15 @@ def stack_bands(
     ):
         return _cast_if_needed(src_rasters[0], dtype, nodata)
 
-    if dst_grid is None:
-        dst_crs = (
-            dst_crs if dst_crs is None else rio.CRS.from_user_input(dst_crs)
-        )
-        src_res_matches = resolution is None or np.isclose(
-            abs(src_grids[0].resolution.x), resolution
-        )
-        if (
-            src_grids_same
-            and (dst_crs is None or src_grids[0].crs == dst_crs)
-            and src_res_matches
-        ):
-            dst_grid = src_grids[0]
-        else:
-            how = "union" if join == "outer" else "intersection"
-            dst_grid = combine_grids(
-                src_grids,
-                how=how,
-                dst_crs=dst_crs,
-                resolution=resolution,
-            )
-
-    # Fast path: all inputs already share the destination grid, so the
-    # per-raster reproject check (and potential reproject) is unnecessary.
-    if src_grids_same and are_all_grids_same([src_grids[0], dst_grid]):
-        src_rasters_in_dst = [
-            _cast_if_needed(r, dtype, nodata) for r in src_rasters
-        ]
-    else:
-        src_rasters_in_dst = [
-            _cast_if_needed(
-                r
-                if are_all_grids_same([r, dst_grid])
-                else r.reproject(dst_grid, resample_method=resampling_method),
-                dtype,
-                nodata,
-            )
-            for r in src_rasters
-        ]
-    # Rechunk all of the reprojected inputs so they are chunk aligned. This
+    target = build_target(src_rasters, join, dst_grid, dst_crs, resolution)
+    src_rasters_in_dst = [
+        _cast_if_needed(conform(r, target, resampling_method), dtype, nodata)
+        for r in src_rasters
+    ]
+    # Rechunk all of the aligned inputs so they are chunk aligned. This
     # greatly boosts the performance of da.concatenate.
     tmp = []
-    target_chunks_2d = da.empty(list(dst_grid.shape), dtype=dtype).chunks
+    target_chunks_2d = da.empty(tuple(target.geobox.shape), dtype=dtype).chunks
     for sr in src_rasters_in_dst:
         target_chunks = ((1,) * sr.nbands, *target_chunks_2d)
         tmp.append(sr.chunk(target_chunks))
@@ -240,10 +193,7 @@ def stack_bands(
 
     data = da.concatenate([r.data for r in src_rasters_in_dst], axis=0)
     mask = da.concatenate([r.mask for r in src_rasters_in_dst], axis=0)
-    y, x = [c.values for c in dst_grid.coordinates.values()]
-    return rts.data_to_raster(
-        data, mask=mask, x=x, y=y, crs=dst_grid.crs, nv=nodata
-    )
+    return raster_on_target(data, target, nodata, mask=mask)
 
 
 def split_bands(raster):

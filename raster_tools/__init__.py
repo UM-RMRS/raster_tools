@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING
 
 import raster_tools._compat  # noqa: F401
 from raster_tools import clipping, focal, line_stats, surface, zonal
+from raster_tools._align import align
 from raster_tools._mosaic import mosaic
 from raster_tools._padding import pad
 from raster_tools._stack import split_bands, stack_bands
@@ -68,6 +69,7 @@ def __dir__():
 __all__ = [
     "Raster",
     "Vector",
+    "align",
     "band_concat",
     "clipping",
     "constant_raster",

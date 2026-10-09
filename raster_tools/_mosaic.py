@@ -4,13 +4,13 @@ import dask.array as da
 import numba as nb
 import numpy as np
 import rasterio as rio
-from odc.geo.geobox import GeoBox
 
 import raster_tools as rts
-from raster_tools._grids import (
-    _build_empty_raster_from_grid,
-    are_all_grids_same,
-    combine_grids,
+from raster_tools._align import (
+    build_target,
+    conform,
+    parse_dst_grid,
+    raster_on_target,
 )
 
 __all__ = ["mosaic"]
@@ -227,7 +227,9 @@ def mosaic(
         a raster object or path, this function does NOT write to the given
         raster, it instead uses the raster as a reference for the grid. The
         default is to check `dst_crs` and construct a grid that encompasses all
-        inputs, using the resolution from the first raster in `rasters`.
+        inputs, using the resolution from the first raster in `rasters`. A
+        `dst_grid` without a CRS takes the CRS shared by the inputs, and
+        raises a ``ValueError`` if the inputs have different CRSs.
     resampling_method : str, optional
         Resampling method to use when reprojecting input rasters to the
         destination grid. The default is nearest. Valid options are:
@@ -302,31 +304,25 @@ def mosaic(
         else:
             nodata = rts.masking.get_default_null_value(dtype)
 
-    if dst_grid is None:
-        dst_crs = (
-            dst_crs if dst_crs is None else rio.CRS.from_user_input(dst_crs)
-        )
-        dst_grid = combine_grids(
-            [r.geobox for r in src_rasters], "union", dst_crs=dst_crs
-        )
-    elif isinstance(dst_grid, (str, rts.Raster)):
-        dst_grid = rts.get_raster(dst_grid).geobox
-    elif not isinstance(dst_grid, GeoBox):
-        raise TypeError(
-            f"Expected dst_grid to have type GeoBox. Got {type(dst_grid)}"
-        )
+    # dst_crs is ignored when dst_grid is given
+    dst_grid = parse_dst_grid(dst_grid, None, None)
+    if dst_grid is not None:
+        dst_crs = None
+    target = build_target(src_rasters, "outer", dst_grid, dst_crs)
 
     # Make sure inputs are on destination grid
     src_rasters_in_dst = [
-        (
-            r
-            if are_all_grids_same([r, dst_grid])
-            else r.reproject(dst_grid, resample_method=resampling_method)
-        ).astype(dtype, new_null_value=nodata)
+        conform(r, target, resampling_method).astype(
+            dtype, new_null_value=nodata
+        )
         for r in src_rasters
     ]
-    dst_raster = _build_empty_raster_from_grid(dst_grid, dtype, nodata)
-    # Rechunk all of the reprojected inputs so they are chunk aligned. This
+    dst_raster = raster_on_target(
+        da.full((1, *target.geobox.shape), nodata, dtype=dtype),
+        target,
+        nodata,
+    )
+    # Rechunk all of the aligned inputs so they are chunk aligned. This
     # greatly boosts the performance of the dask operations down the line, such
     # as da.concatenate.
     tmp = []

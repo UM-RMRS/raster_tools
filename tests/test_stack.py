@@ -1,5 +1,6 @@
 import numpy as np
 import pytest
+from affine import Affine
 
 import raster_tools as rts
 from raster_tools._stack import split_bands, stack_bands
@@ -144,6 +145,48 @@ def test_join_identical_bounds_equivalent():
     assert_rasters_equal(inner, outer, check_chunks=False)
 
 
+def test_join_inner_touching_rasters_raises():
+    y = np.arange(3)[::-1]
+    r1 = _raster(np.full((3, 3), 1, dtype=int), y, np.arange(3))
+    r2 = _raster(np.full((3, 3), 2, dtype=int), y, np.arange(3) + 3)
+    with pytest.raises(ValueError, match="intersection.*empty"):
+        stack_bands([r1, r2], join="inner")
+
+
+def test_join_inner_with_one_row_raster():
+    # A one-row raster built from coordinates is assumed to have square
+    # cells, so it shares the other input's lattice.
+    y = np.arange(4)[::-1] * 10.0
+    x = np.arange(4) * 10.0
+    r1 = _raster(np.arange(16).reshape((4, 4)), y, x)
+    row = _raster(np.full((1, 4), 7), y[2:3], x)
+    result = stack_bands([r1, row], join="inner")
+    assert_valid_raster(result)
+    assert result.shape == (2, 1, 4)
+    out = result.to_numpy()
+    assert np.array_equal(out[0], r1.to_numpy()[0, 2:3])
+    assert (out[1] == 7).all()
+
+
+@pytest.mark.parametrize("join", ["inner", "outer"])
+def test_rasters_without_crs_offset_by_whole_cells(join):
+    y = np.arange(3)[::-1]
+    r1 = _raster(np.full((3, 3), 1), y, np.arange(3), crs=None)
+    r2 = _raster(np.full((3, 3), 2), y, np.arange(3) + 1, crs=None)
+    result = stack_bands([r1, r2], join=join)
+    assert_valid_raster(result)
+    assert result.crs is None
+    out = result.to_numpy()
+    if join == "inner":
+        assert result.shape == (2, 3, 2)
+        assert (out[0] == 1).all()
+        assert (out[1] == 2).all()
+    else:
+        assert result.shape == (2, 3, 4)
+        assert np.array_equal(out[0, 0], [1, 1, 1, -1])
+        assert np.array_equal(out[1, 0], [-1, 2, 2, 2])
+
+
 # -- dst_grid parameter forms ------------------------------------------------
 
 
@@ -241,6 +284,21 @@ def test_resolution_with_multiple_inputs():
     assert np.isclose(abs(result.resolution[0]), native * 2)
 
 
+def test_resolution_matching_only_x_resamples_non_square_cells():
+    # Identical grids with 1x2 cells are resampled when resolution asks for
+    # square 1-unit cells
+    r1 = make_raster(
+        np.ones((4, 4)), affine=Affine(1, 0, 0, 0, -2, 8), crs=5070
+    )
+    r2 = make_raster(
+        np.ones((4, 4)), affine=Affine(1, 0, 0, 0, -2, 8), crs=5070
+    )
+    result = stack_bands([r1, r2], resolution=1)
+    assert_valid_raster(result)
+    assert (result.affine.a, result.affine.e) == (1.0, -1.0)
+    assert result.shape == (2, 8, 4)
+
+
 # -- Fast path vs reproject path ---------------------------------------------
 
 
@@ -271,13 +329,13 @@ def test_fast_path_same_grid_no_reproject(monkeypatch):
     r1, r2 = _same_grid_pair()
 
     calls = []
-    original = rts.Raster.reproject
+    original = rts.warp.reproject
 
-    def spy(self, *args, **kwargs):
+    def spy(*args, **kwargs):
         calls.append(args)
-        return original(self, *args, **kwargs)
+        return original(*args, **kwargs)
 
-    monkeypatch.setattr(rts.Raster, "reproject", spy)
+    monkeypatch.setattr("raster_tools._align.reproject", spy)
     result = stack_bands([r1, r2])
     assert_valid_raster(result)
     assert calls == []

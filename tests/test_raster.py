@@ -1649,8 +1649,12 @@ def test_ufunc_rasters_grid_mismatch_errors(right_grid, match, masked):
         left + right
     with pytest.raises(ValueError, match=match):
         right + left
-    with pytest.raises(ValueError, match=r"reproject\(other"):
+    with pytest.raises(ValueError) as excinfo:
         np.add(left, right)
+    # align cannot help rasters that do not overlap, so only the other
+    # errors point at it.
+    hint = "align([raster, other])"
+    assert (hint in str(excinfo.value)) == (match != "do not overlap")
 
 
 def test_ufunc_rasters_no_overlap_error_reports_bounds():
@@ -1658,7 +1662,7 @@ def test_ufunc_rasters_no_overlap_error_reports_bounds():
     right = _grid_raster(4)
     match = (
         r"do not overlap.*\(0\.0, 0\.0, 4\.0, 4\.0\) and"
-        r" \(4\.0, 0\.0, 8\.0, 4\.0\).*reproject\(other"
+        r" \(4\.0, 0\.0, 8\.0, 4\.0\)\.$"
     )
     with pytest.raises(ValueError, match=match):
         left + right
