@@ -201,12 +201,12 @@ def test_cut_and_pad_matches_reproject(method, make_src):
     expected_data = reprojected.to_numpy()
     if src.null_value is None:
         # src cell (1, 3) holds the null value the output is given and
-        # lands on cell (3, 1). Cutting masks it. Reprojecting nudges its
-        # value off the null value instead, so it stays valid.
+        # lands on cell (3, 1). Cutting masks it. Reprojecting masks it with
+        # older GDAL, while newer GDAL nudges its value off the null value
+        # and leaves it valid, so only the cut result is checked there.
         held = np.zeros_like(mask)
         held[0, 3, 1] = True
         assert mask[held].all()
-        assert not expected_mask[held].any()
         expected_mask |= held
         expected_data[held] = aligned.null_value
         # Any cell holding the null value is masked
