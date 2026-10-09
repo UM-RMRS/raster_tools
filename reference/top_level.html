@@ -129,6 +129,7 @@
 <li class="toctree-l3"><a class="reference internal" href="generated/raster_tools.Raster.html">raster_tools.Raster</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/raster_tools.open_dataset.html">raster_tools.open_dataset</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/raster_tools.read_color_table.html">raster_tools.read_color_table</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/raster_tools.align.html">raster_tools.align</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/raster_tools.band_concat.html">raster_tools.band_concat</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/raster_tools.mosaic.html">raster_tools.mosaic</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/raster_tools.split_bands.html">raster_tools.split_bands</a></li>
@@ -546,16 +547,19 @@ document.write(`
 <col style="width: 90%" />
 </colgroup>
 <tbody>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/raster_tools.band_concat.html#raster_tools.band_concat" title="raster_tools.band_concat"><code class="xref py py-obj docutils literal notranslate"><span class="pre">band_concat</span></code></a>(rasters)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/raster_tools.align.html#raster_tools.align" title="raster_tools.align"><code class="xref py py-obj docutils literal notranslate"><span class="pre">align</span></code></a>(rasters, *[, join, dst_grid, dst_crs, ...])</p></td>
+<td><p>Put rasters on a common grid.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/raster_tools.band_concat.html#raster_tools.band_concat" title="raster_tools.band_concat"><code class="xref py py-obj docutils literal notranslate"><span class="pre">band_concat</span></code></a>(rasters)</p></td>
 <td><p>Join a sequence of rasters along the band dimension.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/raster_tools.mosaic.html#raster_tools.mosaic" title="raster_tools.mosaic"><code class="xref py py-obj docutils literal notranslate"><span class="pre">mosaic</span></code></a>(rasters[, mosaic_method, dst_crs, ...])</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/raster_tools.mosaic.html#raster_tools.mosaic" title="raster_tools.mosaic"><code class="xref py py-obj docutils literal notranslate"><span class="pre">mosaic</span></code></a>(rasters[, mosaic_method, dst_crs, ...])</p></td>
 <td><p>Mosaic multiple rasters into a new, single raster.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/raster_tools.split_bands.html#raster_tools.split_bands" title="raster_tools.split_bands"><code class="xref py py-obj docutils literal notranslate"><span class="pre">split_bands</span></code></a>(raster)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/raster_tools.split_bands.html#raster_tools.split_bands" title="raster_tools.split_bands"><code class="xref py py-obj docutils literal notranslate"><span class="pre">split_bands</span></code></a>(raster)</p></td>
 <td><p>Split a multi-band raster into a list of single-band rasters.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/raster_tools.stack_bands.html#raster_tools.stack_bands" title="raster_tools.stack_bands"><code class="xref py py-obj docutils literal notranslate"><span class="pre">stack_bands</span></code></a>(rasters[, dst_crs, dst_grid, ...])</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/raster_tools.stack_bands.html#raster_tools.stack_bands" title="raster_tools.stack_bands"><code class="xref py py-obj docutils literal notranslate"><span class="pre">stack_bands</span></code></a>(rasters[, dst_crs, dst_grid, ...])</p></td>
 <td><p>Stack input rasters into a multi-band raster.</p></td>
 </tr>
 </tbody>

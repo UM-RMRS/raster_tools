@@ -129,6 +129,7 @@
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.html">raster_tools.Raster</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.open_dataset.html">raster_tools.open_dataset</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.read_color_table.html">raster_tools.read_color_table</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.align.html">raster_tools.align</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.band_concat.html">raster_tools.band_concat</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.mosaic.html">raster_tools.mosaic</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.split_bands.html">raster_tools.split_bands</a></li>
@@ -570,11 +571,10 @@ first input and <code class="docutils literal notranslate"><span class="pre">*ra
 function form at least one is required. Path strings are accepted.
 All inputs must be on the same grid (CRS, affine, shape) within the
 established sub-pixel tolerance; mismatched inputs raise
-<code class="docutils literal notranslate"><span class="pre">ValueError</span></code>. Use <code class="docutils literal notranslate"><span class="pre">r2.reproject(r1.geobox)</span></code> to align inputs
-first if needed. Inputs are then auto-rechunked to the first
-input’s chunk structure (<code class="docutils literal notranslate"><span class="pre">reproject</span></code> does not adopt the target’s
-chunking), so the output stays on the first input’s grid and
-chunking.</p></li>
+<code class="docutils literal notranslate"><span class="pre">ValueError</span></code>. Use <a class="reference internal" href="raster_tools.align.html#raster_tools.align" title="raster_tools.align"><code class="xref py py-func docutils literal notranslate"><span class="pre">align()</span></code></a> to put the inputs
+on a common grid first if needed. Inputs are then auto-rechunked to
+the first input’s chunk structure (<code class="docutils literal notranslate"><span class="pre">align</span></code> does not rechunk), so
+the output stays on the first input’s grid and chunking.</p></li>
 <li><p><strong>depth</strong> (<em>int</em><em>, </em><em>tuple of int</em><em>, or </em><em>dict</em>) – Same semantics as <a class="reference internal" href="raster_tools.map_overlap.html#raster_tools.map_overlap" title="raster_tools.map_overlap"><code class="xref py py-func docutils literal notranslate"><span class="pre">map_overlap()</span></code></a>.</p></li>
 <li><p><strong>boundary</strong> (<em>optional</em>) – Same semantics as <a class="reference internal" href="raster_tools.map_overlap.html#raster_tools.map_overlap" title="raster_tools.map_overlap"><code class="xref py py-func docutils literal notranslate"><span class="pre">map_overlap()</span></code></a> (None / scalar /
 <code class="docutils literal notranslate"><span class="pre">&quot;null&quot;</span></code> / <code class="docutils literal notranslate"><span class="pre">&quot;null_value&quot;</span></code> / <code class="docutils literal notranslate"><span class="pre">&quot;nodata&quot;</span></code> /
@@ -725,7 +725,7 @@ you can skip <code class="docutils literal notranslate"><span class="pre">meta=<
 </dd>
 <dt><a class="reference internal" href="raster_tools.map_overlap.html#raster_tools.map_overlap" title="raster_tools.map_overlap"><code class="xref py py-obj docutils literal notranslate"><span class="pre">raster_tools.map_overlap</span></code></a></dt><dd><p>Non-geo variant; permissive (shape-only check).</p>
 </dd>
-<dt><a class="reference internal" href="raster_tools.Raster.reproject.html#raster_tools.Raster.reproject" title="raster_tools.Raster.reproject"><code class="xref py py-obj docutils literal notranslate"><span class="pre">raster_tools.Raster.reproject</span></code></a></dt><dd><p>Per-input alignment to a target grid; pass <code class="docutils literal notranslate"><span class="pre">r1.geobox</span></code> to align <code class="docutils literal notranslate"><span class="pre">r2</span></code> to <code class="docutils literal notranslate"><span class="pre">r1</span></code>.</p>
+<dt><a class="reference internal" href="raster_tools.align.html#raster_tools.align" title="raster_tools.align"><code class="xref py py-obj docutils literal notranslate"><span class="pre">raster_tools.align</span></code></a></dt><dd><p>Put inputs on a common grid; pass <code class="docutils literal notranslate"><span class="pre">dst_grid=r1</span></code> to keep the first input’s grid.</p>
 </dd>
 </dl>
 </div>

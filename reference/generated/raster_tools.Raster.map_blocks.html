@@ -129,6 +129,7 @@
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.html">raster_tools.Raster</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.open_dataset.html">raster_tools.open_dataset</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.read_color_table.html">raster_tools.read_color_table</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.align.html">raster_tools.align</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.band_concat.html">raster_tools.band_concat</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.mosaic.html">raster_tools.mosaic</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.split_bands.html">raster_tools.split_bands</a></li>
@@ -565,7 +566,7 @@ first input and <code class="docutils literal notranslate"><span class="pre">*ra
 function form at least one is required. Path strings are accepted.
 Only the 3D shape is validated; CRS and affine are <em>not</em> checked.
 The caller is responsible for aligning inputs – typically via
-<code class="docutils literal notranslate"><span class="pre">r2.reproject(r1.geobox)</span></code>. Inputs are auto-rechunked to the first
+<a class="reference internal" href="raster_tools.align.html#raster_tools.align" title="raster_tools.align"><code class="xref py py-func docutils literal notranslate"><span class="pre">align()</span></code></a>. Inputs are auto-rechunked to the first
 input’s chunk structure, so same-shape inputs with differing
 chunking are handled. For a geo-aware variant that strictly
 requires matching grids, see <a class="reference internal" href="raster_tools.geo_map_blocks.html#raster_tools.geo_map_blocks" title="raster_tools.geo_map_blocks"><code class="xref py py-func docutils literal notranslate"><span class="pre">geo_map_blocks()</span></code></a>.</p></li>
@@ -721,7 +722,7 @@ masked:</p>
 <dl class="simple">
 <dt><a class="reference internal" href="raster_tools.geo_map_blocks.html#raster_tools.geo_map_blocks" title="raster_tools.geo_map_blocks"><code class="xref py py-obj docutils literal notranslate"><span class="pre">raster_tools.geo_map_blocks</span></code></a></dt><dd><p>Geo-aware variant that requires matching grids and hands <code class="docutils literal notranslate"><span class="pre">func</span></code> georeferenced <code class="docutils literal notranslate"><span class="pre">xr.DataArray</span></code> blocks.</p>
 </dd>
-<dt><a class="reference internal" href="raster_tools.Raster.reproject.html#raster_tools.Raster.reproject" title="raster_tools.Raster.reproject"><code class="xref py py-obj docutils literal notranslate"><span class="pre">raster_tools.Raster.reproject</span></code></a></dt><dd><p>Per-input alignment to a target grid; pass <code class="docutils literal notranslate"><span class="pre">r1.geobox</span></code> to align <code class="docutils literal notranslate"><span class="pre">r2</span></code> to <code class="docutils literal notranslate"><span class="pre">r1</span></code>.</p>
+<dt><a class="reference internal" href="raster_tools.align.html#raster_tools.align" title="raster_tools.align"><code class="xref py py-obj docutils literal notranslate"><span class="pre">raster_tools.align</span></code></a></dt><dd><p>Put inputs on a common grid; pass <code class="docutils literal notranslate"><span class="pre">dst_grid=r1</span></code> to keep the first input’s grid.</p>
 </dd>
 </dl>
 </div>

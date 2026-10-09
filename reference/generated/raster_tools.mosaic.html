@@ -129,6 +129,7 @@
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.html">raster_tools.Raster</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.open_dataset.html">raster_tools.open_dataset</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.read_color_table.html">raster_tools.read_color_table</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.align.html">raster_tools.align</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.band_concat.html">raster_tools.band_concat</a></li>
 <li class="toctree-l3 current active"><a class="current reference internal" href="#">raster_tools.mosaic</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.split_bands.html">raster_tools.split_bands</a></li>
@@ -532,7 +533,9 @@ This can be a <code class="xref py py-class docutils literal notranslate"><span 
 a raster object or path, this function does NOT write to the given
 raster, it instead uses the raster as a reference for the grid. The
 default is to check <cite>dst_crs</cite> and construct a grid that encompasses all
-inputs, using the resolution from the first raster in <cite>rasters</cite>.</p></li>
+inputs, using the resolution from the first raster in <cite>rasters</cite>. A
+<cite>dst_grid</cite> without a CRS takes the CRS shared by the inputs, and
+raises a <code class="docutils literal notranslate"><span class="pre">ValueError</span></code> if the inputs have different CRSs.</p></li>
 <li><p><strong>resampling_method</strong> (<em>str</em><em>, </em><em>optional</em>) – <p>Resampling method to use when reprojecting input rasters to the
 destination grid. The default is nearest. Valid options are:</p>
 <dl class="simple">

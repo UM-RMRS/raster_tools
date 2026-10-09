@@ -126,6 +126,7 @@
 <li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.html">raster_tools.Raster</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.open_dataset.html">raster_tools.open_dataset</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.read_color_table.html">raster_tools.read_color_table</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.align.html">raster_tools.align</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.band_concat.html">raster_tools.band_concat</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.mosaic.html">raster_tools.mosaic</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.split_bands.html">raster_tools.split_bands</a></li>
@@ -857,9 +858,9 @@ document.write(`
         <span class="k">if</span> <span class="n">r</span><span class="o">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="n">ref</span><span class="o">.</span><span class="n">shape</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                 <span class="sa">f</span><span class="s2">"raster </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2"> shape </span><span class="si">{</span><span class="n">r</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2"> does not match raster 0 "</span>
-                <span class="sa">f</span><span class="s2">"shape </span><span class="si">{</span><span class="n">ref</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">. Use ``Raster.reproject`` to align "</span>
-                <span class="sa">f</span><span class="s2">"inputs to the same grid first, e.g. "</span>
-                <span class="sa">f</span><span class="s2">"``r</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">.reproject(r0.geobox)``."</span>
+                <span class="sa">f</span><span class="s2">"shape </span><span class="si">{</span><span class="n">ref</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">. Use ``raster_tools.align`` to put "</span>
+                <span class="sa">f</span><span class="s2">"the inputs on a common grid first, e.g. "</span>
+                <span class="sa">f</span><span class="s2">"``r0, r</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2"> = align([r0, r</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">], dst_grid=r0)``."</span>
             <span class="p">)</span>
 
 
@@ -975,7 +976,7 @@ document.write(`
 <span class="sd">        function form at least one is required. Path strings are accepted.</span>
 <span class="sd">        Only the 3D shape is validated; CRS and affine are *not* checked.</span>
 <span class="sd">        The caller is responsible for aligning inputs -- typically via</span>
-<span class="sd">        ``r2.reproject(r1.geobox)``. Inputs are auto-rechunked to the first</span>
+<span class="sd">        :func:`~raster_tools.align`. Inputs are auto-rechunked to the first</span>
 <span class="sd">        input's chunk structure, so same-shape inputs with differing</span>
 <span class="sd">        chunking are handled. For a geo-aware variant that strictly</span>
 <span class="sd">        requires matching grids, see :func:`~raster_tools.geo_map_blocks`.</span>
@@ -1136,8 +1137,8 @@ document.write(`
 <span class="sd">    --------</span>
 <span class="sd">    raster_tools.geo_map_blocks : Geo-aware variant that requires matching</span>
 <span class="sd">        grids and hands ``func`` georeferenced ``xr.DataArray`` blocks.</span>
-<span class="sd">    raster_tools.Raster.reproject : Per-input alignment to a target</span>
-<span class="sd">        grid; pass ``r1.geobox`` to align ``r2`` to ``r1``.</span>
+<span class="sd">    raster_tools.align : Put inputs on a common grid; pass</span>
+<span class="sd">        ``dst_grid=r1`` to keep the first input's grid.</span>
 <span class="sd">    """</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">rasters</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"map_blocks requires at least one raster"</span><span class="p">)</span>
@@ -1749,7 +1750,7 @@ document.write(`
 <span class="sd">        function form at least one is required. Path strings are accepted.</span>
 <span class="sd">        Only the 3D shape is validated; CRS and affine are *not* checked.</span>
 <span class="sd">        The caller is responsible for aligning inputs -- typically via</span>
-<span class="sd">        ``r2.reproject(r1.geobox)``. Inputs are auto-rechunked to the first</span>
+<span class="sd">        :func:`~raster_tools.align`. Inputs are auto-rechunked to the first</span>
 <span class="sd">        input's chunk structure, so same-shape inputs with differing</span>
 <span class="sd">        chunking are handled. For a geo-aware variant that strictly</span>
 <span class="sd">        requires matching grids, see :func:`~raster_tools.geo_map_overlap`.</span>
@@ -2341,11 +2342,10 @@ document.write(`
 <span class="sd">        function form at least one is required. Path strings are accepted.</span>
 <span class="sd">        All inputs must be on the same grid (CRS, affine, shape) within the</span>
 <span class="sd">        established sub-pixel tolerance; mismatched inputs raise</span>
-<span class="sd">        ``ValueError``. Use ``r2.reproject(r1.geobox)`` to align inputs</span>
-<span class="sd">        first if needed. Inputs are then auto-rechunked to the first</span>
-<span class="sd">        input's chunk structure (``reproject`` does not adopt the target's</span>
-<span class="sd">        chunking), so the output stays on the first input's grid and</span>
-<span class="sd">        chunking.</span>
+<span class="sd">        ``ValueError``. Use :func:`~raster_tools.align` to put the inputs</span>
+<span class="sd">        on a common grid first if needed. Inputs are then auto-rechunked to</span>
+<span class="sd">        the first input's chunk structure (``align`` does not rechunk), so</span>
+<span class="sd">        the output stays on the first input's grid and chunking.</span>
 <span class="sd">    dtype : dtype-like, optional</span>
 <span class="sd">        Output dtype. When ``None`` (default), dask infers the dtype by calling</span>
 <span class="sd">        ``func`` on tiny meta samples.</span>
@@ -2495,8 +2495,8 @@ document.write(`
 <span class="sd">    raster_tools.map_blocks : Non-geo variant; permissive (shape-only</span>
 <span class="sd">        check).</span>
 <span class="sd">    raster_tools.geo_map_overlap : Geo-aware variant with overlap.</span>
-<span class="sd">    raster_tools.Raster.reproject : Per-input alignment to a target</span>
-<span class="sd">        grid; pass ``r1.geobox`` to align ``r2`` to ``r1``.</span>
+<span class="sd">    raster_tools.align : Put inputs on a common grid; pass</span>
+<span class="sd">        ``dst_grid=r1`` to keep the first input's grid.</span>
 <span class="sd">    """</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">rasters</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"geo_map_blocks requires at least one raster"</span><span class="p">)</span>
@@ -2510,9 +2510,9 @@ document.write(`
     <span class="k">if</span> <span class="ow">not</span> <span class="n">are_all_grids_same</span><span class="p">([</span><span class="n">r</span><span class="o">.</span><span class="n">geobox</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">rasters</span><span class="p">]):</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
             <span class="s2">"geo_map_blocks requires all input rasters to be on the "</span>
-            <span class="s2">"same grid (CRS, affine, shape). Use "</span>
-            <span class="s2">"Raster.reproject(crs_or_geobox=...) to align inputs "</span>
-            <span class="s2">"first, e.g. r2.reproject(r1.geobox)."</span>
+            <span class="s2">"same grid (CRS, affine, shape). Use raster_tools.align to "</span>
+            <span class="s2">"put the inputs on a common grid first, e.g. "</span>
+            <span class="s2">"r1, r2 = align([r1, r2])."</span>
         <span class="p">)</span>
     <span class="c1"># Pre-rechunk template: keeps the output on the caller's original</span>
     <span class="c1"># y/x chunking even when out_bands re-tiles inputs for the compute.</span>
@@ -2678,11 +2678,10 @@ document.write(`
 <span class="sd">        function form at least one is required. Path strings are accepted.</span>
 <span class="sd">        All inputs must be on the same grid (CRS, affine, shape) within the</span>
 <span class="sd">        established sub-pixel tolerance; mismatched inputs raise</span>
-<span class="sd">        ``ValueError``. Use ``r2.reproject(r1.geobox)`` to align inputs</span>
-<span class="sd">        first if needed. Inputs are then auto-rechunked to the first</span>
-<span class="sd">        input's chunk structure (``reproject`` does not adopt the target's</span>
-<span class="sd">        chunking), so the output stays on the first input's grid and</span>
-<span class="sd">        chunking.</span>
+<span class="sd">        ``ValueError``. Use :func:`~raster_tools.align` to put the inputs</span>
+<span class="sd">        on a common grid first if needed. Inputs are then auto-rechunked to</span>
+<span class="sd">        the first input's chunk structure (``align`` does not rechunk), so</span>
+<span class="sd">        the output stays on the first input's grid and chunking.</span>
 <span class="sd">    depth : int, tuple of int, or dict</span>
 <span class="sd">        Same semantics as :func:`~raster_tools.map_overlap`.</span>
 <span class="sd">    boundary : optional</span>
@@ -2840,8 +2839,8 @@ document.write(`
 <span class="sd">    raster_tools.geo_map_blocks : No-overlap variant.</span>
 <span class="sd">    raster_tools.map_overlap : Non-geo variant; permissive (shape-only</span>
 <span class="sd">        check).</span>
-<span class="sd">    raster_tools.Raster.reproject : Per-input alignment to a target</span>
-<span class="sd">        grid; pass ``r1.geobox`` to align ``r2`` to ``r1``.</span>
+<span class="sd">    raster_tools.align : Put inputs on a common grid; pass</span>
+<span class="sd">        ``dst_grid=r1`` to keep the first input's grid.</span>
 <span class="sd">    """</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">rasters</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"geo_map_overlap requires at least one raster"</span><span class="p">)</span>
@@ -2857,9 +2856,9 @@ document.write(`
     <span class="k">if</span> <span class="ow">not</span> <span class="n">are_all_grids_same</span><span class="p">([</span><span class="n">r</span><span class="o">.</span><span class="n">geobox</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">rasters</span><span class="p">]):</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
             <span class="s2">"geo_map_overlap requires all input rasters to be on the "</span>
-            <span class="s2">"same grid (CRS, affine, shape). Use "</span>
-            <span class="s2">"Raster.reproject(crs_or_geobox=...) to align inputs "</span>
-            <span class="s2">"first, e.g. r2.reproject(r1.geobox)."</span>
+            <span class="s2">"same grid (CRS, affine, shape). Use raster_tools.align to "</span>
+            <span class="s2">"put the inputs on a common grid first, e.g. "</span>
+            <span class="s2">"r1, r2 = align([r1, r2])."</span>
         <span class="p">)</span>
 
     <span class="n">depth_dict</span> <span class="o">=</span> <span class="n">_normalize_depth</span><span class="p">(</span><span class="n">depth</span><span class="p">)</span>

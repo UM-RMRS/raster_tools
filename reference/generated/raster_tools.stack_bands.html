@@ -129,6 +129,7 @@
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.html">raster_tools.Raster</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.open_dataset.html">raster_tools.open_dataset</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.read_color_table.html">raster_tools.read_color_table</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.align.html">raster_tools.align</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.band_concat.html">raster_tools.band_concat</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.mosaic.html">raster_tools.mosaic</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.split_bands.html">raster_tools.split_bands</a></li>
@@ -494,9 +495,11 @@ document.write(`
 <span class="sig-prename descclassname"><span class="pre">raster_tools.</span></span><span class="sig-name descname"><span class="pre">stack_bands</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">rasters</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dst_crs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dst_grid</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">join</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'inner'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">resampling_method</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'nearest'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">resolution</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">null_value</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/raster_tools/_stack.html#stack_bands"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.stack_bands" title="Permalink to this definition">#</a></dt>
 <dd><p>Stack input rasters into a multi-band raster.</p>
 <p>All input bands are concatenated along the band axis onto a single
-destination grid. Inputs with differing grids, resolutions, or CRSs are
-reprojected onto the destination grid before stacking. The output has
-<code class="docutils literal notranslate"><span class="pre">sum(r.nbands</span> <span class="pre">for</span> <span class="pre">r</span> <span class="pre">in</span> <span class="pre">rasters)</span></code> bands.</p>
+destination grid. Inputs are put on the destination grid as
+<a class="reference internal" href="raster_tools.align.html#raster_tools.align" title="raster_tools.align"><code class="xref py py-func docutils literal notranslate"><span class="pre">raster_tools.align()</span></code></a> does: inputs that share the grid’s cell
+lattice are cut and padded, and inputs with differing resolutions or
+CRSs are reprojected. The output has <code class="docutils literal notranslate"><span class="pre">sum(r.nbands</span> <span class="pre">for</span> <span class="pre">r</span> <span class="pre">in</span> <span class="pre">rasters)</span></code>
+bands.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
@@ -519,7 +522,8 @@ together with <cite>dst_crs</cite> or <cite>resolution</cite> is an error.</p></
 Only consulted when <cite>dst_grid</cite> is not provided. Valid options are:</p>
 <dl class="simple">
 <dt>’inner’</dt><dd><p>Use the intersection of the input grid bounds. Only pixels
-covered by every input appear in the output. This is the default.</p>
+covered by every input appear in the output. This is the default.
+Inputs that do not overlap raise a <code class="docutils literal notranslate"><span class="pre">ValueError</span></code>.</p>
 </dd>
 <dt>’outer’</dt><dd><p>Use the union of the input grid bounds. Pixels not covered by a
 given input are filled with that band’s null value.</p>

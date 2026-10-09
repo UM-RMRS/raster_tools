@@ -9,7 +9,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
 
-    <title>raster_tools.ones_like &#8212; raster_tools 0.13.2 documentation</title>
+    <title>raster_tools.align &#8212; raster_tools 0.13.2 documentation</title>
   
   
   
@@ -41,11 +41,11 @@
     <script src="../../_static/underscore.js"></script>
     <script src="../../_static/doctools.js"></script>
     <script src="../../_static/scripts/sphinx-book-theme.js?digest=5a5c038af52cf7bc1a1ec88eea08e6366ee68824"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'reference/generated/raster_tools.ones_like';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'reference/generated/raster_tools.align';</script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
-    <link rel="next" title="raster_tools.random_raster" href="raster_tools.random_raster.html" />
-    <link rel="prev" title="raster_tools.full_like" href="raster_tools.full_like.html" />
+    <link rel="next" title="raster_tools.band_concat" href="raster_tools.band_concat.html" />
+    <link rel="prev" title="raster_tools.read_color_table" href="raster_tools.read_color_table.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="None"/>
   </head>
@@ -129,7 +129,7 @@
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.Raster.html">raster_tools.Raster</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.open_dataset.html">raster_tools.open_dataset</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.read_color_table.html">raster_tools.read_color_table</a></li>
-<li class="toctree-l3"><a class="reference internal" href="raster_tools.align.html">raster_tools.align</a></li>
+<li class="toctree-l3 current active"><a class="current reference internal" href="#">raster_tools.align</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.band_concat.html">raster_tools.band_concat</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.mosaic.html">raster_tools.mosaic</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.split_bands.html">raster_tools.split_bands</a></li>
@@ -137,7 +137,7 @@
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.constant_raster.html">raster_tools.constant_raster</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.empty_like.html">raster_tools.empty_like</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.full_like.html">raster_tools.full_like</a></li>
-<li class="toctree-l3 current active"><a class="current reference internal" href="#">raster_tools.ones_like</a></li>
+<li class="toctree-l3"><a class="reference internal" href="raster_tools.ones_like.html">raster_tools.ones_like</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.random_raster.html">raster_tools.random_raster</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.zeros_like.html">raster_tools.zeros_like</a></li>
 <li class="toctree-l3"><a class="reference internal" href="raster_tools.data_to_raster.html">raster_tools.data_to_raster</a></li>
@@ -394,7 +394,7 @@
       
       
       
-      <li><a href="../../_sources/reference/generated/raster_tools.ones_like.rst" target="_blank"
+      <li><a href="../../_sources/reference/generated/raster_tools.align.rst" target="_blank"
    class="btn btn-sm btn-download-source-button dropdown-item"
    title="Download source file"
    data-bs-placement="left" data-bs-toggle="tooltip"
@@ -474,7 +474,7 @@ document.write(`
               
 
 <div id="jb-print-docs-body" class="onlyprint">
-    <h1>raster_tools.ones_like</h1>
+    <h1>raster_tools.align</h1>
     <!-- Table of contents -->
     <div id="print-main-content">
         <div id="jb-print-toc">
@@ -488,32 +488,103 @@ document.write(`
 <div id="searchbox"></div>
                 <article class="bd-article" role="main">
                   
-  <section id="raster-tools-ones-like">
-<h1>raster_tools.ones_like<a class="headerlink" href="#raster-tools-ones-like" title="Permalink to this headline">#</a></h1>
+  <section id="raster-tools-align">
+<h1>raster_tools.align<a class="headerlink" href="#raster-tools-align" title="Permalink to this headline">#</a></h1>
 <dl class="py function">
-<dt class="sig sig-object py" id="raster_tools.ones_like">
-<span class="sig-prename descclassname"><span class="pre">raster_tools.</span></span><span class="sig-name descname"><span class="pre">ones_like</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">template</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bands</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">copy_mask</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">raster_template</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/raster_tools/creation.html#ones_like"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.ones_like" title="Permalink to this definition">#</a></dt>
-<dd><p>Create a Raster filled with ones like a template.</p>
+<dt class="sig sig-object py" id="raster_tools.align">
+<span class="sig-prename descclassname"><span class="pre">raster_tools.</span></span><span class="sig-name descname"><span class="pre">align</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">rasters</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">join</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'inner'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dst_grid</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dst_crs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">resolution</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">resampling_method</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'nearest'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/raster_tools/_align.html#align"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.align" title="Permalink to this definition">#</a></dt>
+<dd><p>Put rasters on a common grid.</p>
+<p>Every output has the same CRS, affine transform, and x/y coordinates, so
+the outputs can be combined cell by cell. Bands, dtypes, and chunking are
+left as they are. This is a lazy operation.</p>
+<p>Each raster is handled in the cheapest way that puts it on the
+destination grid:</p>
+<ul class="simple">
+<li><p>A raster that is already on the destination grid is returned as is,
+wrapped in a new Raster object.</p></li>
+<li><p>A raster that has the destination grid’s CRS and cell size and is
+offset from it by a whole number of cells is cut to the destination
+extent and padded with null cells where it does not cover it. Its
+values are not resampled.</p></li>
+<li><p>Any other raster is reprojected onto the destination grid using
+<cite>resampling_method</cite>.</p></li>
+</ul>
+<p>A raster without a CRS is treated as having the destination CRS, as long
+as it does not need to be reprojected.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>template</strong> (<a class="reference internal" href="raster_tools.Raster.html#raster_tools.Raster" title="raster_tools.Raster"><em>Raster</em></a><em>, </em><em>str</em><em>, or </em><em>odc.geo.geobox.GeoBox</em>) – Template defining rows, columns, crs, resolution, etc. A path string
-is loaded as a Raster. A <code class="docutils literal notranslate"><span class="pre">GeoBox</span></code> supplies only the grid; in that
-case <code class="docutils literal notranslate"><span class="pre">copy_mask</span></code> is invalid and no mask/null value is propagated.</p></li>
-<li><p><strong>bands</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of bands desired for output. Default is 1.</p></li>
-<li><p><strong>dtype</strong> (<em>data-type</em><em>, </em><em>optional</em>) – Overrides the result dtype.</p></li>
-<li><p><strong>copy_mask</strong> (<em>bool</em>) – If <cite>True</cite>, the template raster’s mask is copied to the result raster.
-If <cite>bands</cite> differs from the template, the first band’s mask is
-copied <cite>bands</cite> times. Only valid when <cite>template</cite> is a Raster.</p></li>
+<li><p><strong>rasters</strong> (<em>list of Raster</em><em> or </em><em>str</em>) – The rasters to align. Path strings are opened with
+<a class="reference internal" href="raster_tools.get_raster.html#raster_tools.get_raster" title="raster_tools.get_raster"><code class="xref py py-func docutils literal notranslate"><span class="pre">raster_tools.get_raster()</span></code></a>.</p></li>
+<li><p><strong>join</strong> (<em>str</em><em>, </em><em>optional</em>) – <p>How to combine the input grids when building the destination grid.
+Only consulted when <cite>dst_grid</cite> is not provided. Valid options are:</p>
+<dl class="simple">
+<dt>’inner’</dt><dd><p>Use the intersection of the input grid bounds. This is the
+default. Inputs that do not overlap raise a <code class="docutils literal notranslate"><span class="pre">ValueError</span></code>.</p>
+</dd>
+<dt>’outer’</dt><dd><p>Use the union of the input grid bounds.</p>
+</dd>
+</dl>
+</p></li>
+<li><p><strong>dst_grid</strong> (<em>odc.geo.GeoBox</em><em>, </em><a class="reference internal" href="raster_tools.Raster.html#raster_tools.Raster" title="raster_tools.Raster"><em>raster_tools.Raster</em></a><em>, </em><em>str</em><em>, </em><em>optional</em>) – The destination grid. This can be a <code class="xref py py-class docutils literal notranslate"><span class="pre">odc.geo.GeoBox</span></code>,
+<a class="reference internal" href="raster_tools.Raster.html#raster_tools.Raster" title="raster_tools.Raster"><code class="xref py py-class docutils literal notranslate"><span class="pre">raster_tools.Raster</span></code></a> object, or a path str. If the input
+is a raster object or path, only its grid is used. The output grid is
+<cite>dst_grid</cite> in north-up orientation: x increases and y decreases, even
+if <cite>dst_grid</cite> is flipped. A rotated or sheared <cite>dst_grid</cite> raises a
+<code class="docutils literal notranslate"><span class="pre">ValueError</span></code>. A <cite>dst_grid</cite> without a CRS takes the CRS shared by the
+inputs, and raises a <code class="docutils literal notranslate"><span class="pre">ValueError</span></code> if the inputs have different CRSs.
+The default is to build a grid from the inputs according to <cite>join</cite>.
+Passing <cite>dst_grid</cite> together with a <cite>dst_crs</cite> that differs from its
+CRS, or together with <cite>resolution</cite>, is an error.</p></li>
+<li><p><strong>dst_crs</strong> (<em>CRS-like</em><em>, </em><em>str</em><em>, </em><em>int</em><em>, </em><em>optional</em>) – The CRS of the destination grid. This can be anything that can be
+parsed by <code class="xref py py-meth docutils literal notranslate"><span class="pre">rasterio.CRS.from_user_input()</span></code>. Only consulted
+when <cite>dst_grid</cite> is not provided. The default is the CRS of the
+inputs.</p></li>
+<li><p><strong>resolution</strong> (<em>scalar</em><em>, </em><em>optional</em>) – Cell size of the destination grid, in units of the destination CRS.
+Only consulted when <cite>dst_grid</cite> is not provided. The default is the
+cell size of the inputs.</p></li>
+<li><p><strong>resampling_method</strong> (<em>str</em><em>, </em><em>optional</em>) – Resampling method used when reprojecting rasters onto the destination
+grid. The default is <code class="docutils literal notranslate"><span class="pre">'nearest'</span></code>. See
+<code class="xref py py-func docutils literal notranslate"><span class="pre">raster_tools.reproject()</span></code> for the valid methods.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
-<dd class="field-even"><p>The resulting raster of ones.</p>
+<dd class="field-even"><p>The aligned rasters, in input order.</p>
 </dd>
 <dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference internal" href="raster_tools.Raster.html#raster_tools.Raster" title="raster_tools.Raster">Raster</a></p>
+<dd class="field-odd"><p>tuple of Raster</p>
 </dd>
 </dl>
+<p class="rubric">Notes</p>
+<p>When <cite>dst_grid</cite> is not provided and the inputs share a CRS, cell size,
+and cell lattice (whole-cell offsets), the destination grid lies on that
+lattice and no input is resampled. Otherwise, the destination CRS and
+cell size default to those of the first raster in <cite>rasters</cite>, and
+reordering the inputs can change the destination grid.</p>
+<p>Each raster’s cell size is taken from its grid (<a class="reference internal" href="raster_tools.Raster.affine.html#raster_tools.Raster.affine" title="raster_tools.Raster.affine"><code class="xref py py-attr docutils literal notranslate"><span class="pre">Raster.affine</span></code></a>).
+Along an axis where a raster is one cell wide, that is the cell size
+recorded in its transform, or the cell size of its other axis if the
+raster was built from coordinates alone.</p>
+<p>A raster with no null value that is padded or reprojected is given the
+default null value for its dtype, so that the new cells can be marked
+as null. Any of its existing cells that hold that value are then null
+too. For a bool raster the default null value is <code class="docutils literal notranslate"><span class="pre">True</span></code>, so its padded
+cells hold <code class="docutils literal notranslate"><span class="pre">True</span></code> but are masked, as are its existing <code class="docutils literal notranslate"><span class="pre">True</span></code> cells.</p>
+<p>A raster whose cell size and offset are within 0.001 of a cell of the
+destination lattice is cut and padded rather than resampled, so
+sub-pixel noise in its transform is dropped.</p>
+<p>Chunking is preserved, except that padding adds chunks at the edges of
+the grid. Use <a class="reference internal" href="raster_tools.Raster.chunk.html#raster_tools.Raster.chunk" title="raster_tools.Raster.chunk"><code class="xref py py-meth docutils literal notranslate"><span class="pre">Raster.chunk()</span></code></a> to rechunk the outputs if needed.</p>
+<p class="rubric">Examples</p>
+<p>Crop two overlapping tiles to their shared extent, then add them:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="o">=</span> <span class="n">rts</span><span class="o">.</span><span class="n">align</span><span class="p">([</span><span class="n">tile_a</span><span class="p">,</span> <span class="n">tile_b</span><span class="p">])</span>  
+<span class="gp">&gt;&gt;&gt; </span><span class="n">total</span> <span class="o">=</span> <span class="n">a</span> <span class="o">+</span> <span class="n">b</span>  
+</pre></div>
+</div>
+<p>Put a raster on the grid of a reference raster:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="p">(</span><span class="n">aligned</span><span class="p">,)</span> <span class="o">=</span> <span class="n">rts</span><span class="o">.</span><span class="n">align</span><span class="p">([</span><span class="n">src</span><span class="p">],</span> <span class="n">dst_grid</span><span class="o">=</span><span class="n">reference</span><span class="p">)</span>  
+</pre></div>
+</div>
 </dd></dl>
 
 </section>
@@ -531,20 +602,20 @@ copied <cite>bands</cite> times. Only valid when <cite>template</cite> is a Rast
     <div class="footer-article-item"><!-- Previous / next buttons -->
 <div class="prev-next-area">
     <a class="left-prev"
-       href="raster_tools.full_like.html"
+       href="raster_tools.read_color_table.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">raster_tools.full_like</p>
+        <p class="prev-next-title">raster_tools.read_color_table</p>
       </div>
     </a>
     <a class="right-next"
-       href="raster_tools.random_raster.html"
+       href="raster_tools.band_concat.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">raster_tools.random_raster</p>
+        <p class="prev-next-title">raster_tools.band_concat</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>

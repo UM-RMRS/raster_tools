@@ -126,6 +126,7 @@
 <li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.Raster.html">raster_tools.Raster</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.open_dataset.html">raster_tools.open_dataset</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.read_color_table.html">raster_tools.read_color_table</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.align.html">raster_tools.align</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.band_concat.html">raster_tools.band_concat</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.mosaic.html">raster_tools.mosaic</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../reference/generated/raster_tools.split_bands.html">raster_tools.split_bands</a></li>
@@ -443,13 +444,13 @@ document.write(`
 <span class="kn">import</span><span class="w"> </span><span class="nn">numba</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">nb</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">rasterio</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">rio</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">odc.geo.geobox</span><span class="w"> </span><span class="kn">import</span> <span class="n">GeoBox</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">raster_tools</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">rts</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools._grids</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
-    <span class="n">_build_empty_raster_from_grid</span><span class="p">,</span>
-    <span class="n">are_all_grids_same</span><span class="p">,</span>
-    <span class="n">combine_grids</span><span class="p">,</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools._align</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">build_target</span><span class="p">,</span>
+    <span class="n">conform</span><span class="p">,</span>
+    <span class="n">parse_dst_grid</span><span class="p">,</span>
+    <span class="n">raster_on_target</span><span class="p">,</span>
 <span class="p">)</span>
 
 <span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"mosaic"</span><span class="p">]</span>
@@ -666,7 +667,9 @@ document.write(`
 <span class="sd">        a raster object or path, this function does NOT write to the given</span>
 <span class="sd">        raster, it instead uses the raster as a reference for the grid. The</span>
 <span class="sd">        default is to check `dst_crs` and construct a grid that encompasses all</span>
-<span class="sd">        inputs, using the resolution from the first raster in `rasters`.</span>
+<span class="sd">        inputs, using the resolution from the first raster in `rasters`. A</span>
+<span class="sd">        `dst_grid` without a CRS takes the CRS shared by the inputs, and</span>
+<span class="sd">        raises a ``ValueError`` if the inputs have different CRSs.</span>
 <span class="sd">    resampling_method : str, optional</span>
 <span class="sd">        Resampling method to use when reprojecting input rasters to the</span>
 <span class="sd">        destination grid. The default is nearest. Valid options are:</span>
@@ -741,31 +744,25 @@ document.write(`
         <span class="k">else</span><span class="p">:</span>
             <span class="n">nodata</span> <span class="o">=</span> <span class="n">rts</span><span class="o">.</span><span class="n">masking</span><span class="o">.</span><span class="n">get_default_null_value</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span>
 
-    <span class="k">if</span> <span class="n">dst_grid</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">dst_crs</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="n">dst_crs</span> <span class="k">if</span> <span class="n">dst_crs</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">rio</span><span class="o">.</span><span class="n">CRS</span><span class="o">.</span><span class="n">from_user_input</span><span class="p">(</span><span class="n">dst_crs</span><span class="p">)</span>
-        <span class="p">)</span>
-        <span class="n">dst_grid</span> <span class="o">=</span> <span class="n">combine_grids</span><span class="p">(</span>
-            <span class="p">[</span><span class="n">r</span><span class="o">.</span><span class="n">geobox</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">src_rasters</span><span class="p">],</span> <span class="s2">"union"</span><span class="p">,</span> <span class="n">dst_crs</span><span class="o">=</span><span class="n">dst_crs</span>
-        <span class="p">)</span>
-    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">dst_grid</span><span class="p">,</span> <span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">rts</span><span class="o">.</span><span class="n">Raster</span><span class="p">)):</span>
-        <span class="n">dst_grid</span> <span class="o">=</span> <span class="n">rts</span><span class="o">.</span><span class="n">get_raster</span><span class="p">(</span><span class="n">dst_grid</span><span class="p">)</span><span class="o">.</span><span class="n">geobox</span>
-    <span class="k">elif</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">dst_grid</span><span class="p">,</span> <span class="n">GeoBox</span><span class="p">):</span>
-        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">"Expected dst_grid to have type GeoBox. Got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">dst_grid</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span>
-        <span class="p">)</span>
+    <span class="c1"># dst_crs is ignored when dst_grid is given</span>
+    <span class="n">dst_grid</span> <span class="o">=</span> <span class="n">parse_dst_grid</span><span class="p">(</span><span class="n">dst_grid</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">dst_grid</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">dst_crs</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">target</span> <span class="o">=</span> <span class="n">build_target</span><span class="p">(</span><span class="n">src_rasters</span><span class="p">,</span> <span class="s2">"outer"</span><span class="p">,</span> <span class="n">dst_grid</span><span class="p">,</span> <span class="n">dst_crs</span><span class="p">)</span>
 
     <span class="c1"># Make sure inputs are on destination grid</span>
     <span class="n">src_rasters_in_dst</span> <span class="o">=</span> <span class="p">[</span>
-        <span class="p">(</span>
-            <span class="n">r</span>
-            <span class="k">if</span> <span class="n">are_all_grids_same</span><span class="p">([</span><span class="n">r</span><span class="p">,</span> <span class="n">dst_grid</span><span class="p">])</span>
-            <span class="k">else</span> <span class="n">r</span><span class="o">.</span><span class="n">reproject</span><span class="p">(</span><span class="n">dst_grid</span><span class="p">,</span> <span class="n">resample_method</span><span class="o">=</span><span class="n">resampling_method</span><span class="p">)</span>
-        <span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">dtype</span><span class="p">,</span> <span class="n">new_null_value</span><span class="o">=</span><span class="n">nodata</span><span class="p">)</span>
+        <span class="n">conform</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">target</span><span class="p">,</span> <span class="n">resampling_method</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span>
+            <span class="n">dtype</span><span class="p">,</span> <span class="n">new_null_value</span><span class="o">=</span><span class="n">nodata</span>
+        <span class="p">)</span>
         <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">src_rasters</span>
     <span class="p">]</span>
-    <span class="n">dst_raster</span> <span class="o">=</span> <span class="n">_build_empty_raster_from_grid</span><span class="p">(</span><span class="n">dst_grid</span><span class="p">,</span> <span class="n">dtype</span><span class="p">,</span> <span class="n">nodata</span><span class="p">)</span>
-    <span class="c1"># Rechunk all of the reprojected inputs so they are chunk aligned. This</span>
+    <span class="n">dst_raster</span> <span class="o">=</span> <span class="n">raster_on_target</span><span class="p">(</span>
+        <span class="n">da</span><span class="o">.</span><span class="n">full</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span> <span class="o">*</span><span class="n">target</span><span class="o">.</span><span class="n">geobox</span><span class="o">.</span><span class="n">shape</span><span class="p">),</span> <span class="n">nodata</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">),</span>
+        <span class="n">target</span><span class="p">,</span>
+        <span class="n">nodata</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="c1"># Rechunk all of the aligned inputs so they are chunk aligned. This</span>
     <span class="c1"># greatly boosts the performance of the dask operations down the line, such</span>
     <span class="c1"># as da.concatenate.</span>
     <span class="n">tmp</span> <span class="o">=</span> <span class="p">[]</span>
