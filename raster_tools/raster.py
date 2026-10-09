@@ -885,17 +885,52 @@ def normalize_xarray_data(xdata):
     return xdata
 
 
+def stored_transform(xdata):
+    """The affine transform stored with raster xarray data, or None.
+
+    Reads the GDAL GeoTransform attribute of the CF grid-mapping coordinate,
+    where rioxarray (write_transform, write_crs, open_rasterio) and odc-geo
+    store it. Works for DataArray and Dataset objects. Returns None if there
+    is no such coordinate or attribute. A GeoTransform that is not a string
+    of six finite numbers is ignored with a warning.
+    """
+    coord = xdata.coords.get(xdata.rio.grid_mapping)
+    if coord is None:
+        return None
+    text = coord.attrs.get("GeoTransform")
+    if text is None:
+        return None
+    values = []
+    if isinstance(text, str):
+        try:
+            values = [float(v) for v in text.split()]
+        except ValueError:
+            values = []
+    if len(values) != 6 or not np.isfinite(values).all():
+        warnings.warn(
+            f"Ignoring the GeoTransform attribute {text!r} on the "
+            f"{coord.name!r} coordinate because it is not a string of six "
+            "finite numbers. The grid is taken from the x and y coordinates "
+            "instead.",
+            UserWarning,
+            stacklevel=2,
+        )
+        return None
+    return Affine.from_gdal(*values)
+
+
 def grid_transform(xdata):
     """Affine transform of raster xarray data with x increasing, y decreasing.
 
     The cell size along an axis with more than one cell comes from the
-    coordinates. Along a length-1 axis, it is the size in the transform
-    stored with the data, if there is one. Otherwise cells are assumed to be
-    square, and a 1x1 raster gets cells of size 1. The origin always comes
-    from the coordinates, so a slice of a raster keeps its parent's cell size
-    and gets its own origin.
+    coordinates. Along a length-1 axis, it is the size in the GeoTransform
+    stored on the grid-mapping coordinate, if there is one (see
+    stored_transform). Otherwise cells are assumed to be square, and a 1x1
+    raster gets cells of size 1. The origin always comes from the
+    coordinates, so a slice of a raster keeps its parent's cell size and gets
+    its own origin. A rotated or sheared stored transform is returned as is.
     """
-    stored = xdata.rio._cached_transform()
+    stored = stored_transform(xdata)
     if stored is not None and (stored.b or stored.d):
         # Coordinates cannot describe a rotated or sheared grid
         return stored

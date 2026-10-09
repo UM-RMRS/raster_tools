@@ -3,17 +3,24 @@
 Covers the data_to_* and dataarray_to_* families in raster_tools.raster.
 """
 
+import re
+from pathlib import Path
+
 import dask
 import dask.array as da
 import numpy as np
+import odc.geo.xr
 import pytest
 import rasterio as rio
+import rioxarray
 import xarray as xr
 from affine import Affine
+from odc.geo.geobox import GeoBox
 
 import raster_tools as rts
 from raster_tools import Raster
 from raster_tools.masking import get_default_null_value
+from raster_tools.raster import grid_transform, stored_transform
 from tests import testdata
 from tests.utils import (
     arange_nd,
@@ -902,3 +909,144 @@ def test_data_to_raster_like_keeps_cell_size_of_length_one_axes(
     _assert_transform(rs, affine)
     xd = rts.data_to_xr_raster_like(np.zeros(shape), like.xdata)
     assert xd.rio.transform() == affine
+
+
+# --------------------------------------------------------------------------
+# Reading the transform stored with xarray data
+# --------------------------------------------------------------------------
+
+ROW_AFFINE = Affine(3, 0, 0, 0, -2, 30)
+
+
+def _row_dataarray():
+    # One row, so the y cell size can only come from a stored transform
+    return xr.DataArray(
+        np.ones((1, 1, 4)),
+        dims=("band", "y", "x"),
+        coords={"band": [1], "y": [29.0], "x": np.arange(4) * 3.0 + 1.5},
+    )
+
+
+@pytest.mark.parametrize("grid_mapping", [None, "crs"])
+def test_stored_transform_reads_write_transform(grid_mapping):
+    xdata = _row_dataarray()
+    if grid_mapping is not None:
+        xdata = xdata.rio.write_grid_mapping(grid_mapping)
+    xdata = xdata.rio.write_transform(ROW_AFFINE)
+    if grid_mapping is not None:
+        assert grid_mapping in xdata.coords
+        assert "spatial_ref" not in xdata.coords
+    assert stored_transform(xdata) == ROW_AFFINE
+
+
+def test_stored_transform_reads_custom_grid_mapping_from_write_crs():
+    xdata = _row_dataarray().rio.write_crs(5070, grid_mapping_name="crs")
+    xdata = xdata.rio.write_transform(ROW_AFFINE)
+    assert "spatial_ref" not in xdata.coords
+    assert stored_transform(xdata) == ROW_AFFINE
+
+
+def test_stored_transform_survives_write_crs_after_write_transform():
+    xdata = _row_dataarray().rio.write_crs(5070)
+    xdata = xdata.rio.write_transform(ROW_AFFINE).rio.write_crs(4326)
+    assert xdata.rio.crs == "EPSG:4326"
+    assert stored_transform(xdata) == ROW_AFFINE
+
+
+def test_stored_transform_reads_open_rasterio_file(tmp_path):
+    path = str(tmp_path / "row.tif")
+    with rio.open(
+        path,
+        "w",
+        driver="GTiff",
+        width=4,
+        height=1,
+        count=1,
+        dtype="float64",
+        crs="EPSG:5070",
+        transform=ROW_AFFINE,
+    ) as dst:
+        dst.write(np.ones((1, 1, 4)))
+    with rioxarray.open_rasterio(path) as xdata:
+        assert stored_transform(xdata) == ROW_AFFINE
+
+
+def test_stored_transform_reads_odc_geo_coordinates():
+    geobox = GeoBox((1, 4), ROW_AFFINE, "EPSG:5070")
+    coords = odc.geo.xr.xr_coords(geobox, crs_coord_name="spatial_ref")
+    xdata = xr.DataArray(np.ones((1, 4)), dims=("y", "x"), coords=coords)
+    assert stored_transform(xdata) == ROW_AFFINE
+
+
+def test_stored_transform_reads_raster_dataset():
+    xdata = _row_dataarray()
+    ds = xr.Dataset({"raster": xdata, "mask": xdata > 5})
+    ds = ds.rio.write_crs(5070).rio.write_transform(ROW_AFFINE)
+    assert isinstance(ds, xr.Dataset)
+    assert stored_transform(ds) == ROW_AFFINE
+
+
+@pytest.mark.parametrize("source", ["none", "crs_only", "dropped"])
+def test_stored_transform_is_none_without_geotransform(source):
+    xdata = _row_dataarray()
+    if source == "crs_only":
+        xdata = xdata.rio.write_crs(5070)
+        assert "spatial_ref" in xdata.coords
+    elif source == "dropped":
+        xdata = xdata.rio.write_transform(ROW_AFFINE)
+        xdata = xdata.drop_vars("spatial_ref")
+    assert stored_transform(xdata) is None
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "0 30 0 300 0",
+        "0 30 0 300 0 -30 1",
+        "a b c d e f",
+        "nan 30 0 300 0 -30",
+        [0, 30, 0, 300, 0, -30],
+    ],
+)
+def test_stored_transform_ignores_malformed_geotransform(value):
+    xdata = _row_dataarray().rio.write_transform(ROW_AFFINE)
+    xdata.spatial_ref.attrs["GeoTransform"] = value
+    with pytest.warns(UserWarning, match="GeoTransform"):
+        assert stored_transform(xdata) is None
+
+
+def test_raster_with_malformed_geotransform_uses_coordinates():
+    x, y = _small_coords(3, 4)
+    xdata = xr.DataArray(
+        np.ones((1, 3, 4)),
+        dims=("band", "y", "x"),
+        coords={"band": [1], "y": y, "x": x},
+    )
+    xdata = xdata.rio.write_transform(SMALL_AFFINE)
+    xdata.spatial_ref.attrs["GeoTransform"] = "0 30 0 300 0"
+    with pytest.warns(UserWarning, match="GeoTransform"):
+        rs = Raster(xdata)
+    _assert_transform(rs, SMALL_AFFINE)
+
+
+def test_grid_transform_keeps_rotated_stored_transform():
+    rotated = Affine(3, 1, 0, 1, -2, 30)
+    xdata = xr.DataArray(
+        np.ones((1, 3, 4)),
+        dims=("band", "y", "x"),
+        coords={"band": [1], "y": [0.0, -1.0, -2.0], "x": np.arange(4.0)},
+    )
+    xdata = xdata.rio.write_transform(rotated)
+    assert grid_transform(xdata) == rotated
+
+
+def test_package_does_not_use_private_rioxarray_attributes():
+    pattern = re.compile(r"\.rio\._[A-Za-z]")
+    package = Path(rts.__file__).parent
+    offenders = [
+        f"{path.relative_to(package)}:{lineno}: {line.strip()}"
+        for path in sorted(package.rglob("*.py"))
+        for lineno, line in enumerate(path.read_text().splitlines(), 1)
+        if pattern.search(line)
+    ]
+    assert not offenders, "\n".join(offenders)
