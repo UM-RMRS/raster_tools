@@ -6,7 +6,7 @@ from numba.types import float64, int8, int64
 from odc.geo.geobox import GeoBox
 
 from raster_tools._align import _raster_geobox
-from raster_tools._grids import grids_aligned
+from raster_tools._grids import are_all_grids_same
 from raster_tools.distance._heap import (
     init_heap_data,
     pop,
@@ -479,7 +479,7 @@ def _check_on_costs_grid(raster, costs, name):
     if raster.crs is None or costs.crs is None:
         grid = GeoBox(grid.shape, grid.affine, None)
         costs_grid = GeoBox(costs_grid.shape, costs_grid.affine, None)
-    if not grids_aligned(grid, costs_grid):
+    if not are_all_grids_same([grid, costs_grid]):
         raise ValueError(
             f"{name.capitalize()} raster must be on the same grid (CRS,"
             " affine, shape) as the costs raster. Use raster_tools.align to"

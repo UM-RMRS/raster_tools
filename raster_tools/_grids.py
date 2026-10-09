@@ -36,32 +36,19 @@ GRID_PIXEL_TOLERANCE = 1e-3
 
 
 def grids_close(a, b, pixel_tolerance=GRID_PIXEL_TOLERANCE):
-    if a.crs != b.crs or a.shape != b.shape:
-        return False
-    aa, bb = a.affine, b.affine
-    atol = pixel_tolerance * max(abs(aa.a), abs(aa.e))
-    return all(
-        abs(x - y) <= atol
-        for x, y in zip(
-            (aa.a, aa.b, aa.c, aa.d, aa.e, aa.f),
-            (bb.a, bb.b, bb.c, bb.d, bb.e, bb.f),
-            strict=True,
-        )
-    )
-
-
-def grids_aligned(a, b, pixel_tolerance=GRID_PIXEL_TOLERANCE):
     """True if grids `a` and `b` share a CRS and shape and their cells line up.
 
-    Unlike `grids_close`, a difference in the cell size or rotation terms is
-    judged by how far it moves the cells across the whole grid. The origins
-    must agree to within `pixel_tolerance` of a cell, and the cell size and
-    rotation differences must not move any cell by more than that again.
+    The origins must agree to within `pixel_tolerance` of a cell, and any
+    difference in the cell size or rotation terms must not move a cell by
+    more than that again across the whole grid. A per-cell difference that
+    looks negligible can still shift the far cells of a large grid by whole
+    cells, so it is judged by its effect across the grid.
     """
     if a.crs != b.crs or a.shape != b.shape:
         return False
     aa, bb = a.affine, b.affine
-    atol = pixel_tolerance * max(abs(aa.a), abs(aa.e))
+    cell = max(math.hypot(aa.a, aa.d), math.hypot(aa.b, aa.e))
+    atol = pixel_tolerance * cell
     if abs(aa.c - bb.c) > atol or abs(aa.f - bb.f) > atol:
         return False
     ny, nx = a.shape

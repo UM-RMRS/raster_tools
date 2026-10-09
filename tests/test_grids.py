@@ -37,23 +37,34 @@ def test_grids_close_identical():
         pytest.param(30.02, False, id="cell_size_drifts"),
     ],
 )
-def test_grids_aligned_cell_size_drift(cell_size, expected):
+def test_grids_close_judges_cell_size_drift_across_grid(cell_size, expected):
     from affine import Affine
 
     a = GeoBox((1000, 1000), Affine(30.0, 0, 0, 0, -30.0, 0), 5070)
     b = GeoBox((1000, 1000), Affine(cell_size, 0, 0, 0, -cell_size, 0), 5070)
-    assert _grids.grids_close(a, b)
-    assert _grids.grids_aligned(a, b) is expected
+    assert _grids.grids_close(a, b) is expected
+    assert _grids.are_all_grids_same([a, b]) is expected
 
 
-def test_grids_aligned_origin_offset():
+def test_grids_close_origin_offset():
     from affine import Affine
 
     a = GeoBox((10, 10), Affine(30.0, 0, 0, 0, -30.0, 0), 5070)
     b = GeoBox((10, 10), Affine(30.0, 0, 0.01, 0, -30.0, 0), 5070)
     c = GeoBox((10, 10), Affine(30.0, 0, 0, 0, -30.0, -1.0), 5070)
-    assert _grids.grids_aligned(a, b)
-    assert not _grids.grids_aligned(a, c)
+    assert _grids.grids_close(a, b)
+    assert not _grids.grids_close(a, c)
+
+
+def test_grids_close_rotated_grid_tolerates_float_noise():
+    from affine import Affine
+
+    # Rotated 90 degrees, so the a and e terms are zero
+    a = GeoBox((10, 10), Affine(0, 30.0, 0, 30.0, 0, 0), 5070)
+    b = GeoBox((10, 10), Affine(0, 30.0, 1e-9, 30.0, 0, 0), 5070)
+    c = GeoBox((10, 10), Affine(0, 30.0, 15.0, 30.0, 0, 0), 5070)
+    assert _grids.grids_close(a, b)
+    assert not _grids.grids_close(a, c)
 
 
 def test_are_all_grids_same_detects_mismatch():

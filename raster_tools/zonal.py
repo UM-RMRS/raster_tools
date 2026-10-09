@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 
 from raster_tools._align import _raster_geobox
-from raster_tools._grids import grids_aligned
+from raster_tools._grids import are_all_grids_same
 from raster_tools.dtypes import F64, I64, is_float, is_int, is_str
 from raster_tools.raster import Raster, get_raster
 from raster_tools.vector import Vector, get_vector
@@ -740,8 +740,8 @@ def zonal_stats(
                 "features raster shape must match the data raster. "
                 f"Expected {data_raster.shape[1:]}, got {features.shape[1:]}."
             )
-        if not grids_aligned(
-            _raster_geobox(features), _raster_geobox(data_raster)
+        if not are_all_grids_same(
+            [_raster_geobox(features), _raster_geobox(data_raster)]
         ):
             raise ValueError(
                 "features raster must be on the same grid (CRS, affine,"
