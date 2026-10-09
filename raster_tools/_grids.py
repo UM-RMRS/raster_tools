@@ -1,6 +1,5 @@
 import math
 
-import dask.array as da
 import geopandas as gpd
 import numpy as np
 import shapely
@@ -134,26 +133,28 @@ def are_all_grids_same(grids):
     return all(grids_close(gtest, g) for g in grids[1:])
 
 
-def _build_empty_raster_from_grid(grid, dtype, nodata):
-    import raster_tools as rts
-
-    data = da.full((grid.shape.y, grid.shape.x), nodata, dtype=dtype)
-    # coordinates is an ordered (y-axis, x-axis) mapping; key names vary by
-    # CRS (e.g. "x"/"y" for projected, "longitude"/"latitude" for 4326).
-    y_coord, x_coord = grid.coordinates.values()
-    raster = rts.data_to_raster(
-        data, x=x_coord.values, y=y_coord.values, crs=grid.crs, nv=nodata
-    )
-    # The coordinates of a length-1 axis do not give its cell size, so keep
-    # the grid's transform.
-    return rts.Raster(
-        raster._ds.rio.write_transform(grid.affine), _fast_path=True
-    )
-
-
 def reproject_grid(grid, crs, resolution=None):
-    dummy_raster = _build_empty_raster_from_grid(grid, int, 0)
-    return dummy_raster.reproject(crs, resolution=resolution).geobox
+    """Smallest grid in `crs` that covers `grid`'s footprint.
+
+    The origin is the top-left corner of the footprint's bounding box in
+    `crs`; it is not snapped to a multiple of the cell size. The cell size is
+    `resolution` if given, otherwise the one odc-geo's ``GeoBox.to_crs``
+    picks. If `crs` is `grid`'s CRS, `grid` is returned, with its cell size
+    changed to `resolution` (keeping the origin) if given.
+    """
+    if resolution is not None and resolution <= 0:
+        raise ValueError("Resolution must be a positive value")
+    # Unlike GeoBox.to_crs, do not buffer the footprint, which would pad the
+    # result by about a cell on every side.
+    bbox = grid.footprint(crs, npoints=100).boundingbox
+    dst_crs = bbox.crs
+    if dst_crs == grid.crs:
+        if resolution is None:
+            return grid
+        return grid.zoom_to(resolution=resolution)
+    if resolution is None:
+        resolution = grid.to_crs(dst_crs).resolution
+    return GeoBox.from_bbox(bbox, dst_crs, resolution=resolution, tight=True)
 
 
 def get_grid_bbox(grid):

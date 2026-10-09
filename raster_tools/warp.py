@@ -1,6 +1,7 @@
 import rasterio as rio
 from odc.geo.geobox import GeoBox
 
+from raster_tools._grids import reproject_grid
 from raster_tools.masking import get_default_null_value
 from raster_tools.raster import Raster, dataarray_to_xr_raster_ds, get_raster
 
@@ -25,9 +26,12 @@ def reproject(
     crs_or_geobox : int, str, CRS, GeoBox, optional
         The target grid to reproject the raster to. This can be a projection
         string, EPSG code string or integer, a CRS object, or a GeoBox object.
-        `resolution` can also be specified to change the output raster's
-        resolution in the new CRS. If `crs_or_geobox` is not provided,
-        `resolution` must be specified.
+        When a CRS is given, the output grid is the smallest one that covers
+        the raster's footprint in the new CRS. Its origin is the top-left
+        corner of the footprint's bounding box, not snapped to a multiple of
+        the cell size. `resolution` can also be specified to change the output
+        raster's resolution in the new CRS. If `crs_or_geobox` is not
+        provided, `resolution` must be specified.
     resample_method : str, optional
         The data resampling method to use. Null pixels are ignored for all
         methods. Some methods require specific versions of GDAL. These are
@@ -66,7 +70,8 @@ def reproject(
         The desired resolution of the reprojected raster. If `crs_or_geobox` is
         unspecified, this is used to reproject to the new resolution while
         maintaining the same CRS. One of `crs_or_geobox` or `resolution` must
-        be provided. Both can also be provided.
+        be provided. Both can also be provided. Changing the resolution keeps
+        the grid's origin.
 
     Returns
     -------
@@ -82,18 +87,20 @@ def reproject(
                 ", ".join(sorted(SUPPORTED_RESAMPLE_METHODS))
             )
         )
+    if resolution is not None and resolution <= 0:
+        raise ValueError("Resolution must be a positive value")
     if crs_or_geobox is None:
         if resolution is None:
             raise ValueError("Must supply either crs_or_geobox or resolution")
-        dst_gb = raster.geobox
-    elif not isinstance(crs_or_geobox, GeoBox):
-        dst_gb = raster.geobox.to_crs(crs_or_geobox)
-    else:
+        dst_gb = raster.geobox.zoom_to(resolution=resolution)
+    elif isinstance(crs_or_geobox, GeoBox):
         dst_gb = crs_or_geobox
-    if resolution is not None:
-        if resolution <= 0:
-            raise ValueError("Resolution must be a postive value")
-        dst_gb = dst_gb.zoom_to(resolution=resolution)
+        if resolution is not None:
+            dst_gb = dst_gb.zoom_to(resolution=resolution)
+    else:
+        dst_gb = reproject_grid(
+            raster.geobox, crs_or_geobox, resolution=resolution
+        )
     if dst_gb == raster.geobox:
         return raster.copy()
 
