@@ -55,6 +55,7 @@ from raster_tools.masking import (
 )
 from raster_tools.raster import (
     Raster,
+    _match_raster_grids,
     data_to_raster_like,
     data_to_xr_raster_ds_like,
     dataarray_to_xr_raster_ds,
@@ -1159,6 +1160,17 @@ def where(condition, true_rast, false_rast):
     but they cannot both be ``None`` at the same time. An error is raised in
     that case.
 
+    The raster inputs are combined on a common grid, following the same rules
+    as arithmetic between Rasters: they must share a CRS (a raster without a
+    CRS matches any CRS) and cell size, and their grids must be offset by a
+    whole number of cells. The result covers their overlap, on the condition
+    raster's cell coordinates. Otherwise a ValueError is raised and the
+    rasters must be put on a common grid first, for example with
+    :func:`~raster_tools.align`. Bands are matched by position, whatever
+    their labels: the rasters must have the same number of bands, or a
+    single band, which is applied to every band of the others. The result
+    takes its band labels from the first raster with the most bands.
+
     Parameters
     ----------
     condition : str or Raster
@@ -1205,17 +1217,18 @@ def where(condition, true_rast, false_rast):
         args.append(r)
     if all(a is None for a in args):
         raise ValueError("'true_rast' and 'false_rast' cannot both be None")
-    out_crs = None
-    for r in [condition, true_rast, false_rast]:
-        crs = getattr(r, "crs", None)
-        if crs is not None:
-            out_crs = crs
-            break
-    masked = condition._masked
-    masked |= any(r._masked if isinstance(r, Raster) else False for r in args)
-    masked |= any(a is None for a in args)
+    args = [condition, *args]
+    rasters = [a for a in args if isinstance(a, Raster)]
+    if len(rasters) > 1:
+        # The condition comes first, so the result takes its coordinates
+        matched = iter(_match_raster_grids(rasters))
+        args = [next(matched) if isinstance(a, Raster) else a for a in args]
+        rasters = [a for a in args if isinstance(a, Raster)]
+    condition, x, y = args
+    out_crs = next((r.crs for r in rasters if r.crs is not None), None)
+    masked = any(r._masked for r in rasters)
+    masked |= x is None or y is None
 
-    x, y = args
     cd = condition.xdata
     if is_int(condition.dtype):
         # if condition.dtype is not bool then must be an int raster so

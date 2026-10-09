@@ -10,6 +10,7 @@ import pandas as pd
 import pytest
 import scipy
 import shapely
+from affine import Affine
 
 import raster_tools as rts
 from raster_tools import stack_bands
@@ -877,3 +878,68 @@ def test_zonal_reads_each_block_once(stats):
         _read_calls["n"] = 0
         zonal_stats(feat, data, stats).compute()
         assert _read_calls["n"] == nblocks
+
+
+_GRID_AFFINE = Affine(1, 0, 0, 0, -1, 6)
+
+
+def _zonal_grid_inputs(features_affine, crs="EPSG:3857", shape=(6, 6)):
+    ny, nx = shape
+    values = np.arange(1.0, ny * nx + 1).reshape(1, ny, nx)
+    zones = (np.arange(ny * nx).reshape(1, ny, nx) % 3 + 1).astype("uint8")
+    data = rts.data_to_raster(values, affine=_GRID_AFFINE, crs=crs)
+    features = rts.data_to_raster(
+        zones, affine=features_affine, crs=crs
+    ).set_null_value(0)
+    return features, data
+
+
+def _zonal_grid_result(features_affine, **kwargs):
+    features, data = _zonal_grid_inputs(features_affine, **kwargs)
+    return zonal_stats(features, data, ["count", "sum"]).compute()
+
+
+@pytest.mark.parametrize(
+    "features_affine",
+    [
+        pytest.param(Affine(1, 0, 1, 0, -1, 6), id="x_offset_one_cell"),
+        pytest.param(Affine(1, 0, 0, 0, -1, 5), id="y_offset_one_cell"),
+        pytest.param(Affine(2, 0, 0, 0, -2, 6), id="cell_size_differs"),
+        # Within 1e-3 of a cell per term, but drifts across the grid
+        pytest.param(
+            Affine(1.0009, 0, 0, 0, -1.0009, 6), id="cell_size_drifts"
+        ),
+    ],
+)
+def test_zonal_stats_features_raster_off_grid_raises(features_affine):
+    features, data = _zonal_grid_inputs(features_affine)
+    assert features.shape == data.shape
+    with pytest.raises(ValueError, match="same grid") as exc:
+        zonal_stats(features, data, ["count", "sum"])
+    assert "align(" in str(exc.value)
+
+
+@pytest.mark.parametrize(
+    "features_affine",
+    [
+        pytest.param(_GRID_AFFINE, id="identical"),
+        pytest.param(Affine(1, 0, 1e-5, 0, -1, 6 - 1e-5), id="float_noise"),
+    ],
+)
+def test_zonal_stats_features_raster_on_grid(features_affine):
+    result = _zonal_grid_result(features_affine)
+    expected = _zonal_grid_result(_GRID_AFFINE)
+    pd.testing.assert_frame_equal(result, expected)
+    assert result[("band_1", "count")].sum() == 36
+
+
+def test_zonal_stats_features_raster_one_cell_wide_no_crs():
+    # A raster with no CRS that is one cell wide along an axis must be
+    # checked by its grid without failing on the missing GeoBox.
+    result = _zonal_grid_result(_GRID_AFFINE, crs=None, shape=(1, 6))
+    assert result[("band_1", "count")].sum() == 6
+    features, data = _zonal_grid_inputs(
+        Affine(1, 0, 1, 0, -1, 6), crs=None, shape=(1, 6)
+    )
+    with pytest.raises(ValueError, match="same grid"):
+        zonal_stats(features, data, ["count"])

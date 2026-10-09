@@ -1,3 +1,4 @@
+import operator
 import os
 import re
 
@@ -46,6 +47,14 @@ _ESRI_OP_TO_OP = {
     "esriRasterPower": "**",
     "**": "**",
 }
+_OP_TO_FUNC = {
+    "+": operator.add,
+    "-": operator.sub,
+    "*": operator.mul,
+    "/": operator.truediv,
+    "%": operator.mod,
+    "**": operator.pow,
+}
 _FUNC_PATTERN = re.compile(r"^(?P<func>[A-Za-z]+)\((?P<args>[^\(\)]+)\)$")
 
 
@@ -69,11 +78,16 @@ class _BatchScripParserState:
 
 
 def _batch_parse_arithmetic(state, args_str, line_no):
-    left_arg, right_arg, op = _split_strip(args_str, ";")
-    op = _ESRI_OP_TO_OP[op]
+    try:
+        left_arg, right_arg, op = _split_strip(args_str, ";")
+    except ValueError:
+        _batch_error(
+            "ARITHMETIC Error: requires 3 arguments (left;right;operation)",
+            line_no,
+        )
     if op not in _ESRI_OP_TO_OP:
         _batch_error(f"Unknown arithmetic operation {repr(op)}", line_no)
-    op = _ESRI_OP_TO_OP[op]
+    func = _OP_TO_FUNC[_ESRI_OP_TO_OP[op]]
     try:
         left = float(left_arg)
     except ValueError:
@@ -82,7 +96,12 @@ def _batch_parse_arithmetic(state, args_str, line_no):
         right = float(right_arg)
     except ValueError:
         right = state.get_raster(right_arg)
-    return left._binary_arithmetic(right, op)
+    if not (isinstance(left, Raster) or isinstance(right, Raster)):
+        _batch_error(
+            "ARITHMETIC Error: at least one argument must be a raster",
+            line_no,
+        )
+    return func(left, right)
 
 
 def _batch_parse_extract_band(state, args_str, line_no):
@@ -133,10 +152,7 @@ def _batch_parse_remap(state, args_str, line_no):
         remaps.append((left, right, new))
     if len(remaps) == 0:
         _batch_error("REMAP Error: No remap values found", line_no)
-    args = []
-    for group in remaps:
-        args.extend(group)
-    return state.get_raster(raster).remap_range(*args)
+    return state.get_raster(raster).remap_range(remaps)
 
 
 def _batch_parse_composite(state, args_str, line_no):
