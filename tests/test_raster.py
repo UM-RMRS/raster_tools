@@ -855,6 +855,55 @@ def test_property_geobox():
     assert gb.resolution.xy == raster.resolution
 
 
+@pytest.mark.parametrize(
+    ("x", "y", "expected_affine"),
+    [
+        (np.arange(4.0) * 2 + 1, [1.5], Affine(2, 0, 0, 0, -2, 2.5)),
+        ([1.0], np.arange(4.0)[::-1] * 3 + 1.5, Affine(3, 0, -0.5, 0, -3, 12)),
+        ([1.0], [1.5], Affine(1, 0, 0.5, 0, -1, 2)),
+    ],
+)
+def test_property_geobox_one_cell_wide_without_crs(x, y, expected_affine):
+    data = np.arange(float(len(x) * len(y))).reshape(1, len(y), len(x))
+    raster = rts.data_to_raster(data, x=np.array(x), y=np.array(y))
+    assert raster.crs is None
+
+    gb = raster.geobox
+    assert gb is not None
+    assert gb.shape == raster.shape[1:]
+    assert gb.affine == expected_affine
+    assert gb.affine == raster.affine
+    assert gb.crs is None
+
+
+def test_property_geobox_chunks_without_crs_keep_cell_size():
+    data = np.arange(12.0).reshape(1, 3, 4)
+    x = np.arange(4.0) * 2 + 1
+    y = np.arange(3.0)[::-1] * 3 + 1.5
+    raster = rts.data_to_raster(data, x=x, y=y).chunk((1, 1, 1))
+    chunk_rasters = raster.get_chunk_rasters()
+    for _, i, j in np.ndindex(chunk_rasters.shape):
+        gb = chunk_rasters[0, i, j].geobox
+        assert gb.shape == (1, 1)
+        assert gb.affine == raster.affine * Affine.translation(j, i)
+        assert gb.crs is None
+
+
+@pytest.mark.parametrize("crs", [None, "EPSG:5070"])
+def test_property_geobox_matches_odc_for_multi_cell_rasters(crs):
+    # Coordinates with float noise, where an affine derived from the
+    # coordinates can differ from the stored transform in the last bits
+    x = np.arange(4) * 0.1 + 0.37
+    y = np.arange(3)[::-1] * 0.3 + 0.11
+    raster = rts.data_to_raster(np.zeros((1, 3, 4)), x=x, y=y, crs=crs)
+    odc_gb = raster._ds.odc.geobox
+    assert odc_gb is not None
+
+    gb = raster.geobox
+    assert gb == odc_gb
+    assert tuple(gb.affine) == tuple(odc_gb.affine)
+
+
 def test_property_mask():
     rs = (
         make_raster("arange", shape=(10, 10), null_pattern="%4", crs=None) % 4

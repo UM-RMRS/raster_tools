@@ -15,6 +15,7 @@ import shapely
 import xarray as xr
 from affine import Affine
 from numba import jit
+from odc.geo.geobox import GeoBox
 from shapely.geometry import box
 
 from raster_tools import _grids
@@ -1821,7 +1822,16 @@ class Raster(_RasterBase):
     @property
     def geobox(self):
         """GeoBox object describing the raster's grid."""
-        return self._ds.odc.geobox
+        geobox = self._ds.odc.geobox
+        if geobox is None:
+            # odc-geo derives the cell size from the coordinates, which a
+            # length-1 axis cannot give. It falls back to the GeoTransform
+            # stored on a CRS coordinate, so it finds no grid when the raster
+            # has no CRS or the stored transform was lost. Build the grid from
+            # the grid transform instead, which assumes square cells if no
+            # transform is stored.
+            geobox = GeoBox(self.shape[1:], grid_transform(self._ds), self.crs)
+        return geobox
 
     @property
     def bandwise(self):
