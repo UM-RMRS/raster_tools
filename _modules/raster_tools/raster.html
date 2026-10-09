@@ -1128,7 +1128,21 @@ document.write(`
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">xr_where_with_meta</span><span class="p">(</span><span class="n">cond</span><span class="p">,</span> <span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">,</span> <span class="n">crs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">nv</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""xr.where that keeps the grid metadata of the data input.</span>
+
+<span class="sd">    The grid mapping coordinate, which holds the stored transform, is taken</span>
+<span class="sd">    from the first of `left` and `right` that is a DataArray.</span>
+<span class="sd">    """</span>
     <span class="n">result</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">cond</span><span class="p">,</span> <span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">)</span>
+    <span class="c1"># xr.where drops the attributes of the grid mapping coordinate, which</span>
+    <span class="c1"># hold the stored transform. Without it, the cell size along a length-1</span>
+    <span class="c1"># axis cannot be recovered later, so copy the coordinate back from the</span>
+    <span class="c1"># data input.</span>
+    <span class="n">src</span> <span class="o">=</span> <span class="nb">next</span><span class="p">((</span><span class="n">v</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="p">(</span><span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">)</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">)),</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">src</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">gm</span> <span class="o">=</span> <span class="n">src</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">grid_mapping</span>
+        <span class="k">if</span> <span class="n">gm</span> <span class="ow">in</span> <span class="n">src</span><span class="o">.</span><span class="n">coords</span> <span class="ow">and</span> <span class="n">gm</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">coords</span><span class="p">:</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">assign_coords</span><span class="p">({</span><span class="n">gm</span><span class="p">:</span> <span class="n">src</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="n">gm</span><span class="p">]})</span>
     <span class="k">if</span> <span class="n">crs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">result</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_crs</span><span class="p">(</span><span class="n">crs</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">nv</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
