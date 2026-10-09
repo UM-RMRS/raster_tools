@@ -379,10 +379,12 @@ def _match_raster_grids(rasters):
     """
     ref = rasters[0]
     others = rasters[1:]
-    ref_crs = ref.crs
-    for r in others:
+    # Compare against the first known CRS so that a raster without one does
+    # not hide a conflict between the others.
+    ref_crs = next((r.crs for r in rasters if r.crs is not None), None)
+    for r in rasters:
         crs = r.crs
-        if ref_crs is not None and crs is not None and ref_crs != crs:
+        if crs is not None and ref_crs != crs:
             raise ValueError(
                 f"Raster grids do not match: CRS differs ({ref_crs} vs {crs})."
                 + _GRID_MISMATCH_HINT
@@ -2597,6 +2599,11 @@ class Raster(_RasterBase):
         -------
         Raster
             The resulting filtered Raster.
+
+        See Also
+        --------
+        raster_tools.general.where : The rules for combining the grids and
+            bands of the raster inputs.
 
         """
         from raster_tools.general import where

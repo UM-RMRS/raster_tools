@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 import pytest
 import xarray as xr
+from affine import Affine
 from scipy.ndimage import (
     binary_dilation,
     binary_erosion,
@@ -1013,6 +1014,167 @@ def test_where_float_condition_error_message():
     assert "float32" in msg
     assert "GeoTIFF" in msg
     assert "astype" in msg
+
+
+_WHERE_COND = np.array(
+    [[1, 0, 1, 0], [0, 1, 1, 0], [1, 1, 0, 0], [0, 0, 1, 1]], dtype=bool
+)
+_WHERE_TRUE = np.arange(1, 17).reshape((4, 4))
+_WHERE_FALSE = np.arange(101, 117).reshape((4, 4))
+
+
+def _where_grid_raster(content, x0, y0=4, res=1, crs="EPSG:3857", mask=None):
+    return make_raster(
+        content, mask, affine=Affine(res, 0, x0, 0, -res, y0), crs=crs
+    )
+
+
+def _where_both_ways(cond, true, false):
+    # general.where and Raster.where must agree
+    return [general.where(cond, true, false), true.where(cond, false)]
+
+
+@pytest.mark.parametrize("cond_masked", [False, True])
+@pytest.mark.parametrize("true_masked", [False, True])
+@pytest.mark.parametrize("false_masked", [False, True])
+def test_where_rasters_offset_by_whole_cells(
+    cond_masked, true_masked, false_masked
+):
+    # true is shifted one cell right and one cell down from the condition,
+    # false one cell right. The overlap is the condition's lower right 3x3.
+    cond_mask = np.zeros((4, 4), dtype=bool)
+    true_mask = np.zeros((4, 4), dtype=bool)
+    false_mask = np.zeros((4, 4), dtype=bool)
+    if cond_masked:
+        cond_mask[3, 1] = True
+    if true_masked:
+        true_mask[0, 1] = True
+    if false_masked:
+        false_mask[2, 1] = True
+    cond = _where_grid_raster(
+        _WHERE_COND, 0, mask=cond_mask if cond_masked else None
+    )
+    true = _where_grid_raster(
+        _WHERE_TRUE, 1, 3, mask=true_mask if true_masked else None
+    )
+    false = _where_grid_raster(
+        _WHERE_FALSE, 1, 4, mask=false_mask if false_masked else None
+    )
+    cd = _WHERE_COND[1:, 1:]
+    expected = np.where(cd, _WHERE_TRUE[:3, :3], _WHERE_FALSE[1:, :3])
+    expected_mask = cond_mask[1:, 1:] | np.where(
+        cd, true_mask[:3, :3], false_mask[1:, :3]
+    )
+    assert expected_mask.sum() == cond_masked + true_masked + false_masked
+
+    for result in _where_both_ways(cond, true, false):
+        assert_valid_raster(result)
+        assert result.shape == (1, 3, 3)
+        assert np.array_equal(result.x, cond.x[1:])
+        assert np.array_equal(result.y, cond.y[1:])
+        assert result.crs == cond.crs
+        assert result._masked == (cond_masked or true_masked or false_masked)
+        mask = result.mask.compute()[0]
+        assert np.array_equal(mask, expected_mask)
+        assert np.array_equal(result.to_numpy()[0][~mask], expected[~mask])
+
+
+def test_where_rasters_offset_within_tolerance():
+    cond = _where_grid_raster(_WHERE_COND, 0)
+    true = _where_grid_raster(_WHERE_TRUE, 1e-6, 4 - 1e-6)
+    false = _where_grid_raster(_WHERE_FALSE, -1e-6, 4 + 1e-6)
+    assert not np.array_equal(cond.x, true.x)
+    expected = np.where(_WHERE_COND, _WHERE_TRUE, _WHERE_FALSE)
+    for result in _where_both_ways(cond, true, false):
+        assert_valid_raster(result)
+        assert result.shape == (1, 4, 4)
+        assert np.array_equal(result.x, cond.x)
+        assert np.array_equal(result.y, cond.y)
+        assert np.array_equal(result.to_numpy()[0], expected)
+
+
+@pytest.mark.parametrize("other", [0, np.nan, None])
+def test_where_offset_raster_with_scalar(other):
+    cond = _where_grid_raster(_WHERE_COND, 0)
+    true = _where_grid_raster(_WHERE_TRUE, 1, 3)
+    cd = _WHERE_COND[1:, 1:]
+    value = np.nan if other is None else other
+    for result, expected in [
+        (
+            general.where(cond, true, other),
+            np.where(cd, _WHERE_TRUE[:3, :3], value),
+        ),
+        (
+            general.where(cond, other, true),
+            np.where(cd, value, _WHERE_TRUE[:3, :3]),
+        ),
+        (true.where(cond, other), np.where(cd, _WHERE_TRUE[:3, :3], value)),
+    ]:
+        assert_valid_raster(result)
+        assert result.shape == (1, 3, 3)
+        assert np.array_equal(result.x, cond.x[1:])
+        assert np.array_equal(result.y, cond.y[1:])
+        assert result._masked == (other is None)
+        mask = result.mask.compute()[0]
+        assert np.array_equal(mask, np.isnan(expected) & (other is None))
+        np.testing.assert_array_equal(
+            result.to_numpy()[0][~mask], expected[~mask]
+        )
+
+
+@pytest.mark.parametrize("position", [0, 1, 2])
+@pytest.mark.parametrize(
+    "grid,match",
+    [
+        ({"x0": 0.5}, "non-integer number of cells"),
+        ({"x0": 0, "y0": 3.5}, "non-integer number of cells"),
+        ({"x0": 0, "res": 2}, "resolution differs"),
+        ({"x0": 0, "crs": "EPSG:4326"}, "CRS differs"),
+        ({"x0": 1, "crs": "EPSG:4326"}, "CRS differs"),
+        ({"x0": 4}, "do not overlap"),
+        ({"x0": -1, "y0": 8}, "do not overlap"),
+    ],
+)
+def test_where_rasters_grid_mismatch_errors(grid, match, position):
+    contents = [_WHERE_COND, _WHERE_TRUE, _WHERE_FALSE]
+    args = [_where_grid_raster(c, 0) for c in contents]
+    args[position] = _where_grid_raster(contents[position], **grid)
+    cond, true, false = args
+    with pytest.raises(ValueError, match=match):
+        true.where(cond, false)
+    with pytest.raises(ValueError, match=match) as excinfo:
+        general.where(cond, true, false)
+    # align cannot help rasters that do not overlap, so only the other
+    # errors point at it.
+    hint = "align([raster, other])"
+    assert (hint in str(excinfo.value)) == (match != "do not overlap")
+
+
+def test_where_rasters_missing_crs_matches_any_crs():
+    cond = _where_grid_raster(_WHERE_COND, 0, crs=None)
+    true = _where_grid_raster(_WHERE_TRUE, 1)
+    assert general.where(cond, true, 0).crs == true.crs
+    assert general.where(cond, true, true).crs == true.crs
+    # A raster without a CRS does not hide a conflict between the others
+    false = _where_grid_raster(_WHERE_FALSE, 0, crs="EPSG:4326")
+    with pytest.raises(ValueError, match="CRS differs"):
+        general.where(cond, true, false)
+
+
+def test_where_matches_bands_by_position():
+    cond = _where_grid_raster(_WHERE_COND, 0)
+    true = _where_grid_raster(np.stack([_WHERE_TRUE, -_WHERE_TRUE]), 0)
+    false = _where_grid_raster(_WHERE_FALSE, 0)
+    expected = np.where(_WHERE_COND, true.to_numpy(), _WHERE_FALSE)
+    for result in _where_both_ways(cond, true, false):
+        assert_valid_raster(result)
+        assert result.shape == (2, 4, 4)
+        assert np.array_equal(result.band, true.band)
+        assert np.array_equal(result.to_numpy(), expected)
+
+    three = _where_grid_raster(np.stack([_WHERE_FALSE] * 3), 0)
+    with pytest.raises(ValueError, match="band counts do not match"):
+        general.where(cond, true, three)
 
 
 @pytest.mark.parametrize("unmapped_to_null", [True, False])
