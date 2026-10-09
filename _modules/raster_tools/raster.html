@@ -3350,9 +3350,13 @@ document.write(`
 <span class="sd">        crs_or_geobox : int, str, CRS, GeoBox, optional</span>
 <span class="sd">            The target grid to reproject the raster to. This can be a</span>
 <span class="sd">            projection string, EPSG code string or integer, a CRS object, or a</span>
-<span class="sd">            GeoBox object. `resolution` can also be specified to change the</span>
-<span class="sd">            output raster's resolution in the new CRS. If `crs_or_geobox` is</span>
-<span class="sd">            not provided, `resolution` must be specified.</span>
+<span class="sd">            GeoBox object. When a CRS is given, the output grid is the</span>
+<span class="sd">            smallest one that covers the raster's footprint in the new CRS.</span>
+<span class="sd">            Its origin is the top-left corner of the footprint's bounding box,</span>
+<span class="sd">            not snapped to a multiple of the cell size. `resolution` can also</span>
+<span class="sd">            be specified to change the output raster's resolution in the new</span>
+<span class="sd">            CRS. If `crs_or_geobox` is not provided, `resolution` must be</span>
+<span class="sd">            specified.</span>
 <span class="sd">        resample_method : str, optional</span>
 <span class="sd">            The data resampling method to use. Null pixels are ignored for all</span>
 <span class="sd">            methods. Some methods require specific versions of GDAL. These are</span>
@@ -3392,7 +3396,7 @@ document.write(`
 <span class="sd">            `crs_or_geobox` is unspecified, this is used to reproject to the</span>
 <span class="sd">            new resolution while maintaining the same CRS. One of</span>
 <span class="sd">            `crs_or_geobox` or `resolution` must be provided. Both can also be</span>
-<span class="sd">            provided.</span>
+<span class="sd">            provided. Changing the resolution keeps the grid's origin.</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>

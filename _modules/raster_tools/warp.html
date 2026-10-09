@@ -441,6 +441,7 @@ document.write(`
 <span></span><span class="kn">import</span><span class="w"> </span><span class="nn">rasterio</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">rio</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">odc.geo.geobox</span><span class="w"> </span><span class="kn">import</span> <span class="n">GeoBox</span>
 
+<span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools._grids</span><span class="w"> </span><span class="kn">import</span> <span class="n">reproject_grid</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.masking</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_default_null_value</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.raster</span><span class="w"> </span><span class="kn">import</span> <span class="n">Raster</span><span class="p">,</span> <span class="n">dataarray_to_xr_raster_ds</span><span class="p">,</span> <span class="n">get_raster</span>
 
@@ -465,9 +466,12 @@ document.write(`
 <span class="sd">    crs_or_geobox : int, str, CRS, GeoBox, optional</span>
 <span class="sd">        The target grid to reproject the raster to. This can be a projection</span>
 <span class="sd">        string, EPSG code string or integer, a CRS object, or a GeoBox object.</span>
-<span class="sd">        `resolution` can also be specified to change the output raster's</span>
-<span class="sd">        resolution in the new CRS. If `crs_or_geobox` is not provided,</span>
-<span class="sd">        `resolution` must be specified.</span>
+<span class="sd">        When a CRS is given, the output grid is the smallest one that covers</span>
+<span class="sd">        the raster's footprint in the new CRS. Its origin is the top-left</span>
+<span class="sd">        corner of the footprint's bounding box, not snapped to a multiple of</span>
+<span class="sd">        the cell size. `resolution` can also be specified to change the output</span>
+<span class="sd">        raster's resolution in the new CRS. If `crs_or_geobox` is not</span>
+<span class="sd">        provided, `resolution` must be specified.</span>
 <span class="sd">    resample_method : str, optional</span>
 <span class="sd">        The data resampling method to use. Null pixels are ignored for all</span>
 <span class="sd">        methods. Some methods require specific versions of GDAL. These are</span>
@@ -506,7 +510,8 @@ document.write(`
 <span class="sd">        The desired resolution of the reprojected raster. If `crs_or_geobox` is</span>
 <span class="sd">        unspecified, this is used to reproject to the new resolution while</span>
 <span class="sd">        maintaining the same CRS. One of `crs_or_geobox` or `resolution` must</span>
-<span class="sd">        be provided. Both can also be provided.</span>
+<span class="sd">        be provided. Both can also be provided. Changing the resolution keeps</span>
+<span class="sd">        the grid's origin.</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
@@ -522,18 +527,20 @@ document.write(`
                 <span class="s2">", "</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">SUPPORTED_RESAMPLE_METHODS</span><span class="p">))</span>
             <span class="p">)</span>
         <span class="p">)</span>
+    <span class="k">if</span> <span class="n">resolution</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">resolution</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Resolution must be a positive value"</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">crs_or_geobox</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">resolution</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Must supply either crs_or_geobox or resolution"</span><span class="p">)</span>
-        <span class="n">dst_gb</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">geobox</span>
-    <span class="k">elif</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">crs_or_geobox</span><span class="p">,</span> <span class="n">GeoBox</span><span class="p">):</span>
-        <span class="n">dst_gb</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">geobox</span><span class="o">.</span><span class="n">to_crs</span><span class="p">(</span><span class="n">crs_or_geobox</span><span class="p">)</span>
-    <span class="k">else</span><span class="p">:</span>
+        <span class="n">dst_gb</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">geobox</span><span class="o">.</span><span class="n">zoom_to</span><span class="p">(</span><span class="n">resolution</span><span class="o">=</span><span class="n">resolution</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">crs_or_geobox</span><span class="p">,</span> <span class="n">GeoBox</span><span class="p">):</span>
         <span class="n">dst_gb</span> <span class="o">=</span> <span class="n">crs_or_geobox</span>
-    <span class="k">if</span> <span class="n">resolution</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">if</span> <span class="n">resolution</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Resolution must be a postive value"</span><span class="p">)</span>
-        <span class="n">dst_gb</span> <span class="o">=</span> <span class="n">dst_gb</span><span class="o">.</span><span class="n">zoom_to</span><span class="p">(</span><span class="n">resolution</span><span class="o">=</span><span class="n">resolution</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">resolution</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">dst_gb</span> <span class="o">=</span> <span class="n">dst_gb</span><span class="o">.</span><span class="n">zoom_to</span><span class="p">(</span><span class="n">resolution</span><span class="o">=</span><span class="n">resolution</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">dst_gb</span> <span class="o">=</span> <span class="n">reproject_grid</span><span class="p">(</span>
+            <span class="n">raster</span><span class="o">.</span><span class="n">geobox</span><span class="p">,</span> <span class="n">crs_or_geobox</span><span class="p">,</span> <span class="n">resolution</span><span class="o">=</span><span class="n">resolution</span>
+        <span class="p">)</span>
     <span class="k">if</span> <span class="n">dst_gb</span> <span class="o">==</span> <span class="n">raster</span><span class="o">.</span><span class="n">geobox</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">raster</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
 
