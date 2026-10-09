@@ -505,6 +505,16 @@ false_rast.mask)</cite>.</p>
 <p><cite>true_rast</cite> and <cite>false_rast</cite> can both be <code class="docutils literal notranslate"><span class="pre">None</span></code> to indicate a null value
 but they cannot both be <code class="docutils literal notranslate"><span class="pre">None</span></code> at the same time. An error is raised in
 that case.</p>
+<p>The raster inputs are combined on a common grid, following the same rules
+as arithmetic between Rasters: they must share a CRS (a raster without a
+CRS matches any CRS) and cell size, and their grids must be offset by a
+whole number of cells. The result covers their overlap, on the condition
+raster’s cell coordinates. Otherwise a ValueError is raised and the
+rasters must be put on a common grid first, for example with
+<a class="reference internal" href="raster_tools.align.html#raster_tools.align" title="raster_tools.align"><code class="xref py py-func docutils literal notranslate"><span class="pre">align()</span></code></a>. Bands are matched by position, whatever
+their labels: the rasters must have the same number of bands, or a
+single band, which is applied to every band of the others. The result
+takes its band labels from the first raster with the most bands.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">

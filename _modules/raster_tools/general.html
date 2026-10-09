@@ -495,6 +495,7 @@ document.write(`
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.raster</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">Raster</span><span class="p">,</span>
+    <span class="n">_match_raster_grids</span><span class="p">,</span>
     <span class="n">data_to_raster_like</span><span class="p">,</span>
     <span class="n">data_to_xr_raster_ds_like</span><span class="p">,</span>
     <span class="n">dataarray_to_xr_raster_ds</span><span class="p">,</span>
@@ -1599,6 +1600,17 @@ document.write(`
 <span class="sd">    but they cannot both be ``None`` at the same time. An error is raised in</span>
 <span class="sd">    that case.</span>
 
+<span class="sd">    The raster inputs are combined on a common grid, following the same rules</span>
+<span class="sd">    as arithmetic between Rasters: they must share a CRS (a raster without a</span>
+<span class="sd">    CRS matches any CRS) and cell size, and their grids must be offset by a</span>
+<span class="sd">    whole number of cells. The result covers their overlap, on the condition</span>
+<span class="sd">    raster's cell coordinates. Otherwise a ValueError is raised and the</span>
+<span class="sd">    rasters must be put on a common grid first, for example with</span>
+<span class="sd">    :func:`~raster_tools.align`. Bands are matched by position, whatever</span>
+<span class="sd">    their labels: the rasters must have the same number of bands, or a</span>
+<span class="sd">    single band, which is applied to every band of the others. The result</span>
+<span class="sd">    takes its band labels from the first raster with the most bands.</span>
+
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    condition : str or Raster</span>
@@ -1645,17 +1657,18 @@ document.write(`
         <span class="n">args</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
     <span class="k">if</span> <span class="nb">all</span><span class="p">(</span><span class="n">a</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">args</span><span class="p">):</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"'true_rast' and 'false_rast' cannot both be None"</span><span class="p">)</span>
-    <span class="n">out_crs</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="p">[</span><span class="n">condition</span><span class="p">,</span> <span class="n">true_rast</span><span class="p">,</span> <span class="n">false_rast</span><span class="p">]:</span>
-        <span class="n">crs</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="s2">"crs"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">crs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">out_crs</span> <span class="o">=</span> <span class="n">crs</span>
-            <span class="k">break</span>
-    <span class="n">masked</span> <span class="o">=</span> <span class="n">condition</span><span class="o">.</span><span class="n">_masked</span>
-    <span class="n">masked</span> <span class="o">|=</span> <span class="nb">any</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">_masked</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">Raster</span><span class="p">)</span> <span class="k">else</span> <span class="kc">False</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">args</span><span class="p">)</span>
-    <span class="n">masked</span> <span class="o">|=</span> <span class="nb">any</span><span class="p">(</span><span class="n">a</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">args</span><span class="p">)</span>
+    <span class="n">args</span> <span class="o">=</span> <span class="p">[</span><span class="n">condition</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">]</span>
+    <span class="n">rasters</span> <span class="o">=</span> <span class="p">[</span><span class="n">a</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">args</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">Raster</span><span class="p">)]</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">rasters</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="c1"># The condition comes first, so the result takes its coordinates</span>
+        <span class="n">matched</span> <span class="o">=</span> <span class="nb">iter</span><span class="p">(</span><span class="n">_match_raster_grids</span><span class="p">(</span><span class="n">rasters</span><span class="p">))</span>
+        <span class="n">args</span> <span class="o">=</span> <span class="p">[</span><span class="nb">next</span><span class="p">(</span><span class="n">matched</span><span class="p">)</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">Raster</span><span class="p">)</span> <span class="k">else</span> <span class="n">a</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">args</span><span class="p">]</span>
+        <span class="n">rasters</span> <span class="o">=</span> <span class="p">[</span><span class="n">a</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">args</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">Raster</span><span class="p">)]</span>
+    <span class="n">condition</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">args</span>
+    <span class="n">out_crs</span> <span class="o">=</span> <span class="nb">next</span><span class="p">((</span><span class="n">r</span><span class="o">.</span><span class="n">crs</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">rasters</span> <span class="k">if</span> <span class="n">r</span><span class="o">.</span><span class="n">crs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">),</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="n">masked</span> <span class="o">=</span> <span class="nb">any</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">_masked</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">rasters</span><span class="p">)</span>
+    <span class="n">masked</span> <span class="o">|=</span> <span class="n">x</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">y</span> <span class="ow">is</span> <span class="kc">None</span>
 
-    <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">args</span>
     <span class="n">cd</span> <span class="o">=</span> <span class="n">condition</span><span class="o">.</span><span class="n">xdata</span>
     <span class="k">if</span> <span class="n">is_int</span><span class="p">(</span><span class="n">condition</span><span class="o">.</span><span class="n">dtype</span><span class="p">):</span>
         <span class="c1"># if condition.dtype is not bool then must be an int raster so</span>
