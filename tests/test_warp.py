@@ -1,5 +1,6 @@
 import numpy as np
 import pytest
+from affine import Affine
 from odc.geo.geobox import GeoBox
 
 import raster_tools as rts
@@ -9,14 +10,28 @@ from tests import testdata
 from tests.utils import assert_valid_raster
 
 
-def _repoject(raster, crs, method):
+def _footprint_grid(geobox, crs, resolution=None):
+    # Smallest grid covering the footprint of `geobox` in `crs`, with its
+    # origin at the footprint's top-left corner. This mirrors how reproject
+    # builds its grid, so tests using it check the data, not the grid; the
+    # tests with hard-coded shapes and origins pin the grid itself.
+    bbox = geobox.footprint(crs, npoints=100).boundingbox
+    if resolution is None:
+        resolution = geobox.to_crs(crs).resolution
+    return GeoBox.from_bbox(bbox, crs, resolution=resolution, tight=True)
+
+
+def _repoject(raster, crs_or_geobox, method):
     nv = (
         raster.null_value
         if raster._masked
         else get_default_null_value(raster.dtype)
     )
+    dst_geobox = crs_or_geobox
+    if not isinstance(dst_geobox, GeoBox):
+        dst_geobox = _footprint_grid(raster.geobox, crs_or_geobox)
     xreprojected = raster.xdata.odc.reproject(
-        crs, resampling=method, dst_nodata=nv
+        dst_geobox, resampling=method, dst_nodata=nv
     )
     xmask = xreprojected == nv
     return xreprojected.rio.write_nodata(nv), xmask
@@ -86,7 +101,7 @@ def test_reproject_crs(crs_or_geobox):
     if isinstance(crs_or_geobox, GeoBox):
         dst_geobox = crs_or_geobox
     else:
-        dst_geobox = raster.geobox.to_crs(crs_or_geobox)
+        dst_geobox = _footprint_grid(raster.geobox, crs_or_geobox)
     truth_reprojected, truth_mask = _repoject(
         raster, crs_or_geobox, "bilinear"
     )
@@ -159,13 +174,13 @@ def test_reproject_crs_and_resolution(crs, resolution):
     raster = testdata.raster.dem_small
 
     if crs is None:
-        target_grid = raster.geobox
+        target_grid = raster.geobox.zoom_to(resolution=resolution)
     elif isinstance(crs, GeoBox):
         target_grid = crs
+        if resolution is not None:
+            target_grid = target_grid.zoom_to(resolution=resolution)
     else:
-        target_grid = raster.geobox.to_crs(crs)
-    if resolution is not None:
-        target_grid = target_grid.zoom_to(resolution=resolution)
+        target_grid = _footprint_grid(raster.geobox, crs, resolution)
 
     truth_reprojected, truth_mask = _repoject(raster, target_grid, "bilinear")
 
@@ -198,3 +213,52 @@ def test_reproject_nodata_duplication():
     raster_rp = rts.warp.reproject(raster, 3857)
     assert raster_rp.null_value == np.float32(-3.402823e38)
     assert "nodata" not in raster_rp.xdata.attrs
+
+
+def _unaligned_raster():
+    # 30 m cells whose origin is not a multiple of the cell size
+    return rts.data_to_raster(
+        np.ones((1, 10, 10)),
+        affine=Affine(30, 0, 1007, 0, -30, 2013),
+        crs=5070,
+    )
+
+
+def test_reproject_to_crs_gives_tight_grid():
+    raster = _unaligned_raster()
+
+    result = warp.reproject(raster, "EPSG:32613")
+    assert_valid_raster(result)
+    # The footprint in EPSG:32613 spans about 10.5 x 10.9 cells from
+    # (1425861.26, 2574214.66). Snapping the origin to a multiple of the cell
+    # size, or padding the footprint, would add rows and columns of nulls.
+    assert result.shape == (1, 11, 11)
+    assert result.resolution == (30.0, -30.0)
+    assert result.affine.c == pytest.approx(1425861.259, abs=1e-3)
+    assert result.affine.f == pytest.approx(2574214.657, abs=1e-3)
+    valid = ~result.mask.compute()[0]
+    assert valid[0].any()
+    assert valid[:, 0].any()
+
+
+def test_reproject_to_crs_with_resolution_keeps_tight_origin():
+    raster = _unaligned_raster()
+
+    result = warp.reproject(raster, "EPSG:32613", resolution=20)
+    assert_valid_raster(result)
+    assert result.resolution == (20.0, -20.0)
+    assert result.affine.c == pytest.approx(1425861.259, abs=1e-3)
+    assert result.affine.f == pytest.approx(2574214.657, abs=1e-3)
+    assert result.shape == (1, 17, 16)
+
+
+def test_reproject_resolution_keeps_origin():
+    raster = _unaligned_raster()
+
+    result = warp.reproject(raster, resolution=20)
+    assert_valid_raster(result)
+    assert result.crs == raster.crs
+    assert result.resolution == (20.0, -20.0)
+    assert result.affine.c == 1007
+    assert result.affine.f == 2013
+    assert result.shape == (1, 15, 15)

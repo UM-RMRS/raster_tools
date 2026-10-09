@@ -1,4 +1,5 @@
 import pytest
+from affine import Affine
 from odc.geo.geobox import GeoBox
 
 from raster_tools import _grids
@@ -195,3 +196,77 @@ def test_combine_grids_intersection_of_touching_grids_raises():
     corner = _bbox_grid(3000, 3000, 6000, 6000)
     with pytest.raises(ValueError, match="intersection.*empty"):
         _grids.combine_grids([a, corner], how="intersection")
+
+
+def _unaligned_grid():
+    # 30 m cells whose origin is not a multiple of the cell size
+    return GeoBox((10, 10), Affine(30, 0, 1007, 0, -30, 2013), "EPSG:5070")
+
+
+def _unaligned_grid_in_utm():
+    # Smallest 30 m grid covering _unaligned_grid's footprint in EPSG:32613.
+    # The footprint spans about 10.5 x 10.9 cells.
+    return GeoBox(
+        (11, 11),
+        Affine(30, 0, 1425861.259191, 0, -30, 2574214.656564),
+        "EPSG:32613",
+    )
+
+
+def test_reproject_grid_covers_footprint_without_padding():
+    grid = _unaligned_grid()
+    result = _grids.reproject_grid(grid, "EPSG:32613")
+    # Snapping the origin to a multiple of the cell size would give 14 x 14,
+    # and padding the footprint as GeoBox.to_crs does would give 13 x 13.
+    assert _grids.grids_close(result, _unaligned_grid_in_utm())
+
+
+def test_reproject_grid_with_resolution_keeps_tight_origin():
+    grid = _unaligned_grid()
+    expected = _unaligned_grid_in_utm()
+    result = _grids.reproject_grid(grid, "EPSG:32613", resolution=20)
+    assert result.crs == "EPSG:32613"
+    assert result.resolution.xy == (20, -20)
+    assert result.shape == (17, 16)
+    assert result.affine.c == pytest.approx(expected.affine.c)
+    assert result.affine.f == pytest.approx(expected.affine.f)
+
+
+def test_reproject_grid_same_crs_returns_grid():
+    grid = _unaligned_grid()
+    assert _grids.reproject_grid(grid, grid.crs) == grid
+
+
+def test_reproject_grid_same_crs_with_resolution_keeps_origin():
+    grid = _unaligned_grid()
+    result = _grids.reproject_grid(grid, grid.crs, resolution=20)
+    assert result.crs == grid.crs
+    assert result.resolution.xy == (20, -20)
+    assert (result.affine.c, result.affine.f) == (1007, 2013)
+
+
+@pytest.mark.parametrize("resolution", [0, -30])
+def test_reproject_grid_nonpositive_resolution_raises(resolution):
+    with pytest.raises(ValueError, match="positive"):
+        _grids.reproject_grid(
+            _unaligned_grid(), "EPSG:32613", resolution=resolution
+        )
+
+
+def test_combine_grids_union_across_crs_is_tight():
+    grid = _unaligned_grid()
+    expected = _unaligned_grid_in_utm()
+    result = _grids.combine_grids([expected, grid], how="union")
+    assert _grids.grids_close(result, expected)
+
+
+def test_combine_grids_intersection_across_crs_is_tight():
+    grid = _unaligned_grid()
+    expected = _unaligned_grid_in_utm()
+    xmin, ymin, xmax, ymax = expected.extent.boundingbox
+    # A larger grid on its own lattice that contains the other grid
+    cover = _bbox_grid(
+        xmin - 1000, ymin - 1000, xmax + 1000, ymax + 1000, crs=32613
+    )
+    result = _grids.combine_grids([cover, grid], how="intersection")
+    assert _grids.grids_close(result, expected)
