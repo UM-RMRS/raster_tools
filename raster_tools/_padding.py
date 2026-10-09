@@ -8,6 +8,8 @@ from raster_tools.raster import (
     Raster,
     dataarray_to_xr_raster_ds,
     get_raster,
+    stored_transform,
+    xr_where_with_meta,
 )
 from raster_tools.utils import nan_equal
 
@@ -19,7 +21,13 @@ _DUMMY_CRS = "EPSG:4326"
 
 
 def _strip_crs(arr):
-    return arr.drop_vars("spatial_ref", errors="ignore")
+    # Keep the stored transform. It holds the cell size along a length-1
+    # axis, which the coordinates cannot give.
+    transform = stored_transform(arr)
+    arr = arr.drop_vars("spatial_ref", errors="ignore")
+    if transform is not None:
+        arr = arr.rio.write_transform(transform)
+    return arr
 
 
 def _is_numeric_scalar(value):
@@ -175,7 +183,7 @@ def pad(raster, target, *, fill_values=None):
     fill_da = xr.DataArray(
         fill_arr, dims=("band",), coords={"band": xdata_padded.band}
     )
-    xdata = xr.where(is_new, fill_da, xdata_padded)
+    xdata = xr_where_with_meta(is_new, fill_da, xdata_padded)
     if src_crs is not None:
         xdata = xdata.rio.write_crs(src_crs)
     else:
