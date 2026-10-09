@@ -3,7 +3,10 @@ import numba as nb
 import numpy as np
 import xarray as xr
 from numba.types import float64, int8, int64
+from odc.geo.geobox import GeoBox
 
+from raster_tools._align import _raster_geobox
+from raster_tools._grids import grids_aligned
 from raster_tools.distance._heap import (
     init_heap_data,
     pop,
@@ -465,6 +468,26 @@ def _normalize_raster_data(rs, missing=-1):
 _TRACEBACK_NOT_REACHED = -2
 
 
+def _check_on_costs_grid(raster, costs, name):
+    """Raise if `raster` is not on the grid of the `costs` raster.
+
+    The CRS is compared only when both rasters have one, so a raster that
+    is missing a CRS is still accepted if its cells line up with `costs`.
+    """
+    grid = _raster_geobox(raster)
+    costs_grid = _raster_geobox(costs)
+    if raster.crs is None or costs.crs is None:
+        grid = GeoBox(grid.shape, grid.affine, None)
+        costs_grid = GeoBox(costs_grid.shape, costs_grid.affine, None)
+    if not grids_aligned(grid, costs_grid):
+        raise ValueError(
+            f"{name.capitalize()} raster must be on the same grid (CRS,"
+            " affine, shape) as the costs raster. Use raster_tools.align to"
+            f" put the {name} raster on the costs raster's grid first, e.g."
+            f" costs, {name} = align([costs, {name}], dst_grid=costs)."
+        )
+
+
 def cost_distance_analysis(costs, sources, elevation=None, connectivity=8):
     """Calculate accumulated cost distance, traceback, and allocation.
 
@@ -514,7 +537,8 @@ def cost_distance_analysis(costs, sources, elevation=None, connectivity=8):
         null values.
     sources : Raster or raster path, or sequence
         A raster or sequence of indices. If a raster, pixels that are not null
-        are used as source locations. The raster must have a null value set.
+        are used as source locations. The raster must have a null value set
+        and be on the same grid as `costs`.
         The values at valid locations are used as the corresponding values in
         the allocation output. If a sequence, must have shape (M, 2) where M is
         the number of source pixels. Each item represents an index into `costs`
@@ -562,6 +586,7 @@ def cost_distance_analysis(costs, sources, elevation=None, connectivity=8):
             raise ValueError(
                 "Costs and elevation rasters must have the same shape"
             )
+        _check_on_costs_grid(elevation, costs, "elevation")
 
     src_idxs = None
     if isinstance(sources, Raster) or is_str(sources):
@@ -569,6 +594,7 @@ def cost_distance_analysis(costs, sources, elevation=None, connectivity=8):
             sources = Raster(sources)
         if sources.shape != costs.shape:
             raise ValueError("Cost and sources raster shapes must match")
+        _check_on_costs_grid(sources, costs, "sources")
         if sources.dtype.kind not in ("u", "i"):
             msg = (
                 "Sources raster must be an integer type, got "
@@ -692,7 +718,8 @@ def cda_cost_distance(costs, sources, elevation=None, connectivity=8):
         null values.
     sources : Raster or raster path, or sequence
         A raster or sequence of indices. If a raster, pixels that are not null
-        are used as source locations. The raster must have a null value set.
+        are used as source locations. The raster must have a null value set
+        and be on the same grid as `costs`.
         The values at valid locations are used as the corresponding values in
         the allocation output. If a sequence, must have shape (M, 2) where M is
         the number of source pixels. Each item represents an index into `costs`
@@ -736,7 +763,8 @@ def cda_traceback(costs, sources, elevation=None, connectivity=8):
         null values.
     sources : Raster or raster path, or sequence
         A raster or sequence of indices. If a raster, pixels that are not null
-        are used as source locations. The raster must have a null value set.
+        are used as source locations. The raster must have a null value set
+        and be on the same grid as `costs`.
         The values at valid locations are used as the corresponding values in
         the allocation output. If a sequence, must have shape (M, 2) where M is
         the number of source pixels. Each item represents an index into `costs`
@@ -778,7 +806,8 @@ def cda_allocation(costs, sources, elevation=None, connectivity=8):
         null values.
     sources : Raster or raster path, or sequence
         A raster or sequence of indices. If a raster, pixels that are not null
-        are used as source locations. The raster must have a null value set.
+        are used as source locations. The raster must have a null value set
+        and be on the same grid as `costs`.
         The values at valid locations are used as the corresponding values in
         the allocation output. If a sequence, must have shape (M, 2) where M is
         the number of source pixels. Each item represents an index into `costs`

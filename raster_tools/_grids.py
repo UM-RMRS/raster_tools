@@ -50,6 +50,26 @@ def grids_close(a, b, pixel_tolerance=GRID_PIXEL_TOLERANCE):
     )
 
 
+def grids_aligned(a, b, pixel_tolerance=GRID_PIXEL_TOLERANCE):
+    """True if grids `a` and `b` share a CRS and shape and their cells line up.
+
+    Unlike `grids_close`, a difference in the cell size or rotation terms is
+    judged by how far it moves the cells across the whole grid. The origins
+    must agree to within `pixel_tolerance` of a cell, and the cell size and
+    rotation differences must not move any cell by more than that again.
+    """
+    if a.crs != b.crs or a.shape != b.shape:
+        return False
+    aa, bb = a.affine, b.affine
+    atol = pixel_tolerance * max(abs(aa.a), abs(aa.e))
+    if abs(aa.c - bb.c) > atol or abs(aa.f - bb.f) > atol:
+        return False
+    ny, nx = a.shape
+    drift_x = nx * abs(aa.a - bb.a) + ny * abs(aa.b - bb.b)
+    drift_y = nx * abs(aa.d - bb.d) + ny * abs(aa.e - bb.e)
+    return drift_x <= atol and drift_y <= atol
+
+
 class GridMismatchError(ValueError):
     """Raised when grids do not share a cell lattice."""
 

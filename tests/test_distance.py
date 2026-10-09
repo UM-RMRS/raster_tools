@@ -294,12 +294,13 @@ def test_cost_distance_analysis_connectivity_4_masks_unreachable():
 
 def test_cost_distance_analysis_scale_isotropic():
     # 5m isotropic resolution via a real affine (no private _ds surgery).
+    affine = Affine(5, 0, 0, 0, -5, 0)
     cs = data_to_raster(
-        COST_SURF[None],
-        affine=Affine(5, 0, 0, 0, -5, 0),
-        crs="EPSG:3857",
+        COST_SURF[None], affine=affine, crs="EPSG:3857"
     ).set_null_value(-1)
-    srcs = Raster(SOURCES).set_null_value(0)
+    srcs = data_to_raster(
+        SOURCES[None], affine=affine, crs="EPSG:3857"
+    ).set_null_value(0)
     cd, _, _ = distance.cost_distance_analysis(cs, srcs)
     assert np.allclose(cd.to_numpy(), CD_TRUTH_SCALE_5, equal_nan=True)
 
@@ -1310,3 +1311,106 @@ def test_cost_distance_connectivity_invalid_raises(connectivity):
         cost_distance_analysis_numpy(
             costs, _single_source((4, 4)), -1, connectivity=connectivity
         )
+
+
+_GRID_AFFINE = Affine(5, 0, 0, 0, -5, 0)
+
+
+def _cost_grid_inputs(affine, kind, crs="EPSG:3857", other_crs="EPSG:3857"):
+    costs = data_to_raster(
+        COST_SURF[None], affine=_GRID_AFFINE, crs=crs
+    ).set_null_value(-1)
+    sources_affine = affine if kind == "sources" else _GRID_AFFINE
+    sources = data_to_raster(
+        SOURCES[None], affine=sources_affine, crs=other_crs
+    ).set_null_value(0)
+    elevation = None
+    if kind == "elevation":
+        elevation = data_to_raster(
+            np.zeros_like(COST_SURF, dtype=float)[None],
+            affine=affine,
+            crs=other_crs,
+        )
+    return costs, sources, elevation
+
+
+@pytest.mark.parametrize("kind", ["sources", "elevation"])
+@pytest.mark.parametrize(
+    "affine",
+    [
+        pytest.param(Affine(5, 0, 5, 0, -5, 0), id="x_offset_one_cell"),
+        pytest.param(Affine(5, 0, 0, 0, -5, -5), id="y_offset_one_cell"),
+        pytest.param(Affine(10, 0, 0, 0, -10, 0), id="cell_size_differs"),
+        # Within 1e-3 of a cell per term, but drifts across the grid
+        pytest.param(Affine(5.004, 0, 0, 0, -5.004, 0), id="cell_size_drifts"),
+    ],
+)
+@pytest.mark.parametrize(
+    "func",
+    [
+        distance.cost_distance_analysis,
+        distance.cda_cost_distance,
+        distance.cda_traceback,
+        distance.cda_allocation,
+    ],
+)
+def test_cost_distance_off_grid_raises(func, affine, kind):
+    costs, sources, elevation = _cost_grid_inputs(affine, kind)
+    with pytest.raises(ValueError, match="same grid") as exc:
+        func(costs, sources, elevation)
+    msg = str(exc.value)
+    assert kind in msg.lower()
+    assert "align(" in msg
+
+
+@pytest.mark.parametrize("kind", ["sources", "elevation"])
+@pytest.mark.parametrize(
+    "affine",
+    [
+        pytest.param(_GRID_AFFINE, id="identical"),
+        pytest.param(Affine(5, 0, 1e-4, 0, -5, -1e-4), id="float_noise"),
+    ],
+)
+def test_cost_distance_on_grid(affine, kind):
+    costs, sources, elevation = _cost_grid_inputs(affine, kind)
+    cd, _, _ = distance.cost_distance_analysis(costs, sources, elevation)
+    assert np.allclose(cd.to_numpy(), CD_TRUTH_SCALE_5, equal_nan=True)
+
+
+@pytest.mark.parametrize("kind", ["sources", "elevation"])
+@pytest.mark.parametrize(
+    "crs, other_crs",
+    [("EPSG:3857", None), (None, "EPSG:3857"), (None, None)],
+)
+def test_cost_distance_missing_crs_on_grid(crs, other_crs, kind):
+    # A missing CRS on either side is not a mismatch when the cells line up
+    costs, sources, elevation = _cost_grid_inputs(
+        _GRID_AFFINE, kind, crs=crs, other_crs=other_crs
+    )
+    cd, _, _ = distance.cost_distance_analysis(costs, sources, elevation)
+    assert np.allclose(cd.to_numpy(), CD_TRUTH_SCALE_5, equal_nan=True)
+
+
+def test_cost_distance_crs_differs_raises():
+    costs, sources, _ = _cost_grid_inputs(
+        _GRID_AFFINE, "sources", other_crs="EPSG:5070"
+    )
+    with pytest.raises(ValueError, match="same grid"):
+        distance.cost_distance_analysis(costs, sources)
+
+
+def test_cost_distance_one_cell_wide_no_crs():
+    # A raster with no CRS that is one cell wide along an axis must be
+    # checked by its grid without failing on the missing GeoBox.
+    affine = Affine(1, 0, 0, 0, -1, 1)
+    costs = data_to_raster(np.ones((1, 1, 6)), affine=affine)
+    srcs = np.zeros((1, 1, 6), dtype=int)
+    srcs[0, 0, 0] = 1
+    sources = data_to_raster(srcs, affine=affine).set_null_value(0)
+    cd, _, _ = distance.cost_distance_analysis(costs, sources)
+    assert np.allclose(cd.to_numpy()[0, 0], np.arange(6.0))
+    shifted = data_to_raster(
+        srcs, affine=Affine(1, 0, 1, 0, -1, 1)
+    ).set_null_value(0)
+    with pytest.raises(ValueError, match="same grid"):
+        distance.cost_distance_analysis(costs, shifted)
