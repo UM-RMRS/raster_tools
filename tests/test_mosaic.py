@@ -1,6 +1,8 @@
 import numpy as np
 import pytest
 import shapely
+from affine import Affine
+from odc.geo.geobox import GeoBox
 
 import raster_tools as rts
 import raster_tools._mosaic as mosaic
@@ -901,6 +903,45 @@ def test_mosaic_paint_recursive_boundary(n_inputs, method, expected_value):
     assert_valid_raster(result)
     data = result.to_numpy()
     assert (data == expected_value).all()
+
+
+def test_mosaic_rasters_without_crs_offset_by_whole_cells():
+    y = np.arange(3)[::-1]
+    x = np.arange(4)
+    r1 = make_raster(np.full((3, 3), 1), x=x[:3], y=y, null=-1, crs=None)
+    r2 = make_raster(np.full((3, 3), 2), x=x[1:], y=y, null=-1, crs=None)
+    result = mosaic.mosaic([r1, r2], "first")
+    assert_valid_raster(result)
+    assert result.crs is None
+    assert result.shape == (1, 3, 4)
+    assert np.array_equal(result.to_numpy()[0, 0], [1, 1, 1, 2])
+
+
+def test_mosaic_with_one_row_raster():
+    y = np.arange(4)[::-1] * 10.0
+    x = np.arange(4) * 10.0
+    base = _raster(np.arange(16).reshape((4, 4)), y, x)
+    row = _raster(np.full((1, 4), 99), y[1:2], x)
+    result = mosaic.mosaic([base, row], "last")
+    assert_valid_raster(result)
+    assert result.shape == (1, 4, 4)
+    expected = base.to_numpy()
+    expected[0, 1] = 99
+    assert np.array_equal(result.to_numpy(), expected)
+
+
+@pytest.mark.parametrize("shape", [(1, 8), (1, 1)])
+def test_mosaic_onto_one_row_dst_grid_keeps_its_transform(shape):
+    src = rts.data_to_raster(
+        np.arange(64).reshape((1, 8, 8)),
+        affine=Affine(10, 0, 0, 0, -20, 160),
+        crs=5070,
+    )
+    grid = GeoBox(shape, Affine(10, 0, 0, 0, -20, 100), "EPSG:5070")
+    result = mosaic.mosaic([src], dst_grid=grid)
+    assert_valid_raster(result)
+    assert result.affine == grid.affine
+    assert result.affine == rts.align([src], dst_grid=grid)[0].affine
 
 
 def test_mosaic_accepts_file_paths(tmp_path):

@@ -145,3 +145,14 @@ def test_combine_grids_intersection_empty_raises():
     b = _bbox_grid(10_000, 10_000, 13_000, 13_000)
     with pytest.raises(ValueError, match="intersection.*empty"):
         _grids.combine_grids([a, b], how="intersection")
+
+
+def test_combine_grids_intersection_of_touching_grids_raises():
+    # Touching grids intersect in a line, which holds no cells
+    a = _bbox_grid(0, 0, 3000, 3000)
+    b = _bbox_grid(3000, 0, 6000, 3000)
+    with pytest.raises(ValueError, match="intersection.*empty"):
+        _grids.combine_grids([a, b], how="intersection")
+    corner = _bbox_grid(3000, 3000, 6000, 6000)
+    with pytest.raises(ValueError, match="intersection.*empty"):
+        _grids.combine_grids([a, corner], how="intersection")

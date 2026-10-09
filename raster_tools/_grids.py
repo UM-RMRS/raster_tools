@@ -1,7 +1,10 @@
+import math
+
 import dask.array as da
 import geopandas as gpd
 import numpy as np
 import shapely
+from odc.geo import resxy_
 from odc.geo.geobox import GeoBox
 
 
@@ -47,6 +50,10 @@ def grids_close(a, b, pixel_tolerance=GRID_PIXEL_TOLERANCE):
     )
 
 
+class GridMismatchError(ValueError):
+    """Raised when grids do not share a cell lattice."""
+
+
 def axis_step(coords):
     """Signed cell step along an axis, derived from its coordinates alone.
 
@@ -57,6 +64,65 @@ def axis_step(coords):
         # so only lattice alignment can be checked along it.
         return None
     return (coords[-1] - coords[0]) / (len(coords) - 1)
+
+
+def lattice_step(steps, ncells, dim):
+    """The cell step shared by the given axis steps, or None if unknown.
+
+    `steps` holds the signed step of each grid along `dim`, with None for an
+    unknown step. `ncells` is the length of the longest axis. The first known
+    step is returned. Raises GridMismatchError if two known steps differ in
+    orientation, or in size by enough that the grids drift apart by more than
+    GRID_PIXEL_TOLERANCE of a cell across `ncells` cells.
+    """
+    lattice = None
+    for step in steps:
+        if step is None:
+            continue
+        if lattice is None:
+            lattice = step
+            continue
+        if np.sign(step) != np.sign(lattice):
+            raise GridMismatchError(
+                f"Raster grids do not match: the {dim} axis orientation"
+                " differs (the coordinates increase in one raster and"
+                " decrease in the other)."
+            )
+        drift = ncells * abs(step - lattice) / abs(lattice)
+        if drift > GRID_PIXEL_TOLERANCE:
+            raise GridMismatchError(
+                "Raster grids do not match: resolution differs along"
+                f" {dim} ({abs(lattice)} vs {abs(step)}; across {ncells}"
+                f" cells the grids drift apart by {drift:g} cells)."
+            )
+    return lattice
+
+
+def cell_offset(ref_start, start, lattice, dim):
+    """Whole-cell offset of the cell center `start` from `ref_start`.
+
+    The offset is in units of `lattice`, the shared signed cell step along
+    `dim`. If `lattice` is None, the cell size is unknown and the coordinates
+    must be equal, up to float noise. Raises GridMismatchError if the offset
+    is not a whole number of cells, within GRID_PIXEL_TOLERANCE of a cell.
+    """
+    if lattice is None:
+        # With no cell size to scale a tolerance, allow only float noise
+        if math.isclose(start, ref_start, rel_tol=1e-9):
+            return 0
+        raise GridMismatchError(
+            f"Raster grids do not match: the rasters are one cell wide along"
+            f" {dim}, so the cell size is unknown, and their cell centers"
+            f" differ ({ref_start} vs {start})."
+        )
+    shift = (start - ref_start) / lattice
+    ishift = round(shift)
+    if abs(shift - ishift) > GRID_PIXEL_TOLERANCE:
+        raise GridMismatchError(
+            "Raster grids do not match: grids are offset by a non-integer"
+            f" number of cells ({shift:g} along {dim})."
+        )
+    return ishift
 
 
 def are_all_grids_same(grids):
@@ -75,8 +141,13 @@ def _build_empty_raster_from_grid(grid, dtype, nodata):
     # coordinates is an ordered (y-axis, x-axis) mapping; key names vary by
     # CRS (e.g. "x"/"y" for projected, "longitude"/"latitude" for 4326).
     y_coord, x_coord = grid.coordinates.values()
-    return rts.data_to_raster(
+    raster = rts.data_to_raster(
         data, x=x_coord.values, y=y_coord.values, crs=grid.crs, nv=nodata
+    )
+    # The coordinates of a length-1 axis do not give its cell size, so keep
+    # the grid's transform.
+    return rts.Raster(
+        raster._ds.rio.write_transform(grid.affine), _fast_path=True
     )
 
 
@@ -93,6 +164,11 @@ def get_grid_bounds(grid):
     return get_grid_bbox(grid).bounds
 
 
+EMPTY_INTERSECTION_MSG = (
+    "The intersection of the given grids is empty: the grids do not overlap"
+)
+
+
 def combine_grids(grids, how=None, dst_crs=None, resolution=None):
     """Produce a grid that combines the input grids
 
@@ -104,7 +180,9 @@ def combine_grids(grids, how=None, dst_crs=None, resolution=None):
         How to combine the grids. Either ``"union"`` or ``"intersection"``.
         Union takes the bounding box of the convex hull of the individual grid
         bounding boxes. Intersection takes the bounding box of the intersection
-        of the bounding boxes of the grids. Default is ``"union"``.
+        of the bounding boxes of the grids, and raises a ``ValueError`` if the
+        grids do not overlap, including grids that only touch. Default is
+        ``"union"``.
     dst_crs : CRS-like, optional
         The CRS of the resulting grid. If ``None``, the CRS of the first input
         grid is used. When the input grids do not share a CRS, they are
@@ -112,8 +190,9 @@ def combine_grids(grids, how=None, dst_crs=None, resolution=None):
         combined. Default is ``None``.
     resolution : scalar, optional
         Pixel resolution of the resulting grid, in units of ``dst_crs``. If
-        ``None``, the resolution of the first input grid is used. Default is
-        ``None``.
+        ``None``, the x and y resolutions of the first input grid are used
+        when `dst_crs` is its CRS, and its x resolution is used for both
+        axes otherwise. Default is ``None``.
 
     Returns
     -------
@@ -137,8 +216,14 @@ def combine_grids(grids, how=None, dst_crs=None, resolution=None):
 
     if dst_crs is None:
         dst_crs = grids[0].crs
+    dst_resolution = resolution
     if resolution is None:
         resolution = np.abs(grids[0].resolution.x)
+        dst_resolution = resolution
+        if dst_crs == grids[0].crs:
+            # Keep the first grid's cell size along both axes
+            res = grids[0].resolution
+            dst_resolution = resxy_(abs(res.x), -abs(res.y))
     grids_dst = [
         reproject_grid(g, dst_crs, resolution=resolution) for g in grids
     ]
@@ -146,13 +231,18 @@ def combine_grids(grids, how=None, dst_crs=None, resolution=None):
     if how == "union":
         total_bounds_dst = gpd.GeoSeries(bboxes_dst, crs=dst_crs).total_bounds
         dst_grid = GeoBox.from_bbox(
-            total_bounds_dst, crs=dst_crs, resolution=resolution, tight=True
+            total_bounds_dst,
+            crs=dst_crs,
+            resolution=dst_resolution,
+            tight=True,
         )
     else:
         bbox = shapely.intersection_all(bboxes_dst).normalize()
-        if bbox.is_empty:
-            raise ValueError("The intersection of the given grids is empty")
+        # Grids that only touch intersect in a line or point, which has no
+        # cells to keep.
+        if bbox.is_empty or bbox.area == 0:
+            raise ValueError(EMPTY_INTERSECTION_MSG)
         dst_grid = GeoBox.from_bbox(
-            bbox.bounds, crs=dst_crs, resolution=resolution, tight=True
+            bbox.bounds, crs=dst_crs, resolution=dst_resolution, tight=True
         )
     return dst_grid

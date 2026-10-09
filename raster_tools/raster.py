@@ -1,4 +1,3 @@
-import math
 import numbers
 import os
 import warnings
@@ -20,11 +19,7 @@ from shapely.geometry import box
 
 from raster_tools import _grids
 from raster_tools._compat import NUMPY_GE_2, NUMPY_GE_2_2, PY_VER_310_PLUS
-from raster_tools._grids import (
-    GRID_PIXEL_TOLERANCE,
-    build_x_coord,
-    build_y_coord,
-)
+from raster_tools._grids import build_x_coord, build_y_coord
 from raster_tools.dask_utils import (
     dask_nanmax,
     dask_nanmin,
@@ -239,8 +234,7 @@ def _normalize_ufunc_other(other, this):
 
 
 _GRID_MISMATCH_HINT = (
-    " Use reproject(other, raster.geobox) to put one raster on the other's"
-    " grid first."
+    " Use align([raster, other]) to put the rasters on a common grid first."
 )
 
 
@@ -249,12 +243,7 @@ def _axis_step(raster, dim):
 
     Returns None for an axis of length 1.
     """
-    coords = raster._ds[dim].data
-    if len(coords) < 2:
-        # A length-1 axis has no cell size derivable from its coordinates,
-        # so only lattice alignment can be checked along it.
-        return None
-    return (coords[-1] - coords[0]) / (len(coords) - 1)
+    return _grids.axis_step(raster._ds[dim].data)
 
 
 def _lattice_step(rasters, dim):
@@ -266,29 +255,11 @@ def _lattice_step(rasters, dim):
     cell across the longest axis.
     """
     ncells = max(len(r._ds[dim]) for r in rasters)
-    lattice = None
-    for r in rasters:
-        step = _axis_step(r, dim)
-        if step is None:
-            continue
-        if lattice is None:
-            lattice = step
-            continue
-        if np.sign(step) != np.sign(lattice):
-            raise ValueError(
-                f"Raster grids do not match: the {dim} axis orientation"
-                " differs (the coordinates increase in one raster and"
-                " decrease in the other)." + _GRID_MISMATCH_HINT
-            )
-        drift = ncells * abs(step - lattice) / abs(lattice)
-        if drift > GRID_PIXEL_TOLERANCE:
-            raise ValueError(
-                "Raster grids do not match: resolution differs along"
-                f" {dim} ({abs(lattice)} vs {abs(step)}; across {ncells}"
-                f" cells the grids drift apart by {drift:g} cells)."
-                + _GRID_MISMATCH_HINT
-            )
-    return lattice
+    steps = [_axis_step(r, dim) for r in rasters]
+    try:
+        return _grids.lattice_step(steps, ncells, dim)
+    except _grids.GridMismatchError as err:
+        raise ValueError(str(err) + _GRID_MISMATCH_HINT) from None
 
 
 def _cell_offset(ref, raster, dim, lattice):
@@ -301,23 +272,10 @@ def _cell_offset(ref, raster, dim, lattice):
     """
     start = raster._ds[dim].data[0]
     ref_start = ref._ds[dim].data[0]
-    if lattice is None:
-        # With no cell size to scale a tolerance, allow only float noise
-        if math.isclose(start, ref_start, rel_tol=1e-9):
-            return 0
-        raise ValueError(
-            f"Raster grids do not match: the rasters are one cell wide along"
-            f" {dim}, so the cell size is unknown, and their cell centers"
-            f" differ ({ref_start} vs {start})." + _GRID_MISMATCH_HINT
-        )
-    shift = (start - ref_start) / lattice
-    ishift = round(shift)
-    if abs(shift - ishift) > GRID_PIXEL_TOLERANCE:
-        raise ValueError(
-            "Raster grids do not match: grids are offset by a non-integer"
-            f" number of cells ({shift:g} along {dim})." + _GRID_MISMATCH_HINT
-        )
-    return ishift
+    try:
+        return _grids.cell_offset(ref_start, start, lattice, dim)
+    except _grids.GridMismatchError as err:
+        raise ValueError(str(err) + _GRID_MISMATCH_HINT) from None
 
 
 def _cell_bounds(raster, steps):
@@ -355,7 +313,7 @@ def _crop_to_overlap(rasters):
         bounds = " and ".join(str(_cell_bounds(r, steps)) for r in rasters)
         raise ValueError(
             "Raster grids do not overlap. Bounds (minx, miny, maxx, maxy):"
-            f" {bounds}." + _GRID_MISMATCH_HINT
+            f" {bounds}."
         )
 
     ref_ds = ref._ds.isel(

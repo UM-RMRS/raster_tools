@@ -418,9 +418,9 @@ def _check_shape_aligned(rasters):
         if r.shape != ref.shape:
             raise ValueError(
                 f"raster {i} shape {r.shape} does not match raster 0 "
-                f"shape {ref.shape}. Use ``Raster.reproject`` to align "
-                f"inputs to the same grid first, e.g. "
-                f"``r{i}.reproject(r0.geobox)``."
+                f"shape {ref.shape}. Use ``raster_tools.align`` to put "
+                f"the inputs on a common grid first, e.g. "
+                f"``r0, r{i} = align([r0, r{i}], dst_grid=r0)``."
             )
 
 
@@ -536,7 +536,7 @@ def map_blocks(
         function form at least one is required. Path strings are accepted.
         Only the 3D shape is validated; CRS and affine are *not* checked.
         The caller is responsible for aligning inputs -- typically via
-        ``r2.reproject(r1.geobox)``. Inputs are auto-rechunked to the first
+        :func:`~raster_tools.align`. Inputs are auto-rechunked to the first
         input's chunk structure, so same-shape inputs with differing
         chunking are handled. For a geo-aware variant that strictly
         requires matching grids, see :func:`~raster_tools.geo_map_blocks`.
@@ -697,8 +697,8 @@ def map_blocks(
     --------
     raster_tools.geo_map_blocks : Geo-aware variant that requires matching
         grids and hands ``func`` georeferenced ``xr.DataArray`` blocks.
-    raster_tools.Raster.reproject : Per-input alignment to a target
-        grid; pass ``r1.geobox`` to align ``r2`` to ``r1``.
+    raster_tools.align : Put inputs on a common grid; pass
+        ``dst_grid=r1`` to keep the first input's grid.
     """
     if not rasters:
         raise ValueError("map_blocks requires at least one raster")
@@ -1310,7 +1310,7 @@ def map_overlap(
         function form at least one is required. Path strings are accepted.
         Only the 3D shape is validated; CRS and affine are *not* checked.
         The caller is responsible for aligning inputs -- typically via
-        ``r2.reproject(r1.geobox)``. Inputs are auto-rechunked to the first
+        :func:`~raster_tools.align`. Inputs are auto-rechunked to the first
         input's chunk structure, so same-shape inputs with differing
         chunking are handled. For a geo-aware variant that strictly
         requires matching grids, see :func:`~raster_tools.geo_map_overlap`.
@@ -1902,11 +1902,10 @@ def geo_map_blocks(
         function form at least one is required. Path strings are accepted.
         All inputs must be on the same grid (CRS, affine, shape) within the
         established sub-pixel tolerance; mismatched inputs raise
-        ``ValueError``. Use ``r2.reproject(r1.geobox)`` to align inputs
-        first if needed. Inputs are then auto-rechunked to the first
-        input's chunk structure (``reproject`` does not adopt the target's
-        chunking), so the output stays on the first input's grid and
-        chunking.
+        ``ValueError``. Use :func:`~raster_tools.align` to put the inputs
+        on a common grid first if needed. Inputs are then auto-rechunked to
+        the first input's chunk structure (``align`` does not rechunk), so
+        the output stays on the first input's grid and chunking.
     dtype : dtype-like, optional
         Output dtype. When ``None`` (default), dask infers the dtype by calling
         ``func`` on tiny meta samples.
@@ -2056,8 +2055,8 @@ def geo_map_blocks(
     raster_tools.map_blocks : Non-geo variant; permissive (shape-only
         check).
     raster_tools.geo_map_overlap : Geo-aware variant with overlap.
-    raster_tools.Raster.reproject : Per-input alignment to a target
-        grid; pass ``r1.geobox`` to align ``r2`` to ``r1``.
+    raster_tools.align : Put inputs on a common grid; pass
+        ``dst_grid=r1`` to keep the first input's grid.
     """
     if not rasters:
         raise ValueError("geo_map_blocks requires at least one raster")
@@ -2071,9 +2070,9 @@ def geo_map_blocks(
     if not are_all_grids_same([r.geobox for r in rasters]):
         raise ValueError(
             "geo_map_blocks requires all input rasters to be on the "
-            "same grid (CRS, affine, shape). Use "
-            "Raster.reproject(crs_or_geobox=...) to align inputs "
-            "first, e.g. r2.reproject(r1.geobox)."
+            "same grid (CRS, affine, shape). Use raster_tools.align to "
+            "put the inputs on a common grid first, e.g. "
+            "r1, r2 = align([r1, r2])."
         )
     # Pre-rechunk template: keeps the output on the caller's original
     # y/x chunking even when out_bands re-tiles inputs for the compute.
@@ -2239,11 +2238,10 @@ def geo_map_overlap(
         function form at least one is required. Path strings are accepted.
         All inputs must be on the same grid (CRS, affine, shape) within the
         established sub-pixel tolerance; mismatched inputs raise
-        ``ValueError``. Use ``r2.reproject(r1.geobox)`` to align inputs
-        first if needed. Inputs are then auto-rechunked to the first
-        input's chunk structure (``reproject`` does not adopt the target's
-        chunking), so the output stays on the first input's grid and
-        chunking.
+        ``ValueError``. Use :func:`~raster_tools.align` to put the inputs
+        on a common grid first if needed. Inputs are then auto-rechunked to
+        the first input's chunk structure (``align`` does not rechunk), so
+        the output stays on the first input's grid and chunking.
     depth : int, tuple of int, or dict
         Same semantics as :func:`~raster_tools.map_overlap`.
     boundary : optional
@@ -2401,8 +2399,8 @@ def geo_map_overlap(
     raster_tools.geo_map_blocks : No-overlap variant.
     raster_tools.map_overlap : Non-geo variant; permissive (shape-only
         check).
-    raster_tools.Raster.reproject : Per-input alignment to a target
-        grid; pass ``r1.geobox`` to align ``r2`` to ``r1``.
+    raster_tools.align : Put inputs on a common grid; pass
+        ``dst_grid=r1`` to keep the first input's grid.
     """
     if not rasters:
         raise ValueError("geo_map_overlap requires at least one raster")
@@ -2418,9 +2416,9 @@ def geo_map_overlap(
     if not are_all_grids_same([r.geobox for r in rasters]):
         raise ValueError(
             "geo_map_overlap requires all input rasters to be on the "
-            "same grid (CRS, affine, shape). Use "
-            "Raster.reproject(crs_or_geobox=...) to align inputs "
-            "first, e.g. r2.reproject(r1.geobox)."
+            "same grid (CRS, affine, shape). Use raster_tools.align to "
+            "put the inputs on a common grid first, e.g. "
+            "r1, r2 = align([r1, r2])."
         )
 
     depth_dict = _normalize_depth(depth)

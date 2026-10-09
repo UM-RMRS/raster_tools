@@ -27,6 +27,7 @@ Combining Rasters
 .. autosummary::
    :toctree: generated/
 
+   align
    band_concat
    mosaic
    split_bands
