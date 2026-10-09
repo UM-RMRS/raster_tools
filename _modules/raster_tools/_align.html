@@ -516,8 +516,10 @@ document.write(`
 <span class="k">def</span><span class="w"> </span><span class="nf">_raster_geobox</span><span class="p">(</span><span class="n">raster</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">"""The raster's grid as a GeoBox.</span>
 
-<span class="sd">    Built from the raster's own transform rather than Raster.geobox, which</span>
-<span class="sd">    is None for a raster with no CRS that is one cell wide along an axis.</span>
+<span class="sd">    Built from the raster's grid transform rather than Raster.geobox, whose</span>
+<span class="sd">    affine odc-geo derives from the coordinates and can differ from it in</span>
+<span class="sd">    the last bits. A grid taken from a raster then keeps that raster's</span>
+<span class="sd">    transform.</span>
 <span class="sd">    """</span>
     <span class="n">ny</span><span class="p">,</span> <span class="n">nx</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
     <span class="k">return</span> <span class="n">GeoBox</span><span class="p">((</span><span class="n">ny</span><span class="p">,</span> <span class="n">nx</span><span class="p">),</span> <span class="n">_grid_affine</span><span class="p">(</span><span class="n">raster</span><span class="p">),</span> <span class="n">raster</span><span class="o">.</span><span class="n">crs</span><span class="p">)</span>

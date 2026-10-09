@@ -500,6 +500,7 @@ document.write(`
     <span class="n">data_to_xr_raster_ds_like</span><span class="p">,</span>
     <span class="n">dataarray_to_xr_raster_ds</span><span class="p">,</span>
     <span class="n">get_raster</span><span class="p">,</span>
+    <span class="n">with_grid_mapping_of</span><span class="p">,</span>
     <span class="n">xr_where_with_meta</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.stat_common</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
@@ -1703,6 +1704,10 @@ document.write(`
         <span class="n">yd</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="s2">"xdata"</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
         <span class="n">data</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">cd</span><span class="p">,</span> <span class="n">xd</span><span class="p">,</span> <span class="n">yd</span><span class="p">)</span>
         <span class="n">mask</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+    <span class="c1"># xr.where drops the stored transform, which holds the cell size along</span>
+    <span class="c1"># a length-1 axis, so take it back from the condition's grid</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">with_grid_mapping_of</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">condition</span><span class="o">.</span><span class="n">xdata</span><span class="p">)</span>
+    <span class="n">mask</span> <span class="o">=</span> <span class="n">with_grid_mapping_of</span><span class="p">(</span><span class="n">mask</span><span class="p">,</span> <span class="n">condition</span><span class="o">.</span><span class="n">xdata</span><span class="p">)</span>
     <span class="n">ds</span> <span class="o">=</span> <span class="n">dataarray_to_xr_raster_ds</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">mask</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">out_crs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">ds</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_crs</span><span class="p">(</span><span class="n">out_crs</span><span class="p">)</span>

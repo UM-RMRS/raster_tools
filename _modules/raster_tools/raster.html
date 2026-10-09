@@ -455,6 +455,7 @@ document.write(`
 <span class="kn">import</span><span class="w"> </span><span class="nn">xarray</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">xr</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">affine</span><span class="w"> </span><span class="kn">import</span> <span class="n">Affine</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">numba</span><span class="w"> </span><span class="kn">import</span> <span class="n">jit</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">odc.geo.geobox</span><span class="w"> </span><span class="kn">import</span> <span class="n">GeoBox</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">shapely.geometry</span><span class="w"> </span><span class="kn">import</span> <span class="n">box</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools</span><span class="w"> </span><span class="kn">import</span> <span class="n">_grids</span>
@@ -929,7 +930,7 @@ document.write(`
         <span class="n">nv</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">if</span> <span class="n">masked</span><span class="p">:</span>
             <span class="n">nv</span> <span class="o">=</span> <span class="n">get_default_null_value</span><span class="p">(</span><span class="n">xr_out</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
-            <span class="n">xr_out</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">xmask</span><span class="p">,</span> <span class="n">nv</span><span class="p">,</span> <span class="n">xr_out</span><span class="p">)</span>
+            <span class="n">xr_out</span> <span class="o">=</span> <span class="n">xr_where_with_meta</span><span class="p">(</span><span class="n">xmask</span><span class="p">,</span> <span class="n">nv</span><span class="p">,</span> <span class="n">xr_out</span><span class="p">)</span>
         <span class="n">ds</span> <span class="o">=</span> <span class="n">make_raster_ds</span><span class="p">(</span><span class="n">xr_out</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_nodata</span><span class="p">(</span><span class="n">nv</span><span class="p">),</span> <span class="n">xmask</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">out_crs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">ds</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_crs</span><span class="p">(</span><span class="n">out_crs</span><span class="p">)</span>
@@ -1127,22 +1128,33 @@ document.write(`
         <span class="k">return</span> <span class="n">ufunc</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
 
 
+<span class="k">def</span><span class="w"> </span><span class="nf">with_grid_mapping_of</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="o">*</span><span class="n">sources</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Copy the grid mapping coordinate onto `result` from a source.</span>
+
+<span class="sd">    The coordinate, which holds the stored transform, is taken from the</span>
+<span class="sd">    first of `sources` that is a DataArray carrying one. xarray operations</span>
+<span class="sd">    such as xr.where drop the attributes of that coordinate. Without the</span>
+<span class="sd">    stored transform, the cell size along a length-1 axis cannot be</span>
+<span class="sd">    recovered later (see grid_transform), so operations that rebuild raster</span>
+<span class="sd">    data restore it with this function.</span>
+<span class="sd">    """</span>
+    <span class="k">for</span> <span class="n">src</span> <span class="ow">in</span> <span class="n">sources</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">):</span>
+            <span class="k">continue</span>
+        <span class="n">gm</span> <span class="o">=</span> <span class="n">src</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">grid_mapping</span>
+        <span class="k">if</span> <span class="n">gm</span> <span class="ow">in</span> <span class="n">src</span><span class="o">.</span><span class="n">coords</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">result</span><span class="o">.</span><span class="n">assign_coords</span><span class="p">({</span><span class="n">gm</span><span class="p">:</span> <span class="n">src</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="n">gm</span><span class="p">]})</span>
+    <span class="k">return</span> <span class="n">result</span>
+
+
 <span class="k">def</span><span class="w"> </span><span class="nf">xr_where_with_meta</span><span class="p">(</span><span class="n">cond</span><span class="p">,</span> <span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">,</span> <span class="n">crs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">nv</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">"""xr.where that keeps the grid metadata of the data input.</span>
 
 <span class="sd">    The grid mapping coordinate, which holds the stored transform, is taken</span>
-<span class="sd">    from the first of `left` and `right` that is a DataArray.</span>
+<span class="sd">    from the first of `left` and `right` that is a DataArray carrying one.</span>
 <span class="sd">    """</span>
     <span class="n">result</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">cond</span><span class="p">,</span> <span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">)</span>
-    <span class="c1"># xr.where drops the attributes of the grid mapping coordinate, which</span>
-    <span class="c1"># hold the stored transform. Without it, the cell size along a length-1</span>
-    <span class="c1"># axis cannot be recovered later, so copy the coordinate back from the</span>
-    <span class="c1"># data input.</span>
-    <span class="n">src</span> <span class="o">=</span> <span class="nb">next</span><span class="p">((</span><span class="n">v</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="p">(</span><span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">)</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">)),</span> <span class="kc">None</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">src</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">gm</span> <span class="o">=</span> <span class="n">src</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">grid_mapping</span>
-        <span class="k">if</span> <span class="n">gm</span> <span class="ow">in</span> <span class="n">src</span><span class="o">.</span><span class="n">coords</span> <span class="ow">and</span> <span class="n">gm</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">coords</span><span class="p">:</span>
-            <span class="n">result</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">assign_coords</span><span class="p">({</span><span class="n">gm</span><span class="p">:</span> <span class="n">src</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="n">gm</span><span class="p">]})</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">with_grid_mapping_of</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">crs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">result</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_crs</span><span class="p">(</span><span class="n">crs</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">nv</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -2250,7 +2262,16 @@ document.write(`
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">geobox</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">"""GeoBox object describing the raster's grid."""</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ds</span><span class="o">.</span><span class="n">odc</span><span class="o">.</span><span class="n">geobox</span>
+        <span class="n">geobox</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ds</span><span class="o">.</span><span class="n">odc</span><span class="o">.</span><span class="n">geobox</span>
+        <span class="k">if</span> <span class="n">geobox</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># odc-geo derives the cell size from the coordinates, which a</span>
+            <span class="c1"># length-1 axis cannot give. It falls back to the GeoTransform</span>
+            <span class="c1"># stored on a CRS coordinate, so it finds no grid when the raster</span>
+            <span class="c1"># has no CRS or the stored transform was lost. Build the grid from</span>
+            <span class="c1"># the grid transform instead, which assumes square cells if no</span>
+            <span class="c1"># transform is stored.</span>
+            <span class="n">geobox</span> <span class="o">=</span> <span class="n">GeoBox</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="n">grid_transform</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_ds</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">crs</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">geobox</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">bandwise</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -2743,7 +2764,7 @@ document.write(`
                             <span class="s2">"Could not use provided null value with the new "</span>
                             <span class="s2">"dtype"</span>
                         <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="kc">None</span>
-                    <span class="n">xrs_casted</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
+                    <span class="n">xrs_casted</span> <span class="o">=</span> <span class="n">xr_where_with_meta</span><span class="p">(</span>
                         <span class="n">mask</span><span class="p">,</span> <span class="n">nv</span><span class="p">,</span> <span class="n">xrs_casted</span>
                     <span class="p">)</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_nodata</span><span class="p">(</span><span class="n">nv</span><span class="p">)</span>
             <span class="c1"># else: do nothing since the null values already match</span>
@@ -2754,9 +2775,9 @@ document.write(`
             <span class="k">if</span> <span class="n">nv</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">null_value</span> <span class="ow">or</span> <span class="ow">not</span> <span class="p">(</span>
                 <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">nv</span><span class="p">)</span> <span class="ow">and</span> <span class="n">np</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">null_value</span><span class="p">)</span>
             <span class="p">):</span>
-                <span class="n">xrs_casted</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">mask</span><span class="p">,</span> <span class="n">nv</span><span class="p">,</span> <span class="n">xrs_casted</span><span class="p">)</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_nodata</span><span class="p">(</span>
-                    <span class="n">nv</span>
-                <span class="p">)</span>
+                <span class="n">xrs_casted</span> <span class="o">=</span> <span class="n">xr_where_with_meta</span><span class="p">(</span>
+                    <span class="n">mask</span><span class="p">,</span> <span class="n">nv</span><span class="p">,</span> <span class="n">xrs_casted</span>
+                <span class="p">)</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_nodata</span><span class="p">(</span><span class="n">nv</span><span class="p">)</span>
         <span class="n">ds</span> <span class="o">=</span> <span class="n">make_raster_ds</span><span class="p">(</span><span class="n">xrs_casted</span><span class="p">,</span> <span class="n">mask</span><span class="p">)</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">crs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">ds</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_crs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">crs</span><span class="p">)</span>
@@ -3312,7 +3333,7 @@ document.write(`
 <span class="sd">        """</span>
         <span class="n">rast</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ds</span><span class="o">.</span><span class="n">raster</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_masked</span><span class="p">:</span>
-            <span class="n">rast</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
+            <span class="n">rast</span> <span class="o">=</span> <span class="n">xr_where_with_meta</span><span class="p">(</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">_ds</span><span class="o">.</span><span class="n">mask</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">null_value</span><span class="p">,</span> <span class="n">rast</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="n">decimals</span><span class="o">=</span><span class="n">decimals</span><span class="p">)</span>
             <span class="p">)</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_nodata</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">null_value</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
