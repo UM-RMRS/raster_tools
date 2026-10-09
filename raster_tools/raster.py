@@ -1761,8 +1761,12 @@ class Raster(_RasterBase):
         """GeoBox object describing the raster's grid."""
         geobox = self._ds.odc.geobox
         if geobox is None:
-            # odc-geo cannot derive a grid from a length-1 coordinate when
-            # the raster has no CRS, so build it from the grid transform.
+            # odc-geo derives the cell size from the coordinates, which a
+            # length-1 axis cannot give. It falls back to the GeoTransform
+            # stored on a CRS coordinate, so it finds no grid when the raster
+            # has no CRS or the stored transform was lost. Build the grid from
+            # the grid transform instead, which assumes square cells if no
+            # transform is stored.
             geobox = GeoBox(self.shape[1:], grid_transform(self._ds), self.crs)
         return geobox
 
