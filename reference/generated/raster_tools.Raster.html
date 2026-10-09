@@ -502,12 +502,12 @@ Most mathematical operations have been overloaded so operations such as
 <code class="docutils literal notranslate"><span class="pre">z</span> <span class="pre">=</span> <span class="pre">x</span> <span class="pre">-</span> <span class="pre">y</span></code> and <code class="docutils literal notranslate"><span class="pre">r</span> <span class="pre">=</span> <span class="pre">x**2</span></code> are possible.</p>
 <p>Two Rasters can be combined if they share a CRS and cell size and their
 grids are offset by a whole number of cells. The result covers their
-overlap. Otherwise a ValueError is raised and one raster must be
-reprojected onto the other’s grid first. Bands are matched by position:
-the Rasters must have the same number of bands, or one of them must have
-a single band, which is applied to every band of the other. In-place
-operations (<code class="docutils literal notranslate"><span class="pre">x</span> <span class="pre">+=</span> <span class="pre">y</span></code>) raise a ValueError if the result would not have
-the same grid and band count as <code class="docutils literal notranslate"><span class="pre">x</span></code>.</p>
+overlap. Otherwise a ValueError is raised and the rasters must be put on
+a common grid first, for example with <a class="reference internal" href="raster_tools.align.html#raster_tools.align" title="raster_tools.align"><code class="xref py py-func docutils literal notranslate"><span class="pre">raster_tools.align()</span></code></a>. Bands
+are matched by position: the Rasters must have the same number of bands,
+or one of them must have a single band, which is applied to every band
+of the other. In-place operations (<code class="docutils literal notranslate"><span class="pre">x</span> <span class="pre">+=</span> <span class="pre">y</span></code>) raise a ValueError if the
+result would not have the same grid and band count as <code class="docutils literal notranslate"><span class="pre">x</span></code>.</p>
 <p>When combining a Raster with an <code class="xref py py-class docutils literal notranslate"><span class="pre">xarray.DataArray</span></code>, the Raster must
 be the left operand (<code class="docutils literal notranslate"><span class="pre">raster</span> <span class="pre">+</span> <span class="pre">dataarray</span></code>), or the DataArray should be
 wrapped first (<code class="docutils literal notranslate"><span class="pre">Raster(dataarray)</span> <span class="pre">+</span> <span class="pre">raster</span></code>). With the DataArray on the
@@ -515,7 +515,8 @@ left, xarray converts the Raster to a numpy array through <code class="docutils 
 This computes the Raster eagerly and drops its null mask, so its null
 cells enter the operation as plain values, and the result is a
 numpy-backed DataArray rather than a Raster.</p>
-<p>All operations on a Raster return a new Raster.</p>
+<p>Operations on a Raster return a new Raster, except in-place operators
+(<code class="docutils literal notranslate"><span class="pre">x</span> <span class="pre">+=</span> <span class="pre">y</span></code>, <code class="docutils literal notranslate"><span class="pre">x</span> <span class="pre">*=</span> <span class="pre">2</span></code>, …), which update <code class="docutils literal notranslate"><span class="pre">x</span></code> itself.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><p><strong>raster</strong> (<em>str</em><em>, </em><a class="reference internal" href="#raster_tools.Raster" title="raster_tools.Raster"><em>Raster</em></a><em>, </em><em>xarray.DataArray</em><em>, </em><em>xarray.Dataset</em><em>, </em><em>numpy.ndarray</em>) – The raster source to use for this Raster. If <cite>raster</cite> is a string,

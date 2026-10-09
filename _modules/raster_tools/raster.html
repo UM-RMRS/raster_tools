@@ -2038,12 +2038,12 @@ document.write(`
 
 <span class="sd">    Two Rasters can be combined if they share a CRS and cell size and their</span>
 <span class="sd">    grids are offset by a whole number of cells. The result covers their</span>
-<span class="sd">    overlap. Otherwise a ValueError is raised and one raster must be</span>
-<span class="sd">    reprojected onto the other's grid first. Bands are matched by position:</span>
-<span class="sd">    the Rasters must have the same number of bands, or one of them must have</span>
-<span class="sd">    a single band, which is applied to every band of the other. In-place</span>
-<span class="sd">    operations (``x += y``) raise a ValueError if the result would not have</span>
-<span class="sd">    the same grid and band count as ``x``.</span>
+<span class="sd">    overlap. Otherwise a ValueError is raised and the rasters must be put on</span>
+<span class="sd">    a common grid first, for example with :func:`raster_tools.align`. Bands</span>
+<span class="sd">    are matched by position: the Rasters must have the same number of bands,</span>
+<span class="sd">    or one of them must have a single band, which is applied to every band</span>
+<span class="sd">    of the other. In-place operations (``x += y``) raise a ValueError if the</span>
+<span class="sd">    result would not have the same grid and band count as ``x``.</span>
 
 <span class="sd">    When combining a Raster with an :class:`xarray.DataArray`, the Raster must</span>
 <span class="sd">    be the left operand (``raster + dataarray``), or the DataArray should be</span>
@@ -2053,7 +2053,8 @@ document.write(`
 <span class="sd">    cells enter the operation as plain values, and the result is a</span>
 <span class="sd">    numpy-backed DataArray rather than a Raster.</span>
 
-<span class="sd">    All operations on a Raster return a new Raster.</span>
+<span class="sd">    Operations on a Raster return a new Raster, except in-place operators</span>
+<span class="sd">    (``x += y``, ``x *= 2``, ...), which update ``x`` itself.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
