@@ -76,8 +76,10 @@ def _grid_affine(raster):
 def _raster_geobox(raster):
     """The raster's grid as a GeoBox.
 
-    Built from the raster's own transform rather than Raster.geobox, which
-    is None for a raster with no CRS that is one cell wide along an axis.
+    Built from the raster's grid transform rather than Raster.geobox, whose
+    affine odc-geo derives from the coordinates and can differ from it in
+    the last bits. A grid taken from a raster then keeps that raster's
+    transform.
     """
     ny, nx = raster.shape[1:]
     return GeoBox((ny, nx), _grid_affine(raster), raster.crs)

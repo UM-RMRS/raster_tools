@@ -1491,6 +1491,46 @@ def test_geo_map_blocks_two_input_add():
     np.testing.assert_allclose(out.data.compute(), r.data.compute() * 2)
 
 
+def _one_cell_wide_raster_without_crs(ny, nx):
+    data = np.arange(float(ny * nx)).reshape(1, ny, nx)
+    x = np.arange(nx) * 2.0 + 1
+    y = np.arange(ny)[::-1] * 3.0 + 1.5
+    return rts.data_to_raster(data, x=x, y=y)
+
+
+ONE_CELL_WIDE_SHAPES = [(1, 4), (4, 1), (1, 1)]
+
+
+@pytest.mark.parametrize(("ny", "nx"), ONE_CELL_WIDE_SHAPES)
+def test_geo_map_blocks_one_cell_wide_without_crs(ny, nx):
+    r = _one_cell_wide_raster_without_crs(ny, nx)
+
+    def f(a, b, **kw):
+        return a + b
+
+    out = geo_map_blocks(f, r, r)
+    np.testing.assert_array_equal(out.to_numpy(), r.to_numpy() * 2)
+    np.testing.assert_array_equal(out.x, r.x)
+    np.testing.assert_array_equal(out.y, r.y)
+    assert out.affine == r.affine
+    assert out.crs is None
+
+
+@pytest.mark.parametrize(("ny", "nx"), ONE_CELL_WIDE_SHAPES)
+def test_geo_map_overlap_one_cell_wide_without_crs(ny, nx):
+    r = _one_cell_wide_raster_without_crs(ny, nx)
+
+    def f(a, b, **kw):
+        return a + b
+
+    out = geo_map_overlap(f, r, r, depth=1, boundary="reflect")
+    np.testing.assert_array_equal(out.to_numpy(), r.to_numpy() * 2)
+    np.testing.assert_array_equal(out.x, r.x)
+    np.testing.assert_array_equal(out.y, r.y)
+    assert out.affine == r.affine
+    assert out.crs is None
+
+
 def test_geo_map_blocks_kwargs_forwarded():
     r = make_raster(
         shape=(1, 100, 100), dtype=np.float32, chunksize=(1, 50, 50)
