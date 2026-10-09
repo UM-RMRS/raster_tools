@@ -18,6 +18,7 @@ from affine import Affine
 from numba import jit
 from shapely.geometry import box
 
+from raster_tools import _grids
 from raster_tools._compat import NUMPY_GE_2, NUMPY_GE_2_2, PY_VER_310_PLUS
 from raster_tools._grids import (
     GRID_PIXEL_TOLERANCE,
@@ -922,8 +923,38 @@ def normalize_xarray_data(xdata):
     # pipeline.
     # TODO: Find test to check for just this. For right now,
     # tests/test_raster.py::test_to_points catches it.
-    xdata = xdata.rio.write_transform(xdata.rio.transform(True))
+    xdata = xdata.rio.write_transform(grid_transform(xdata))
     return xdata
+
+
+def grid_transform(xdata):
+    """Affine transform of raster xarray data with x increasing, y decreasing.
+
+    The cell size along an axis with more than one cell comes from the
+    coordinates. Along a length-1 axis, it is the size in the transform
+    stored with the data, if there is one. Otherwise cells are assumed to be
+    square, and a 1x1 raster gets cells of size 1. The origin always comes
+    from the coordinates, so a slice of a raster keeps its parent's cell size
+    and gets its own origin.
+    """
+    stored = xdata.rio._cached_transform()
+    if stored is not None and (stored.b or stored.d):
+        # Coordinates cannot describe a rotated or sheared grid
+        return stored
+    x = xdata.x.values
+    y = xdata.y.values
+    xstep = _grids.axis_step(x)
+    ystep = _grids.axis_step(y)
+    if stored is not None:
+        fallback_sizes = (abs(stored.a), abs(stored.e))
+    else:
+        size = abs(xstep or ystep or 1.0)
+        fallback_sizes = (size, size)
+    if xstep is None:
+        xstep = fallback_sizes[0]
+    if ystep is None:
+        ystep = -fallback_sizes[1]
+    return Affine(xstep, 0, x[0] - xstep / 2, 0, ystep, y[0] - ystep / 2)
 
 
 def is_normalized(xdata):
@@ -1014,6 +1045,9 @@ def data_to_xr_raster(data, x=None, y=None, affine=None, crs=None, nv=None):
     ).rio.set_spatial_dims(y_dim="y", x_dim="x")
     if crs is not None:
         xdata = xdata.rio.write_crs(crs)
+    if affine is not None:
+        # Store the affine so that a length-1 axis keeps its cell size
+        xdata = xdata.rio.write_transform(affine)
     xdata = xdata.rio.write_nodata(nv)
     return normalize_xarray_data(xdata)
 
@@ -1028,6 +1062,16 @@ def _check_yx_shape(data, yx_shape, msg):
         and data.shape[-2:] != tuple(yx_shape)
     ):
         raise ValueError(msg)
+
+
+def _with_cell_size_of(xdata, xlike):
+    # Coordinates alone do not give the cell size along a length-1 axis, so
+    # take it from the template's transform.
+    if min(xdata.shape[1:]) > 1:
+        return xdata
+    return normalize_xarray_data(
+        xdata.rio.write_transform(xlike.rio.transform())
+    )
 
 
 def data_to_xr_raster_like(
@@ -1070,13 +1114,14 @@ def data_to_xr_raster_like(
 
     if data.shape[0] == 1 and match_band_dim:
         data = da.stack([data[0] for i in range(xlike.shape[0])], axis=0)
-    return data_to_xr_raster(
+    xdata = data_to_xr_raster(
         data,
         x=xlike.x.to_numpy(),
         y=xlike.y.to_numpy(),
         crs=xlike.rio.crs,
         nv=nv,
     )
+    return _with_cell_size_of(xdata, xlike)
 
 
 def make_raster_ds(raster_dataarray, mask_dataarray):
@@ -1202,7 +1247,7 @@ def data_to_xr_raster_ds_like(
         mask = normalize_data(mask, yx_chunks=yx_chunks)
         if mask.shape != data.shape:
             raise ValueError("data and mask dimensions do not match")
-    return data_to_xr_raster_ds(
+    ds = data_to_xr_raster_ds(
         data,
         mask=mask,
         x=xlike.x.to_numpy(),
@@ -1210,6 +1255,10 @@ def data_to_xr_raster_ds_like(
         crs=xlike.rio.crs,
         nv=nv,
         burn=burn,
+    )
+    return make_raster_ds(
+        _with_cell_size_of(ds.raster, xlike),
+        _with_cell_size_of(ds.mask, xlike),
     )
 
 

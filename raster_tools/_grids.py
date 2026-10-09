@@ -47,6 +47,18 @@ def grids_close(a, b, pixel_tolerance=GRID_PIXEL_TOLERANCE):
     )
 
 
+def axis_step(coords):
+    """Signed cell step along an axis, derived from its coordinates alone.
+
+    Returns None for an axis of length 1.
+    """
+    if len(coords) < 2:
+        # A length-1 axis has no cell size derivable from its coordinates,
+        # so only lattice alignment can be checked along it.
+        return None
+    return (coords[-1] - coords[0]) / (len(coords) - 1)
+
+
 def are_all_grids_same(grids):
     if not grids:
         return True
