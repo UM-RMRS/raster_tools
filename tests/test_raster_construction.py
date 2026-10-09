@@ -911,6 +911,67 @@ def test_data_to_raster_like_keeps_cell_size_of_length_one_axes(
     assert xd.rio.transform() == affine
 
 
+def _parent_non_square():
+    return rts.data_to_raster(
+        np.arange(12.0).reshape((1, 3, 4)),
+        affine=Affine(3, 0, 0, 0, -2, 30),
+        crs=5070,
+    )
+
+
+_NON_SQUARE_SLICES = [
+    ({"y": [0]}, Affine(3, 0, 0, 0, -2, 30)),
+    ({"y": [1]}, Affine(3, 0, 0, 0, -2, 28)),
+    ({"x": [1]}, Affine(3, 0, 3, 0, -2, 30)),
+    ({"x": [1], "y": [1]}, Affine(3, 0, 3, 0, -2, 28)),
+]
+
+
+def _assert_non_square_slice(rs, expected):
+    _assert_transform(rs, expected)
+    assert rs.resolution == (3.0, -2.0)
+    assert rs._ds.raster.rio.transform() == expected
+    assert rs._ds.mask.rio.transform() == expected
+
+
+@pytest.mark.parametrize("nodata", [None, np.nan, 5.0])
+@pytest.mark.parametrize("sel,expected", _NON_SQUARE_SLICES)
+def test_non_square_slice_keeps_parent_cell_size(sel, expected, nodata):
+    xdata = _parent_non_square().xdata.isel(**sel)
+    if nodata is not None:
+        xdata = xdata.rio.write_nodata(nodata)
+    rs = Raster(xdata)
+    _assert_non_square_slice(rs, expected)
+    if nodata is None or np.isnan(nodata):
+        assert rs._masked
+        assert rs.null_value == get_default_null_value(rs.dtype)
+    else:
+        assert rs.null_value == nodata
+
+
+@pytest.mark.parametrize("sel,expected", _NON_SQUARE_SLICES)
+def test_non_square_slice_with_mask_keeps_parent_cell_size(sel, expected):
+    parent = _parent_non_square()
+    xdata = parent.xdata.isel(**sel)
+    xmask = xr.zeros_like(xdata, dtype=bool)
+    xmask[0, 0, 0] = True
+    rs = rts.dataarray_to_raster(xdata, xmask=xmask)
+    _assert_non_square_slice(rs, expected)
+    assert rs.mask.compute()[0, 0, 0]
+
+
+@pytest.mark.parametrize("mask_has_crs", [True, False])
+@pytest.mark.parametrize("sel,expected", _NON_SQUARE_SLICES)
+def test_non_square_dataset_slice_keeps_parent_cell_size(
+    sel, expected, mask_has_crs
+):
+    ds = _parent_non_square()._ds.isel(**sel).compute()
+    if not mask_has_crs:
+        ds["mask"] = ds.mask.drop_vars("spatial_ref")
+    rs = Raster(ds)
+    _assert_non_square_slice(rs, expected)
+
+
 # --------------------------------------------------------------------------
 # Reading the transform stored with xarray data
 # --------------------------------------------------------------------------

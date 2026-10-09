@@ -28,7 +28,7 @@ from raster_tools.dtypes import (
     get_common_dtype,
 )
 from raster_tools.masking import get_default_null_value
-from raster_tools.raster import Raster, get_raster
+from raster_tools.raster import Raster, data_to_raster, get_raster
 from raster_tools.stat_common import (
     nan_unique_count_jit,
     nanargmax_jit,
@@ -156,6 +156,19 @@ def test_local_stats_reject_bad_stat_value(stat):
     rs = make_raster("arange", shape=(5, 4, 4))
     with pytest.raises(ValueError):
         general.local_stats(rs, stat)
+
+
+@pytest.mark.parametrize("stat", ["sum", "mode", "unique"])
+def test_local_stats_one_row_keeps_non_square_cells(stat):
+    affine = Affine(3, 0, 0, 0, -2, 30)
+    x = np.arange(16.0).reshape(2, 1, 8)
+    x[:, 0, 2] = np.nan
+    rs = data_to_raster(x, affine=affine, crs=5070, nv=np.nan)
+    result = general.local_stats(rs, stat)
+    assert result.affine == affine
+    assert result._ds.raster.rio.transform() == affine
+    assert result._ds.mask.rio.transform() == affine
+    assert result.mask.compute()[0, 0, 2]
 
 
 coarsen_stats = {

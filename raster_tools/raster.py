@@ -688,7 +688,21 @@ class BandwiseOperationAdapter(np.lib.mixins.NDArrayOperatorsMixin):
 
 
 def xr_where_with_meta(cond, left, right, crs=None, nv=None):
+    """xr.where that keeps the grid metadata of the data input.
+
+    The grid mapping coordinate, which holds the stored transform, is taken
+    from the first of `left` and `right` that is a DataArray.
+    """
     result = xr.where(cond, left, right)
+    # xr.where drops the attributes of the grid mapping coordinate, which
+    # hold the stored transform. Without it, the cell size along a length-1
+    # axis cannot be recovered later, so copy the coordinate back from the
+    # data input.
+    src = next((v for v in (left, right) if isinstance(v, xr.DataArray)), None)
+    if src is not None:
+        gm = src.rio.grid_mapping
+        if gm in src.coords and gm in result.coords:
+            result = result.assign_coords({gm: src.coords[gm]})
     if crs is not None:
         result = result.rio.write_crs(crs)
     if nv is not None:
