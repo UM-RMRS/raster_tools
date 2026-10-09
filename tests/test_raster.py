@@ -2114,6 +2114,76 @@ def test_bandwise_errors(other):
         rs.bandwise * other
 
 
+NON_SQUARE_AFFINE = Affine(3, 0, 0, 0, -2, 30)
+ONE_CELL_WIDE_SHAPES = pytest.mark.parametrize(
+    "shape", [(1, 3), (3, 1), (1, 1)], ids=["row", "column", "cell"]
+)
+
+
+def _one_cell_wide_raster(shape, masked):
+    # Non-square cells, so the cell size along the length-1 axis can only
+    # come from the stored transform
+    data = np.arange(1.0, np.prod(shape) + 1).reshape((1, *shape))
+    if masked:
+        data[0, -1, -1] = np.nan
+    return data_to_raster(
+        data,
+        affine=NON_SQUARE_AFFINE,
+        crs=5070,
+        nv=np.nan if masked else None,
+    )
+
+
+def _assert_keeps_non_square_cells(result):
+    assert_valid_raster(result)
+    assert result.affine == NON_SQUARE_AFFINE
+    assert tuple(abs(v) for v in result.resolution) == (3, 2)
+    assert result._ds.raster.rio.transform() == NON_SQUARE_AFFINE
+    assert result._ds.mask.rio.transform() == NON_SQUARE_AFFINE
+
+
+@pytest.mark.filterwarnings("ignore:The null value ")
+@pytest.mark.parametrize("masked", [False, True])
+@ONE_CELL_WIDE_SHAPES
+@pytest.mark.parametrize(
+    "op,np_op",
+    [
+        (lambda r: r + 1, lambda x: x + 1),
+        (lambda r: r * r, lambda x: x * x),
+        (lambda r: -r, lambda x: -x),
+        (lambda r: r > 1, lambda x: x > 1),
+        (lambda r: r.round(), np.round),
+        (lambda r: r.astype("float32"), lambda x: x.astype("float32")),
+        (lambda r: r.astype("int16"), lambda x: x.astype("int16")),
+        (
+            lambda r: r.astype("float32", new_null_value=-1),
+            lambda x: x.astype("float32"),
+        ),
+    ],
+    ids=[
+        "add",
+        "multiply",
+        "negate",
+        "compare",
+        "round",
+        "astype",
+        "astype_int",
+        "astype_new_null",
+    ],
+)
+def test_ops_keep_non_square_cells_of_one_cell_wide_raster(
+    op, np_op, shape, masked
+):
+    rs = _one_cell_wide_raster(shape, masked)
+    result = op(rs)
+    _assert_keeps_non_square_cells(result)
+    assert result._masked == masked
+    mask = rs.mask.compute()
+    assert np.array_equal(result.mask.compute(), mask)
+    data = rs.to_numpy()
+    assert np.array_equal(result.to_numpy()[~mask], np_op(data[~mask]))
+
+
 def test_round():
     data = np.arange(5 * 5).reshape((5, 5)).astype(float)
     data += np.linspace(0, 4, 5 * 5).reshape((5, 5))

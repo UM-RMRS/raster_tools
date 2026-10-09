@@ -60,6 +60,7 @@ from raster_tools.raster import (
     data_to_xr_raster_ds_like,
     dataarray_to_xr_raster_ds,
     get_raster,
+    with_grid_mapping_of,
     xr_where_with_meta,
 )
 from raster_tools.stat_common import (
@@ -1263,6 +1264,10 @@ def where(condition, true_rast, false_rast):
         yd = getattr(y, "xdata", y)
         data = xr.where(cd, xd, yd)
         mask = xr.zeros_like(data, dtype=bool)
+    # xr.where drops the stored transform, which holds the cell size along
+    # a length-1 axis, so take it back from the condition's grid
+    data = with_grid_mapping_of(data, condition.xdata)
+    mask = with_grid_mapping_of(mask, condition.xdata)
     ds = dataarray_to_xr_raster_ds(data, mask)
     if out_crs is not None:
         ds = ds.rio.write_crs(out_crs)

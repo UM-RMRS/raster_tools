@@ -1012,6 +1012,49 @@ def test_where(condition, x, y, expected):
         assert np.allclose(result.mask.compute(), expected.mask.compute())
 
 
+@pytest.mark.parametrize("masked", [False, True])
+@pytest.mark.parametrize(
+    "shape", [(1, 3), (3, 1), (1, 1)], ids=["row", "column", "cell"]
+)
+@pytest.mark.parametrize(
+    "args",
+    [
+        lambda rs: (rs, 0),
+        lambda rs: (rs, None),
+        lambda rs: (None, rs),
+        lambda rs: (1, 2),
+        lambda rs: (None, 2),
+        lambda rs: (rs, rs * 10),
+    ],
+    ids=[
+        "raster_scalar",
+        "raster_none",
+        "none_raster",
+        "scalars",
+        "none_scalar",
+        "rasters",
+    ],
+)
+def test_where_one_cell_wide_keeps_non_square_cells(args, shape, masked):
+    # Non-square cells, so the cell size along the length-1 axis can only
+    # come from the stored transform
+    affine = Affine(3, 0, 0, 0, -2, 30)
+    data = np.arange(1.0, np.prod(shape) + 1).reshape((1, *shape))
+    if masked:
+        data[0, -1, -1] = np.nan
+    rs = data_to_raster(
+        data, affine=affine, crs=5070, nv=np.nan if masked else None
+    )
+    cond_data = (np.arange(np.prod(shape)) % 2 == 0).reshape((1, *shape))
+    condition = data_to_raster(cond_data, affine=affine, crs=5070)
+    result = general.where(condition, *args(rs))
+    assert_valid_raster(result)
+    assert result.affine == affine
+    assert tuple(abs(v) for v in result.resolution) == (3, 2)
+    assert result._ds.raster.rio.transform() == affine
+    assert result._ds.mask.rio.transform() == affine
+
+
 def test_where_both_none():
     with pytest.raises(ValueError):
         cond = make_raster([[0, 0], [1, 1]], [[1, 0], [0, 0]], bool)

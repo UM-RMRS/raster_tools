@@ -489,7 +489,7 @@ def _apply_ufunc(ufunc, this, args, out=None):
         nv = None
         if masked:
             nv = get_default_null_value(xr_out.dtype)
-            xr_out = xr.where(xmask, nv, xr_out)
+            xr_out = xr_where_with_meta(xmask, nv, xr_out)
         ds = make_raster_ds(xr_out.rio.write_nodata(nv), xmask)
         if out_crs is not None:
             ds = ds.rio.write_crs(out_crs)
@@ -687,22 +687,33 @@ class BandwiseOperationAdapter(np.lib.mixins.NDArrayOperatorsMixin):
         return ufunc(*args)
 
 
+def with_grid_mapping_of(result, *sources):
+    """Copy the grid mapping coordinate onto `result` from a source.
+
+    The coordinate, which holds the stored transform, is taken from the
+    first of `sources` that is a DataArray carrying one. xarray operations
+    such as xr.where drop the attributes of that coordinate. Without the
+    stored transform, the cell size along a length-1 axis cannot be
+    recovered later (see grid_transform), so operations that rebuild raster
+    data restore it with this function.
+    """
+    for src in sources:
+        if not isinstance(src, xr.DataArray):
+            continue
+        gm = src.rio.grid_mapping
+        if gm in src.coords:
+            return result.assign_coords({gm: src.coords[gm]})
+    return result
+
+
 def xr_where_with_meta(cond, left, right, crs=None, nv=None):
     """xr.where that keeps the grid metadata of the data input.
 
     The grid mapping coordinate, which holds the stored transform, is taken
-    from the first of `left` and `right` that is a DataArray.
+    from the first of `left` and `right` that is a DataArray carrying one.
     """
     result = xr.where(cond, left, right)
-    # xr.where drops the attributes of the grid mapping coordinate, which
-    # hold the stored transform. Without it, the cell size along a length-1
-    # axis cannot be recovered later, so copy the coordinate back from the
-    # data input.
-    src = next((v for v in (left, right) if isinstance(v, xr.DataArray)), None)
-    if src is not None:
-        gm = src.rio.grid_mapping
-        if gm in src.coords and gm in result.coords:
-            result = result.assign_coords({gm: src.coords[gm]})
+    result = with_grid_mapping_of(result, left, right)
     if crs is not None:
         result = result.rio.write_crs(crs)
     if nv is not None:
@@ -2303,7 +2314,7 @@ class Raster(_RasterBase):
                             "Could not use provided null value with the new "
                             "dtype"
                         ) from None
-                    xrs_casted = xr.where(
+                    xrs_casted = xr_where_with_meta(
                         mask, nv, xrs_casted
                     ).rio.write_nodata(nv)
             # else: do nothing since the null values already match
@@ -2314,9 +2325,9 @@ class Raster(_RasterBase):
             if nv != self.null_value or not (
                 np.isnan(nv) and np.isnan(self.null_value)
             ):
-                xrs_casted = xr.where(mask, nv, xrs_casted).rio.write_nodata(
-                    nv
-                )
+                xrs_casted = xr_where_with_meta(
+                    mask, nv, xrs_casted
+                ).rio.write_nodata(nv)
         ds = make_raster_ds(xrs_casted, mask)
         if self.crs is not None:
             ds = ds.rio.write_crs(self.crs)
@@ -2872,7 +2883,7 @@ class Raster(_RasterBase):
         """
         rast = self._ds.raster
         if self._masked:
-            rast = xr.where(
+            rast = xr_where_with_meta(
                 self._ds.mask, self.null_value, rast.round(decimals=decimals)
             ).rio.write_nodata(self.null_value)
         else:

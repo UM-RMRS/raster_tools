@@ -2,6 +2,7 @@ import dask
 import dask.array as da
 import numpy as np
 import pytest
+from affine import Affine
 
 import raster_tools as rts
 from raster_tools import _padding as padding
@@ -342,6 +343,36 @@ class TestCoordinatePreservation:
             r, (minx - 1, miny, maxx + 4, maxy + 2), fill_values=0
         )
         assert out.resolution == r.resolution
+
+
+class TestOneCellWide:
+    # Non-square cells, so the cell size along a length-1 axis can only
+    # come from the stored transform
+    @pytest.mark.parametrize("crs", [5070, None])
+    @pytest.mark.parametrize("masked", [False, True])
+    @pytest.mark.parametrize(
+        "shape,grow",
+        [((1, 3), (3, 0)), ((3, 1), (0, 2)), ((1, 1), (3, 0))],
+        ids=["row", "column", "cell"],
+    )
+    def test_keeps_non_square_cells(self, shape, grow, masked, crs):
+        affine = Affine(3, 0, 0, 0, -2, 30)
+        data = np.arange(1.0, np.prod(shape) + 1).reshape((1, *shape))
+        if masked:
+            data[0, 0, 0] = np.nan
+        r = rts.data_to_raster(
+            data, affine=affine, crs=crs, nv=np.nan if masked else None
+        )
+        target = _grow(r.bounds, *grow)
+        out = padding.pad(r, target, fill_values=0)
+        assert_valid_raster(out)
+        assert out.bounds == target
+        expected = Affine(3, 0, target[0], 0, -2, target[3])
+        assert out.affine == expected
+        assert tuple(abs(v) for v in out.resolution) == (3, 2)
+        assert out._ds.raster.rio.transform() == expected
+        assert out._ds.mask.rio.transform() == expected
+        assert out.crs == r.crs
 
 
 class TestNoCRS:
