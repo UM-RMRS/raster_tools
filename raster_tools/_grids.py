@@ -36,18 +36,25 @@ GRID_PIXEL_TOLERANCE = 1e-3
 
 
 def grids_close(a, b, pixel_tolerance=GRID_PIXEL_TOLERANCE):
+    """True if grids `a` and `b` share a CRS and shape and their cells line up.
+
+    The origins must agree to within `pixel_tolerance` of a cell, and any
+    difference in the cell size or rotation terms must not move a cell by
+    more than that again across the whole grid. A per-cell difference that
+    looks negligible can still shift the far cells of a large grid by whole
+    cells, so it is judged by its effect across the grid.
+    """
     if a.crs != b.crs or a.shape != b.shape:
         return False
     aa, bb = a.affine, b.affine
-    atol = pixel_tolerance * max(abs(aa.a), abs(aa.e))
-    return all(
-        abs(x - y) <= atol
-        for x, y in zip(
-            (aa.a, aa.b, aa.c, aa.d, aa.e, aa.f),
-            (bb.a, bb.b, bb.c, bb.d, bb.e, bb.f),
-            strict=True,
-        )
-    )
+    cell = max(math.hypot(aa.a, aa.d), math.hypot(aa.b, aa.e))
+    atol = pixel_tolerance * cell
+    if abs(aa.c - bb.c) > atol or abs(aa.f - bb.f) > atol:
+        return False
+    ny, nx = a.shape
+    drift_x = nx * abs(aa.a - bb.a) + ny * abs(aa.b - bb.b)
+    drift_y = nx * abs(aa.d - bb.d) + ny * abs(aa.e - bb.e)
+    return drift_x <= atol and drift_y <= atol
 
 
 class GridMismatchError(ValueError):

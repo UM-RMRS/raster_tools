@@ -9,6 +9,8 @@ import numba as nb
 import numpy as np
 import pandas as pd
 
+from raster_tools._align import _raster_geobox
+from raster_tools._grids import are_all_grids_same
 from raster_tools.dtypes import F64, I64, is_float, is_int, is_str
 from raster_tools.raster import Raster, get_raster
 from raster_tools.vector import Vector, get_vector
@@ -571,7 +573,9 @@ def zonal_stats(
         A `Vector` or path string pointing to a vector file or a categorical
         Raster. The vector features are used like cookie cutters to pull data
         from the `data_raster` bands. If `features` is a Raster, it must be an
-        int dtype and have only one band.
+        int dtype, have only one band, and be on the same grid (CRS, affine,
+        shape) as `data_raster`. Use :func:`~raster_tools.align` to put it on
+        the grid of `data_raster` first if needed.
     data_raster : Raster, str
         A `Raster` or path string pointing to a raster file. The data raster
         to pull data from and apply the stat functions to.
@@ -732,7 +736,19 @@ def zonal_stats(
         if features.crs != data_raster.crs:
             raise ValueError("Feature raster CRS must match data raster")
         if features.shape[1:] != data_raster.shape[1:]:
-            raise ValueError("Feature raster shape must match data raster")
+            raise ValueError(
+                "features raster shape must match the data raster. "
+                f"Expected {data_raster.shape[1:]}, got {features.shape[1:]}."
+            )
+        if not are_all_grids_same(
+            [_raster_geobox(features), _raster_geobox(data_raster)]
+        ):
+            raise ValueError(
+                "features raster must be on the same grid (CRS, affine,"
+                " shape) as the data raster. Use raster_tools.align to put"
+                " the features raster on the data raster's grid first, e.g."
+                " data, features = align([data, features], dst_grid=data)."
+            )
 
     # Rechunk based on the largest probable dtype to avoid overly large
     # chunks, which could cause memory issues down the pipeline. Feature
@@ -759,11 +775,6 @@ def zonal_stats(
     else:
         if features.nbands > 1:
             raise ValueError("features raster must have a single band")
-        if features.shape[1:] != data_raster.shape[1:]:
-            raise ValueError(
-                "features raster shape must match the data raster. "
-                f"Expected {data_raster.shape[1:]}, got {features.shape[1:]}."
-            )
         features_raster = features
 
     zonal_result_df = _zonal_stats(features_raster, data_raster, stats)
