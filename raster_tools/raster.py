@@ -1598,12 +1598,12 @@ class Raster(_RasterBase):
 
     Two Rasters can be combined if they share a CRS and cell size and their
     grids are offset by a whole number of cells. The result covers their
-    overlap. Otherwise a ValueError is raised and one raster must be
-    reprojected onto the other's grid first. Bands are matched by position:
-    the Rasters must have the same number of bands, or one of them must have
-    a single band, which is applied to every band of the other. In-place
-    operations (``x += y``) raise a ValueError if the result would not have
-    the same grid and band count as ``x``.
+    overlap. Otherwise a ValueError is raised and the rasters must be put on
+    a common grid first, for example with :func:`raster_tools.align`. Bands
+    are matched by position: the Rasters must have the same number of bands,
+    or one of them must have a single band, which is applied to every band
+    of the other. In-place operations (``x += y``) raise a ValueError if the
+    result would not have the same grid and band count as ``x``.
 
     When combining a Raster with an :class:`xarray.DataArray`, the Raster must
     be the left operand (``raster + dataarray``), or the DataArray should be
@@ -1613,7 +1613,8 @@ class Raster(_RasterBase):
     cells enter the operation as plain values, and the result is a
     numpy-backed DataArray rather than a Raster.
 
-    All operations on a Raster return a new Raster.
+    Operations on a Raster return a new Raster, except in-place operators
+    (``x += y``, ``x *= 2``, ...), which update ``x`` itself.
 
     Parameters
     ----------
