@@ -17,7 +17,11 @@ from raster_tools.raster import (
     get_raster,
     grid_transform,
 )
-from raster_tools.warp import SUPPORTED_RESAMPLE_METHODS, reproject
+from raster_tools.warp import (
+    SUPPORTED_RESAMPLE_METHODS,
+    _get_working_type,
+    reproject,
+)
 
 __all__ = ["align"]
 
@@ -326,8 +330,9 @@ def _slice_and_pad(raster, target, offsets):
     """Cut the raster to the target grid and fill uncovered cells with null.
 
     Filled cells are masked. An unmasked raster that needs filling gets the
-    default null value for its dtype, and its cells that hold that value are
-    masked too, as reprojecting would do.
+    default null value for its dtype. Its existing cells stay valid, even
+    where they hold that value, as reprojecting would leave them, except in a
+    64-bit integer raster, where they are masked.
     """
     ds = raster._ds
     shape = {"y": len(target.y), "x": len(target.x)}
@@ -356,7 +361,7 @@ def _slice_and_pad(raster, target, offsets):
         index = (slice(None), slices["y"], slices["x"])
         data = raster.data[index]
         mask = raster.mask[index]
-        if new_nv:
+        if new_nv and _get_working_type(raster.dtype, False) is None:
             mask = mask | get_mask_from_data(data, nv)
         if padded:
             pad_width = ((0, 0), pads["y"], pads["x"])
@@ -495,9 +500,12 @@ def align(
 
     A raster with no null value that is padded or reprojected is given the
     default null value for its dtype, so that the new cells can be marked
-    as null. Any of its existing cells that hold that value are then null
-    too. For a bool raster the default null value is ``True``, so its padded
-    cells hold ``True`` but are masked, as are its existing ``True`` cells.
+    as null. Its existing cells stay valid, even where they hold that value.
+    For a bool raster the default null value is ``True``, so its padded
+    cells hold ``True`` but are masked, while its existing ``True`` cells
+    stay valid. A 64-bit integer raster is the exception: its existing cells
+    that hold the null value are masked when cut, and when reprojected they
+    are masked or, with newer GDAL, have their value nudged off it.
 
     A raster whose cell size and offset are within 0.001 of a cell of the
     destination lattice is cut and padded rather than resampled, so
