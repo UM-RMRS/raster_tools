@@ -6,7 +6,14 @@ import pytest
 from scipy import ndimage, stats
 
 from raster_tools import focal
-from tests.utils import assert_valid_raster, make_raster
+from tests.utils import (
+    NARROW_SHAPES,
+    assert_matches_null_padded,
+    assert_valid_raster,
+    make_narrow_raster,
+    make_raster,
+    run_on_null_padded,
+)
 
 
 def test_get_focal_window_circle_rect():
@@ -638,3 +645,115 @@ def test_correlate_output_type():
 
     res = focal.correlate(rs, np.ones((3, 3), dtype=float)).load()
     assert res.dtype.kind == "f"
+
+
+@pytest.mark.parametrize("masked", [False, True])
+@pytest.mark.parametrize("shape", NARROW_SHAPES.values(), ids=NARROW_SHAPES)
+@pytest.mark.parametrize("stat", sorted(focal.FOCAL_STATS))
+def test_focal_window_wider_than_raster(stat, shape, masked):
+    # The edges are treated as if the raster were padded with nulls
+    raster = make_narrow_raster(shape, masked)
+
+    def op(r):
+        return focal.focal(r, stat, 5, 5)
+
+    expected = run_on_null_padded(op, raster, 2, 2)
+    assert_matches_null_padded(op(raster), raster, expected)
+
+
+@pytest.mark.parametrize("masked", [False, True])
+@pytest.mark.parametrize("shape", NARROW_SHAPES.values(), ids=NARROW_SHAPES)
+@pytest.mark.parametrize(
+    "window",
+    [(3, None), ((2, 3), None), (5, 3), (3, 5)],
+    ids=["circle", "annulus", "tall", "wide"],
+)
+@pytest.mark.parametrize("ignore_null", [False, True])
+def test_focal_window_forms_wider_than_raster(
+    window, shape, masked, ignore_null
+):
+    raster = make_narrow_raster(shape, masked)
+
+    def op(r):
+        return focal.focal(r, "mean", *window, ignore_null=ignore_null)
+
+    if window[0] == (2, 3) and shape == (1, 1) and not masked:
+        # The annulus holds no cell of the raster. An unmasked input gives
+        # an unmasked result, so the cell is NaN rather than null.
+        result = op(raster)
+        assert not result._masked
+        assert np.isnan(result.to_numpy()).all()
+        return
+    expected = run_on_null_padded(op, raster, 2, 2)
+    assert_matches_null_padded(op(raster), raster, expected)
+
+
+_WIDE_KERNELS = {
+    "odd": np.arange(1.0, 26.0).reshape(5, 5),
+    "even": np.arange(1.0, 25.0).reshape(4, 6),
+}
+
+
+@pytest.mark.parametrize("masked", [False, True])
+@pytest.mark.parametrize("shape", NARROW_SHAPES.values(), ids=NARROW_SHAPES)
+@pytest.mark.parametrize("kernel", _WIDE_KERNELS.values(), ids=_WIDE_KERNELS)
+@pytest.mark.parametrize("func", [focal.correlate, focal.convolve])
+def test_correlate_kernel_wider_than_raster(func, kernel, shape, masked):
+    # With the default constant 0 fill, cells past the edge add nothing, the
+    # same as null cells
+    raster = make_narrow_raster(shape, masked)
+
+    def op(r):
+        return func(r, kernel)
+
+    expected = run_on_null_padded(op, raster, 4, 4)
+    assert_matches_null_padded(op(raster), raster, expected)
+
+
+@pytest.mark.parametrize("null_value", [None, -99.0])
+@pytest.mark.parametrize("shape", NARROW_SHAPES.values(), ids=NARROW_SHAPES)
+@pytest.mark.parametrize("kernel", _WIDE_KERNELS.values(), ids=_WIDE_KERNELS)
+@pytest.mark.parametrize("mode", ["reflect", "nearest", "wrap", "constant"])
+def test_correlate_modes_kernel_wider_than_raster(
+    mode, kernel, shape, null_value
+):
+    # A null value selects the NaN-aware path even without null cells. Both
+    # paths extend the data like scipy.ndimage, repeating as needed.
+    raster = make_narrow_raster(shape, False).set_null_value(null_value)
+    origin = [-1 if s % 2 == 0 else 0 for s in kernel.shape]
+    truth = ndimage.correlate(
+        raster.to_numpy()[0], kernel, mode=mode, cval=1.5, origin=origin
+    )
+
+    result = focal.correlate(raster, kernel, mode=mode, cval=1.5)
+    assert_valid_raster(result)
+    assert result.affine == raster.affine
+    np.testing.assert_allclose(result.to_numpy()[0], truth)
+
+
+def _no_compute(*args, **kwargs):
+    raise AssertionError("computed while building the graph")
+
+
+def test_focal_window_wider_than_raster_multiple_chunks():
+    # Each axis is split into chunks, the y axis is shorter than the window
+    # and the x axis is longer than it
+    data = np.arange(36.0).reshape(1, 3, 12)
+    data[0, 1, 4] = np.nan
+    whole = make_raster(data, null=np.nan)
+    chunked = whole.chunk((1, (1, 1, 1), (5, 1, 6)))
+
+    with dask.config.set(scheduler=_no_compute):
+        result = focal.focal(chunked, "mean", 7, 7)
+    assert result.data.chunks == chunked.data.chunks
+    assert result.mask.chunks == chunked.mask.chunks
+    np.testing.assert_allclose(
+        result.to_numpy(),
+        focal.focal(whole, "mean", 7, 7).to_numpy(),
+    )
+    for func in (focal.correlate, focal.convolve):
+        result = func(chunked, np.ones((7, 7)))
+        assert result.data.chunks == chunked.data.chunks
+        np.testing.assert_allclose(
+            result.to_numpy(), func(whole, np.ones((7, 7))).to_numpy()
+        )

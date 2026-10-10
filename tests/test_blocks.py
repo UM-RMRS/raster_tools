@@ -7,6 +7,7 @@ import pytest
 import xarray as xr
 from affine import Affine
 from dask.utils import parse_bytes
+from scipy import ndimage
 
 import raster_tools as rts
 from raster_tools.blocks import (
@@ -19,7 +20,7 @@ from raster_tools.blocks import (
     map_overlap,
 )
 from raster_tools.masking import get_default_null_value
-from tests.utils import make_raster
+from tests.utils import NARROW_SHAPES, make_narrow_raster, make_raster
 
 # Module-level reference affine for the parametrize decorators
 # (Affine is immutable; it's safe to cache across tests. The
@@ -3916,3 +3917,93 @@ def test_raster_method_reserved_kwargs_rejected(fn):
     r = make_raster(shape=(1, 40, 40), dtype=np.float32)
     with pytest.raises(ValueError, match="reserved"):
         fn(r, block_id=1)
+
+
+# How np.pad extends an array for each boundary in the tests below
+_BOUNDARY_PAD_ARGS = {
+    0: {"mode": "constant", "constant_values": 0},
+    -5.0: {"mode": "constant", "constant_values": -5.0},
+    "reflect": {"mode": "symmetric"},
+    "periodic": {"mode": "wrap"},
+    "nearest": {"mode": "edge"},
+}
+_WIDE_KERNEL = np.arange(49.0).reshape(7, 7)
+
+
+def _correlate_block(x):
+    # The kernel stays inside the overlap-included block for every cell
+    # that is kept after trimming
+    return ndimage.correlate(x[0], _WIDE_KERNEL, mode="constant")[None]
+
+
+@pytest.mark.parametrize("shape", NARROW_SHAPES.values(), ids=NARROW_SHAPES)
+@pytest.mark.parametrize("boundary", [*_BOUNDARY_PAD_ARGS, None, "none"])
+@pytest.mark.parametrize("func", [map_overlap, geo_map_overlap])
+def test_overlap_depth_wider_than_raster(func, boundary, shape):
+    raster = make_narrow_raster(shape, False)
+    data = raster.to_numpy()[0]
+    if boundary in (None, "none"):
+        # Nothing past the edges: the block is the whole raster
+        truth = ndimage.correlate(data, _WIDE_KERNEL, mode="constant")
+    else:
+        padded = np.pad(data, 3, **_BOUNDARY_PAD_ARGS[boundary])
+        truth = ndimage.correlate(padded, _WIDE_KERNEL, mode="constant")
+        truth = truth[3:-3, 3:-3]
+
+    result = func(
+        _correlate_block, raster, depth=3, boundary=boundary, dtype="f8"
+    )
+    assert result.shape == raster.shape
+    assert result.affine == raster.affine
+    assert result.data.chunks == raster.data.chunks
+    np.testing.assert_allclose(result.to_numpy()[0], truth)
+
+
+@pytest.mark.parametrize("boundary,fill", [("null", True), (0, False)])
+@pytest.mark.parametrize("func", [map_overlap, geo_map_overlap])
+def test_overlap_depth_wider_than_raster_input_masks(func, boundary, fill):
+    raster = make_narrow_raster((1, 4), True)
+    mask = raster.mask.compute()[0]
+    padded = np.pad(mask, 3, constant_values=fill).astype(float)
+    truth = ndimage.correlate(padded, _WIDE_KERNEL, mode="constant")
+    truth = truth[3:-3, 3:-3]
+
+    def count_nulls(x, input_masks):
+        return _correlate_block(input_masks[0].astype(float))
+
+    result = func(count_nulls, raster, depth=3, boundary=boundary, dtype="f8")
+    np.testing.assert_allclose(result.to_numpy()[0], truth)
+
+
+@pytest.mark.parametrize("shape", NARROW_SHAPES.values(), ids=NARROW_SHAPES)
+@pytest.mark.parametrize("boundary", [0, "reflect", None])
+def test_geo_map_overlap_depth_wider_than_raster_coords(boundary, shape):
+    # The geo block info covers the cells past the edges, so the kept cells
+    # get their own coordinates
+    raster = make_narrow_raster(shape, False)
+
+    def coords(x, geo_block_info):
+        if geo_block_info is None:
+            return x
+        gbi = geo_block_info
+        return (gbi.x[None, None, :] + 1000 * gbi.y[None, :, None]) + 0 * x
+
+    result = geo_map_overlap(
+        coords, raster, depth=(3, 4), boundary=boundary, dtype="f8"
+    )
+    truth = raster.x[None, None, :] + 1000 * raster.y[None, :, None]
+    np.testing.assert_allclose(result.to_numpy(), truth)
+
+
+@pytest.mark.parametrize("func", [map_overlap, geo_map_overlap])
+def test_overlap_depth_wider_than_raster_multiple_chunks(func):
+    # The y axis is chunked and shorter than the depth; the x axis is longer
+    raster = make_raster("arange", shape=(1, 3, 12), dtype="f8")
+    chunked = raster.chunk((1, (1, 1, 1), (5, 1, 6)))
+
+    result = func(_correlate_block, chunked, depth=3, boundary=0, dtype="f8")
+    truth = func(_correlate_block, raster, depth=3, boundary=0, dtype="f8")
+    if func is map_overlap:
+        # geo_map_overlap grows chunks to the depth before the overlap
+        assert result.data.chunks == chunked.data.chunks
+    np.testing.assert_allclose(result.to_numpy(), truth.to_numpy())

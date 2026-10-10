@@ -3,6 +3,7 @@ import dask.array as da
 import numpy as np
 import rasterio as rio
 import xarray as xr
+from affine import Affine
 
 import raster_tools as rts
 from raster_tools.dtypes import is_bool, is_scalar
@@ -489,3 +490,59 @@ def assert_datasets_similar(left, right, check_nbands=True, check_chunks=True):
 
 def arange_nd(shape, dtype=None, mod=np):
     return mod.arange(np.prod(shape), dtype=dtype).reshape(shape)
+
+
+# Rasters narrower than the windows used with them in the tests, along one
+# or both axes
+NARROW_SHAPES = {"row": (1, 4), "column": (4, 1), "cell": (1, 1)}
+
+
+def make_narrow_raster(shape, masked):
+    """A raster with non-square 3x2 cells, its last cell null if `masked`.
+
+    The cells are not square so the cell size along a one-cell axis can only
+    come from the stored transform.
+    """
+    data = np.arange(1.0, np.prod(shape) + 1).reshape((1, *shape))
+    if masked:
+        data[0, -1, -1] = np.nan
+    return rts.data_to_raster(
+        data,
+        affine=Affine(3, 0, 0, 0, -2, 30),
+        crs=5070,
+        nv=np.nan if masked else None,
+    )
+
+
+def run_on_null_padded(op, raster, ny, nx):
+    """Run `op` on `raster` padded with nulls and crop the result back.
+
+    `ny` null rows and `nx` null columns are added on each side. Returns the
+    computed (data, mask) of the result over the original cells.
+    """
+    dx, dy = np.abs(raster.resolution)
+    minx, miny, maxx, maxy = raster.bounds
+    padded = raster.pad(
+        (minx - nx * dx, miny - ny * dy, maxx + nx * dx, maxy + ny * dy)
+    )
+    out = op(padded)
+    _, rows, cols = raster.shape
+    window = np.s_[:, ny : ny + rows, nx : nx + cols]
+    return out.data[window].compute(), out.mask[window].compute()
+
+
+def assert_matches_null_padded(result, raster, expected):
+    """Check `result` against `raster` and the (data, mask) `expected`.
+
+    `result` must keep the grid of `raster` exactly and match the expected
+    mask, and the expected data wherever it is not null.
+    """
+    assert_valid_raster(result)
+    assert result.shape == raster.shape
+    assert result.affine == raster.affine
+    assert result.crs == raster.crs
+    data = result.data.compute()
+    mask = result.mask.compute()
+    expected_data, expected_mask = expected
+    np.testing.assert_array_equal(mask, expected_mask)
+    np.testing.assert_allclose(data[~mask], expected_data[~mask])

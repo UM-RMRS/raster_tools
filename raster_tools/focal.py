@@ -5,6 +5,7 @@ import numba as nb
 import numpy as np
 from dask_image import ndfilters
 
+from raster_tools.dask_utils import map_overlap_any_depth, pad_short_axes
 from raster_tools.dtypes import (
     F64,
     U8,
@@ -217,8 +218,9 @@ def _correlate(data, kernel, mode="constant", cval=0.0, nan_aware=False):
         # map_overlap does not support asymmetrical padding so take max. This
         # adds at most one extra pixel to each dim.
         rpad, cpad = [max(o) for o in offsets]
-        data = data.map_overlap(
+        data = map_overlap_any_depth(
             _correlate2d_chunk,
+            data,
             kernel=kernel,
             depth={0: 0, 1: rpad, 2: cpad},
             boundary=boundary,
@@ -229,6 +231,15 @@ def _correlate(data, kernel, mode="constant", cval=0.0, nan_aware=False):
         # Shift pixel origins to match ESRI behavior for even shaped kernels
         shift_origin = [d % 2 == 0 for d in kernel.shape]
         origin = [-1 if shift else 0 for shift in shift_origin]
+        # The depth that ndfilters overlaps the data by
+        rdepth, cdepth = [
+            s // 2 + abs(o) for s, o in zip(kernel.shape, origin, strict=True)
+        ]
+        depth = {0: 0, 1: rdepth, 2: cdepth}
+        boundary = _MODE_TO_DASK_BOUNDARY[mode]
+        if boundary == "constant":
+            boundary = cval
+        (data,), _, unpad = pad_short_axes([data], depth, [boundary])
         data = da.stack(
             [
                 ndfilters.correlate(
@@ -237,6 +248,7 @@ def _correlate(data, kernel, mode="constant", cval=0.0, nan_aware=False):
                 for band in data
             ]
         )
+        data = unpad(data)
     return data
 
 
@@ -297,7 +309,11 @@ def _focal(data, kernel, stat, nan_aware=False):
             func = partial(
                 ndfilters.correlate, weights=kernel, mode="constant"
             )
-        data = da.stack([func(d) for d in data])
+        # The depth that ndfilters overlaps the data by
+        depth = {0: 0, 1: kernel.shape[0] // 2, 2: kernel.shape[1] // 2}
+        boundary = 0 if stat == "sum" else "nearest"
+        (data,), _, unpad = pad_short_axes([data], depth, [boundary])
+        data = unpad(da.stack([func(d) for d in data]))
     else:
         # Use _focal_chunk which is slower but handles nan values.
         # Promote to allow for nan boundary fill values.
@@ -310,8 +326,9 @@ def _focal(data, kernel, stat, nan_aware=False):
         # adds at most one extra pixel to each dim.
         rpad = max(offsets[0])
         cpad = max(offsets[1])
-        data = data.map_overlap(
+        data = map_overlap_any_depth(
             _focal_chunk,
+            data,
             kernel=kernel,
             kernel_func=_STAT_TO_FUNC[stat],
             # dask

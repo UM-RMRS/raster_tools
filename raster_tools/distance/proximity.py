@@ -585,6 +585,18 @@ def _proximity_analysis(
             # underestimate the depth.
             resolution = _estimate_min_resolution(x, y)
         xdepth, ydepth = np.ceil(max_distance / np.abs(resolution)).astype(int)
+        # Along an axis shorter than the depth, one chunk holds every cell
+        # in reach and nothing lies past the edges, so no overlap is needed
+        _, ny, nx = raster.shape
+        short = {}
+        if ydepth > ny:
+            short["y"] = ny
+            ydepth = 0
+        if xdepth > nx:
+            short["x"] = nx
+            xdepth = 0
+        if short:
+            raster = Raster(raster._ds.chunk(short), _fast_path=True)
     coords_block_info = {
         "chunks": raster.data.chunks[1:],
         "depth": (ydepth, xdepth),
