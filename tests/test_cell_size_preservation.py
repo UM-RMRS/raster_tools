@@ -337,13 +337,6 @@ OPERATIONS = [
     Case(
         "local_stats_two_bands",
         lambda r: general.local_stats(_two_bands(r), "mean"),
-        xfail=pytest.mark.xfail(
-            raises=ValueError,
-            strict=True,
-            reason="local_stats fails on unmasked multi-band input "
-            "(https://github.com/UM-RMRS/raster_tools/issues/83)",
-        ),
-        xfail_masked=(False,),
     ),
     Case("regions", lambda r: general.regions(r)),
     Case("dilate", lambda r: general.dilate(r, 3)),
