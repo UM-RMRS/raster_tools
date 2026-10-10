@@ -1,3 +1,4 @@
+import dask.array
 import numpy as np
 import pytest
 from affine import Affine
@@ -262,3 +263,157 @@ def test_reproject_resolution_keeps_origin():
     assert result.affine.c == 1007
     assert result.affine.f == 2013
     assert result.shape == (1, 15, 15)
+
+
+def _bool_raster(mask=None, nv=None):
+    data = np.array(
+        [[[True, False], [True, True]], [[False, False], [True, False]]]
+    )
+    return rts.data_to_raster(
+        data,
+        mask=mask,
+        x=np.array([0.5, 1.5]),
+        y=np.array([1.5, 0.5]),
+        crs=5070,
+        nv=nv,
+    )
+
+
+# Covers the 2x2 test rasters and two columns past their right edge
+_PAST_EDGE_DST = GeoBox((2, 4), Affine(1, 0, 0, 0, -1, 2), "EPSG:5070")
+
+
+@pytest.mark.parametrize(
+    "method", ["nearest", "bilinear", "average", "mode", "max"]
+)
+def test_reproject_unmasked_bool_masks_only_uncovered_cells(method):
+    # https://github.com/UM-RMRS/raster_tools/issues/63
+    raster = _bool_raster()
+    assert raster.null_value is None
+
+    result = warp.reproject(raster, _PAST_EDGE_DST, method)
+    assert_valid_raster(result)
+    assert result.dtype == np.dtype(bool)
+    assert result.null_value == get_default_null_value(bool)
+    expected_mask = np.zeros((2, 2, 4), dtype=bool)
+    expected_mask[:, :, 2:] = True
+    assert np.array_equal(result.mask.compute(), expected_mask)
+    data = result.to_numpy()
+    assert np.array_equal(data[:, :, :2], raster.to_numpy())
+    assert (data[expected_mask] == result.null_value).all()
+
+
+def test_reproject_masked_bool_keeps_valid_cells_holding_null_value():
+    # Valid cells hold True, the null value, as well as False
+    nv = True
+    src_mask = np.zeros((2, 2, 2), dtype=bool)
+    src_mask[0, 0, 1] = src_mask[1, 1, 0] = True
+    raster = _bool_raster(mask=src_mask, nv=nv)
+    assert raster.null_value == nv
+
+    result = warp.reproject(raster, _PAST_EDGE_DST)
+    assert_valid_raster(result)
+    assert result.null_value == nv
+    expected_mask = np.ones((2, 2, 4), dtype=bool)
+    expected_mask[:, :, :2] = src_mask
+    assert np.array_equal(result.mask.compute(), expected_mask)
+    data = result.to_numpy()
+    valid = ~src_mask
+    assert np.array_equal(data[:, :, :2][valid], raster.to_numpy()[valid])
+    assert (data[expected_mask] == nv).all()
+
+
+def test_reproject_bool_matches_reprojected_integer_raster():
+    # Across a CRS change, a bool raster must land where the same data as
+    # 0/1 integers lands.
+    dem = testdata.raster.dem_small.chunk((1, 20, 20))
+    raster = (dem > np.median(dem.to_numpy())).set_null_value(None)
+    assert raster.null_value is None
+    ints = raster.astype("uint8")
+
+    result = warp.reproject(raster, "EPSG:4326")
+    expected = warp.reproject(ints, "EPSG:4326")
+    assert_valid_raster(result)
+    assert isinstance(result.data, dask.array.Array)
+    assert result.data.chunksize == raster.data.chunksize
+    assert result.geobox == expected.geobox
+    mask = result.mask.compute()
+    assert mask.any()
+    assert not mask.all()
+    assert np.array_equal(mask, expected.mask.compute())
+    data = result.to_numpy()
+    assert np.array_equal(data[~mask], expected.to_numpy()[~mask] == 1)
+    assert data[~mask].any()
+    assert not data[~mask].all()
+
+
+def test_reproject_bool_sum_over_many_cells_stays_valid():
+    # Summing 300 True cells into one must not land on the null value used
+    # while warping
+    raster = rts.data_to_raster(
+        np.ones((1, 1, 300), dtype=bool),
+        affine=Affine(1, 0, 0, 0, -1, 1),
+        crs=5070,
+    )
+    dst = GeoBox((1, 1), Affine(300, 0, 0, 0, -1, 1), "EPSG:5070")
+
+    result = warp.reproject(raster, dst, resample_method="sum")
+    assert_valid_raster(result)
+    assert not result.mask.compute().any()
+    assert result.to_numpy().all()
+
+
+@pytest.mark.parametrize(
+    "method", ["nearest", "bilinear", "cubic", "average", "mode", "max"]
+)
+@pytest.mark.parametrize(
+    "dtype", ["uint8", "int8", "uint16", "int16", "uint32", "int32", "float32"]
+)
+def test_reproject_unmasked_keeps_valid_cells_holding_default_null(
+    dtype, method
+):
+    # Valid cells that hold the default null value given to the output must
+    # stay valid and unchanged, while only uncovered cells are masked.
+    nv = get_default_null_value(dtype)
+    data = np.array([[[nv, 1], [2, 3]], [[4, nv], [nv, 5]]], dtype=dtype)
+    raster = rts.data_to_raster(
+        data, x=np.array([0.5, 1.5]), y=np.array([1.5, 0.5]), crs=5070
+    )
+    assert raster.null_value is None
+
+    result = warp.reproject(raster, _PAST_EDGE_DST, method)
+    assert_valid_raster(result)
+    assert result.dtype == np.dtype(dtype)
+    assert result.null_value == nv
+    expected_mask = np.zeros((2, 2, 4), dtype=bool)
+    expected_mask[:, :, 2:] = True
+    assert np.array_equal(result.mask.compute(), expected_mask)
+    out = result.to_numpy()
+    assert np.array_equal(out[:, :, :2], data)
+    assert (out[expected_mask] == nv).all()
+
+
+_ALL_METHODS = sorted(warp.SUPPORTED_RESAMPLE_METHODS)
+
+
+# Mode is left out: GDAL breaks ties between equally common values
+# differently for different dtypes.
+@pytest.mark.parametrize("method", [m for m in _ALL_METHODS if m != "mode"])
+def test_reproject_unmasked_int_matches_warp_in_own_dtype(method):
+    # Unmasked ints are warped in a wider dtype. Away from the null value,
+    # that must give what warping in the raster's own dtype gives, including
+    # where a method overshoots the dtype's range and is clamped.
+    dem = testdata.raster.dem_small
+    data = np.where(dem.to_numpy() > 1167, 30_000, 0).astype("int16")
+    raster = rts.data_to_raster(data, x=dem.x, y=dem.y, crs=dem.crs)
+    raster = raster.chunk((1, 20, 20))
+    assert raster.null_value is None
+    truth, truth_mask = _repoject(raster, "EPSG:5070", method)
+
+    result = warp.reproject(raster, "EPSG:5070", method)
+    assert_valid_raster(result)
+    assert result.dtype == raster.dtype
+    assert result.null_value == truth.rio.nodata
+    assert result.data.chunksize == raster.data.chunksize
+    assert np.array_equal(result.xmask, truth_mask)
+    assert np.array_equal(result.xdata, truth)

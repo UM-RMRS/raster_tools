@@ -94,6 +94,22 @@ def test_outer_join_pads_with_null():
     assert (data_b[mask_b] == nv).all()
 
 
+def test_outer_join_pads_unmasked_bool_without_masking_true_cells():
+    # https://github.com/UM-RMRS/raster_tools/issues/63
+    a = _grid_raster(0, 4)
+    data = (np.arange(16).reshape((4, 4)) % 3) == 0
+    b = make_raster(data, affine=Affine(1, 0, 1, 0, -1, 3), crs="EPSG:3857")
+    assert b.null_value is None
+    _, out_b = align([a, b], join="outer")
+    assert out_b.null_value == get_default_null_value(bool)
+    mask_b = np.ones((1, 5, 5), dtype=bool)
+    mask_b[:, 1:, 1:] = False
+    assert np.array_equal(out_b.mask.compute(), mask_b)
+    out_data = out_b.to_numpy()
+    assert np.array_equal(out_data[:, 1:, 1:], b.to_numpy())
+    assert out_data[mask_b].all()
+
+
 def test_outer_join_leaves_covering_raster_unchanged():
     big = _grid_raster(0, 4)
     small = _grid_raster(1, 3, shape=(2, 2))
@@ -177,8 +193,18 @@ def _unmasked_int_source():
     return src
 
 
+def _unmasked_bool_source():
+    data = (np.arange(36).reshape((6, 6)) % 3) == 0
+    src = make_raster(
+        data, affine=Affine(10, 0, 1000, 0, -10, 2000), crs="EPSG:5070"
+    )
+    assert src.null_value is None
+    return src
+
+
 @pytest.mark.parametrize(
-    "make_src", [_masked_float_source, _unmasked_int_source]
+    "make_src",
+    [_masked_float_source, _unmasked_int_source, _unmasked_bool_source],
 )
 @pytest.mark.parametrize("method", sorted(SUPPORTED_RESAMPLE_METHODS))
 def test_cut_and_pad_matches_reproject(method, make_src):
@@ -199,18 +225,11 @@ def test_cut_and_pad_matches_reproject(method, make_src):
     data = aligned.to_numpy()
     expected_mask = reprojected.mask.compute()
     expected_data = reprojected.to_numpy()
-    if src.null_value is None:
-        # src cell (1, 3) holds the null value the output is given and
-        # lands on cell (3, 1). Cutting masks it. Reprojecting masks it with
-        # older GDAL, while newer GDAL nudges its value off the null value
-        # and leaves it valid, so only the cut result is checked there.
-        held = np.zeros_like(mask)
-        held[0, 3, 1] = True
-        assert mask[held].all()
-        expected_mask |= held
-        expected_data[held] = aligned.null_value
-        # Any cell holding the null value is masked
-        assert mask[data == aligned.null_value].all()
+    if make_src is _unmasked_int_source:
+        # src cell (1, 3) holds the null value the output is given and lands
+        # on cell (3, 1). It stays valid and unchanged.
+        assert not mask[0, 3, 1]
+        assert data[0, 3, 1] == aligned.null_value
     assert np.array_equal(mask, expected_mask)
     assert np.array_equal(data, expected_data)
     assert np.array_equal(aligned.x, reprojected.x)
@@ -623,6 +642,23 @@ def test_non_whole_cell_offset_is_reprojected():
     # Reprojection can leave cells uncovered, so the unmasked input gets a
     # null value
     assert out.null_value == get_default_null_value(b.dtype)
+
+
+def test_reprojected_unmasked_bool_masks_only_uncovered_cells():
+    # https://github.com/UM-RMRS/raster_tools/issues/63
+    data = (np.arange(16).reshape((4, 4)) % 3) == 0
+    b = make_raster(data, affine=Affine(1, 0, 0.25, 0, -1, 4), crs="EPSG:3857")
+    # Quarter-cell offset, so b is reprojected. b covers the centers of the
+    # first 4 columns.
+    dst = GeoBox((4, 6), Affine(1, 0, 0, 0, -1, 4), "EPSG:3857")
+    (out,) = align([b], dst_grid=dst)
+    assert out.null_value == get_default_null_value(bool)
+    mask = np.zeros((1, 4, 6), dtype=bool)
+    mask[:, :, 4:] = True
+    assert np.array_equal(out.mask.compute(), mask)
+    out_data = out.to_numpy()
+    assert np.array_equal(out_data[:, :, :4], b.to_numpy())
+    assert out_data[mask].all()
 
 
 def test_outputs_share_transform_when_cell_sizes_differ_by_float_noise():

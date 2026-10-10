@@ -1,9 +1,27 @@
+import numpy as np
 import rasterio as rio
 from odc.geo.geobox import GeoBox
 
 from raster_tools._grids import reproject_grid
+from raster_tools.dtypes import (
+    I8,
+    I16,
+    I32,
+    I64,
+    U8,
+    U16,
+    U32,
+    get_dtype_min_max,
+    is_bool,
+    is_float,
+)
 from raster_tools.masking import get_default_null_value
-from raster_tools.raster import Raster, dataarray_to_xr_raster_ds, get_raster
+from raster_tools.raster import (
+    Raster,
+    dataarray_to_xr_raster_ds,
+    get_mask_from_data,
+    get_raster,
+)
 
 __all__ = [
     "reproject",
@@ -76,7 +94,11 @@ def reproject(
     Returns
     -------
     Raster
-        The reprojected raster on the new grid.
+        The reprojected raster on the new grid. Cells that the source does not
+        cover are null. A raster with no null value is given the default null
+        value for its dtype. Its valid cells stay valid, even where they hold
+        that value, except in a 64-bit integer raster, where those cells are
+        null or, with newer GDAL, have their value nudged off it.
 
     """
     raster = get_raster(raster)
@@ -109,9 +131,17 @@ def reproject(
         if raster._masked
         else get_default_null_value(raster.dtype)
     )
-    reprojected = raster.xdata.odc.reproject(
-        dst_gb, resampling=resample_method, dst_nodata=nv
-    ).rio.write_nodata(nv)
+    working = _get_working_type(raster.dtype, raster._masked)
+    if working is not None:
+        reprojected, xmask = _reproject_with_mask(
+            raster, dst_gb, resample_method, nv, *working
+        )
+    else:
+        reprojected = raster.xdata.odc.reproject(
+            dst_gb, resampling=resample_method, dst_nodata=nv
+        )
+        xmask = None
+    reprojected = reprojected.rio.write_nodata(nv)
     # reproject sets a "nodata" attribute that has type int for whole-number
     # null values (e.g. -3.4028235e+38 becomes a VERY long python int). This
     # can cause all kinds of issues for downstream operations
@@ -121,6 +151,87 @@ def reproject(
     if "longitude" in reprojected.dims:
         # odc-geo will rename x/y to lon/lat for lon/lat based projections, so
         # revert to x/y
-        reprojected = reprojected.rename({"longitude": "x", "latitude": "y"})
-    ds = dataarray_to_xr_raster_ds(reprojected)
+        lonlat_to_xy = {"longitude": "x", "latitude": "y"}
+        reprojected = reprojected.rename(lonlat_to_xy)
+        if xmask is not None:
+            xmask = xmask.rename(lonlat_to_xy)
+    ds = dataarray_to_xr_raster_ds(reprojected, xmask=xmask)
     return Raster(ds, _fast_path=True)
+
+
+# Unmasked integer data is warped in the next wider signed type, whose
+# minimum no source value can equal
+_WIDER_INT_TYPE = {U8: I16, I8: I16, U16: I32, I16: I32, U32: I64, I32: I64}
+
+
+def _get_working_type(dtype, masked):
+    """Get the type and null value to warp data in, if one is needed.
+
+    Warping marks the cells that the source does not cover, and null source
+    cells, with a null value. That value must not occur in the source's
+    valid data, or valid cells that hold it come out null or altered. The
+    default null value given to an unmasked raster can occur in its data, and
+    bool data has no spare value at all. For those, this returns a working
+    dtype and null value that cannot collide, so that the mask can be taken
+    from the warped data. ``None`` is returned when the raster's own null
+    value can be used, or when its dtype has no wider type (64-bit
+    integers).
+    """
+    dtype = np.dtype(dtype)
+    if is_bool(dtype):
+        # A sum resample can count past 255 cells, so use a type wider than
+        # uint8
+        return I16, I16.type(np.iinfo(I16).min)
+    if masked:
+        return None
+    if is_float(dtype):
+        # Source NaN values are null when warping in any case
+        return dtype, dtype.type(np.nan)
+    if dtype in _WIDER_INT_TYPE:
+        wide = _WIDER_INT_TYPE[dtype]
+        return wide, wide.type(np.iinfo(wide).min)
+    return None
+
+
+def _reproject_with_mask(
+    raster, dst_gb, resample_method, nv, work_dtype, work_nv
+):
+    """Reproject data in a working dtype and return it with its mask.
+
+    The data is warped as `work_dtype` with `work_nv` marking null and
+    uncovered cells, and the mask is taken from that. The result is cast back
+    to the raster's dtype and its null cells get `nv`.
+    """
+    dtype = raster.dtype
+    src = raster.xdata.astype(work_dtype)
+    if raster._masked:
+        src = src.where(~raster.xmask, work_nv)
+    # Unmasked integer data has no null cells, so it gets no source null
+    # value, which also keeps GDAL on the kernels it uses for the data in its
+    # own dtype. Float sources treat NaN as null, as they always have.
+    src_nv = work_nv if raster._masked or is_float(dtype) else None
+    warped = src.odc.reproject(
+        dst_gb,
+        resampling=resample_method,
+        src_nodata=src_nv,
+        dst_nodata=work_nv,
+    )
+    xmask = get_mask_from_data(warped, work_nv)
+    if is_bool(dtype):
+        data = warped != 0
+    elif is_float(dtype):
+        data = warped
+    else:
+        # GDAL clamps to the output type's range, so do the same for the
+        # source's type
+        lo, hi = get_dtype_min_max(dtype)
+        data = warped.clip(lo, hi).astype(dtype)
+    data = data.where(~xmask, nv)
+    data.attrs = {
+        k: v
+        for k, v in warped.attrs.items()
+        if k not in ("nodata", "_FillValue")
+    }
+    data.encoding = dict(warped.encoding)
+    xmask.attrs = {}
+    return data, xmask
