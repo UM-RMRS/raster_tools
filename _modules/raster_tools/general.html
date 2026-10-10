@@ -1166,7 +1166,7 @@ document.write(`
             <span class="n">keepdims</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
         <span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="n">xmask</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">xmask</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+        <span class="n">xmask</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">xdata</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
 
     <span class="n">ds_out</span> <span class="o">=</span> <span class="n">dataarray_to_xr_raster_ds</span><span class="p">(</span><span class="n">xdata</span><span class="p">,</span> <span class="n">xmask</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">raster</span><span class="o">.</span><span class="n">_masked</span><span class="p">:</span>
