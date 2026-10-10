@@ -1,5 +1,6 @@
 import dask
 import numpy as np
+import rasterio as rio
 import rioxarray as rxr
 import xarray as xr
 
@@ -11,6 +12,7 @@ from raster_tools.raster import (
     Raster,
     dataarray_to_xr_raster_ds,
     get_raster,
+    grid_transform,
     xr_where_with_meta,
 )
 from raster_tools.vector import get_vector
@@ -202,6 +204,49 @@ def envelope(feature, data_raster):
     )
 
 
+# Number of times a clip box is grown by half a cell on each side when the
+# clipped result is degenerate. Matches rioxarray's auto_expand_limit default.
+_CLIP_BOX_EXPAND_LIMIT = 2
+
+
+def _clip_box_xarray(xarr, bounds):
+    """Clip raster xarray data to a box, growing the box if needed.
+
+    If the clip gives no cells, or a single cell along an axis where the
+    source has more, the box grows by half a cell on each side and the clip
+    is retried, as rioxarray's clip_box does with auto_expand. That
+    expansion is done here because rioxarray does not pass
+    allow_one_dimensional_raster on to its retries, so its auto_expand
+    fails on sources one row or column wide.
+    """
+    transform = grid_transform(xarr)
+    half_x = abs(transform.a) / 2
+    half_y = abs(transform.e) / 2
+    minx, miny, maxx, maxy = (float(b) for b in bounds)
+    for i in range(_CLIP_BOX_EXPAND_LIMIT + 1):
+        last = i == _CLIP_BOX_EXPAND_LIMIT
+        try:
+            result = xarr.rio.clip_box(
+                minx, miny, maxx, maxy, allow_one_dimensional_raster=True
+            )
+        except (rio.errors.WindowError, rxr.exceptions.NoDataInBounds):
+            if last:
+                raise
+            result = None
+        if result is not None and (
+            last
+            or (
+                (result.rio.width > 1 or xarr.rio.width == 1)
+                and (result.rio.height > 1 or xarr.rio.height == 1)
+            )
+        ):
+            return result
+        minx -= half_x
+        miny -= half_y
+        maxx += half_x
+        maxy += half_y
+
+
 def clip_box(raster, bounds):
     """Clip the raster to the specified box.
 
@@ -222,13 +267,13 @@ def clip_box(raster, bounds):
     if len(bounds) != 4:
         raise ValueError("Invalid bounds. Must be a size 4 array or tuple.")
     try:
-        xdata = raster.xdata.rio.clip_box(*bounds, auto_expand=True)
+        xdata = _clip_box_xarray(raster.xdata, bounds)
     except rxr.exceptions.NoDataInBounds as err:
         raise RasterNoDataError(
             "No data found within provided bounds"
         ) from err
     if raster._masked:
-        xmask = raster.xmask.rio.clip_box(*bounds, auto_expand=True)
+        xmask = _clip_box_xarray(raster.xmask, bounds)
     else:
         xmask = xr.zeros_like(xdata, dtype=bool)
     ds = dataarray_to_xr_raster_ds(xdata, xmask=xmask, crs=raster.crs)

@@ -1,12 +1,16 @@
 from unittest import TestCase
 
 import dask
+import geopandas as gpd
 import numpy as np
+import pytest
+from affine import Affine
+from shapely.geometry import box
 
 import raster_tools as rts
 from raster_tools import clipping
 from raster_tools.exceptions import RasterNoDataError
-from raster_tools.raster import Raster
+from raster_tools.raster import Raster, grid_transform
 from tests import testdata
 from tests.utils import assert_rasters_similar, assert_valid_raster
 
@@ -117,3 +121,153 @@ def test_clip_multiband():
     assert_valid_raster(result)
     assert_rasters_similar(result, expected)
     assert np.allclose(result, expected)
+
+
+SQUARE_AFFINE = Affine(2, 0, 0, 0, -2, 30)
+# Non-square cells, so the cell size along a length-1 axis can only come
+# from the stored transform
+NON_SQUARE_AFFINE = Affine(3, 0, 0, 0, -2, 30)
+AFFINES = pytest.mark.parametrize(
+    "affine", [SQUARE_AFFINE, NON_SQUARE_AFFINE], ids=["square", "non_square"]
+)
+ONE_CELL_WIDE_SHAPES = pytest.mark.parametrize(
+    "shape", [(1, 4), (4, 1), (1, 1)], ids=["row", "column", "cell"]
+)
+MASKED = pytest.mark.parametrize(
+    "masked", [False, True], ids=["unmasked", "masked"]
+)
+
+
+def _raster(shape, affine, masked):
+    data = np.arange(1.0, np.prod(shape) + 1).reshape((1, *shape))
+    if masked:
+        data[0, -1, -1] = np.nan
+    return rts.data_to_raster(
+        data, affine=affine, crs=5070, nv=np.nan if masked else None
+    )
+
+
+def _box_feature(bounds):
+    return rts.Vector(gpd.GeoDataFrame(geometry=[box(*bounds)], crs=5070))
+
+
+def _cell_bounds(raster, row, col):
+    minx, maxy = raster.xy(row, col, offset="ul")
+    maxx, miny = raster.xy(row, col, offset="lr")
+    return (minx, miny, maxx, maxy)
+
+
+def _assert_grid(result, affine, shape):
+    assert_valid_raster(result)
+    assert result.shape == (1, *shape)
+    assert result.affine == affine
+    assert grid_transform(result.xdata) == affine
+    assert grid_transform(result.xmask) == affine
+
+
+@ONE_CELL_WIDE_SHAPES
+@AFFINES
+@MASKED
+@pytest.mark.parametrize(
+    "op",
+    [
+        lambda f, r: clipping.clip(f, r),
+        lambda f, r: clipping.envelope(f, r),
+        lambda f, r: clipping.clip_box(r, r.bounds),
+    ],
+    ids=["clip", "envelope", "clip_box"],
+)
+def test_clip_keeps_all_of_one_cell_wide_raster(shape, affine, masked, op):
+    raster = _raster(shape, affine, masked)
+
+    result = op(_box_feature(raster.bounds), raster)
+
+    _assert_grid(result, affine, shape)
+    mask = raster.mask.compute()
+    np.testing.assert_array_equal(result.mask.compute(), mask)
+    np.testing.assert_array_equal(
+        result.to_numpy()[~mask], raster.to_numpy()[~mask]
+    )
+
+
+@ONE_CELL_WIDE_SHAPES
+@AFFINES
+@MASKED
+def test_erase_all_of_one_cell_wide_raster(shape, affine, masked):
+    raster = _raster(shape, affine, masked)
+
+    result = clipping.erase(_box_feature(raster.bounds), raster)
+
+    _assert_grid(result, affine, shape)
+    assert result.mask.compute().all()
+
+
+@ONE_CELL_WIDE_SHAPES
+@AFFINES
+@MASKED
+def test_clip_and_erase_first_cell_of_one_cell_wide_raster(
+    shape, affine, masked
+):
+    raster = _raster(shape, affine, masked)
+    feature = _box_feature(_cell_bounds(raster, 0, 0))
+    first_cell = np.zeros((1, *shape), dtype=bool)
+    first_cell[0, 0, 0] = True
+
+    clipped = clipping.clip(feature, raster, bounds=raster.bounds)
+    erased = clipping.erase(feature, raster, bounds=raster.bounds)
+
+    _assert_grid(clipped, affine, shape)
+    _assert_grid(erased, affine, shape)
+    mask = raster.mask.compute()
+    clipped_mask = ~first_cell | mask
+    erased_mask = first_cell | mask
+    np.testing.assert_array_equal(clipped.mask.compute(), clipped_mask)
+    np.testing.assert_array_equal(erased.mask.compute(), erased_mask)
+    data = raster.to_numpy()
+    np.testing.assert_array_equal(
+        clipped.to_numpy()[~clipped_mask], data[~clipped_mask]
+    )
+    np.testing.assert_array_equal(
+        erased.to_numpy()[~erased_mask], data[~erased_mask]
+    )
+
+
+@AFFINES
+@MASKED
+@pytest.mark.parametrize(
+    "shape,rows,cols",
+    [((1, 6), slice(0, 1), slice(2, 5)), ((6, 1), slice(2, 5), slice(0, 1))],
+    ids=["row", "column"],
+)
+@pytest.mark.parametrize("use_feature", [False, True], ids=["box", "feature"])
+def test_clip_one_cell_wide_raster_to_part(
+    affine, masked, shape, rows, cols, use_feature
+):
+    data = np.arange(1.0, 7.0).reshape((1, *shape))
+    if masked:
+        # A null inside the part that is kept
+        data[0, rows.stop - 1, cols.stop - 1] = np.nan
+    raster = rts.data_to_raster(
+        data, affine=affine, crs=5070, nv=np.nan if masked else None
+    )
+    minx, _, _, maxy = _cell_bounds(raster, rows.start, cols.start)
+    _, miny, maxx, _ = _cell_bounds(raster, rows.stop - 1, cols.stop - 1)
+    bounds = (minx, miny, maxx, maxy)
+
+    if use_feature:
+        result = clipping.clip(_box_feature(bounds), raster)
+    else:
+        result = clipping.clip_box(raster, bounds)
+
+    expected_shape = (rows.stop - rows.start, cols.stop - cols.start)
+    _assert_grid(
+        result,
+        affine * Affine.translation(cols.start, rows.start),
+        expected_shape,
+    )
+    expected = raster.to_numpy()[:, rows, cols]
+    expected_mask = raster.mask.compute()[:, rows, cols]
+    np.testing.assert_array_equal(result.mask.compute(), expected_mask)
+    np.testing.assert_array_equal(
+        result.to_numpy()[~expected_mask], expected[~expected_mask]
+    )

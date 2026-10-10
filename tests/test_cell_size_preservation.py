@@ -33,7 +33,6 @@ import numpy as np
 import pytest
 from affine import Affine
 from odc.geo.geobox import GeoBox
-from rioxarray.exceptions import OneDimensionalRaster
 from shapely.geometry import LineString, box
 
 import raster_tools as rts
@@ -185,13 +184,6 @@ class Case(NamedTuple):
     xfail: object = None
     xfail_masked: tuple = (False, True)
 
-
-ONE_DIMENSIONAL_CLIP = pytest.mark.xfail(
-    raises=OneDimensionalRaster,
-    strict=True,
-    reason="rioxarray clip_box rejects one-cell-wide rasters "
-    "(https://github.com/UM-RMRS/raster_tools/issues/84)",
-)
 
 OPERATIONS = [
     # Arithmetic, comparison, logical and unary operators
@@ -430,26 +422,10 @@ OPERATIONS = [
     # raster_tools.clipping
     Case("mask", lambda r: clipping.mask(_features(r), r)),
     Case("mask_invert", lambda r: clipping.mask(_features(r), r, invert=True)),
-    Case(
-        "clip",
-        lambda r: clipping.clip(_features(r), r),
-        xfail=ONE_DIMENSIONAL_CLIP,
-    ),
-    Case(
-        "erase",
-        lambda r: clipping.erase(_features(r), r),
-        xfail=ONE_DIMENSIONAL_CLIP,
-    ),
-    Case(
-        "envelope",
-        lambda r: clipping.envelope(_features(r), r),
-        xfail=ONE_DIMENSIONAL_CLIP,
-    ),
-    Case(
-        "clip_box",
-        lambda r: clipping.clip_box(r, r.bounds),
-        xfail=ONE_DIMENSIONAL_CLIP,
-    ),
+    Case("clip", lambda r: clipping.clip(_features(r), r)),
+    Case("erase", lambda r: clipping.erase(_features(r), r)),
+    Case("envelope", lambda r: clipping.envelope(_features(r), r)),
+    Case("clip_box", lambda r: clipping.clip_box(r, r.bounds)),
     # Rasterizing vectors onto the raster's grid
     Case("to_raster", lambda r: _features(r).to_raster(r, "value")),
     Case("to_raster_mask", lambda r: _features(r).to_raster(r, mask=True)),
