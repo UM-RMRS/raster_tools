@@ -479,6 +479,7 @@ def model_predict_raster(raster, model, n_outputs=1):
             "x": in_raster.x,
         },
     )
+    xdata = with_grid_mapping_of(xdata, in_raster.xdata)
     if in_raster._masked:
         xmask = in_raster.xmask.any(dim="band", keepdims=True)
         if n_outputs > 1:
