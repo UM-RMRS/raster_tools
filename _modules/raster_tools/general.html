@@ -458,6 +458,7 @@ document.write(`
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">xarray</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">xr</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">affine</span><span class="w"> </span><span class="kn">import</span> <span class="n">Affine</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dask_image</span><span class="w"> </span><span class="kn">import</span> <span class="n">ndmeasure</span> <span class="k">as</span> <span class="n">ndm</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">scipy.ndimage</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">binary_dilation</span><span class="p">,</span>
@@ -500,6 +501,7 @@ document.write(`
     <span class="n">data_to_xr_raster_ds_like</span><span class="p">,</span>
     <span class="n">dataarray_to_xr_raster_ds</span><span class="p">,</span>
     <span class="n">get_raster</span><span class="p">,</span>
+    <span class="n">grid_transform</span><span class="p">,</span>
     <span class="n">with_grid_mapping_of</span><span class="p">,</span>
     <span class="n">xr_where_with_meta</span><span class="p">,</span>
 <span class="p">)</span>
@@ -774,6 +776,15 @@ document.write(`
         <span class="n">xdata</span> <span class="o">=</span> <span class="n">xr_where_with_meta</span><span class="p">(</span><span class="n">xmask</span><span class="p">,</span> <span class="n">nv</span><span class="p">,</span> <span class="n">xdata</span><span class="p">,</span> <span class="n">nv</span><span class="o">=</span><span class="n">nv</span><span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="n">xmask</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">xdata</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+    <span class="c1"># coarsen keeps the input GeoTransform on the grid-mapping coordinate.</span>
+    <span class="c1"># Along an axis coarsened down to one cell, that stored transform is the</span>
+    <span class="c1"># only source of the cell size, so replace it with the coarse grid. The</span>
+    <span class="c1"># trimmed boundary is at the far edges, so the origin is unchanged.</span>
+    <span class="n">transform</span> <span class="o">=</span> <span class="n">grid_transform</span><span class="p">(</span><span class="n">raster</span><span class="o">.</span><span class="n">xdata</span><span class="p">)</span> <span class="o">*</span> <span class="n">Affine</span><span class="o">.</span><span class="n">scale</span><span class="p">(</span>
+        <span class="n">dim_map</span><span class="p">[</span><span class="s2">"x"</span><span class="p">],</span> <span class="n">dim_map</span><span class="p">[</span><span class="s2">"y"</span><span class="p">]</span>
+    <span class="p">)</span>
+    <span class="n">xdata</span> <span class="o">=</span> <span class="n">xdata</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_transform</span><span class="p">(</span><span class="n">transform</span><span class="p">)</span>
+    <span class="n">xmask</span> <span class="o">=</span> <span class="n">xmask</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_transform</span><span class="p">(</span><span class="n">transform</span><span class="p">)</span>
     <span class="n">ds</span> <span class="o">=</span> <span class="n">dataarray_to_xr_raster_ds</span><span class="p">(</span><span class="n">xdata</span><span class="p">,</span> <span class="n">xmask</span><span class="p">,</span> <span class="n">crs</span><span class="o">=</span><span class="n">raster</span><span class="o">.</span><span class="n">crs</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">Raster</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="n">_fast_path</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div>
 

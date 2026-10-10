@@ -550,7 +550,11 @@ the grid’s origin.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
-<dd class="field-even"><p>The reprojected raster on the new grid.</p>
+<dd class="field-even"><p>The reprojected raster on the new grid. Cells that the source does not
+cover are null. A raster with no null value is given the default null
+value for its dtype. Its valid cells stay valid, even where they hold
+that value, except in a 64-bit integer raster, where those cells are
+null or, with newer GDAL, have their value nudged off it.</p>
 </dd>
 <dt class="field-odd">Return type</dt>
 <dd class="field-odd"><p><a class="reference internal" href="raster_tools.Raster.html#raster_tools.Raster" title="raster_tools.Raster">Raster</a></p>

@@ -440,6 +440,7 @@ document.write(`
   <h1>Source code for raster_tools.clipping</h1><div class="highlight"><pre>
 <span></span><span class="kn">import</span><span class="w"> </span><span class="nn">dask</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">rasterio</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">rio</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">rioxarray</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">rxr</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">xarray</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">xr</span>
 
@@ -451,6 +452,7 @@ document.write(`
     <span class="n">Raster</span><span class="p">,</span>
     <span class="n">dataarray_to_xr_raster_ds</span><span class="p">,</span>
     <span class="n">get_raster</span><span class="p">,</span>
+    <span class="n">grid_transform</span><span class="p">,</span>
     <span class="n">xr_where_with_meta</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.vector</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_vector</span>
@@ -642,6 +644,49 @@ document.write(`
     <span class="p">)</span></div>
 
 
+<span class="c1"># Number of times a clip box is grown by half a cell on each side when the</span>
+<span class="c1"># clipped result is degenerate. Matches rioxarray's auto_expand_limit default.</span>
+<span class="n">_CLIP_BOX_EXPAND_LIMIT</span> <span class="o">=</span> <span class="mi">2</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_clip_box_xarray</span><span class="p">(</span><span class="n">xarr</span><span class="p">,</span> <span class="n">bounds</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Clip raster xarray data to a box, growing the box if needed.</span>
+
+<span class="sd">    If the clip gives no cells, or a single cell along an axis where the</span>
+<span class="sd">    source has more, the box grows by half a cell on each side and the clip</span>
+<span class="sd">    is retried, as rioxarray's clip_box does with auto_expand. That</span>
+<span class="sd">    expansion is done here because rioxarray does not pass</span>
+<span class="sd">    allow_one_dimensional_raster on to its retries, so its auto_expand</span>
+<span class="sd">    fails on sources one row or column wide.</span>
+<span class="sd">    """</span>
+    <span class="n">transform</span> <span class="o">=</span> <span class="n">grid_transform</span><span class="p">(</span><span class="n">xarr</span><span class="p">)</span>
+    <span class="n">half_x</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="n">transform</span><span class="o">.</span><span class="n">a</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span>
+    <span class="n">half_y</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="n">transform</span><span class="o">.</span><span class="n">e</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span>
+    <span class="n">minx</span><span class="p">,</span> <span class="n">miny</span><span class="p">,</span> <span class="n">maxx</span><span class="p">,</span> <span class="n">maxy</span> <span class="o">=</span> <span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">b</span><span class="p">)</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">bounds</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">_CLIP_BOX_EXPAND_LIMIT</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+        <span class="n">last</span> <span class="o">=</span> <span class="n">i</span> <span class="o">==</span> <span class="n">_CLIP_BOX_EXPAND_LIMIT</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="n">xarr</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">clip_box</span><span class="p">(</span>
+                <span class="n">minx</span><span class="p">,</span> <span class="n">miny</span><span class="p">,</span> <span class="n">maxx</span><span class="p">,</span> <span class="n">maxy</span><span class="p">,</span> <span class="n">allow_one_dimensional_raster</span><span class="o">=</span><span class="kc">True</span>
+            <span class="p">)</span>
+        <span class="k">except</span> <span class="p">(</span><span class="n">rio</span><span class="o">.</span><span class="n">errors</span><span class="o">.</span><span class="n">WindowError</span><span class="p">,</span> <span class="n">rxr</span><span class="o">.</span><span class="n">exceptions</span><span class="o">.</span><span class="n">NoDataInBounds</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">last</span><span class="p">:</span>
+                <span class="k">raise</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">result</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="p">(</span>
+            <span class="n">last</span>
+            <span class="ow">or</span> <span class="p">(</span>
+                <span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">width</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="ow">or</span> <span class="n">xarr</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">width</span> <span class="o">==</span> <span class="mi">1</span><span class="p">)</span>
+                <span class="ow">and</span> <span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">height</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="ow">or</span> <span class="n">xarr</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">height</span> <span class="o">==</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="p">):</span>
+            <span class="k">return</span> <span class="n">result</span>
+        <span class="n">minx</span> <span class="o">-=</span> <span class="n">half_x</span>
+        <span class="n">miny</span> <span class="o">-=</span> <span class="n">half_y</span>
+        <span class="n">maxx</span> <span class="o">+=</span> <span class="n">half_x</span>
+        <span class="n">maxy</span> <span class="o">+=</span> <span class="n">half_y</span>
+
+
 <div class="viewcode-block" id="clip_box"><a class="viewcode-back" href="../../reference/generated/raster_tools.clipping.clip_box.html#raster_tools.clipping.clip_box">[docs]</a><span class="k">def</span><span class="w"> </span><span class="nf">clip_box</span><span class="p">(</span><span class="n">raster</span><span class="p">,</span> <span class="n">bounds</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">"""Clip the raster to the specified box.</span>
 
@@ -662,13 +707,13 @@ document.write(`
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">bounds</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">4</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Invalid bounds. Must be a size 4 array or tuple."</span><span class="p">)</span>
     <span class="k">try</span><span class="p">:</span>
-        <span class="n">xdata</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">xdata</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">clip_box</span><span class="p">(</span><span class="o">*</span><span class="n">bounds</span><span class="p">,</span> <span class="n">auto_expand</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">xdata</span> <span class="o">=</span> <span class="n">_clip_box_xarray</span><span class="p">(</span><span class="n">raster</span><span class="o">.</span><span class="n">xdata</span><span class="p">,</span> <span class="n">bounds</span><span class="p">)</span>
     <span class="k">except</span> <span class="n">rxr</span><span class="o">.</span><span class="n">exceptions</span><span class="o">.</span><span class="n">NoDataInBounds</span> <span class="k">as</span> <span class="n">err</span><span class="p">:</span>
         <span class="k">raise</span> <span class="n">RasterNoDataError</span><span class="p">(</span>
             <span class="s2">"No data found within provided bounds"</span>
         <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">err</span>
     <span class="k">if</span> <span class="n">raster</span><span class="o">.</span><span class="n">_masked</span><span class="p">:</span>
-        <span class="n">xmask</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">xmask</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">clip_box</span><span class="p">(</span><span class="o">*</span><span class="n">bounds</span><span class="p">,</span> <span class="n">auto_expand</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">xmask</span> <span class="o">=</span> <span class="n">_clip_box_xarray</span><span class="p">(</span><span class="n">raster</span><span class="o">.</span><span class="n">xmask</span><span class="p">,</span> <span class="n">bounds</span><span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="n">xmask</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">xdata</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
     <span class="n">ds</span> <span class="o">=</span> <span class="n">dataarray_to_xr_raster_ds</span><span class="p">(</span><span class="n">xdata</span><span class="p">,</span> <span class="n">xmask</span><span class="o">=</span><span class="n">xmask</span><span class="p">,</span> <span class="n">crs</span><span class="o">=</span><span class="n">raster</span><span class="o">.</span><span class="n">crs</span><span class="p">)</span>

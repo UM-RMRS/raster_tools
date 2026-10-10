@@ -567,9 +567,12 @@ recorded in its transform, or the cell size of its other axis if the
 raster was built from coordinates alone.</p>
 <p>A raster with no null value that is padded or reprojected is given the
 default null value for its dtype, so that the new cells can be marked
-as null. Any of its existing cells that hold that value are then null
-too. For a bool raster the default null value is <code class="docutils literal notranslate"><span class="pre">True</span></code>, so its padded
-cells hold <code class="docutils literal notranslate"><span class="pre">True</span></code> but are masked, as are its existing <code class="docutils literal notranslate"><span class="pre">True</span></code> cells.</p>
+as null. Its existing cells stay valid, even where they hold that value.
+For a bool raster the default null value is <code class="docutils literal notranslate"><span class="pre">True</span></code>, so its padded
+cells hold <code class="docutils literal notranslate"><span class="pre">True</span></code> but are masked, while its existing <code class="docutils literal notranslate"><span class="pre">True</span></code> cells
+stay valid. A 64-bit integer raster is the exception: its existing cells
+that hold the null value are masked when cut, and when reprojected they
+are masked or, with newer GDAL, have their value nudged off it.</p>
 <p>A raster whose cell size and offset are within 0.001 of a cell of the
 destination lattice is cut and padded rather than resampled, so
 sub-pixel noise in its transform is dropped.</p>

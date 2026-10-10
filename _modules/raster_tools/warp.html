@@ -438,12 +438,30 @@ document.write(`
                 <article class="bd-article" role="main">
                   
   <h1>Source code for raster_tools.warp</h1><div class="highlight"><pre>
-<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">rasterio</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">rio</span>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">rasterio</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">rio</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">odc.geo.geobox</span><span class="w"> </span><span class="kn">import</span> <span class="n">GeoBox</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools._grids</span><span class="w"> </span><span class="kn">import</span> <span class="n">reproject_grid</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.dtypes</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">I8</span><span class="p">,</span>
+    <span class="n">I16</span><span class="p">,</span>
+    <span class="n">I32</span><span class="p">,</span>
+    <span class="n">I64</span><span class="p">,</span>
+    <span class="n">U8</span><span class="p">,</span>
+    <span class="n">U16</span><span class="p">,</span>
+    <span class="n">U32</span><span class="p">,</span>
+    <span class="n">get_dtype_min_max</span><span class="p">,</span>
+    <span class="n">is_bool</span><span class="p">,</span>
+    <span class="n">is_float</span><span class="p">,</span>
+<span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.masking</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_default_null_value</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.raster</span><span class="w"> </span><span class="kn">import</span> <span class="n">Raster</span><span class="p">,</span> <span class="n">dataarray_to_xr_raster_ds</span><span class="p">,</span> <span class="n">get_raster</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.raster</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">Raster</span><span class="p">,</span>
+    <span class="n">dataarray_to_xr_raster_ds</span><span class="p">,</span>
+    <span class="n">get_mask_from_data</span><span class="p">,</span>
+    <span class="n">get_raster</span><span class="p">,</span>
+<span class="p">)</span>
 
 <span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
     <span class="s2">"reproject"</span><span class="p">,</span>
@@ -516,7 +534,11 @@ document.write(`
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
 <span class="sd">    Raster</span>
-<span class="sd">        The reprojected raster on the new grid.</span>
+<span class="sd">        The reprojected raster on the new grid. Cells that the source does not</span>
+<span class="sd">        cover are null. A raster with no null value is given the default null</span>
+<span class="sd">        value for its dtype. Its valid cells stay valid, even where they hold</span>
+<span class="sd">        that value, except in a 64-bit integer raster, where those cells are</span>
+<span class="sd">        null or, with newer GDAL, have their value nudged off it.</span>
 
 <span class="sd">    """</span>
     <span class="n">raster</span> <span class="o">=</span> <span class="n">get_raster</span><span class="p">(</span><span class="n">raster</span><span class="p">)</span>
@@ -549,9 +571,17 @@ document.write(`
         <span class="k">if</span> <span class="n">raster</span><span class="o">.</span><span class="n">_masked</span>
         <span class="k">else</span> <span class="n">get_default_null_value</span><span class="p">(</span><span class="n">raster</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
     <span class="p">)</span>
-    <span class="n">reprojected</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">xdata</span><span class="o">.</span><span class="n">odc</span><span class="o">.</span><span class="n">reproject</span><span class="p">(</span>
-        <span class="n">dst_gb</span><span class="p">,</span> <span class="n">resampling</span><span class="o">=</span><span class="n">resample_method</span><span class="p">,</span> <span class="n">dst_nodata</span><span class="o">=</span><span class="n">nv</span>
-    <span class="p">)</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_nodata</span><span class="p">(</span><span class="n">nv</span><span class="p">)</span>
+    <span class="n">working</span> <span class="o">=</span> <span class="n">_get_working_type</span><span class="p">(</span><span class="n">raster</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">raster</span><span class="o">.</span><span class="n">_masked</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">working</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">reprojected</span><span class="p">,</span> <span class="n">xmask</span> <span class="o">=</span> <span class="n">_reproject_with_mask</span><span class="p">(</span>
+            <span class="n">raster</span><span class="p">,</span> <span class="n">dst_gb</span><span class="p">,</span> <span class="n">resample_method</span><span class="p">,</span> <span class="n">nv</span><span class="p">,</span> <span class="o">*</span><span class="n">working</span>
+        <span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">reprojected</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">xdata</span><span class="o">.</span><span class="n">odc</span><span class="o">.</span><span class="n">reproject</span><span class="p">(</span>
+            <span class="n">dst_gb</span><span class="p">,</span> <span class="n">resampling</span><span class="o">=</span><span class="n">resample_method</span><span class="p">,</span> <span class="n">dst_nodata</span><span class="o">=</span><span class="n">nv</span>
+        <span class="p">)</span>
+        <span class="n">xmask</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">reprojected</span> <span class="o">=</span> <span class="n">reprojected</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_nodata</span><span class="p">(</span><span class="n">nv</span><span class="p">)</span>
     <span class="c1"># reproject sets a "nodata" attribute that has type int for whole-number</span>
     <span class="c1"># null values (e.g. -3.4028235e+38 becomes a VERY long python int). This</span>
     <span class="c1"># can cause all kinds of issues for downstream operations</span>
@@ -561,9 +591,90 @@ document.write(`
     <span class="k">if</span> <span class="s2">"longitude"</span> <span class="ow">in</span> <span class="n">reprojected</span><span class="o">.</span><span class="n">dims</span><span class="p">:</span>
         <span class="c1"># odc-geo will rename x/y to lon/lat for lon/lat based projections, so</span>
         <span class="c1"># revert to x/y</span>
-        <span class="n">reprojected</span> <span class="o">=</span> <span class="n">reprojected</span><span class="o">.</span><span class="n">rename</span><span class="p">({</span><span class="s2">"longitude"</span><span class="p">:</span> <span class="s2">"x"</span><span class="p">,</span> <span class="s2">"latitude"</span><span class="p">:</span> <span class="s2">"y"</span><span class="p">})</span>
-    <span class="n">ds</span> <span class="o">=</span> <span class="n">dataarray_to_xr_raster_ds</span><span class="p">(</span><span class="n">reprojected</span><span class="p">)</span>
+        <span class="n">lonlat_to_xy</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"longitude"</span><span class="p">:</span> <span class="s2">"x"</span><span class="p">,</span> <span class="s2">"latitude"</span><span class="p">:</span> <span class="s2">"y"</span><span class="p">}</span>
+        <span class="n">reprojected</span> <span class="o">=</span> <span class="n">reprojected</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="n">lonlat_to_xy</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">xmask</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">xmask</span> <span class="o">=</span> <span class="n">xmask</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="n">lonlat_to_xy</span><span class="p">)</span>
+    <span class="n">ds</span> <span class="o">=</span> <span class="n">dataarray_to_xr_raster_ds</span><span class="p">(</span><span class="n">reprojected</span><span class="p">,</span> <span class="n">xmask</span><span class="o">=</span><span class="n">xmask</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">Raster</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="n">_fast_path</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div>
+
+
+<span class="c1"># Unmasked integer data is warped in the next wider signed type, whose</span>
+<span class="c1"># minimum no source value can equal</span>
+<span class="n">_WIDER_INT_TYPE</span> <span class="o">=</span> <span class="p">{</span><span class="n">U8</span><span class="p">:</span> <span class="n">I16</span><span class="p">,</span> <span class="n">I8</span><span class="p">:</span> <span class="n">I16</span><span class="p">,</span> <span class="n">U16</span><span class="p">:</span> <span class="n">I32</span><span class="p">,</span> <span class="n">I16</span><span class="p">:</span> <span class="n">I32</span><span class="p">,</span> <span class="n">U32</span><span class="p">:</span> <span class="n">I64</span><span class="p">,</span> <span class="n">I32</span><span class="p">:</span> <span class="n">I64</span><span class="p">}</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_get_working_type</span><span class="p">(</span><span class="n">dtype</span><span class="p">,</span> <span class="n">masked</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Get the type and null value to warp data in, if one is needed.</span>
+
+<span class="sd">    Warping marks the cells that the source does not cover, and null source</span>
+<span class="sd">    cells, with a null value. That value must not occur in the source's</span>
+<span class="sd">    valid data, or valid cells that hold it come out null or altered. The</span>
+<span class="sd">    default null value given to an unmasked raster can occur in its data, and</span>
+<span class="sd">    bool data has no spare value at all. For those, this returns a working</span>
+<span class="sd">    dtype and null value that cannot collide, so that the mask can be taken</span>
+<span class="sd">    from the warped data. ``None`` is returned when the raster's own null</span>
+<span class="sd">    value can be used, or when its dtype has no wider type (64-bit</span>
+<span class="sd">    integers).</span>
+<span class="sd">    """</span>
+    <span class="n">dtype</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">is_bool</span><span class="p">(</span><span class="n">dtype</span><span class="p">):</span>
+        <span class="c1"># A sum resample can count past 255 cells, so use a type wider than</span>
+        <span class="c1"># uint8</span>
+        <span class="k">return</span> <span class="n">I16</span><span class="p">,</span> <span class="n">I16</span><span class="o">.</span><span class="n">type</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">iinfo</span><span class="p">(</span><span class="n">I16</span><span class="p">)</span><span class="o">.</span><span class="n">min</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">masked</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="n">is_float</span><span class="p">(</span><span class="n">dtype</span><span class="p">):</span>
+        <span class="c1"># Source NaN values are null when warping in any case</span>
+        <span class="k">return</span> <span class="n">dtype</span><span class="p">,</span> <span class="n">dtype</span><span class="o">.</span><span class="n">type</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">dtype</span> <span class="ow">in</span> <span class="n">_WIDER_INT_TYPE</span><span class="p">:</span>
+        <span class="n">wide</span> <span class="o">=</span> <span class="n">_WIDER_INT_TYPE</span><span class="p">[</span><span class="n">dtype</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">wide</span><span class="p">,</span> <span class="n">wide</span><span class="o">.</span><span class="n">type</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">iinfo</span><span class="p">(</span><span class="n">wide</span><span class="p">)</span><span class="o">.</span><span class="n">min</span><span class="p">)</span>
+    <span class="k">return</span> <span class="kc">None</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_reproject_with_mask</span><span class="p">(</span>
+    <span class="n">raster</span><span class="p">,</span> <span class="n">dst_gb</span><span class="p">,</span> <span class="n">resample_method</span><span class="p">,</span> <span class="n">nv</span><span class="p">,</span> <span class="n">work_dtype</span><span class="p">,</span> <span class="n">work_nv</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Reproject data in a working dtype and return it with its mask.</span>
+
+<span class="sd">    The data is warped as `work_dtype` with `work_nv` marking null and</span>
+<span class="sd">    uncovered cells, and the mask is taken from that. The result is cast back</span>
+<span class="sd">    to the raster's dtype and its null cells get `nv`.</span>
+<span class="sd">    """</span>
+    <span class="n">dtype</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">dtype</span>
+    <span class="n">src</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">xdata</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">work_dtype</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">raster</span><span class="o">.</span><span class="n">_masked</span><span class="p">:</span>
+        <span class="n">src</span> <span class="o">=</span> <span class="n">src</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="o">~</span><span class="n">raster</span><span class="o">.</span><span class="n">xmask</span><span class="p">,</span> <span class="n">work_nv</span><span class="p">)</span>
+    <span class="c1"># Unmasked integer data has no null cells, so it gets no source null</span>
+    <span class="c1"># value, which also keeps GDAL on the kernels it uses for the data in its</span>
+    <span class="c1"># own dtype. Float sources treat NaN as null, as they always have.</span>
+    <span class="n">src_nv</span> <span class="o">=</span> <span class="n">work_nv</span> <span class="k">if</span> <span class="n">raster</span><span class="o">.</span><span class="n">_masked</span> <span class="ow">or</span> <span class="n">is_float</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span> <span class="k">else</span> <span class="kc">None</span>
+    <span class="n">warped</span> <span class="o">=</span> <span class="n">src</span><span class="o">.</span><span class="n">odc</span><span class="o">.</span><span class="n">reproject</span><span class="p">(</span>
+        <span class="n">dst_gb</span><span class="p">,</span>
+        <span class="n">resampling</span><span class="o">=</span><span class="n">resample_method</span><span class="p">,</span>
+        <span class="n">src_nodata</span><span class="o">=</span><span class="n">src_nv</span><span class="p">,</span>
+        <span class="n">dst_nodata</span><span class="o">=</span><span class="n">work_nv</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">xmask</span> <span class="o">=</span> <span class="n">get_mask_from_data</span><span class="p">(</span><span class="n">warped</span><span class="p">,</span> <span class="n">work_nv</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">is_bool</span><span class="p">(</span><span class="n">dtype</span><span class="p">):</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">warped</span> <span class="o">!=</span> <span class="mi">0</span>
+    <span class="k">elif</span> <span class="n">is_float</span><span class="p">(</span><span class="n">dtype</span><span class="p">):</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">warped</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># GDAL clamps to the output type's range, so do the same for the</span>
+        <span class="c1"># source's type</span>
+        <span class="n">lo</span><span class="p">,</span> <span class="n">hi</span> <span class="o">=</span> <span class="n">get_dtype_min_max</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">warped</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">lo</span><span class="p">,</span> <span class="n">hi</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="o">~</span><span class="n">xmask</span><span class="p">,</span> <span class="n">nv</span><span class="p">)</span>
+    <span class="n">data</span><span class="o">.</span><span class="n">attrs</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="n">k</span><span class="p">:</span> <span class="n">v</span>
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">warped</span><span class="o">.</span><span class="n">attrs</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">k</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"nodata"</span><span class="p">,</span> <span class="s2">"_FillValue"</span><span class="p">)</span>
+    <span class="p">}</span>
+    <span class="n">data</span><span class="o">.</span><span class="n">encoding</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">warped</span><span class="o">.</span><span class="n">encoding</span><span class="p">)</span>
+    <span class="n">xmask</span><span class="o">.</span><span class="n">attrs</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">return</span> <span class="n">data</span><span class="p">,</span> <span class="n">xmask</span>
 </pre></div>
 
                 </article>
