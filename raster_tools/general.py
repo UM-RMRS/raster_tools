@@ -726,7 +726,7 @@ def local_stats(raster, stype):
             keepdims=True,
         )
     else:
-        xmask = xr.zeros_like(xmask, dtype=bool)
+        xmask = xr.zeros_like(xdata, dtype=bool)
 
     ds_out = dataarray_to_xr_raster_ds(xdata, xmask)
     if raster._masked:

@@ -144,6 +144,53 @@ def test_local_stats(stat, chunk, dtype):
     assert result.affine == rs.affine
 
 
+@pytest.mark.parametrize("dtype", [I32, I64, F32, F64])
+@pytest.mark.parametrize("chunk", [False, True])
+@pytest.mark.parametrize(
+    "stat", [*stat_funcs.keys(), *custom_stat_funcs.keys()]
+)
+def test_local_stats_unmasked_multiband(stat, chunk, dtype):
+    # Repeated values exercise mode and unique; small magnitudes keep prod
+    # from overflowing
+    x = ((np.arange(4 * 3 * 5).reshape(4, 3, 5) % 7) - 3).astype(dtype)
+    rs = data_to_raster(
+        x, affine=Affine(2.0, 0.0, 100.0, 0.0, -3.0, 500.0), crs=5070
+    )
+    if chunk:
+        rs = rs.chunk((1, 2, 2))
+    assert not rs._masked
+
+    if stat in stat_funcs:
+        truth = stat_funcs[stat](x)[None]
+        expected_dtype = truth.dtype
+    else:
+        sfunc = custom_stat_funcs[stat]
+        if stat == "unique":
+            expected_dtype = np.min_scalar_type(x.shape[0])
+        elif stat in ("minband", "maxband"):
+            expected_dtype = np.min_scalar_type(x.shape[0] - 1)
+        else:
+            expected_dtype = get_local_stats_dtype(stat, x)
+        truth = np.zeros((1, *x.shape[1:]), dtype=expected_dtype)
+        for i in range(x.shape[1]):
+            for j in range(x.shape[2]):
+                truth[0, i, j] = sfunc(x[:, i, j])
+
+    result = general.local_stats(rs, stat)
+    assert_valid_raster(result)
+    assert isinstance(result.data, da.Array)
+    assert result.shape == truth.shape
+    assert not result._masked
+    assert not result.mask.compute().any()
+    assert result.dtype == expected_dtype
+    assert np.allclose(result.to_numpy(), truth)
+    if stat != "median":
+        # dask's nanmedian may merge spatial chunks
+        assert result.data.chunks == ((1,), *rs.data.chunks[1:])
+    assert result.crs == rs.crs
+    assert result.affine == rs.affine
+
+
 @pytest.mark.parametrize("stat", [0, np.nanvar, float])
 def test_local_stats_reject_bad_stat_type(stat):
     rs = make_raster("arange", shape=(5, 4, 4))
