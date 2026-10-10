@@ -356,13 +356,6 @@ OPERATIONS = [
         _aggregate_whole_axis,
         _aggregated_whole_axis_grid,
         shapes=LONG_AXIS_SHAPES,
-        xfail=pytest.mark.xfail(
-            raises=AssertionError,
-            strict=True,
-            reason="aggregate keeps the input cell size on an axis that "
-            "it coarsens down to one cell "
-            "(https://github.com/UM-RMRS/raster_tools/issues/87)",
-        ),
     ),
     # raster_tools.focal
     Case("focal_mean", lambda r: focal.focal(r, "mean", 3, 3)),

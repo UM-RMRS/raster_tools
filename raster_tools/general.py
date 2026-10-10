@@ -18,6 +18,7 @@ import numba as nb
 import numpy as np
 import pandas as pd
 import xarray as xr
+from affine import Affine
 from dask_image import ndmeasure as ndm
 from scipy.ndimage import (
     binary_dilation,
@@ -60,6 +61,7 @@ from raster_tools.raster import (
     data_to_xr_raster_ds_like,
     dataarray_to_xr_raster_ds,
     get_raster,
+    grid_transform,
     with_grid_mapping_of,
     xr_where_with_meta,
 )
@@ -334,6 +336,15 @@ def aggregate(raster, expand_cells, stype):
         xdata = xr_where_with_meta(xmask, nv, xdata, nv=nv)
     else:
         xmask = xr.zeros_like(xdata, dtype=bool)
+    # coarsen keeps the input GeoTransform on the grid-mapping coordinate.
+    # Along an axis coarsened down to one cell, that stored transform is the
+    # only source of the cell size, so replace it with the coarse grid. The
+    # trimmed boundary is at the far edges, so the origin is unchanged.
+    transform = grid_transform(raster.xdata) * Affine.scale(
+        dim_map["x"], dim_map["y"]
+    )
+    xdata = xdata.rio.write_transform(transform)
+    xmask = xmask.rio.write_transform(transform)
     ds = dataarray_to_xr_raster_ds(xdata, xmask, crs=raster.crs)
     return Raster(ds, _fast_path=True)
 

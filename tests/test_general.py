@@ -359,6 +359,71 @@ def test_aggregate_errors(window, stat, error_type):
         general.aggregate(rs, window, stat)
 
 
+def _aggregate_truth(data, nv, window, stat):
+    # Aggregate a (1, ny, nx) array block by block, trimming leftover cells
+    # at the far edges. Returns the values and the null mask.
+    wy, wx = window
+    ny, nx = data.shape[1] // wy, data.shape[2] // wx
+    values = np.zeros((1, ny, nx), dtype=F64)
+    mask = np.zeros((1, ny, nx), dtype=bool)
+    for i in range(ny):
+        for j in range(nx):
+            block = data[0, i * wy : (i + 1) * wy, j * wx : (j + 1) * wx]
+            valid = block[block != nv] if nv is not None else block.ravel()
+            if valid.size == 0:
+                mask[0, i, j] = True
+            elif stat == "sum":
+                values[0, i, j] = valid.sum()
+            else:
+                values[0, i, j] = len(np.unique(valid))
+    return values, mask
+
+
+@pytest.mark.parametrize("stat", ["sum", "unique"])
+@pytest.mark.parametrize("nulls", ["none", "some", "all"])
+@pytest.mark.parametrize(
+    "shape,window",
+    [
+        ((1, 4), (1, 4)),
+        ((4, 1), (4, 1)),
+        ((2, 3), (2, 3)),
+        ((3, 5), (3, 4)),
+        ((3, 4), (3, 2)),
+        ((4, 3), (2, 3)),
+    ],
+    ids=[
+        "row_to_one_cell",
+        "column_to_one_cell",
+        "both_axes_to_one_cell",
+        "both_axes_to_one_cell_trimmed",
+        "rows_to_one_row",
+        "columns_to_one_column",
+    ],
+)
+def test_aggregate_to_one_cell_wide_axis(shape, window, nulls, stat):
+    # Non-square cells, so the cell size of an axis coarsened down to one
+    # cell cannot be mistaken for the other axis's or the input's
+    affine = Affine(3, 0, 10, 0, -2, 30)
+    data = np.arange(1, np.prod(shape) + 1).reshape((1, *shape))
+    nv = None if nulls == "none" else -1
+    if nulls == "some":
+        data[0, -1, -1] = nv
+    elif nulls == "all":
+        data[:] = nv
+    raster = data_to_raster(data, affine=affine, crs=5070, nv=nv)
+    wy, wx = window
+
+    result = general.aggregate(raster, window, stat)
+
+    assert_valid_raster(result)
+    assert result.affine == Affine(3 * wx, 0, 10, 0, -2 * wy, 30)
+    assert result.resolution == (3 * wx, -2 * wy)
+    truth, truth_mask = _aggregate_truth(data, nv, window, stat)
+    mask = np.asarray(result.mask.compute())
+    np.testing.assert_array_equal(mask, truth_mask)
+    np.testing.assert_array_equal(result.to_numpy()[~mask], truth[~mask])
+
+
 def mock_model_function(x):
     return x @ np.array([1] * x.shape[-1])
 
