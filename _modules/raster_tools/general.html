@@ -919,6 +919,7 @@ document.write(`
             <span class="s2">"x"</span><span class="p">:</span> <span class="n">in_raster</span><span class="o">.</span><span class="n">x</span><span class="p">,</span>
         <span class="p">},</span>
     <span class="p">)</span>
+    <span class="n">xdata</span> <span class="o">=</span> <span class="n">with_grid_mapping_of</span><span class="p">(</span><span class="n">xdata</span><span class="p">,</span> <span class="n">in_raster</span><span class="o">.</span><span class="n">xdata</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">in_raster</span><span class="o">.</span><span class="n">_masked</span><span class="p">:</span>
         <span class="n">xmask</span> <span class="o">=</span> <span class="n">in_raster</span><span class="o">.</span><span class="n">xmask</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="s2">"band"</span><span class="p">,</span> <span class="n">keepdims</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">n_outputs</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
