@@ -37,7 +37,10 @@ from dask.utils import has_keyword, parse_bytes
 from odc.geo.geobox import GeoBox
 
 from raster_tools._grids import are_all_grids_same
-from raster_tools.dask_utils import chunks_to_array_locations
+from raster_tools.dask_utils import (
+    chunks_to_array_locations,
+    map_overlap_any_depth,
+)
 from raster_tools.dtypes import is_int
 from raster_tools.masking import get_default_null_value
 from raster_tools.raster import Raster, data_to_raster_like, get_raster
@@ -1166,10 +1169,18 @@ def _ensure_chunks_for_overlap(rasters, depth_dict):
         # minimum-chunk requirement (safe over-grow).
         return max(d) if isinstance(d, tuple) else d
 
+    def _grow(d, c):
+        if not d:
+            return c
+        if d > sum(c):
+            # map_overlap_any_depth extends this axis in a single chunk
+            return (sum(c),)
+        return da.overlap.ensure_minimum_chunksize(d, c)
+
     ref = rasters[0]
     yx_chunks = ref.data.chunks[1:]
     new_yx = tuple(
-        da.overlap.ensure_minimum_chunksize(d, c) if d else c
+        _grow(d, c)
         for d, c in zip(
             (_depth_for_axis(1), _depth_for_axis(2)),
             yx_chunks,
@@ -1320,7 +1331,11 @@ def map_overlap(
         depth. ``dict`` maps axis index to depth (or to a ``(top, bottom)`` /
         ``(left, right)`` tuple for asymmetric depths). Asymmetric depths
         require ``boundary=None`` or ``boundary="none"`` per dask's
-        restriction.
+        restriction. A depth larger than the raster along an axis is
+        allowed: that axis is held in one chunk and filled per `boundary`
+        as far past its edges as the depth reaches (with no padding, the
+        blocks simply span the whole axis). ``block_info`` then describes
+        the filled array.
     boundary : optional
         How to fill cells outside the array's edges. Choices:
 
@@ -1485,7 +1500,6 @@ def map_overlap(
     boundaries = [_resolve_boundary(boundary, r)[0] for r in rasters]
     if pass_masks:
         boundaries.extend(_resolve_boundary(boundary, r)[1] for r in rasters)
-    depths = [depth_dict] * len(inputs)
 
     if return_mask:
         # The wrapper returns a structured (data, mask) array (see
@@ -1499,10 +1513,10 @@ def map_overlap(
             if data_hint is not None
             else None
         )
-        struct = da.overlap.map_overlap(
+        struct = map_overlap_any_depth(
             wrapper,
             *inputs,
-            depth=depths,
+            depth=depth_dict,
             boundary=boundaries,
             dtype=None,
             meta=struct_meta,
@@ -1511,10 +1525,10 @@ def map_overlap(
         out_data = struct["data"]
         out_mask = struct["mask"]
     else:
-        out_data = da.overlap.map_overlap(
+        out_data = map_overlap_any_depth(
             wrapper,
             *inputs,
-            depth=depths,
+            depth=depth_dict,
             boundary=boundaries,
             dtype=dtype,
             meta=meta,
@@ -2439,7 +2453,6 @@ def geo_map_overlap(
     boundaries = [_resolve_boundary(boundary, r)[0] for r in rasters]
     if pass_masks:
         boundaries.extend(_resolve_boundary(boundary, r)[1] for r in rasters)
-    depths = [depth_dict] * len(inputs)
 
     if return_mask:
         # The wrapper returns a structured (data, mask) array (see
@@ -2453,10 +2466,10 @@ def geo_map_overlap(
             if data_hint is not None
             else None
         )
-        struct = da.overlap.map_overlap(
+        struct = map_overlap_any_depth(
             wrapper,
             *inputs,
-            depth=depths,
+            depth=depth_dict,
             boundary=boundaries,
             dtype=None,
             meta=struct_meta,
@@ -2465,10 +2478,10 @@ def geo_map_overlap(
         out_data = struct["data"]
         out_mask = struct["mask"]
     else:
-        out_data = da.overlap.map_overlap(
+        out_data = map_overlap_any_depth(
             wrapper,
             *inputs,
-            depth=depths,
+            depth=depth_dict,
             boundary=boundaries,
             dtype=dtype,
             meta=meta,

@@ -28,6 +28,7 @@ from scipy.ndimage import (
 )
 
 from raster_tools.creation import empty_like
+from raster_tools.dask_utils import map_overlap_any_depth
 from raster_tools.dtypes import (
     BOOL,
     F16,
@@ -799,7 +800,7 @@ def _erosion_or_dilation_filter(raster, footprint, op):
     # Take max because map_overlap does not support asymmetrical overlaps when
     # a boundary value is given
     depth = {0: 0, 1: max(rpad), 2: max(cpad)}
-    data = da.map_overlap(
+    data = map_overlap_any_depth(
         partial(
             _morph_op_chunk,
             footprint=footprint,
@@ -814,7 +815,7 @@ def _erosion_or_dilation_filter(raster, footprint, op):
     )
     mask = raster.mask
     if raster._masked:
-        mask = da.map_overlap(
+        mask = map_overlap_any_depth(
             partial(
                 _morph_op_chunk,
                 footprint=footprint,

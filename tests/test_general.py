@@ -39,10 +39,14 @@ from raster_tools.stat_common import (
 )
 from raster_tools.vector import Vector
 from tests.utils import (
+    NARROW_SHAPES,
+    assert_matches_null_padded,
     assert_rasters_equal,
     assert_rasters_similar,
     assert_valid_raster,
+    make_narrow_raster,
     make_raster,
+    run_on_null_padded,
 )
 
 stat_funcs = {
@@ -651,6 +655,28 @@ def test_erode_dilate(name, size, null_value, chunk):
         assert rs.null_value == result.null_value
     else:
         assert np.isnan(result.null_value)
+
+
+@pytest.mark.parametrize("masked", [False, True])
+@pytest.mark.parametrize("shape", NARROW_SHAPES.values(), ids=NARROW_SHAPES)
+@pytest.mark.parametrize("size", [5, (5, 3), (3, 5)])
+@pytest.mark.parametrize("name", ["erode", "dilate"])
+def test_erode_dilate_size_wider_than_raster(name, size, shape, masked):
+    raster = make_narrow_raster(shape, masked)
+
+    def op(r):
+        return getattr(general, name)(r, size)
+
+    result = op(raster)
+    if masked:
+        # Nulls spread in from the edges as they would from null cells
+        expected = run_on_null_padded(op, raster, 2, 2)
+    else:
+        # Cells past the edge are ignored
+        grey_op = grey_erosion if name == "erode" else grey_dilation
+        data = grey_op(raster.to_numpy()[0], size=size, mode="nearest")
+        expected = (data[None], np.zeros((1, *shape), dtype=bool))
+    assert_matches_null_padded(result, raster, expected)
 
 
 @pytest.mark.parametrize("size", [3.0, None])
