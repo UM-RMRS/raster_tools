@@ -96,11 +96,11 @@ def pad_short_axes(arrays, depth, boundaries):
     dask's overlap rejects a depth larger than the array along an axis. Each
     such axis is merged into a single chunk and extended by its depth on both
     sides, filled the way dask fills the boundary: with a constant, or by
-    'reflect', 'periodic' or 'nearest' repeated as often as needed. An
-    overlap taken with the original depth then gives every original cell
-    the same neighborhood it would have near the edge of a larger array.
+    'reflect', 'periodic' or 'nearest' repeated as often as needed. That
+    one chunk already holds every original cell's neighborhood as it would
+    be near the edge of a larger array, so the axis's depth is set to 0.
     With no boundary (``None`` or ``'none'``) nothing lies beyond the edge,
-    so the axis is only merged into one chunk and its depth set to 0.
+    so the axis is only merged into one chunk.
 
     Parameters
     ----------
@@ -142,11 +142,8 @@ def pad_short_axes(arrays, depth, boundaries):
     single = {ax: shape[ax] for ax in short}
     arrays = [a.rechunk(single) for a in arrays]
     depth = dict(depth)
-    if all(no_boundary):
-        for ax in short:
-            depth[ax] = 0
-        widths = {}
-    else:
+    widths = {}
+    if not all(no_boundary):
         widths = {ax: _max_axis_depth(depth, ax) for ax in short}
         pad_width = tuple((widths.get(ax, 0),) * 2 for ax in range(len(shape)))
         new_chunks = tuple(
@@ -164,6 +161,8 @@ def pad_short_axes(arrays, depth, boundaries):
             )
             for a, b in zip(arrays, boundaries, strict=True)
         ]
+    for ax in short:
+        depth[ax] = 0
 
     def unpad(x):
         if widths:

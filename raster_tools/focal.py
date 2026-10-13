@@ -237,8 +237,17 @@ def _correlate(data, kernel, mode="constant", cval=0.0, nan_aware=False):
         ]
         depth = {0: 0, 1: rdepth, 2: cdepth}
         boundary = _MODE_TO_DASK_BOUNDARY[mode]
+        out_dtype = data.dtype
         if boundary == "constant":
             boundary = cval
+            if is_int(data.dtype):
+                lo, hi = get_dtype_min_max(data.dtype)
+                if not (float(cval).is_integer() and lo <= cval <= hi):
+                    # Padding would write cval into the int array and
+                    # truncate it. scipy applies cval in double precision
+                    # and truncates the result to the input dtype, so pad
+                    # and correlate in float64 and cast back the same way.
+                    data = data.astype(F64)
         (data,), _, unpad = pad_short_axes([data], depth, [boundary])
         data = da.stack(
             [
@@ -249,6 +258,8 @@ def _correlate(data, kernel, mode="constant", cval=0.0, nan_aware=False):
             ]
         )
         data = unpad(data)
+        if data.dtype != out_dtype:
+            data = data.astype(out_dtype)
     return data
 
 
@@ -398,7 +409,11 @@ def focal(raster, focal_type, width_or_radius, height=None, ignore_null=False):
     -------
     Raster
         The resulting raster with focal filter applied to each band. The
-        bands will have the same shape as the original Raster.
+        bands will have the same shape as the original Raster. On an
+        unmasked raster, cells whose window holds no valid cell (for
+        example an annulus whose ring lies entirely outside a raster
+        smaller than the window) come out as NaN without being masked, as
+        NaN results do elsewhere for unmasked input.
 
     """
     raster = get_raster(raster)

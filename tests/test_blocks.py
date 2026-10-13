@@ -4000,10 +4000,12 @@ def test_overlap_depth_wider_than_raster_multiple_chunks(func):
     # The y axis is chunked and shorter than the depth; the x axis is longer
     raster = make_raster("arange", shape=(1, 3, 12), dtype="f8")
     chunked = raster.chunk((1, (1, 1, 1), (5, 1, 6)))
+    padded = np.pad(raster.to_numpy()[0], 4, constant_values=0)
+    truth = ndimage.correlate(padded, _WIDE_KERNEL, mode="constant")
+    truth = truth[4:-4, 4:-4]
 
-    result = func(_correlate_block, chunked, depth=3, boundary=0, dtype="f8")
-    truth = func(_correlate_block, raster, depth=3, boundary=0, dtype="f8")
+    result = func(_correlate_block, chunked, depth=4, boundary=0, dtype="f8")
     if func is map_overlap:
         # geo_map_overlap grows chunks to the depth before the overlap
         assert result.data.chunks == chunked.data.chunks
-    np.testing.assert_allclose(result.to_numpy(), truth.to_numpy())
+    np.testing.assert_allclose(result.to_numpy()[0], truth)

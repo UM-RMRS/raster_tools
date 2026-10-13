@@ -731,29 +731,44 @@ def test_correlate_modes_kernel_wider_than_raster(
     np.testing.assert_allclose(result.to_numpy()[0], truth)
 
 
+@pytest.mark.parametrize("shape", NARROW_SHAPES.values(), ids=NARROW_SHAPES)
+def test_correlate_int_fractional_cval_kernel_wider_than_raster(shape):
+    # scipy applies the fill value in double precision before casting the
+    # result back to the integer dtype, rather than truncating cval first
+    raster = make_narrow_raster(shape, False).astype("int32")
+    kernel = np.ones((5, 5), dtype=int)
+    truth = ndimage.correlate(
+        raster.to_numpy()[0], kernel, mode="constant", cval=1.5
+    )
+
+    result = focal.correlate(raster, kernel, cval=1.5)
+    assert result.dtype == truth.dtype
+    np.testing.assert_array_equal(result.to_numpy()[0], truth)
+
+
 def _no_compute(*args, **kwargs):
     raise AssertionError("computed while building the graph")
 
 
 def test_focal_window_wider_than_raster_multiple_chunks():
-    # Each axis is split into chunks, the y axis is shorter than the window
-    # and the x axis is longer than it
+    # Each axis is split into chunks. The 9x9 window reaches 4 cells, past
+    # both edges of the 3-row y axis, while the x axis is longer than that.
     data = np.arange(36.0).reshape(1, 3, 12)
     data[0, 1, 4] = np.nan
     whole = make_raster(data, null=np.nan)
     chunked = whole.chunk((1, (1, 1, 1), (5, 1, 6)))
 
     with dask.config.set(scheduler=_no_compute):
-        result = focal.focal(chunked, "mean", 7, 7)
+        result = focal.focal(chunked, "mean", 9, 9)
     assert result.data.chunks == chunked.data.chunks
     assert result.mask.chunks == chunked.mask.chunks
     np.testing.assert_allclose(
         result.to_numpy(),
-        focal.focal(whole, "mean", 7, 7).to_numpy(),
+        focal.focal(whole, "mean", 9, 9).to_numpy(),
     )
     for func in (focal.correlate, focal.convolve):
-        result = func(chunked, np.ones((7, 7)))
+        result = func(chunked, np.ones((9, 9)))
         assert result.data.chunks == chunked.data.chunks
         np.testing.assert_allclose(
-            result.to_numpy(), func(whole, np.ones((7, 7))).to_numpy()
+            result.to_numpy(), func(whole, np.ones((9, 9))).to_numpy()
         )
