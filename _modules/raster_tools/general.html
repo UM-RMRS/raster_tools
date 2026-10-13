@@ -468,6 +468,7 @@ document.write(`
 <span class="p">)</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.creation</span><span class="w"> </span><span class="kn">import</span> <span class="n">empty_like</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.dask_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">map_overlap_any_depth</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.dtypes</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">BOOL</span><span class="p">,</span>
     <span class="n">F16</span><span class="p">,</span>
@@ -1239,7 +1240,7 @@ document.write(`
     <span class="c1"># Take max because map_overlap does not support asymmetrical overlaps when</span>
     <span class="c1"># a boundary value is given</span>
     <span class="n">depth</span> <span class="o">=</span> <span class="p">{</span><span class="mi">0</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">:</span> <span class="nb">max</span><span class="p">(</span><span class="n">rpad</span><span class="p">),</span> <span class="mi">2</span><span class="p">:</span> <span class="nb">max</span><span class="p">(</span><span class="n">cpad</span><span class="p">)}</span>
-    <span class="n">data</span> <span class="o">=</span> <span class="n">da</span><span class="o">.</span><span class="n">map_overlap</span><span class="p">(</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">map_overlap_any_depth</span><span class="p">(</span>
         <span class="n">partial</span><span class="p">(</span>
             <span class="n">_morph_op_chunk</span><span class="p">,</span>
             <span class="n">footprint</span><span class="o">=</span><span class="n">footprint</span><span class="p">,</span>
@@ -1254,7 +1255,7 @@ document.write(`
     <span class="p">)</span>
     <span class="n">mask</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">mask</span>
     <span class="k">if</span> <span class="n">raster</span><span class="o">.</span><span class="n">_masked</span><span class="p">:</span>
-        <span class="n">mask</span> <span class="o">=</span> <span class="n">da</span><span class="o">.</span><span class="n">map_overlap</span><span class="p">(</span>
+        <span class="n">mask</span> <span class="o">=</span> <span class="n">map_overlap_any_depth</span><span class="p">(</span>
             <span class="n">partial</span><span class="p">(</span>
                 <span class="n">_morph_op_chunk</span><span class="p">,</span>
                 <span class="n">footprint</span><span class="o">=</span><span class="n">footprint</span><span class="p">,</span>

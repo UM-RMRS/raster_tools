@@ -445,6 +445,7 @@ document.write(`
 <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dask_image</span><span class="w"> </span><span class="kn">import</span> <span class="n">ndfilters</span>
 
+<span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.dask_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">map_overlap_any_depth</span><span class="p">,</span> <span class="n">pad_short_axes</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.dtypes</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">F64</span><span class="p">,</span>
     <span class="n">U8</span><span class="p">,</span>
@@ -657,8 +658,9 @@ document.write(`
         <span class="c1"># map_overlap does not support asymmetrical padding so take max. This</span>
         <span class="c1"># adds at most one extra pixel to each dim.</span>
         <span class="n">rpad</span><span class="p">,</span> <span class="n">cpad</span> <span class="o">=</span> <span class="p">[</span><span class="nb">max</span><span class="p">(</span><span class="n">o</span><span class="p">)</span> <span class="k">for</span> <span class="n">o</span> <span class="ow">in</span> <span class="n">offsets</span><span class="p">]</span>
-        <span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">map_overlap</span><span class="p">(</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">map_overlap_any_depth</span><span class="p">(</span>
             <span class="n">_correlate2d_chunk</span><span class="p">,</span>
+            <span class="n">data</span><span class="p">,</span>
             <span class="n">kernel</span><span class="o">=</span><span class="n">kernel</span><span class="p">,</span>
             <span class="n">depth</span><span class="o">=</span><span class="p">{</span><span class="mi">0</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">:</span> <span class="n">rpad</span><span class="p">,</span> <span class="mi">2</span><span class="p">:</span> <span class="n">cpad</span><span class="p">},</span>
             <span class="n">boundary</span><span class="o">=</span><span class="n">boundary</span><span class="p">,</span>
@@ -669,6 +671,24 @@ document.write(`
         <span class="c1"># Shift pixel origins to match ESRI behavior for even shaped kernels</span>
         <span class="n">shift_origin</span> <span class="o">=</span> <span class="p">[</span><span class="n">d</span> <span class="o">%</span> <span class="mi">2</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">kernel</span><span class="o">.</span><span class="n">shape</span><span class="p">]</span>
         <span class="n">origin</span> <span class="o">=</span> <span class="p">[</span><span class="o">-</span><span class="mi">1</span> <span class="k">if</span> <span class="n">shift</span> <span class="k">else</span> <span class="mi">0</span> <span class="k">for</span> <span class="n">shift</span> <span class="ow">in</span> <span class="n">shift_origin</span><span class="p">]</span>
+        <span class="c1"># The depth that ndfilters overlaps the data by</span>
+        <span class="n">rdepth</span><span class="p">,</span> <span class="n">cdepth</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">s</span> <span class="o">//</span> <span class="mi">2</span> <span class="o">+</span> <span class="nb">abs</span><span class="p">(</span><span class="n">o</span><span class="p">)</span> <span class="k">for</span> <span class="n">s</span><span class="p">,</span> <span class="n">o</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">kernel</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">origin</span><span class="p">,</span> <span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="p">]</span>
+        <span class="n">depth</span> <span class="o">=</span> <span class="p">{</span><span class="mi">0</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">:</span> <span class="n">rdepth</span><span class="p">,</span> <span class="mi">2</span><span class="p">:</span> <span class="n">cdepth</span><span class="p">}</span>
+        <span class="n">boundary</span> <span class="o">=</span> <span class="n">_MODE_TO_DASK_BOUNDARY</span><span class="p">[</span><span class="n">mode</span><span class="p">]</span>
+        <span class="n">out_dtype</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">dtype</span>
+        <span class="k">if</span> <span class="n">boundary</span> <span class="o">==</span> <span class="s2">"constant"</span><span class="p">:</span>
+            <span class="n">boundary</span> <span class="o">=</span> <span class="n">cval</span>
+            <span class="k">if</span> <span class="n">is_int</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">dtype</span><span class="p">):</span>
+                <span class="n">lo</span><span class="p">,</span> <span class="n">hi</span> <span class="o">=</span> <span class="n">get_dtype_min_max</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">cval</span><span class="p">)</span><span class="o">.</span><span class="n">is_integer</span><span class="p">()</span> <span class="ow">and</span> <span class="n">lo</span> <span class="o">&lt;=</span> <span class="n">cval</span> <span class="o">&lt;=</span> <span class="n">hi</span><span class="p">):</span>
+                    <span class="c1"># Padding would write cval into the int array and</span>
+                    <span class="c1"># truncate it. scipy applies cval in double precision</span>
+                    <span class="c1"># and truncates the result to the input dtype, so pad</span>
+                    <span class="c1"># and correlate in float64 and cast back the same way.</span>
+                    <span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">F64</span><span class="p">)</span>
+        <span class="p">(</span><span class="n">data</span><span class="p">,),</span> <span class="n">_</span><span class="p">,</span> <span class="n">unpad</span> <span class="o">=</span> <span class="n">pad_short_axes</span><span class="p">([</span><span class="n">data</span><span class="p">],</span> <span class="n">depth</span><span class="p">,</span> <span class="p">[</span><span class="n">boundary</span><span class="p">])</span>
         <span class="n">data</span> <span class="o">=</span> <span class="n">da</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span>
             <span class="p">[</span>
                 <span class="n">ndfilters</span><span class="o">.</span><span class="n">correlate</span><span class="p">(</span>
@@ -677,6 +697,9 @@ document.write(`
                 <span class="k">for</span> <span class="n">band</span> <span class="ow">in</span> <span class="n">data</span>
             <span class="p">]</span>
         <span class="p">)</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">unpad</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">data</span><span class="o">.</span><span class="n">dtype</span> <span class="o">!=</span> <span class="n">out_dtype</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">out_dtype</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">data</span>
 
 
@@ -737,7 +760,11 @@ document.write(`
             <span class="n">func</span> <span class="o">=</span> <span class="n">partial</span><span class="p">(</span>
                 <span class="n">ndfilters</span><span class="o">.</span><span class="n">correlate</span><span class="p">,</span> <span class="n">weights</span><span class="o">=</span><span class="n">kernel</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">"constant"</span>
             <span class="p">)</span>
-        <span class="n">data</span> <span class="o">=</span> <span class="n">da</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">func</span><span class="p">(</span><span class="n">d</span><span class="p">)</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">data</span><span class="p">])</span>
+        <span class="c1"># The depth that ndfilters overlaps the data by</span>
+        <span class="n">depth</span> <span class="o">=</span> <span class="p">{</span><span class="mi">0</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">:</span> <span class="n">kernel</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">//</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">:</span> <span class="n">kernel</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">//</span> <span class="mi">2</span><span class="p">}</span>
+        <span class="n">boundary</span> <span class="o">=</span> <span class="mi">0</span> <span class="k">if</span> <span class="n">stat</span> <span class="o">==</span> <span class="s2">"sum"</span> <span class="k">else</span> <span class="s2">"nearest"</span>
+        <span class="p">(</span><span class="n">data</span><span class="p">,),</span> <span class="n">_</span><span class="p">,</span> <span class="n">unpad</span> <span class="o">=</span> <span class="n">pad_short_axes</span><span class="p">([</span><span class="n">data</span><span class="p">],</span> <span class="n">depth</span><span class="p">,</span> <span class="p">[</span><span class="n">boundary</span><span class="p">])</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">unpad</span><span class="p">(</span><span class="n">da</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">func</span><span class="p">(</span><span class="n">d</span><span class="p">)</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">data</span><span class="p">]))</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="c1"># Use _focal_chunk which is slower but handles nan values.</span>
         <span class="c1"># Promote to allow for nan boundary fill values.</span>
@@ -750,8 +777,9 @@ document.write(`
         <span class="c1"># adds at most one extra pixel to each dim.</span>
         <span class="n">rpad</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">offsets</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
         <span class="n">cpad</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">offsets</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
-        <span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">map_overlap</span><span class="p">(</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">map_overlap_any_depth</span><span class="p">(</span>
             <span class="n">_focal_chunk</span><span class="p">,</span>
+            <span class="n">data</span><span class="p">,</span>
             <span class="n">kernel</span><span class="o">=</span><span class="n">kernel</span><span class="p">,</span>
             <span class="n">kernel_func</span><span class="o">=</span><span class="n">_STAT_TO_FUNC</span><span class="p">[</span><span class="n">stat</span><span class="p">],</span>
             <span class="c1"># dask</span>
@@ -821,7 +849,11 @@ document.write(`
 <span class="sd">    -------</span>
 <span class="sd">    Raster</span>
 <span class="sd">        The resulting raster with focal filter applied to each band. The</span>
-<span class="sd">        bands will have the same shape as the original Raster.</span>
+<span class="sd">        bands will have the same shape as the original Raster. On an</span>
+<span class="sd">        unmasked raster, cells whose window holds no valid cell (for</span>
+<span class="sd">        example an annulus whose ring lies entirely outside a raster</span>
+<span class="sd">        smaller than the window) come out as NaN without being masked, as</span>
+<span class="sd">        NaN results do elsewhere for unmasked input.</span>
 
 <span class="sd">    """</span>
     <span class="n">raster</span> <span class="o">=</span> <span class="n">get_raster</span><span class="p">(</span><span class="n">raster</span><span class="p">)</span>

@@ -545,7 +545,11 @@ neighborhood. The default is <cite>False</cite>.</p></li>
 </dd>
 <dt class="field-even">Returns</dt>
 <dd class="field-even"><p>The resulting raster with focal filter applied to each band. The
-bands will have the same shape as the original Raster.</p>
+bands will have the same shape as the original Raster. On an
+unmasked raster, cells whose window holds no valid cell (for
+example an annulus whose ring lies entirely outside a raster
+smaller than the window) come out as NaN without being masked, as
+NaN results do elsewhere for unmasked input.</p>
 </dd>
 <dt class="field-odd">Return type</dt>
 <dd class="field-odd"><p><a class="reference internal" href="raster_tools.Raster.html#raster_tools.Raster" title="raster_tools.Raster">Raster</a></p>

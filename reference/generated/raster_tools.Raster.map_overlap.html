@@ -570,7 +570,11 @@ and <code class="docutils literal notranslate"><span class="pre">x</span></code>
 depth. <code class="docutils literal notranslate"><span class="pre">dict</span></code> maps axis index to depth (or to a <code class="docutils literal notranslate"><span class="pre">(top,</span> <span class="pre">bottom)</span></code> /
 <code class="docutils literal notranslate"><span class="pre">(left,</span> <span class="pre">right)</span></code> tuple for asymmetric depths). Asymmetric depths
 require <code class="docutils literal notranslate"><span class="pre">boundary=None</span></code> or <code class="docutils literal notranslate"><span class="pre">boundary=&quot;none&quot;</span></code> per dask’s
-restriction.</p></li>
+restriction. A depth larger than the raster along an axis is
+allowed: that axis is held in one chunk and filled per <cite>boundary</cite>
+as far past its edges as the depth reaches (with no padding, the
+blocks simply span the whole axis). <code class="docutils literal notranslate"><span class="pre">block_info</span></code> then describes
+the filled array.</p></li>
 <li><p><strong>boundary</strong> (<em>optional</em>) – <p>How to fill cells outside the array’s edges. Choices:</p>
 <ul>
 <li><p><code class="docutils literal notranslate"><span class="pre">None</span></code> (default): no padding (matches dask).</p></li>

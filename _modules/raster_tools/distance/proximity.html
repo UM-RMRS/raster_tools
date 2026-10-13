@@ -1025,6 +1025,18 @@ document.write(`
             <span class="c1"># underestimate the depth.</span>
             <span class="n">resolution</span> <span class="o">=</span> <span class="n">_estimate_min_resolution</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
         <span class="n">xdepth</span><span class="p">,</span> <span class="n">ydepth</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">max_distance</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">resolution</span><span class="p">))</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+        <span class="c1"># Along an axis shorter than the depth, one chunk holds every cell</span>
+        <span class="c1"># in reach and nothing lies past the edges, so no overlap is needed</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">ny</span><span class="p">,</span> <span class="n">nx</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">shape</span>
+        <span class="n">short</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">if</span> <span class="n">ydepth</span> <span class="o">&gt;</span> <span class="n">ny</span><span class="p">:</span>
+            <span class="n">short</span><span class="p">[</span><span class="s2">"y"</span><span class="p">]</span> <span class="o">=</span> <span class="n">ny</span>
+            <span class="n">ydepth</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">if</span> <span class="n">xdepth</span> <span class="o">&gt;</span> <span class="n">nx</span><span class="p">:</span>
+            <span class="n">short</span><span class="p">[</span><span class="s2">"x"</span><span class="p">]</span> <span class="o">=</span> <span class="n">nx</span>
+            <span class="n">xdepth</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">if</span> <span class="n">short</span><span class="p">:</span>
+            <span class="n">raster</span> <span class="o">=</span> <span class="n">Raster</span><span class="p">(</span><span class="n">raster</span><span class="o">.</span><span class="n">_ds</span><span class="o">.</span><span class="n">chunk</span><span class="p">(</span><span class="n">short</span><span class="p">),</span> <span class="n">_fast_path</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
     <span class="n">coords_block_info</span> <span class="o">=</span> <span class="p">{</span>
         <span class="s2">"chunks"</span><span class="p">:</span> <span class="n">raster</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">chunks</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span>
         <span class="s2">"depth"</span><span class="p">:</span> <span class="p">(</span><span class="n">ydepth</span><span class="p">,</span> <span class="n">xdepth</span><span class="p">),</span>
