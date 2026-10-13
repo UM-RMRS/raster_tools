@@ -9,9 +9,13 @@ from raster_tools import line_stats
 from raster_tools.raster import Raster
 from raster_tools.vector import Vector
 from tests.utils import (
+    NARROW_SHAPES,
+    assert_matches_null_padded,
     assert_rasters_similar,
     assert_valid_raster,
+    make_narrow_raster,
     make_raster,
+    run_on_null_padded,
 )
 
 # length() is the only caller that hands a raw GeoSeries to the rasterize mask
@@ -561,3 +565,28 @@ def test_length_multiband_like_uses_first_band():
     assert_valid_raster(result_multi)
     assert result_multi.shape[0] == 1
     assert np.allclose(result_multi.values, result_single.values)
+
+
+@pytest.mark.parametrize("masked", [False, True])
+@pytest.mark.parametrize("shape", NARROW_SHAPES.values(), ids=NARROW_SHAPES)
+@pytest.mark.parametrize("radius", [3, 7])
+def test_length_radius_wider_than_raster(radius, shape, masked):
+    # The radius reaches past the raster along at least one axis. Lines
+    # there count as they would for a larger raster.
+    raster = make_narrow_raster(shape, masked)
+    minx, miny, maxx, maxy = raster.bounds
+    lines = gpd.GeoDataFrame(
+        geometry=[
+            LineString([(minx - 20, miny - 10), (maxx + 20, maxy + 10)]),
+            LineString([(minx - 5, maxy + 3), (maxx + 8, maxy + 3)]),
+        ],
+        crs=raster.crs,
+    )
+
+    def op(r):
+        return line_stats.length(lines, r, radius)
+
+    expected = run_on_null_padded(op, raster, 4, 4)
+    result = op(raster)
+    assert_matches_null_padded(result, raster, expected)
+    assert (result.to_numpy() > 0).all()

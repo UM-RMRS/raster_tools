@@ -5,6 +5,7 @@ import numba as nb
 import numpy as np
 from dask_image import ndfilters
 
+from raster_tools.dask_utils import map_overlap_any_depth, pad_short_axes
 from raster_tools.dtypes import (
     F64,
     U8,
@@ -217,8 +218,9 @@ def _correlate(data, kernel, mode="constant", cval=0.0, nan_aware=False):
         # map_overlap does not support asymmetrical padding so take max. This
         # adds at most one extra pixel to each dim.
         rpad, cpad = [max(o) for o in offsets]
-        data = data.map_overlap(
+        data = map_overlap_any_depth(
             _correlate2d_chunk,
+            data,
             kernel=kernel,
             depth={0: 0, 1: rpad, 2: cpad},
             boundary=boundary,
@@ -229,6 +231,24 @@ def _correlate(data, kernel, mode="constant", cval=0.0, nan_aware=False):
         # Shift pixel origins to match ESRI behavior for even shaped kernels
         shift_origin = [d % 2 == 0 for d in kernel.shape]
         origin = [-1 if shift else 0 for shift in shift_origin]
+        # The depth that ndfilters overlaps the data by
+        rdepth, cdepth = [
+            s // 2 + abs(o) for s, o in zip(kernel.shape, origin, strict=True)
+        ]
+        depth = {0: 0, 1: rdepth, 2: cdepth}
+        boundary = _MODE_TO_DASK_BOUNDARY[mode]
+        out_dtype = data.dtype
+        if boundary == "constant":
+            boundary = cval
+            if is_int(data.dtype):
+                lo, hi = get_dtype_min_max(data.dtype)
+                if not (float(cval).is_integer() and lo <= cval <= hi):
+                    # Padding would write cval into the int array and
+                    # truncate it. scipy applies cval in double precision
+                    # and truncates the result to the input dtype, so pad
+                    # and correlate in float64 and cast back the same way.
+                    data = data.astype(F64)
+        (data,), _, unpad = pad_short_axes([data], depth, [boundary])
         data = da.stack(
             [
                 ndfilters.correlate(
@@ -237,6 +257,9 @@ def _correlate(data, kernel, mode="constant", cval=0.0, nan_aware=False):
                 for band in data
             ]
         )
+        data = unpad(data)
+        if data.dtype != out_dtype:
+            data = data.astype(out_dtype)
     return data
 
 
@@ -297,7 +320,11 @@ def _focal(data, kernel, stat, nan_aware=False):
             func = partial(
                 ndfilters.correlate, weights=kernel, mode="constant"
             )
-        data = da.stack([func(d) for d in data])
+        # The depth that ndfilters overlaps the data by
+        depth = {0: 0, 1: kernel.shape[0] // 2, 2: kernel.shape[1] // 2}
+        boundary = 0 if stat == "sum" else "nearest"
+        (data,), _, unpad = pad_short_axes([data], depth, [boundary])
+        data = unpad(da.stack([func(d) for d in data]))
     else:
         # Use _focal_chunk which is slower but handles nan values.
         # Promote to allow for nan boundary fill values.
@@ -310,8 +337,9 @@ def _focal(data, kernel, stat, nan_aware=False):
         # adds at most one extra pixel to each dim.
         rpad = max(offsets[0])
         cpad = max(offsets[1])
-        data = data.map_overlap(
+        data = map_overlap_any_depth(
             _focal_chunk,
+            data,
             kernel=kernel,
             kernel_func=_STAT_TO_FUNC[stat],
             # dask
@@ -381,7 +409,11 @@ def focal(raster, focal_type, width_or_radius, height=None, ignore_null=False):
     -------
     Raster
         The resulting raster with focal filter applied to each band. The
-        bands will have the same shape as the original Raster.
+        bands will have the same shape as the original Raster. On an
+        unmasked raster, cells whose window holds no valid cell (for
+        example an annulus whose ring lies entirely outside a raster
+        smaller than the window) come out as NaN without being masked, as
+        NaN results do elsewhere for unmasked input.
 
     """
     raster = get_raster(raster)

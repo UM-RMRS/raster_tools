@@ -9,7 +9,13 @@ from raster_tools.dtypes import F32
 from raster_tools.masking import get_default_null_value
 from raster_tools.raster import Raster
 from tests import testdata
-from tests.utils import assert_valid_raster
+from tests.utils import (
+    NARROW_SHAPES,
+    assert_matches_null_padded,
+    assert_valid_raster,
+    make_narrow_raster,
+    run_on_null_padded,
+)
 
 
 @pytest.mark.parametrize(
@@ -344,3 +350,19 @@ def test_proximity_analysis_target_values():
         ],
     )
     assert np.allclose(alloc, a_expected)
+
+
+@pytest.mark.parametrize("masked", [False, True])
+@pytest.mark.parametrize("shape", NARROW_SHAPES.values(), ids=NARROW_SHAPES)
+@pytest.mark.parametrize(
+    "func", [prx.pa_proximity, prx.pa_allocation, prx.pa_direction]
+)
+def test_max_distance_wider_than_raster(func, shape, masked):
+    # The max distance reaches past the raster along at least one axis
+    raster = make_narrow_raster(shape, masked)
+
+    def op(r):
+        return func(r, target_values=[1], max_distance=7)
+
+    expected = run_on_null_padded(op, raster, 4, 3)
+    assert_matches_null_padded(op(raster), raster, expected)

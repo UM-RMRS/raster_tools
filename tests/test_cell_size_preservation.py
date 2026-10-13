@@ -360,13 +360,6 @@ OPERATIONS = [
     Case(
         "focal_window_wider_than_raster",
         lambda r: focal.focal(r, "mean", 5, 5),
-        xfail=pytest.mark.xfail(
-            raises=ValueError,
-            strict=True,
-            reason="focal fails when its window reaches further than the "
-            "raster extends along an axis "
-            "(https://github.com/UM-RMRS/raster_tools/issues/88)",
-        ),
     ),
     Case("correlate", lambda r: focal.correlate(r, np.ones((3, 3)))),
     Case("convolve", lambda r: focal.convolve(r, np.ones((3, 3)))),
