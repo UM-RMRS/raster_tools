@@ -44,12 +44,21 @@ def reproject(
     crs_or_geobox : int, str, CRS, GeoBox, optional
         The target grid to reproject the raster to. This can be a projection
         string, EPSG code string or integer, a CRS object, or a GeoBox object.
-        When a CRS is given, the output grid is the smallest one that covers
-        the raster's footprint in the new CRS. Its origin is the top-left
-        corner of the footprint's bounding box, not snapped to a multiple of
-        the cell size. `resolution` can also be specified to change the output
-        raster's resolution in the new CRS. If `crs_or_geobox` is not
-        provided, `resolution` must be specified.
+        When a CRS is given, the output grid is the default one GDAL suggests
+        for the reprojection (see
+        ``rasterio.warp.calculate_default_transform``), which handles rasters
+        that contain a pole or cross the antimeridian. GDAL picks the cell
+        size from the distance between the raster's corners, so the cells can
+        be coarse for such rasters: a polar stereographic raster containing
+        the pole becomes a few rows of cells a degree or more across in a
+        geographic CRS. Pass `resolution` to get finer cells. `resolution`
+        replaces GDAL's cell size in the new CRS, keeping the grid's top-left
+        corner, and the grid is grown to whole cells so that it still covers
+        GDAL's extent. A geographic grid that this carries past latitude 90
+        or -90 is moved back to end at the pole; if its rows would span more
+        than 180 degrees, their height is shortened so that they span -90 to
+        90 exactly. If `crs_or_geobox` is not provided, `resolution` must be
+        specified.
     resample_method : str, optional
         The data resampling method to use. Null pixels are ignored for all
         methods. Some methods require specific versions of GDAL. These are
@@ -98,7 +107,9 @@ def reproject(
         cover are null. A raster with no null value is given the default null
         value for its dtype. Its valid cells stay valid, even where they hold
         that value, except in a 64-bit integer raster, where those cells are
-        null or, with newer GDAL, have their value nudged off it.
+        null or, with newer GDAL, have their value nudged off it. 64-bit
+        integer values beyond 2**53 lose precision when reprojected, because
+        GDAL warps them through double precision.
 
     """
     raster = get_raster(raster)

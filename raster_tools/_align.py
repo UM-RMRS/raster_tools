@@ -474,7 +474,9 @@ def align(
     resolution : scalar, optional
         Cell size of the destination grid, in units of the destination CRS.
         Only consulted when `dst_grid` is not provided. The default is the
-        cell size of the inputs.
+        cell size of the first input or, when the destination CRS differs
+        from its CRS, the cell size of GDAL's default grid for reprojecting
+        it.
     resampling_method : str, optional
         Resampling method used when reprojecting rasters onto the destination
         grid. The default is ``'nearest'``. See
