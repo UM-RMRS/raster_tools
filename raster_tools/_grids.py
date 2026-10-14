@@ -146,20 +146,20 @@ def are_all_grids_same(grids):
 def _fit_between_poles(grid):
     """Keep a north-up geographic `grid` between latitudes -90 and 90.
 
-    Rounding a grid up to whole cells can carry it past a pole, which
-    reprojection cannot handle. Such a grid is moved north to end at -90, or
-    south to end at 90. If its rows span more than 180 degrees, they are
-    shortened so that the same number of rows spans -90 to 90 exactly, which
-    keeps everything the grid covers at the cost of slightly non-square
-    cells.
+    Rounding a grid up to whole cells can carry it past a pole, giving it
+    cells whose latitudes do not exist. Warping onto such a grid works, but
+    its coordinates would not be valid latitudes, so it is moved north to end
+    at -90, or south to end at 90. If its rows span more than 180 degrees,
+    they are shortened so that the same number of rows spans -90 to 90
+    exactly, which keeps everything the grid covers at the cost of slightly
+    non-square cells.
     """
     a = grid.affine
     if grid.crs is None or not grid.crs.geographic or a.e >= 0:
         return grid
     ny, nx = grid.shape
     cell = -a.e
-    # Allow float noise, but no more: odc-geo cannot reproject onto a grid
-    # even 1e-10 degrees past a pole
+    # Allow float noise in the grid's edges
     eps = 1e-12
     top = a.f
     if top - ny * cell >= -90 - eps and top <= 90 + eps:
