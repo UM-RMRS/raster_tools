@@ -509,6 +509,10 @@ document.write(`
     <span class="n">write_raster</span><span class="p">,</span>
 <span class="p">)</span>
 
+<span class="c1"># The name rioxarray gives the grid mapping coordinate and falls back to when</span>
+<span class="c1"># a variable has no grid_mapping pointer</span>
+<span class="n">_DEFAULT_GRID_MAPPING</span> <span class="o">=</span> <span class="s2">"spatial_ref"</span>
+
 <span class="n">_REDUCTION_FUNCS</span> <span class="o">=</span> <span class="p">(</span>
     <span class="s2">"all"</span><span class="p">,</span>
     <span class="s2">"any"</span><span class="p">,</span>
@@ -1132,8 +1136,9 @@ document.write(`
 <span class="w">    </span><span class="sd">"""Copy the grid mapping coordinate onto `result` from a source.</span>
 
 <span class="sd">    The coordinate, which holds the stored transform, is taken from the</span>
-<span class="sd">    first of `sources` that is a DataArray carrying one. xarray operations</span>
-<span class="sd">    such as xr.where drop the attributes of that coordinate. Without the</span>
+<span class="sd">    first of `sources` that is a DataArray carrying one, and a DataArray</span>
+<span class="sd">    `result` is pointed at it by name. xarray operations such as xr.where</span>
+<span class="sd">    drop the attributes of that coordinate and the pointer to it. Without the</span>
 <span class="sd">    stored transform, the cell size along a length-1 axis cannot be</span>
 <span class="sd">    recovered later (see grid_transform), so operations that rebuild raster</span>
 <span class="sd">    data restore it with this function.</span>
@@ -1143,7 +1148,13 @@ document.write(`
             <span class="k">continue</span>
         <span class="n">gm</span> <span class="o">=</span> <span class="n">src</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">grid_mapping</span>
         <span class="k">if</span> <span class="n">gm</span> <span class="ow">in</span> <span class="n">src</span><span class="o">.</span><span class="n">coords</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">result</span><span class="o">.</span><span class="n">assign_coords</span><span class="p">({</span><span class="n">gm</span><span class="p">:</span> <span class="n">src</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="n">gm</span><span class="p">]})</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">assign_coords</span><span class="p">({</span><span class="n">gm</span><span class="p">:</span> <span class="n">src</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="n">gm</span><span class="p">]})</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">):</span>
+                <span class="c1"># xr.where also drops the pointer to the coordinate. Without</span>
+                <span class="c1"># it, rioxarray looks for the default name and misses a</span>
+                <span class="c1"># coordinate with any other name.</span>
+                <span class="n">result</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_grid_mapping</span><span class="p">(</span><span class="n">gm</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">result</span>
     <span class="k">return</span> <span class="n">result</span>
 
 
@@ -1261,6 +1272,23 @@ document.write(`
     <span class="k">return</span> <span class="kc">None</span>
 
 
+<span class="k">def</span><span class="w"> </span><span class="nf">_with_default_grid_mapping_name</span><span class="p">(</span><span class="n">xobj</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Rename a grid mapping coordinate to rioxarray's default name.</span>
+
+<span class="sd">    The grid mapping coordinate holds the CRS and the stored transform.</span>
+<span class="sd">    Operations on raster data build new arrays without the grid_mapping</span>
+<span class="sd">    pointer to it, after which rioxarray looks only for its default name,</span>
+<span class="sd">    spatial_ref. A coordinate with any other name, common in CF NetCDF and</span>
+<span class="sd">    Zarr data, would be orphaned. Works for DataArray and Dataset objects.</span>
+<span class="sd">    """</span>
+    <span class="n">gm</span> <span class="o">=</span> <span class="n">xobj</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">grid_mapping</span>
+    <span class="k">if</span> <span class="n">gm</span> <span class="o">==</span> <span class="n">_DEFAULT_GRID_MAPPING</span> <span class="ow">or</span> <span class="n">gm</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">xobj</span><span class="o">.</span><span class="n">coords</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">xobj</span>
+    <span class="n">xobj</span> <span class="o">=</span> <span class="n">xobj</span><span class="o">.</span><span class="n">drop_vars</span><span class="p">(</span><span class="n">_DEFAULT_GRID_MAPPING</span><span class="p">,</span> <span class="n">errors</span><span class="o">=</span><span class="s2">"ignore"</span><span class="p">)</span>
+    <span class="n">xobj</span> <span class="o">=</span> <span class="n">xobj</span><span class="o">.</span><span class="n">rename</span><span class="p">({</span><span class="n">gm</span><span class="p">:</span> <span class="n">_DEFAULT_GRID_MAPPING</span><span class="p">})</span>
+    <span class="k">return</span> <span class="n">xobj</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_grid_mapping</span><span class="p">(</span><span class="n">_DEFAULT_GRID_MAPPING</span><span class="p">)</span>
+
+
 <span class="k">def</span><span class="w"> </span><span class="nf">normalize_xarray_data</span><span class="p">(</span><span class="n">xdata</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">"""Transform the DataArray to the standard raster DataArray format.</span>
 
@@ -1272,10 +1300,13 @@ document.write(`
 <span class="sd">    * The y dim coordinates are always decreasing.</span>
 <span class="sd">    * The CRS is encoded at `obj.rio.crs`</span>
 <span class="sd">    * The nodata/null value is encoded at `obj.rio.nodata`</span>
+<span class="sd">    * The grid mapping coordinate has rioxarray's default name,</span>
+<span class="sd">      ``spatial_ref``.</span>
 <span class="sd">    * The data within the DataArray is a dask array.</span>
 <span class="sd">    * The dask chunks have size 1 in the band dim.</span>
 
 <span class="sd">    """</span>
+    <span class="n">xdata</span> <span class="o">=</span> <span class="n">_with_default_grid_mapping_name</span><span class="p">(</span><span class="n">xdata</span><span class="p">)</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">dask</span><span class="o">.</span><span class="n">is_dask_collection</span><span class="p">(</span><span class="n">xdata</span><span class="p">):</span>
         <span class="n">xdata</span> <span class="o">=</span> <span class="n">xdata</span><span class="o">.</span><span class="n">chunk</span><span class="p">()</span>
     <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">xdata</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">3</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">xdata</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
@@ -2012,6 +2043,7 @@ document.write(`
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_dataset_to_raster_ds</span><span class="p">(</span><span class="n">ds_in</span><span class="p">):</span>
+    <span class="n">ds_in</span> <span class="o">=</span> <span class="n">_with_default_grid_mapping_name</span><span class="p">(</span><span class="n">ds_in</span><span class="p">)</span>
     <span class="k">if</span> <span class="p">(</span>
         <span class="n">dask</span><span class="o">.</span><span class="n">is_dask_collection</span><span class="p">(</span><span class="n">ds_in</span><span class="p">)</span>
         <span class="ow">and</span> <span class="nb">set</span><span class="p">(</span><span class="n">ds_in</span><span class="o">.</span><span class="n">data_vars</span><span class="p">)</span> <span class="o">==</span> <span class="p">{</span><span class="s2">"raster"</span><span class="p">,</span> <span class="s2">"mask"</span><span class="p">}</span>
