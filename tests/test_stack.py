@@ -6,7 +6,13 @@ import raster_tools as rts
 from raster_tools._stack import split_bands, stack_bands
 from raster_tools.masking import get_default_null_value
 from tests import testdata
-from tests.utils import assert_rasters_equal, assert_valid_raster, make_raster
+from tests.utils import (
+    assert_matches_in_memory_warp,
+    assert_rasters_equal,
+    assert_valid_raster,
+    make_raster,
+    polar_raster,
+)
 
 
 def _raster(data, y, x, null=-1, crs=5070):
@@ -118,6 +124,17 @@ def test_join_inner_uses_intersection():
     out = result.to_numpy()
     assert (out[0] == 1).all()
     assert (out[1] == 2).all()
+
+
+def test_join_inner_of_polar_rasters_into_lonlat():
+    # Both rasters contain the North Pole
+    a = polar_raster(1_000_000, 50_000)
+    b = polar_raster(1_500_000, 100_000)
+    result = stack_bands([a, b], dst_crs=4326, resolution=0.25)
+    assert_valid_raster(result)
+    assert result.bounds[3] == pytest.approx(90)
+    for band, src in enumerate((a, b), start=1):
+        assert_matches_in_memory_warp(result.get_bands(band), src)
 
 
 def test_join_outer_uses_union():

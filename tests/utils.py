@@ -6,6 +6,7 @@ import xarray as xr
 from affine import Affine
 from odc.geo.geobox import GeoBox
 from rasterio.warp import calculate_default_transform
+from scipy import ndimage
 
 import raster_tools as rts
 from raster_tools.dtypes import is_bool, is_scalar
@@ -79,6 +80,39 @@ def gdal_default_grid(geobox, crs, resolution=None):
         geobox.crs, crs, nx, ny, *geobox.boundingbox, resolution=resolution
     )
     return GeoBox((height, width), affine, crs)
+
+
+def polar_raster(half_width, cell_size, crs=3413):
+    """A square raster of ones centered on the pole of polar CRS `crs`."""
+    n = round(2 * half_width / cell_size)
+    return rts.data_to_raster(
+        np.ones((1, n, n)),
+        affine=Affine(cell_size, 0, -half_width, 0, -cell_size, half_width),
+        crs=crs,
+    )
+
+
+def assert_matches_in_memory_warp(result, raster):
+    """Check a reprojection of a raster of ones against an in-memory warp.
+
+    `result` must have valid cells, all ones, where an in-memory warp of
+    `raster` onto `result`'s grid does. Cells next to the edge of the
+    in-memory warp's data may differ, because GDAL's approximate transformer
+    can put such a cell on either side of the source's edge.
+    """
+    truth = raster.xdata.compute().odc.reproject(
+        result.geobox, dst_nodata=np.nan
+    )
+    truth_valid = np.isfinite(truth.to_numpy())
+    assert truth_valid.any()
+    neighbors = np.ones((1, 3, 3), dtype=bool)
+    inner = ndimage.binary_erosion(truth_valid, neighbors, border_value=1)
+    outer = ndimage.binary_dilation(truth_valid, neighbors)
+    values, mask = dask.compute(result.data, result.mask)
+    valid = ~mask
+    assert valid[inner].all()
+    assert not valid[~outer].any()
+    assert np.all(values[valid] == 1)
 
 
 def make_raster(

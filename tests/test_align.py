@@ -10,7 +10,13 @@ from raster_tools.dtypes import F64, I16, U8
 from raster_tools.masking import get_default_null_value
 from raster_tools.warp import SUPPORTED_RESAMPLE_METHODS
 from tests import testdata
-from tests.utils import assert_valid_raster, gdal_default_grid, make_raster
+from tests.utils import (
+    assert_matches_in_memory_warp,
+    assert_valid_raster,
+    gdal_default_grid,
+    make_raster,
+    polar_raster,
+)
 
 
 def _grid_raster(
@@ -68,6 +74,17 @@ def test_inner_join_cuts_to_overlap(null):
     assert out_a.null_value == (default_nv if null is None else null)
     assert out_b.null_value == default_nv
     assert not out_b.mask.compute().any()
+
+
+def test_inner_join_of_polar_rasters_into_lonlat():
+    # Both rasters contain the North Pole
+    a = polar_raster(1_000_000, 50_000)
+    b = polar_raster(1_500_000, 100_000)
+    out = align([a, b], dst_crs=4326, resolution=0.25)
+    _assert_on_common_grid(out)
+    assert out[0].bounds[3] == pytest.approx(90)
+    for result, src in zip(out, (a, b), strict=True):
+        assert_matches_in_memory_warp(result, src)
 
 
 def test_outer_join_pads_with_null():

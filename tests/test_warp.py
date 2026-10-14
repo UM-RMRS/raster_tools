@@ -2,7 +2,7 @@ import dask.array
 import numpy as np
 import pytest
 from affine import Affine
-from odc.geo.geobox import GeoBox
+from odc.geo.geobox import GeoBox, GeoboxTiles
 from pyproj import Transformer
 
 import raster_tools as rts
@@ -10,7 +10,12 @@ from raster_tools import warp
 from raster_tools._grids import grids_close
 from raster_tools.masking import get_default_null_value
 from tests import testdata
-from tests.utils import assert_valid_raster, gdal_default_grid
+from tests.utils import (
+    assert_matches_in_memory_warp,
+    assert_valid_raster,
+    gdal_default_grid,
+    polar_raster,
+)
 
 
 def _repoject(raster, crs_or_geobox, method):
@@ -22,8 +27,15 @@ def _repoject(raster, crs_or_geobox, method):
     dst_geobox = crs_or_geobox
     if not isinstance(dst_geobox, GeoBox):
         dst_geobox = gdal_default_grid(raster.geobox, crs_or_geobox)
-    xreprojected = raster.xdata.odc.reproject(
-        dst_geobox, resampling=method, dst_nodata=nv
+    # Warp the source as one block, so that every output chunk can read all
+    # of it, with the output chunked as reproject chunks it. GDAL then warps
+    # the same windows, which gives the same values to the last bit. An
+    # in-memory warp differs from a chunked one by float noise.
+    xreprojected = raster.xdata.chunk({"y": -1, "x": -1}).odc.reproject(
+        dst_geobox,
+        resampling=method,
+        dst_nodata=nv,
+        chunks=raster.data.chunksize[1:],
     )
     xmask = xreprojected == nv
     return xreprojected.rio.write_nodata(nv), xmask
@@ -437,20 +449,11 @@ def test_reproject_unmasked_int_matches_warp_in_own_dtype(method):
     assert np.array_equal(result.xdata, truth)
 
 
-def _polar_raster(half_width, cell_size, crs=3413):
-    # A square polar stereographic raster centered on the pole
-    n = round(2 * half_width / cell_size)
-    return rts.data_to_raster(
-        np.ones((1, n, n)),
-        affine=Affine(cell_size, 0, -half_width, 0, -cell_size, half_width),
-        crs=crs,
-    )
-
-
 @pytest.mark.parametrize(
     "half_width,cell_size,crs,resolution",
     [
         (3_000_000, 25_000, 3413, None),
+        (1_000_000, 50_000, 3413, 0.25),
         (100_000, 2000, 3413, None),
         (100_000, 2000, 3413, 0.1),
         (100_000, 2000, 3031, None),
@@ -463,7 +466,9 @@ def test_reproject_raster_containing_pole_to_lonlat(
     half_width, cell_size, crs, resolution
 ):
     # https://github.com/UM-RMRS/raster_tools/issues/78
-    raster = _polar_raster(half_width, cell_size, crs)
+    # Small chunks, so that each output chunk must read the right source
+    # blocks
+    raster = polar_raster(half_width, cell_size, crs).chunk((1, 20, 20))
 
     result = warp.reproject(raster, 4326, resolution=resolution)
     assert_valid_raster(result)
@@ -477,13 +482,12 @@ def test_reproject_raster_containing_pole_to_lonlat(
         assert ymin == pytest.approx(-90)
     if resolution is not None:
         assert result.resolution == pytest.approx((resolution, -resolution))
-    valid = ~result.mask.compute()[0]
-    assert valid.any()
-    assert np.all(result.to_numpy()[0][valid] == 1)
+    assert_matches_in_memory_warp(result, raster)
     if resolution is not None:
         # Every column reaches the pole, so the row at the pole is all data.
         # GDAL's default cells are too coarse for this: most of their
         # centers fall outside the small raster.
+        valid = ~result.mask.compute()[0]
         assert valid[0 if crs == 3413 else -1].all()
 
 
@@ -521,3 +525,147 @@ def test_reproject_raster_across_antimeridian_to_lonlat(resolution):
         lon, _ = result.affine * (np.arange(result.shape[2]) + 0.5, 0.5)
         assert valid[:, lon < 0].any()
         assert valid[:, lon > 0].any()
+
+
+def _utm_raster():
+    # 200 km square in UTM zone 33N, near 13.5E 54N
+    return rts.data_to_raster(
+        np.ones((1, 400, 400)),
+        affine=Affine(500, 0, 400_000, 0, -500, 6_000_000),
+        crs=32633,
+    )
+
+
+def _lonlat_cap():
+    # Latitudes 75N to 90N at 1 degree
+    return rts.data_to_raster(
+        np.ones((1, 15, 360)),
+        affine=Affine(1, 0, -180, 0, -1, 90),
+        crs=4326,
+    )
+
+
+def _ortho_hemisphere():
+    # The northern hemisphere in an orthographic projection over the pole
+    return rts.data_to_raster(
+        np.ones((1, 100, 100)),
+        affine=Affine(130_000, 0, -6_500_000, 0, -130_000, 6_500_000),
+        crs="+proj=ortho +lat_0=90 +lon_0=0",
+    )
+
+
+def _lonlat_world():
+    # The globe at 1 degree. In 30x60 blocks, one block starts at 0E 0N.
+    return rts.data_to_raster(
+        np.ones((1, 180, 360)),
+        affine=Affine(1, 0, -180, 0, -1, 90),
+        crs=4326,
+    )
+
+
+def _robin_world():
+    # Most of the globe in the Robinson projection
+    return rts.data_to_raster(
+        np.ones((1, 160, 340)),
+        affine=Affine(100_000, 0, -17_000_000, 0, -100_000, 8_000_000),
+        crs="+proj=robin",
+    )
+
+
+# A lon/lat grid around the globe from 70N to 40N with cells 0.5 degrees wide
+_GLOBAL_BAND = GeoBox((300, 720), Affine(0.5, 0, -180, 0, -0.1, 70), 4326)
+# The globe at 1 degree. In 30x60 chunks, one chunk starts at 0E 0N.
+_LONLAT_WORLD = GeoBox((180, 360), Affine(1, 0, -180, 0, -1, 90), 4326)
+
+
+@pytest.mark.parametrize(
+    "make_raster,chunks,crs_or_geobox,resolution",
+    [
+        # Output chunks 180 degrees wide, in several rows
+        (lambda: polar_raster(1_000_000, 5000), (10, 360), 4326, 0.5),
+        # Full-width output chunks, the bottom one at the pole
+        (lambda: polar_raster(1_000_000, 5000, 3031), (4, 400), 4326, 1),
+        # The output's pole lies inside one chunk, and the edge of the chunk
+        # above passes within a cell of it
+        (_lonlat_cap, (5, 120), 3413, None),
+        # Output chunks 180 degrees wide, away from the poles
+        (_utm_raster, (100, 360), _GLOBAL_BAND, None),
+        (_ortho_hemisphere, None, 4326, None),
+        # Chunks on the outline of the projection's domain, and a window of
+        # source blocks starting at 0E 0N, a transform rasterio misreads
+        (_lonlat_world, (30, 60), "+proj=robin", 100_000),
+        # Chunks next to the poles that map within one source row
+        (_lonlat_world, (30, 60), "+proj=merc", 1_000_000),
+        # Chunks across the source's seam at 180 degrees
+        (_lonlat_world, (30, 60), "+proj=eqearth +lon_0=180", 100_000),
+        # An output chunk starting at 0E 0N
+        (_robin_world, (30, 60), _LONLAT_WORLD, None),
+    ],
+    ids=[
+        "north-pole",
+        "south-pole",
+        "lonlat-cap",
+        "utm",
+        "ortho",
+        "lonlat-to-robinson",
+        "lonlat-to-mercator",
+        "lonlat-across-seam",
+        "robinson-to-lonlat",
+    ],
+)
+def test_reproject_dask_matches_in_memory(
+    make_raster, chunks, crs_or_geobox, resolution
+):
+    # The output is chunked like the source, and every output chunk must
+    # read all of the source it needs, however its extent maps into the
+    # source CRS.
+    raster = make_raster()
+    if chunks is not None:
+        raster = raster.chunk((1, *chunks))
+
+    result = warp.reproject(raster, crs_or_geobox, resolution=resolution)
+    assert_valid_raster(result)
+    assert result.data.numblocks[1] > 1 or result.data.numblocks[2] > 1
+    assert_matches_in_memory_warp(result, raster)
+
+
+@pytest.mark.parametrize(
+    "dst_gb",
+    [
+        # Chunks along the 180 degree meridian cross the source's seam
+        GeoBox(
+            (2000, 4000),
+            Affine(8500, 0, -17_000_000, 0, -8500, 8_500_000),
+            "+proj=eqearth +lon_0=180",
+        ),
+        GeoBox(
+            (4000, 4000),
+            Affine(2000, 0, -4_000_000, 0, -2000, 4_000_000),
+            3413,
+        ),
+        # Chunks on the outline of the projection's domain
+        GeoBox(
+            (2040, 4002),
+            Affine(8500, 0, -17_008_500, 0, -8500, 8_670_000),
+            "+proj=robin",
+        ),
+        GeoBox(
+            (1600, 1600),
+            Affine(8000, 0, -6_400_000, 0, -8000, 6_400_000),
+            "+proj=ortho +lat_0=45",
+        ),
+    ],
+    ids=["seam", "polar", "robinson", "ortho"],
+)
+def test_dask_reproject_reads_part_of_global_source(dst_gb):
+    # No output chunk of these ordinary warps needs more than a fraction of
+    # a global source, so none should read all of it
+    src_gb = _LONLAT_WORLD.zoom_to(resolution=0.1)
+    src_tiles = GeoboxTiles(src_gb, (200, 200))
+    windows = warp._source_windows(
+        src_gb, src_tiles.chunks, GeoboxTiles(dst_gb, (200, 200))
+    )
+    assert windows
+    nblocks = src_tiles.shape.y * src_tiles.shape.x
+    for rows, cols, *_ in windows.values():
+        assert len(rows) * len(cols) <= nblocks // 4
