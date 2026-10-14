@@ -20,7 +20,12 @@ from odc.geo.geobox import GeoBox
 import raster_tools as rts
 from raster_tools import Raster
 from raster_tools.masking import get_default_null_value
-from raster_tools.raster import grid_transform, stored_transform
+from raster_tools.raster import (
+    dataarray_to_raster,
+    grid_transform,
+    stored_transform,
+    xr_where_with_meta,
+)
 from tests import testdata
 from tests.utils import (
     arange_nd,
@@ -1045,6 +1050,50 @@ def test_stored_transform_reads_raster_dataset():
     ds = ds.rio.write_crs(5070).rio.write_transform(ROW_AFFINE)
     assert isinstance(ds, xr.Dataset)
     assert stored_transform(ds) == ROW_AFFINE
+
+
+def _georeferenced_row_dataarray(grid_mapping):
+    xdata = _row_dataarray().rio.write_crs(
+        5070, grid_mapping_name=grid_mapping
+    )
+    return xdata.rio.write_transform(
+        ROW_AFFINE, grid_mapping_name=grid_mapping
+    )
+
+
+@pytest.mark.parametrize("grid_mapping", ["spatial_ref", "crs_var"])
+def test_xr_where_with_meta_keeps_grid_mapping(grid_mapping):
+    xdata = _georeferenced_row_dataarray(grid_mapping)
+    result = xr_where_with_meta(xdata > 5, np.float64(-99), xdata)
+    assert result.rio.grid_mapping == grid_mapping
+    assert result.rio.transform() == ROW_AFFINE
+    assert result.rio.crs == 5070
+
+
+def _raster_from_dataarray(xdata):
+    return Raster(xdata)
+
+
+def _raster_from_dataset(xdata):
+    ds = xr.Dataset({"raster": xdata, "mask": xdata > 5})
+    return Raster(ds.rio.write_grid_mapping(xdata.rio.grid_mapping))
+
+
+@pytest.mark.parametrize(
+    "make_raster",
+    [_raster_from_dataarray, dataarray_to_raster, _raster_from_dataset],
+)
+@pytest.mark.parametrize("grid_mapping", ["spatial_ref", "crs_var"])
+def test_raster_keeps_stored_transform_of_any_grid_mapping(
+    grid_mapping, make_raster
+):
+    rs = make_raster(_georeferenced_row_dataarray(grid_mapping))
+    assert rs.affine == ROW_AFFINE
+    assert rs.crs == 5070
+    # One grid mapping coordinate, with rioxarray's default name
+    assert set(rs._ds.coords) - set(rs._ds.dims) == {"spatial_ref"}
+    assert rs._ds.raster.rio.transform() == ROW_AFFINE
+    assert rs._ds.mask.rio.transform() == ROW_AFFINE
 
 
 @pytest.mark.parametrize("source", ["none", "crs_only", "dropped"])
