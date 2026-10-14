@@ -61,9 +61,13 @@ def test_inner_join_cuts_to_overlap(null):
     assert np.array_equal(out_a.to_numpy(), a.to_numpy()[:, 1:, 1:])
     assert np.array_equal(out_b.to_numpy(), b.to_numpy()[:, :3, :3])
     assert np.array_equal(out_a.mask.compute(), a.mask.compute()[:, 1:, 1:])
-    # Cutting adds no null cells, so null values are left alone
-    assert out_a.null_value == a.null_value
-    assert out_b.null_value is None
+    # Cutting adds no null cells. A masked input keeps its null value. An
+    # unmasked float input gets the default one, because its NaN cells are
+    # null, but it has none here, so nothing is masked.
+    default_nv = get_default_null_value(F64)
+    assert out_a.null_value == (default_nv if null is None else null)
+    assert out_b.null_value == default_nv
+    assert not out_b.mask.compute().any()
 
 
 def test_outer_join_pads_with_null():
@@ -193,6 +197,17 @@ def _unmasked_int_source():
     return src
 
 
+def _unmasked_float_source():
+    # Unmasked, but holding NaN in a cell that survives the cut
+    data = np.arange(1, 37, dtype=F64).reshape((6, 6))
+    data[1, 3] = np.nan
+    src = make_raster(
+        data, affine=Affine(10, 0, 1000, 0, -10, 2000), crs="EPSG:5070"
+    )
+    assert src.null_value is None
+    return src
+
+
 def _unmasked_bool_source():
     data = (np.arange(36).reshape((6, 6)) % 3) == 0
     src = make_raster(
@@ -204,7 +219,12 @@ def _unmasked_bool_source():
 
 @pytest.mark.parametrize(
     "make_src",
-    [_masked_float_source, _unmasked_int_source, _unmasked_bool_source],
+    [
+        _masked_float_source,
+        _unmasked_int_source,
+        _unmasked_float_source,
+        _unmasked_bool_source,
+    ],
 )
 @pytest.mark.parametrize("method", sorted(SUPPORTED_RESAMPLE_METHODS))
 def test_cut_and_pad_matches_reproject(method, make_src):
@@ -230,6 +250,9 @@ def test_cut_and_pad_matches_reproject(method, make_src):
         # on cell (3, 1). It stays valid and unchanged.
         assert not mask[0, 3, 1]
         assert data[0, 3, 1] == aligned.null_value
+    elif make_src is _unmasked_float_source:
+        # src cell (1, 3) holds NaN and lands on cell (3, 1). It is null.
+        assert mask[0, 3, 1]
     assert np.array_equal(mask, expected_mask)
     assert np.array_equal(data, expected_data)
     assert np.array_equal(aligned.x, reprojected.x)
