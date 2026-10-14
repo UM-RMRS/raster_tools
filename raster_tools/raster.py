@@ -69,6 +69,10 @@ from .io import (
     write_raster,
 )
 
+# The name rioxarray gives the grid mapping coordinate and falls back to when
+# a variable has no grid_mapping pointer
+_DEFAULT_GRID_MAPPING = "spatial_ref"
+
 _REDUCTION_FUNCS = (
     "all",
     "any",
@@ -692,8 +696,9 @@ def with_grid_mapping_of(result, *sources):
     """Copy the grid mapping coordinate onto `result` from a source.
 
     The coordinate, which holds the stored transform, is taken from the
-    first of `sources` that is a DataArray carrying one. xarray operations
-    such as xr.where drop the attributes of that coordinate. Without the
+    first of `sources` that is a DataArray carrying one, and a DataArray
+    `result` is pointed at it by name. xarray operations such as xr.where
+    drop the attributes of that coordinate and the pointer to it. Without the
     stored transform, the cell size along a length-1 axis cannot be
     recovered later (see grid_transform), so operations that rebuild raster
     data restore it with this function.
@@ -703,7 +708,13 @@ def with_grid_mapping_of(result, *sources):
             continue
         gm = src.rio.grid_mapping
         if gm in src.coords:
-            return result.assign_coords({gm: src.coords[gm]})
+            result = result.assign_coords({gm: src.coords[gm]})
+            if isinstance(result, xr.DataArray):
+                # xr.where also drops the pointer to the coordinate. Without
+                # it, rioxarray looks for the default name and misses a
+                # coordinate with any other name.
+                result = result.rio.write_grid_mapping(gm)
+            return result
     return result
 
 
@@ -821,6 +832,23 @@ def find_spatial_dims(obj):
     return None
 
 
+def _with_default_grid_mapping_name(xobj):
+    """Rename a grid mapping coordinate to rioxarray's default name.
+
+    The grid mapping coordinate holds the CRS and the stored transform.
+    Operations on raster data build new arrays without the grid_mapping
+    pointer to it, after which rioxarray looks only for its default name,
+    spatial_ref. A coordinate with any other name, common in CF NetCDF and
+    Zarr data, would be orphaned. Works for DataArray and Dataset objects.
+    """
+    gm = xobj.rio.grid_mapping
+    if gm == _DEFAULT_GRID_MAPPING or gm not in xobj.coords:
+        return xobj
+    xobj = xobj.drop_vars(_DEFAULT_GRID_MAPPING, errors="ignore")
+    xobj = xobj.rename({gm: _DEFAULT_GRID_MAPPING})
+    return xobj.rio.write_grid_mapping(_DEFAULT_GRID_MAPPING)
+
+
 def normalize_xarray_data(xdata):
     """Transform the DataArray to the standard raster DataArray format.
 
@@ -832,10 +860,13 @@ def normalize_xarray_data(xdata):
     * The y dim coordinates are always decreasing.
     * The CRS is encoded at `obj.rio.crs`
     * The nodata/null value is encoded at `obj.rio.nodata`
+    * The grid mapping coordinate has rioxarray's default name,
+      ``spatial_ref``.
     * The data within the DataArray is a dask array.
     * The dask chunks have size 1 in the band dim.
 
     """
+    xdata = _with_default_grid_mapping_name(xdata)
     if not dask.is_dask_collection(xdata):
         xdata = xdata.chunk()
     if len(xdata.shape) > 3 or len(xdata.shape) < 2:
@@ -1572,6 +1603,7 @@ def _dataarray_input_to_raster_ds(xdata):
 
 
 def _dataset_to_raster_ds(ds_in):
+    ds_in = _with_default_grid_mapping_name(ds_in)
     if (
         dask.is_dask_collection(ds_in)
         and set(ds_in.data_vars) == {"raster", "mask"}

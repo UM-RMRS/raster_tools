@@ -6,7 +6,9 @@ coordinate (see raster_tools.raster.grid_transform). xarray operations such as
 xr.where drop that coordinate's attributes, and an operation that loses it
 silently turns non-square cells into square ones. Each case in OPERATIONS runs
 on non-square one-row, one-column and single-cell rasters, with and without
-nulls, and checks the cell size of every Raster it returns.
+nulls, with the grid-mapping coordinate under rioxarray's default name and
+under another name, and checks the cell size and CRS of every Raster it
+returns.
 
 To cover a new operation, add a Case to OPERATIONS. Operations left out:
 
@@ -59,20 +61,28 @@ COARSE_AFFINE = Affine(6, 0, 0, 0, -4, 30)
 SHAPES = {"row": (1, 4), "column": (4, 1), "cell": (1, 1)}
 ALL_SHAPES = tuple(SHAPES)
 LONG_AXIS_SHAPES = ("row", "column")
+# rioxarray's default grid mapping name and another one
+GRID_MAPPINGS = ("spatial_ref", "crs_var")
 
 
-def _one_cell_wide_raster(shape, masked):
+def _one_cell_wide_raster(shape, masked, grid_mapping="spatial_ref"):
     # Non-square cells, so the cell size along the length-1 axis can only
     # come from the stored transform
     data = np.arange(1.0, np.prod(shape) + 1).reshape((1, *shape))
     if masked:
         data[0, -1, -1] = np.nan
-    return data_to_raster(
+    raster = data_to_raster(
         data,
         affine=NON_SQUARE_AFFINE,
         crs=5070,
         nv=np.nan if masked else None,
     )
+    if grid_mapping == "spatial_ref":
+        return raster
+    # A grid mapping variable with a name other than rioxarray's default, as
+    # in CF NetCDF or Zarr data
+    xdata = raster.xdata.rename({"spatial_ref": grid_mapping})
+    return Raster(xdata.rio.write_grid_mapping(grid_mapping))
 
 
 def _coarse_geobox():
@@ -464,12 +474,13 @@ def test_operation_ids_are_unique():
 
 
 @pytest.mark.filterwarnings("ignore:The null value ")
+@pytest.mark.parametrize("grid_mapping", GRID_MAPPINGS)
 @pytest.mark.parametrize("case,shape_id,masked", _sweep_params())
 def test_operation_keeps_cell_size_of_one_cell_wide_raster(
-    case, shape_id, masked
+    case, shape_id, masked, grid_mapping
 ):
     shape = SHAPES[shape_id]
-    raster = _one_cell_wide_raster(shape, masked)
+    raster = _one_cell_wide_raster(shape, masked, grid_mapping)
     expected = case.grid(shape)
     results = case.op(raster)
     if isinstance(results, Raster):
@@ -484,3 +495,4 @@ def test_operation_keeps_cell_size_of_one_cell_wide_raster(
         )
         assert result._ds.raster.rio.transform() == expected
         assert result._ds.mask.rio.transform() == expected
+        assert result.crs == 5070
