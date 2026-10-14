@@ -2316,6 +2316,37 @@ def test_astype_new_null_value_same_dtype_new_null():
     assert result.null_value == -99
 
 
+@pytest.mark.parametrize("nv", [False, np.False_])
+@pytest.mark.parametrize("src_null", [0, 15])
+def test_astype_bool_with_false_new_null_value(src_null, nv):
+    raster = make_raster("arange", shape=(4, 4), crs=None).set_null_value(
+        src_null
+    )
+    mask = raster.mask.compute()
+    assert mask.any()
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        result = raster.astype(bool, new_null_value=nv)
+    assert_valid_raster(result)
+    assert result.dtype == np.dtype(bool)
+    assert result.null_value is np.False_
+    assert result._masked
+    assert np.array_equal(result.mask.compute(), mask)
+    assert not result.to_numpy()[mask].any()
+
+
+def test_astype_bool_keeps_inherited_zero_null_value_as_false():
+    raster = make_raster("arange", shape=(4, 4), crs=None).set_null_value(0)
+    mask = raster.mask.compute()
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        result = raster.astype(bool)
+    assert_valid_raster(result)
+    assert result.null_value is np.False_
+    assert result._masked
+    assert np.array_equal(result.mask.compute(), mask)
+
+
 def test_copy():
     rs = testdata.raster.dem_clipped_small
     copy = rs.copy()
@@ -2482,6 +2513,20 @@ def test_set_null_value_result_dtype(raster, value, expected_dtype):
     raster = raster.set_null_value(value)
     assert raster.dtype == expected_dtype
     assert np.allclose(raster.null_value, value, equal_nan=True)
+
+
+@pytest.mark.parametrize("value", [False, np.False_])
+def test_set_null_value_bool_false(value):
+    data = np.array([[[True, False], [True, True]]])
+    raster = make_raster(data, dtype=bool, mask=[[[1, 0], [0, 0]]], crs=None)
+    result = raster.set_null_value(value)
+    assert_valid_raster(result)
+    assert result.dtype == np.dtype(bool)
+    assert result.null_value is np.False_
+    assert result._masked
+    assert np.array_equal(
+        result.mask.compute(), [[[True, True], [False, False]]]
+    )
 
 
 def test_replace_null():

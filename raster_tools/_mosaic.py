@@ -293,7 +293,9 @@ def mosaic(
         if dtype is not None
         else np.result_type(*[r.dtype for r in src_rasters])
     )
-    if (nodata is not None) and (not isinstance(nodata, numbers.Number)):
+    if (nodata is not None) and (
+        not isinstance(nodata, (numbers.Number, np.bool_))
+    ):
         raise TypeError("nodata must be a scalar or None")
     if nodata is None:
         nodatas = [

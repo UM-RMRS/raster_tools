@@ -52,6 +52,7 @@ from raster_tools.exceptions import RasterDataError, RasterIOError
 from raster_tools.masking import (
     get_default_null_value,
     reconcile_nullvalue_with_dtype,
+    storable_null_value,
 )
 from raster_tools.utils import (
     can_broadcast,
@@ -1069,7 +1070,7 @@ def data_to_xr_raster(data, x=None, y=None, affine=None, crs=None, nv=None):
     if affine is not None:
         # Store the affine so that a length-1 axis keeps its cell size
         xdata = xdata.rio.write_transform(affine)
-    xdata = xdata.rio.write_nodata(nv)
+    xdata = xdata.rio.write_nodata(storable_null_value(nv))
     return normalize_xarray_data(xdata)
 
 
@@ -2489,7 +2490,7 @@ class Raster(_RasterBase):
         mask = self.xmask
         temp_mask = get_mask_from_data(xrs, value)
         mask = mask | temp_mask if self._masked else temp_mask
-        xrs = xrs.rio.write_nodata(value)
+        xrs = xrs.rio.write_nodata(storable_null_value(value))
         return Raster(make_raster_ds(xrs, mask), _fast_path=True).burn_mask()
 
     def set_null(self, mask_raster):
@@ -2550,16 +2551,15 @@ class Raster(_RasterBase):
         """Fill null-masked cells with null value.
 
         Use this as a way to return the underlying data to a known state. If
-        dtype is boolean, the null cells are set to ``True`` instead of
-        promoting to fit the null value.
+        dtype is boolean, the null value is cast to bool instead of promoting
+        the data to fit it.
         """
         if not self._masked:
             return self.copy()
         nv = self.null_value
         if is_bool(self.dtype):
-            # Sanity check to make sure that boolean rasters get a boolean null
-            # value
-            nv = get_default_null_value(self.dtype)
+            # Keep the data bool. The null value may be False as well as True.
+            nv = np.bool_(nv)
         out_raster = self.copy()
         # Work with .data to avoid dropping attributes caused by using xarray
         # and rioxarrays' APIs

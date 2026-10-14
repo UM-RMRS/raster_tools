@@ -323,6 +323,58 @@ def test_reproject_masked_bool_keeps_valid_cells_holding_null_value():
     assert (data[expected_mask] == nv).all()
 
 
+def _int_as_bool_raster(nv):
+    # 0/1 data that casts to _bool_raster's data, null value -1
+    data = np.array([[[1, 0], [1, 1]], [[0, 0], [1, 0]]], dtype="int16")
+    data[0, 0, 1] = data[1, 1, 0] = -1
+    raster = rts.data_to_raster(
+        data,
+        x=np.array([0.5, 1.5]),
+        y=np.array([1.5, 0.5]),
+        crs=5070,
+        nv=-1,
+    )
+    return raster.astype(bool, new_null_value=nv)
+
+
+@pytest.mark.parametrize(
+    "build",
+    [
+        lambda mask: _bool_raster(mask=mask, nv=False),
+        lambda mask: _bool_raster(mask=mask, nv=np.False_),
+        lambda mask: _bool_raster().set_null_value(False),
+        lambda mask: _int_as_bool_raster(False),
+        lambda mask: _int_as_bool_raster(np.False_),
+    ],
+    ids=[
+        "nv_false",
+        "nv_np_false",
+        "set_null_value",
+        "astype_false",
+        "astype_np_false",
+    ],
+)
+def test_reproject_bool_with_false_null_value_keeps_null_cells(build):
+    # https://github.com/UM-RMRS/raster_tools/issues/103
+    src_mask = np.zeros((2, 2, 2), dtype=bool)
+    src_mask[0, 0, 1] = src_mask[1, 1, 0] = True
+    raster = build(src_mask)
+    assert raster.null_value is np.False_
+    assert raster._masked
+    src_mask = raster.mask.compute()
+    assert src_mask.any()
+
+    result = warp.reproject(raster, _PAST_EDGE_DST)
+    assert_valid_raster(result)
+    assert result.null_value is np.False_
+    expected_mask = np.ones((2, 2, 4), dtype=bool)
+    expected_mask[:, :, :2] = src_mask
+    assert np.array_equal(result.mask.compute(), expected_mask)
+    data = result.to_numpy()
+    valid = ~src_mask
+    assert np.array_equal(data[:, :, :2][valid], raster.to_numpy()[valid])
+
+
 def test_reproject_bool_matches_reprojected_integer_raster():
     # Across a CRS change, a bool raster must land where the same data as
     # 0/1 integers lands.

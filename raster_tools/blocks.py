@@ -42,7 +42,7 @@ from raster_tools.dask_utils import (
     map_overlap_any_depth,
 )
 from raster_tools.dtypes import is_int
-from raster_tools.masking import get_default_null_value
+from raster_tools.masking import get_default_null_value, storable_null_value
 from raster_tools.raster import Raster, data_to_raster_like, get_raster
 from raster_tools.utils import nan_equal
 
@@ -179,7 +179,7 @@ class GeoBlockInfo:
         if self.crs is not None:
             xdata = xdata.rio.write_crs(self.crs)
         if nodata is not None:
-            xdata = xdata.rio.write_nodata(nodata)
+            xdata = xdata.rio.write_nodata(storable_null_value(nodata))
         if mask is None:
             return xdata
         if mask.shape != self.shape:

@@ -101,6 +101,15 @@ def test_geoblockinfo_to_dataarray():
     assert ma2.rio.crs == raster.crs
 
 
+def test_geoblockinfo_to_dataarray_keeps_false_nodata():
+    raster = make_raster(shape=(1, 100, 100), dtype=np.float32)
+    gbi = _make_block_info(raster)
+    data = np.ones(gbi.shape, dtype=bool)
+    xdata = gbi.to_dataarray(data, nodata=False)
+    assert xdata.rio.nodata is not None
+    assert not xdata.rio.nodata
+
+
 def test_geoblockinfo_to_dataarray_shape_mismatch():
     raster = make_raster(shape=(1, 100, 100), dtype=np.float32)
     gbi = _make_block_info(raster)
