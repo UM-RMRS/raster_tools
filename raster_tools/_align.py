@@ -351,7 +351,7 @@ def _slice_and_pad(raster, target, offsets):
     nv = raster.null_value
     padded = any(p != (0, 0) for p in pads.values())
     nan_is_null = nv is None and is_float(raster.dtype)
-    new_nv = nv is None and (padded or nan_is_null)
+    new_nv = nan_is_null or (padded and nv is None)
     if new_nv:
         nv = get_default_null_value(raster.dtype)
 

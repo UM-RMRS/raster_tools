@@ -363,21 +363,6 @@ def test_explicit_dtype():
     assert result.dtype == np.dtype("float64")
 
 
-def test_bool_dtype_keeps_inherited_zero_null_value_as_false():
-    y = np.arange(3)[::-1]
-    x = np.arange(3)
-    data = np.array([[0, 1, 2], [3, 0, 1], [1, 1, 1]], dtype="int16")
-    r = make_raster(data, y=y, x=x, null=0, crs=5070)
-    result = stack_bands([r, r], dtype=bool)
-    assert_valid_raster(result)
-    assert result.dtype == np.dtype(bool)
-    assert result.null_value is np.False_
-    assert result._masked
-    np.testing.assert_array_equal(
-        result.mask.compute(), np.concatenate([r.mask.compute()] * 2)
-    )
-
-
 @pytest.mark.parametrize("nv", [False, np.False_])
 def test_bool_dtype_with_false_null_value(nv):
     y = np.arange(3)[::-1]

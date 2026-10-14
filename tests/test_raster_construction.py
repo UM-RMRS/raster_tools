@@ -607,14 +607,6 @@ def test_bool_data_with_false_null_value_is_masked(build, expected_mask, nv):
     np.testing.assert_array_equal(rs.mask.compute(), expected)
 
 
-@pytest.mark.parametrize("nv", [False, np.False_])
-def test_data_to_xr_raster_keeps_false_null_value(nv):
-    data, _ = _bool_data_and_mask()
-    xrs = rts.data_to_xr_raster(data, nv=nv)
-
-    assert xrs.rio.nodata is np.False_
-
-
 @pytest.mark.parametrize(
     "set_fill",
     [

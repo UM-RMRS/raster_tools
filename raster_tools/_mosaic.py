@@ -214,7 +214,9 @@ def mosaic(
         'sum'
             The final pixel will be the sum of all valid pixels at the given
             location. Note, this can lead to overflow issues for sufficiently
-            large values and small enough dtypes.
+            large values and small enough dtypes. For bool output, this is
+            the logical or of the valid pixels; pass an integer `dtype` to
+            count them.
     dst_crs : CRS-like, str, int, optional
         The destination CRS to use when building the destination grid. This can
         be anything that can be parsed by

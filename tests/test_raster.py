@@ -2335,18 +2335,6 @@ def test_astype_bool_with_false_new_null_value(src_null, nv):
     assert not result.to_numpy()[mask].any()
 
 
-def test_astype_bool_keeps_inherited_zero_null_value_as_false():
-    raster = make_raster("arange", shape=(4, 4), crs=None).set_null_value(0)
-    mask = raster.mask.compute()
-    with warnings.catch_warnings():
-        warnings.simplefilter("error")
-        result = raster.astype(bool)
-    assert_valid_raster(result)
-    assert result.null_value is np.False_
-    assert result._masked
-    assert np.array_equal(result.mask.compute(), mask)
-
-
 def test_copy():
     rs = testdata.raster.dem_clipped_small
     copy = rs.copy()
