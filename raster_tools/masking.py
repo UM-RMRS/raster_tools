@@ -66,6 +66,19 @@ def get_default_null_value(dtype):
     return DTYPE_TO_DEFAULT_NULL[dtype]
 
 
+def storable_null_value(null_value):
+    """Return `null_value` in a form that rioxarray keeps as nodata.
+
+    rioxarray's ``write_nodata`` takes a plain Python ``False`` to mean "no
+    nodata value" and drops it, but keeps ``np.False_``. A Python bool is
+    returned as ``np.bool_`` so that False can be the null value of a bool
+    raster (https://github.com/UM-RMRS/raster_tools/issues/103).
+    """
+    if isinstance(null_value, bool):
+        return np.bool_(null_value)
+    return null_value
+
+
 def reconcile_nullvalue_with_dtype(null_value, dtype, warn=False):
     """Make sure that the null value is consistent with the given dtype
 
@@ -81,7 +94,7 @@ def reconcile_nullvalue_with_dtype(null_value, dtype, warn=False):
     original_nv = null_value
     null_value = np.result_type(null_value).type(null_value)
     if np.can_cast(null_value, dtype):
-        return original_nv
+        return storable_null_value(original_nv)
 
     original_nv = null_value
     # TODO: stop checking if the value is an integer. Too much complexity. If

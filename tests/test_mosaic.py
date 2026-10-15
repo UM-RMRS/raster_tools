@@ -541,6 +541,97 @@ def test_mosaic_explicit_dtype():
     assert result.dtype == np.dtype("float64")
 
 
+def _bool_pair(nv):
+    y = np.arange(3)[::-1]
+    x = np.arange(3)
+    r1 = rts.data_to_raster(
+        np.array([[[1, 0, 1], [0, 1, 1], [1, 1, 0]]], dtype=bool),
+        mask=np.array([[[1, 0, 0], [0, 0, 0], [0, 0, 0]]], dtype=bool),
+        x=x,
+        y=y,
+        crs=5070,
+        nv=nv,
+    )
+    r2 = rts.data_to_raster(
+        np.array([[[0, 1, 0], [0, 0, 0], [1, 0, 0]]], dtype=bool),
+        mask=np.array([[[0, 0, 0], [0, 0, 1], [0, 0, 0]]], dtype=bool),
+        x=x,
+        y=y,
+        crs=5070,
+        nv=nv,
+    )
+    return r1, r2
+
+
+@pytest.mark.parametrize("nv", [True, False, np.False_])
+@pytest.mark.parametrize(
+    "method,expected",
+    [
+        ("first", [[0, 0, 1], [0, 1, 1], [1, 1, 0]]),
+        ("last", [[0, 1, 0], [0, 0, 1], [1, 0, 0]]),
+        ("min", [[0, 0, 0], [0, 0, 1], [1, 0, 0]]),
+        ("max", [[0, 1, 1], [0, 1, 1], [1, 1, 0]]),
+        ("sum", [[0, 1, 1], [0, 1, 1], [1, 1, 0]]),
+    ],
+)
+def test_mosaic_bool_keeps_valid_cells_holding_null_value(
+    method, expected, nv
+):
+    # Valid cells hold both True and False, one of which is the null value,
+    # so they must not be taken for missing ones while painting.
+    r1, r2 = _bool_pair(nv)
+    assert r1.null_value == nv
+    result = mosaic.mosaic([r1, r2], mosaic_method=method)
+    assert_valid_raster(result)
+    assert result.dtype == np.dtype(bool)
+    assert result.null_value is np.bool_(nv)
+    assert not result.mask.compute().any()
+    np.testing.assert_array_equal(
+        result.to_numpy()[0], np.array(expected, dtype=bool)
+    )
+
+
+@pytest.mark.parametrize("nv", [False, np.False_, True, np.True_])
+def test_mosaic_bool_explicit_null_value_marks_missing_cells(nv):
+    # r1 is unmasked and holds both True and False. r2 starts one column
+    # past r1's right edge, so that column of the output is missing.
+    r1 = rts.data_to_raster(
+        np.array([[[1, 0, 1], [0, 1, 1], [1, 1, 0]]], dtype=bool),
+        x=np.arange(3),
+        y=np.arange(3)[::-1],
+        crs=5070,
+    )
+    r2 = rts.data_to_raster(
+        np.array([[[0, 1], [1, 0], [1, 0]]], dtype=bool),
+        x=np.arange(2) + 4,
+        y=np.arange(3)[::-1],
+        crs=5070,
+    )
+    result = mosaic.mosaic([r1, r2], null_value=nv)
+    assert_valid_raster(result)
+    assert result.dtype == np.dtype(bool)
+    assert result.null_value is np.bool_(nv)
+    expected_mask = np.zeros((1, 3, 6), dtype=bool)
+    expected_mask[0, :, 3] = True
+    np.testing.assert_array_equal(result.mask.compute(), expected_mask)
+    data = result.to_numpy()
+    np.testing.assert_array_equal(data[:, :, :3], r1.to_numpy())
+    np.testing.assert_array_equal(data[:, :, 4:], r2.to_numpy())
+
+
+def test_mosaic_bool_dtype_keeps_inherited_zero_null_value_as_false():
+    y = np.arange(3)[::-1]
+    x = np.arange(3)
+    data = np.array([[0, 1, 2], [3, 0, 1], [1, 1, 1]], dtype="int16")
+    r = make_raster(data, y=y, x=x, null=0, crs=5070)
+    result = mosaic.mosaic([r], dtype=bool)
+    assert_valid_raster(result)
+    assert result.dtype == np.dtype(bool)
+    assert result.null_value is np.False_
+    np.testing.assert_array_equal(result.mask.compute(), r.mask.compute())
+    assert result.to_numpy()[~r.mask.compute()].all()
+
+
 def test_mosaic_explicit_null_value():
     y = np.arange(3)[::-1]
     x = np.arange(3)

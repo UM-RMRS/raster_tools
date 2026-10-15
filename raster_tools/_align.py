@@ -9,6 +9,7 @@ from odc.geo.geobox import GeoBox
 
 from raster_tools import _grids
 from raster_tools._grids import EMPTY_INTERSECTION_MSG, build_coords
+from raster_tools.dtypes import is_float
 from raster_tools.masking import get_default_null_value
 from raster_tools.raster import (
     Raster,
@@ -332,7 +333,9 @@ def _slice_and_pad(raster, target, offsets):
     Filled cells are masked. An unmasked raster that needs filling gets the
     default null value for its dtype. Its existing cells stay valid, even
     where they hold that value, as reprojecting would leave them, except in a
-    64-bit integer raster, where they are masked.
+    64-bit integer raster, where they are masked. An unmasked float raster
+    always gets the default null value, and its NaN cells are masked and
+    given that value, as reprojecting treats NaN as null.
     """
     ds = raster._ds
     shape = {"y": len(target.y), "x": len(target.x)}
@@ -347,7 +350,8 @@ def _slice_and_pad(raster, target, offsets):
         pads[dim] = (lo, size - max(hi, lo))
     nv = raster.null_value
     padded = any(p != (0, 0) for p in pads.values())
-    new_nv = padded and nv is None
+    nan_is_null = nv is None and is_float(raster.dtype)
+    new_nv = nan_is_null or (padded and nv is None)
     if new_nv:
         nv = get_default_null_value(raster.dtype)
 
@@ -361,7 +365,11 @@ def _slice_and_pad(raster, target, offsets):
         index = (slice(None), slices["y"], slices["x"])
         data = raster.data[index]
         mask = raster.mask[index]
-        if new_nv and _get_working_type(raster.dtype, False) is None:
+        if nan_is_null:
+            nan = da.isnan(data)
+            mask = mask | nan
+            data = da.where(nan, data.dtype.type(nv), data)
+        elif new_nv and _get_working_type(raster.dtype, False) is None:
             mask = mask | get_mask_from_data(data, nv)
         if padded:
             pad_width = ((0, 0), pads["y"], pads["x"])
@@ -501,11 +509,14 @@ def align(
     A raster with no null value that is padded or reprojected is given the
     default null value for its dtype, so that the new cells can be marked
     as null. Its existing cells stay valid, even where they hold that value.
-    For a bool raster the default null value is ``True``, so its padded
-    cells hold ``True`` but are masked, while its existing ``True`` cells
-    stay valid. A 64-bit integer raster is the exception: its existing cells
-    that hold the null value are masked when cut, and when reprojected they
-    are masked or, with newer GDAL, have their value nudged off it.
+    A float raster with no null value treats NaN as null, so it is given the
+    default null value whenever it is cut, padded, or reprojected, and its
+    NaN cells are masked and set to that value. For a bool raster the
+    default null value is ``True``, so its padded cells hold ``True`` but
+    are masked, while its existing ``True`` cells stay valid. A 64-bit
+    integer raster is the exception: its existing cells that hold the null
+    value are masked when cut, and when reprojected they are masked or,
+    with newer GDAL, have their value nudged off it.
 
     A raster whose cell size and offset are within 0.001 of a cell of the
     destination lattice is cut and padded rather than resampled, so

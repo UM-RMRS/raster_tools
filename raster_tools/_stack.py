@@ -143,7 +143,7 @@ def stack_bands(
     if (
         nodata is not None
         and nodata != "default"
-        and not isinstance(nodata, numbers.Number)
+        and not isinstance(nodata, (numbers.Number, np.bool_))
     ):
         raise TypeError('null_value must be a scalar, None, or "default"')
 

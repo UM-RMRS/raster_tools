@@ -12,6 +12,7 @@ from raster_tools._align import (
     parse_dst_grid,
     raster_on_target,
 )
+from raster_tools.dtypes import is_bool
 
 __all__ = ["mosaic"]
 
@@ -213,7 +214,9 @@ def mosaic(
         'sum'
             The final pixel will be the sum of all valid pixels at the given
             location. Note, this can lead to overflow issues for sufficiently
-            large values and small enough dtypes.
+            large values and small enough dtypes. For bool output, this is
+            the logical or of the valid pixels; pass an integer `dtype` to
+            count them.
     dst_crs : CRS-like, str, int, optional
         The destination CRS to use when building the destination grid. This can
         be anything that can be parsed by
@@ -293,7 +296,9 @@ def mosaic(
         if dtype is not None
         else np.result_type(*[r.dtype for r in src_rasters])
     )
-    if (nodata is not None) and (not isinstance(nodata, numbers.Number)):
+    if (nodata is not None) and (
+        not isinstance(nodata, (numbers.Number, np.bool_))
+    ):
         raise TypeError("nodata must be a scalar or None")
     if nodata is None:
         nodatas = [
@@ -317,6 +322,20 @@ def mosaic(
         )
         for r in src_rasters
     ]
+    out_dtype = dtype
+    out_nodata = nodata
+    if is_bool(out_dtype):
+        # Painting finds missing cells by their value, and a bool null value
+        # is also a valid bool value. Paint bool data as uint8 with a null
+        # value outside {0, 1} and cast back at the end. The sum of bools
+        # is their logical or, which is max on {0, 1}.
+        dtype = np.dtype("uint8")
+        nodata = 2
+        src_rasters_in_dst = [
+            r.astype(dtype, new_null_value=nodata) for r in src_rasters_in_dst
+        ]
+        if mosaic_method == "sum":
+            mosaic_method = "max"
     dst_raster = raster_on_target(
         da.full((1, *target.geobox.shape), nodata, dtype=dtype),
         target,
@@ -331,5 +350,7 @@ def mosaic(
         target_chunks = ((1,) * sr.nbands, *target_chunks_2d)
         tmp.append(sr.chunk(target_chunks))
     src_rasters_in_dst = tmp
-    # TODO: check for all boolean
-    return _mosaic(src_rasters_in_dst, dst_raster, mosaic_method)
+    result = _mosaic(src_rasters_in_dst, dst_raster, mosaic_method)
+    if is_bool(out_dtype):
+        result = result.astype(out_dtype, new_null_value=out_nodata)
+    return result

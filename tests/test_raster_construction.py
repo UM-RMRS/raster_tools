@@ -573,6 +573,70 @@ def test_data_to_raster_xy_and_nv():
     np.testing.assert_array_equal(rs.mask.compute()[0], np.isnan(data))
 
 
+def _bool_data_and_mask():
+    # A valid False cell at (0, 3) and two masked True cells
+    data = np.ones((1, 4, 4), dtype=bool)
+    data[0, 0, 3] = False
+    mask = np.zeros_like(data)
+    mask[0, 1, 1] = mask[0, 2, 2] = True
+    return data, mask
+
+
+@pytest.mark.parametrize("nv", [False, np.False_])
+@pytest.mark.parametrize(
+    "build,expected_mask",
+    [
+        (lambda data, mask, nv: rts.data_to_raster(data, nv=nv), "data"),
+        (
+            lambda data, mask, nv: rts.data_to_raster(data, mask=mask, nv=nv),
+            "mask",
+        ),
+        (
+            lambda data, mask, nv: rts.data_to_raster_like(
+                data, rts.data_to_raster(data), mask=mask, nv=nv
+            ),
+            "mask",
+        ),
+    ],
+    ids=["raster", "raster_with_mask", "raster_like"],
+)
+def test_bool_data_with_false_null_value_is_masked(build, expected_mask, nv):
+    # https://github.com/UM-RMRS/raster_tools/issues/103
+    data, mask = _bool_data_and_mask()
+    rs = build(data, mask, nv)
+
+    assert rs.dtype == np.dtype(bool)
+    assert rs.null_value is np.False_
+    assert rs._masked
+    expected = ~data if expected_mask == "data" else mask
+    np.testing.assert_array_equal(rs.mask.compute(), expected)
+
+
+@pytest.mark.parametrize(
+    "set_fill",
+    [
+        lambda xdata: xdata.assign_attrs(_FillValue=False),
+        lambda xdata: xdata.rio.write_nodata(np.False_),
+    ],
+    ids=["fill_value_attr", "rio_nodata"],
+)
+def test_raster_from_bool_dataarray_with_false_null_value(set_fill):
+    data = np.array([[[True, False], [True, True]]])
+    xdata = set_fill(
+        xr.DataArray(
+            data,
+            dims=("band", "y", "x"),
+            coords={"band": [1], "y": [1.5, 0.5], "x": [0.5, 1.5]},
+        )
+    )
+    rs = Raster(xdata)
+
+    assert rs.dtype == np.dtype(bool)
+    assert rs.null_value is np.False_
+    assert rs._masked
+    np.testing.assert_array_equal(rs.mask.compute(), ~data)
+
+
 # --------------------------------------------------------------------------
 # data_to_raster_like
 # --------------------------------------------------------------------------

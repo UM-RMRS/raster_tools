@@ -323,6 +323,27 @@ def test_reproject_masked_bool_keeps_valid_cells_holding_null_value():
     assert (data[expected_mask] == nv).all()
 
 
+def test_reproject_bool_with_false_null_value_keeps_null_cells():
+    # https://github.com/UM-RMRS/raster_tools/issues/103
+    src_mask = np.zeros((2, 2, 2), dtype=bool)
+    src_mask[0, 0, 1] = src_mask[1, 1, 0] = True
+    raster = _bool_raster(mask=src_mask, nv=False)
+    assert raster.null_value is np.False_
+    assert raster._masked
+    src_mask = raster.mask.compute()
+    assert src_mask.any()
+
+    result = warp.reproject(raster, _PAST_EDGE_DST)
+    assert_valid_raster(result)
+    assert result.null_value is np.False_
+    expected_mask = np.ones((2, 2, 4), dtype=bool)
+    expected_mask[:, :, :2] = src_mask
+    assert np.array_equal(result.mask.compute(), expected_mask)
+    data = result.to_numpy()
+    valid = ~src_mask
+    assert np.array_equal(data[:, :, :2][valid], raster.to_numpy()[valid])
+
+
 def test_reproject_bool_matches_reprojected_integer_raster():
     # Across a CRS change, a bool raster must land where the same data as
     # 0/1 integers lands.
