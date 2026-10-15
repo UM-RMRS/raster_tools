@@ -3,9 +3,11 @@ from functools import partial
 import dask
 import numpy as np
 import pytest
+from affine import Affine
 from scipy import ndimage, stats
 
 from raster_tools import focal
+from raster_tools.raster import data_to_raster
 from tests.utils import (
     NARROW_SHAPES,
     assert_matches_null_padded,
@@ -796,3 +798,18 @@ def test_focal_window_wider_than_raster_multiple_chunks():
         np.testing.assert_allclose(
             result.to_numpy(), func(whole, np.ones((9, 9))).to_numpy()
         )
+
+
+@pytest.mark.parametrize("stat", ["min", "max", "sum"])
+def test_focal_even_window_same_for_masked_and_unmasked(stat):
+    # https://github.com/UM-RMRS/raster_tools/issues/96
+    rng = np.random.default_rng(0)
+    raster = data_to_raster(
+        rng.random((1, 13, 17)), affine=Affine(1, 0, 0, 0, -1, 13), crs=5070
+    ).chunk((1, 5, 6))
+    # Masked, with no null cells, takes the NaN-aware path
+    masked = raster.set_null_value(-1)
+
+    expected = focal.focal(masked, stat, 4, 6).to_numpy()
+    result = focal.focal(raster, stat, 4, 6).to_numpy()
+    assert np.allclose(result, expected)

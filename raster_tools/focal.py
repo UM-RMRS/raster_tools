@@ -307,21 +307,36 @@ def _focal(data, kernel, stat, nan_aware=False):
 
     kernel = kernel.astype(bool)
     if not nan_aware and stat in ("min", "max", "sum"):
-        # Use ndfilters which is faster but dosn't handle nan values
+        # Use ndfilters which is faster but dosn't handle nan values.
+        # Shift pixel origins for even shaped kernels to place the window as
+        # _focal_chunk and correlate do, with the extra cell after the center.
+        origin = [-1 if d % 2 == 0 else 0 for d in kernel.shape]
         if stat == "min":
             func = partial(
-                ndfilters.minimum_filter, footprint=kernel, mode="nearest"
+                ndfilters.minimum_filter,
+                footprint=kernel,
+                mode="nearest",
+                origin=origin,
             )
         elif stat == "max":
             func = partial(
-                ndfilters.maximum_filter, footprint=kernel, mode="nearest"
+                ndfilters.maximum_filter,
+                footprint=kernel,
+                mode="nearest",
+                origin=origin,
             )
         elif stat == "sum":
             func = partial(
-                ndfilters.correlate, weights=kernel, mode="constant"
+                ndfilters.correlate,
+                weights=kernel,
+                mode="constant",
+                origin=origin,
             )
         # The depth that ndfilters overlaps the data by
-        depth = {0: 0, 1: kernel.shape[0] // 2, 2: kernel.shape[1] // 2}
+        rdepth, cdepth = (
+            s // 2 + abs(o) for s, o in zip(kernel.shape, origin, strict=True)
+        )
+        depth = {0: 0, 1: rdepth, 2: cdepth}
         boundary = 0 if stat == "sum" else "nearest"
         (data,), _, unpad = pad_short_axes([data], depth, [boundary])
         data = unpad(da.stack([func(d) for d in data]))
@@ -356,7 +371,9 @@ def focal(raster, focal_type, width_or_radius, height=None, ignore_null=False):
 
     The filter uses a window/footprint that is created using the
     `width_or_radius` and `height` parameters. The window can be a
-    rectangle, circle or annulus.
+    rectangle, circle or annulus. Along an axis with an even number of
+    cells, the window has one more cell after the center cell (below or to
+    the right of it) than before, as in ESRI's focal tools.
 
     Parameters
     ----------
