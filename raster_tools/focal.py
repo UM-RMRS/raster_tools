@@ -438,7 +438,9 @@ def focal(raster, focal_type, width_or_radius, height=None, ignore_null=False):
             # replace them with nan
             data = da.where(data == 0, np.nan, data)
     else:
-        if focal_type == "mode" and is_int(raster.dtype):
+        if focal_type == "mode" and (
+            is_int(raster.dtype) or is_bool(raster.dtype)
+        ):
             data = data.astype(raster.dtype)
         elif focal_type == "unique":
             n = window.size

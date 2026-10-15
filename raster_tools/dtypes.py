@@ -144,11 +144,16 @@ def get_common_dtype(items):
 
 
 def promote_dtype_to_float(dtype):
+    """Return a float dtype that can hold all values of `dtype`.
+
+    Float dtypes are returned unchanged. Other dtypes are promoted to at
+    least float32, never float16, because the promoted data is commonly
+    passed to numba kernels and numba does not support float16.
+
+    """
     if dtype.kind == "f":
         return dtype
-    if np.can_cast(dtype, F16):
-        return F16
-    elif np.can_cast(dtype, F32):
+    if np.can_cast(dtype, F32):
         return F32
     return F64
 
