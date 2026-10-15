@@ -449,6 +449,7 @@ document.write(`
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools</span><span class="w"> </span><span class="kn">import</span> <span class="n">_grids</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools._grids</span><span class="w"> </span><span class="kn">import</span> <span class="n">EMPTY_INTERSECTION_MSG</span><span class="p">,</span> <span class="n">build_coords</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.dtypes</span><span class="w"> </span><span class="kn">import</span> <span class="n">is_float</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.masking</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_default_null_value</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.raster</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">Raster</span><span class="p">,</span>
@@ -772,7 +773,9 @@ document.write(`
 <span class="sd">    Filled cells are masked. An unmasked raster that needs filling gets the</span>
 <span class="sd">    default null value for its dtype. Its existing cells stay valid, even</span>
 <span class="sd">    where they hold that value, as reprojecting would leave them, except in a</span>
-<span class="sd">    64-bit integer raster, where they are masked.</span>
+<span class="sd">    64-bit integer raster, where they are masked. An unmasked float raster</span>
+<span class="sd">    always gets the default null value, and its NaN cells are masked and</span>
+<span class="sd">    given that value, as reprojecting treats NaN as null.</span>
 <span class="sd">    """</span>
     <span class="n">ds</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">_ds</span>
     <span class="n">shape</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"y"</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">target</span><span class="o">.</span><span class="n">y</span><span class="p">),</span> <span class="s2">"x"</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">target</span><span class="o">.</span><span class="n">x</span><span class="p">)}</span>
@@ -787,7 +790,8 @@ document.write(`
         <span class="n">pads</span><span class="p">[</span><span class="n">dim</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">lo</span><span class="p">,</span> <span class="n">size</span> <span class="o">-</span> <span class="nb">max</span><span class="p">(</span><span class="n">hi</span><span class="p">,</span> <span class="n">lo</span><span class="p">))</span>
     <span class="n">nv</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">null_value</span>
     <span class="n">padded</span> <span class="o">=</span> <span class="nb">any</span><span class="p">(</span><span class="n">p</span> <span class="o">!=</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">pads</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
-    <span class="n">new_nv</span> <span class="o">=</span> <span class="n">padded</span> <span class="ow">and</span> <span class="n">nv</span> <span class="ow">is</span> <span class="kc">None</span>
+    <span class="n">nan_is_null</span> <span class="o">=</span> <span class="n">nv</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">is_float</span><span class="p">(</span><span class="n">raster</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+    <span class="n">new_nv</span> <span class="o">=</span> <span class="n">nan_is_null</span> <span class="ow">or</span> <span class="p">(</span><span class="n">padded</span> <span class="ow">and</span> <span class="n">nv</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">new_nv</span><span class="p">:</span>
         <span class="n">nv</span> <span class="o">=</span> <span class="n">get_default_null_value</span><span class="p">(</span><span class="n">raster</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
 
@@ -801,7 +805,11 @@ document.write(`
         <span class="n">index</span> <span class="o">=</span> <span class="p">(</span><span class="nb">slice</span><span class="p">(</span><span class="kc">None</span><span class="p">),</span> <span class="n">slices</span><span class="p">[</span><span class="s2">"y"</span><span class="p">],</span> <span class="n">slices</span><span class="p">[</span><span class="s2">"x"</span><span class="p">])</span>
         <span class="n">data</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="n">index</span><span class="p">]</span>
         <span class="n">mask</span> <span class="o">=</span> <span class="n">raster</span><span class="o">.</span><span class="n">mask</span><span class="p">[</span><span class="n">index</span><span class="p">]</span>
-        <span class="k">if</span> <span class="n">new_nv</span> <span class="ow">and</span> <span class="n">_get_working_type</span><span class="p">(</span><span class="n">raster</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">nan_is_null</span><span class="p">:</span>
+            <span class="n">nan</span> <span class="o">=</span> <span class="n">da</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+            <span class="n">mask</span> <span class="o">=</span> <span class="n">mask</span> <span class="o">|</span> <span class="n">nan</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">da</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">nan</span><span class="p">,</span> <span class="n">data</span><span class="o">.</span><span class="n">dtype</span><span class="o">.</span><span class="n">type</span><span class="p">(</span><span class="n">nv</span><span class="p">),</span> <span class="n">data</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">new_nv</span> <span class="ow">and</span> <span class="n">_get_working_type</span><span class="p">(</span><span class="n">raster</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">mask</span> <span class="o">=</span> <span class="n">mask</span> <span class="o">|</span> <span class="n">get_mask_from_data</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">nv</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">padded</span><span class="p">:</span>
             <span class="n">pad_width</span> <span class="o">=</span> <span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="n">pads</span><span class="p">[</span><span class="s2">"y"</span><span class="p">],</span> <span class="n">pads</span><span class="p">[</span><span class="s2">"x"</span><span class="p">])</span>
@@ -941,11 +949,14 @@ document.write(`
 <span class="sd">    A raster with no null value that is padded or reprojected is given the</span>
 <span class="sd">    default null value for its dtype, so that the new cells can be marked</span>
 <span class="sd">    as null. Its existing cells stay valid, even where they hold that value.</span>
-<span class="sd">    For a bool raster the default null value is ``True``, so its padded</span>
-<span class="sd">    cells hold ``True`` but are masked, while its existing ``True`` cells</span>
-<span class="sd">    stay valid. A 64-bit integer raster is the exception: its existing cells</span>
-<span class="sd">    that hold the null value are masked when cut, and when reprojected they</span>
-<span class="sd">    are masked or, with newer GDAL, have their value nudged off it.</span>
+<span class="sd">    A float raster with no null value treats NaN as null, so it is given the</span>
+<span class="sd">    default null value whenever it is cut, padded, or reprojected, and its</span>
+<span class="sd">    NaN cells are masked and set to that value. For a bool raster the</span>
+<span class="sd">    default null value is ``True``, so its padded cells hold ``True`` but</span>
+<span class="sd">    are masked, while its existing ``True`` cells stay valid. A 64-bit</span>
+<span class="sd">    integer raster is the exception: its existing cells that hold the null</span>
+<span class="sd">    value are masked when cut, and when reprojected they are masked or,</span>
+<span class="sd">    with newer GDAL, have their value nudged off it.</span>
 
 <span class="sd">    A raster whose cell size and offset are within 0.001 of a cell of the</span>
 <span class="sd">    destination lattice is cut and padded rather than resampled, so</span>

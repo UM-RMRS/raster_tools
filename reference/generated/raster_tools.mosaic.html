@@ -518,7 +518,9 @@ across all input rasters, at the given location.</p>
 </dd>
 <dt>’sum’</dt><dd><p>The final pixel will be the sum of all valid pixels at the given
 location. Note, this can lead to overflow issues for sufficiently
-large values and small enough dtypes.</p>
+large values and small enough dtypes. For bool output, this is
+the logical or of the valid pixels; pass an integer <cite>dtype</cite> to
+count them.</p>
 </dd>
 </dl>
 </p></li>

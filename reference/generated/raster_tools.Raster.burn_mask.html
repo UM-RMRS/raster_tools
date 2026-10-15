@@ -495,8 +495,8 @@ document.write(`
 <span class="sig-prename descclassname"><span class="pre">Raster.</span></span><span class="sig-name descname"><span class="pre">burn_mask</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/raster_tools/raster.html#Raster.burn_mask"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#raster_tools.Raster.burn_mask" title="Permalink to this definition">#</a></dt>
 <dd><p>Fill null-masked cells with null value.</p>
 <p>Use this as a way to return the underlying data to a known state. If
-dtype is boolean, the null cells are set to <code class="docutils literal notranslate"><span class="pre">True</span></code> instead of
-promoting to fit the null value.</p>
+dtype is boolean, the null value is cast to bool instead of promoting
+the data to fit it.</p>
 </dd></dl>
 
 </section>

@@ -492,6 +492,7 @@ document.write(`
 <span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.masking</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">get_default_null_value</span><span class="p">,</span>
     <span class="n">reconcile_nullvalue_with_dtype</span><span class="p">,</span>
+    <span class="n">storable_null_value</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.utils</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">can_broadcast</span><span class="p">,</span>
@@ -1540,7 +1541,7 @@ document.write(`
     <span class="k">if</span> <span class="n">affine</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="c1"># Store the affine so that a length-1 axis keeps its cell size</span>
         <span class="n">xdata</span> <span class="o">=</span> <span class="n">xdata</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_transform</span><span class="p">(</span><span class="n">affine</span><span class="p">)</span>
-    <span class="n">xdata</span> <span class="o">=</span> <span class="n">xdata</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_nodata</span><span class="p">(</span><span class="n">nv</span><span class="p">)</span>
+    <span class="n">xdata</span> <span class="o">=</span> <span class="n">xdata</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_nodata</span><span class="p">(</span><span class="n">storable_null_value</span><span class="p">(</span><span class="n">nv</span><span class="p">))</span>
     <span class="k">return</span> <span class="n">normalize_xarray_data</span><span class="p">(</span><span class="n">xdata</span><span class="p">)</span></div>
 
 
@@ -2961,7 +2962,7 @@ document.write(`
         <span class="n">mask</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">xmask</span>
         <span class="n">temp_mask</span> <span class="o">=</span> <span class="n">get_mask_from_data</span><span class="p">(</span><span class="n">xrs</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
         <span class="n">mask</span> <span class="o">=</span> <span class="n">mask</span> <span class="o">|</span> <span class="n">temp_mask</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_masked</span> <span class="k">else</span> <span class="n">temp_mask</span>
-        <span class="n">xrs</span> <span class="o">=</span> <span class="n">xrs</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_nodata</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+        <span class="n">xrs</span> <span class="o">=</span> <span class="n">xrs</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_nodata</span><span class="p">(</span><span class="n">storable_null_value</span><span class="p">(</span><span class="n">value</span><span class="p">))</span>
         <span class="k">return</span> <span class="n">Raster</span><span class="p">(</span><span class="n">make_raster_ds</span><span class="p">(</span><span class="n">xrs</span><span class="p">,</span> <span class="n">mask</span><span class="p">),</span> <span class="n">_fast_path</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">burn_mask</span><span class="p">()</span></div>
 
 <div class="viewcode-block" id="Raster.set_null"><a class="viewcode-back" href="../../reference/generated/raster_tools.Raster.set_null.html#raster_tools.Raster.set_null">[docs]</a>    <span class="k">def</span><span class="w"> </span><span class="nf">set_null</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mask_raster</span><span class="p">):</span>
@@ -3022,16 +3023,15 @@ document.write(`
 <span class="w">        </span><span class="sd">"""Fill null-masked cells with null value.</span>
 
 <span class="sd">        Use this as a way to return the underlying data to a known state. If</span>
-<span class="sd">        dtype is boolean, the null cells are set to ``True`` instead of</span>
-<span class="sd">        promoting to fit the null value.</span>
+<span class="sd">        dtype is boolean, the null value is cast to bool instead of promoting</span>
+<span class="sd">        the data to fit it.</span>
 <span class="sd">        """</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_masked</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
         <span class="n">nv</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">null_value</span>
         <span class="k">if</span> <span class="n">is_bool</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dtype</span><span class="p">):</span>
-            <span class="c1"># Sanity check to make sure that boolean rasters get a boolean null</span>
-            <span class="c1"># value</span>
-            <span class="n">nv</span> <span class="o">=</span> <span class="n">get_default_null_value</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+            <span class="c1"># Keep the data bool. The null value may be False as well as True.</span>
+            <span class="n">nv</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">bool_</span><span class="p">(</span><span class="n">nv</span><span class="p">)</span>
         <span class="n">out_raster</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
         <span class="c1"># Work with .data to avoid dropping attributes caused by using xarray</span>
         <span class="c1"># and rioxarrays' APIs</span>

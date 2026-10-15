@@ -506,6 +506,19 @@ document.write(`
     <span class="k">return</span> <span class="n">DTYPE_TO_DEFAULT_NULL</span><span class="p">[</span><span class="n">dtype</span><span class="p">]</span></div>
 
 
+<span class="k">def</span><span class="w"> </span><span class="nf">storable_null_value</span><span class="p">(</span><span class="n">null_value</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Return `null_value` in a form that rioxarray keeps as nodata.</span>
+
+<span class="sd">    rioxarray's ``write_nodata`` takes a plain Python ``False`` to mean "no</span>
+<span class="sd">    nodata value" and drops it, but keeps ``np.False_``. A Python bool is</span>
+<span class="sd">    returned as ``np.bool_`` so that False can be the null value of a bool</span>
+<span class="sd">    raster (https://github.com/UM-RMRS/raster_tools/issues/103).</span>
+<span class="sd">    """</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">null_value</span><span class="p">,</span> <span class="nb">bool</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">bool_</span><span class="p">(</span><span class="n">null_value</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">null_value</span>
+
+
 <span class="k">def</span><span class="w"> </span><span class="nf">reconcile_nullvalue_with_dtype</span><span class="p">(</span><span class="n">null_value</span><span class="p">,</span> <span class="n">dtype</span><span class="p">,</span> <span class="n">warn</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">"""Make sure that the null value is consistent with the given dtype</span>
 
@@ -521,7 +534,7 @@ document.write(`
     <span class="n">original_nv</span> <span class="o">=</span> <span class="n">null_value</span>
     <span class="n">null_value</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">result_type</span><span class="p">(</span><span class="n">null_value</span><span class="p">)</span><span class="o">.</span><span class="n">type</span><span class="p">(</span><span class="n">null_value</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">can_cast</span><span class="p">(</span><span class="n">null_value</span><span class="p">,</span> <span class="n">dtype</span><span class="p">):</span>
-        <span class="k">return</span> <span class="n">original_nv</span>
+        <span class="k">return</span> <span class="n">storable_null_value</span><span class="p">(</span><span class="n">original_nv</span><span class="p">)</span>
 
     <span class="n">original_nv</span> <span class="o">=</span> <span class="n">null_value</span>
     <span class="c1"># TODO: stop checking if the value is an integer. Too much complexity. If</span>

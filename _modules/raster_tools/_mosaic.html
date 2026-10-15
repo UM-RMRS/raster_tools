@@ -452,6 +452,7 @@ document.write(`
     <span class="n">parse_dst_grid</span><span class="p">,</span>
     <span class="n">raster_on_target</span><span class="p">,</span>
 <span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.dtypes</span><span class="w"> </span><span class="kn">import</span> <span class="n">is_bool</span>
 
 <span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"mosaic"</span><span class="p">]</span>
 
@@ -653,7 +654,9 @@ document.write(`
 <span class="sd">        'sum'</span>
 <span class="sd">            The final pixel will be the sum of all valid pixels at the given</span>
 <span class="sd">            location. Note, this can lead to overflow issues for sufficiently</span>
-<span class="sd">            large values and small enough dtypes.</span>
+<span class="sd">            large values and small enough dtypes. For bool output, this is</span>
+<span class="sd">            the logical or of the valid pixels; pass an integer `dtype` to</span>
+<span class="sd">            count them.</span>
 <span class="sd">    dst_crs : CRS-like, str, int, optional</span>
 <span class="sd">        The destination CRS to use when building the destination grid. This can</span>
 <span class="sd">        be anything that can be parsed by</span>
@@ -733,7 +736,9 @@ document.write(`
         <span class="k">if</span> <span class="n">dtype</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
         <span class="k">else</span> <span class="n">np</span><span class="o">.</span><span class="n">result_type</span><span class="p">(</span><span class="o">*</span><span class="p">[</span><span class="n">r</span><span class="o">.</span><span class="n">dtype</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">src_rasters</span><span class="p">])</span>
     <span class="p">)</span>
-    <span class="k">if</span> <span class="p">(</span><span class="n">nodata</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span><span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">nodata</span><span class="p">,</span> <span class="n">numbers</span><span class="o">.</span><span class="n">Number</span><span class="p">)):</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">nodata</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span>
+        <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">nodata</span><span class="p">,</span> <span class="p">(</span><span class="n">numbers</span><span class="o">.</span><span class="n">Number</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">bool_</span><span class="p">))</span>
+    <span class="p">):</span>
         <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">"nodata must be a scalar or None"</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">nodata</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">nodatas</span> <span class="o">=</span> <span class="p">[</span>
@@ -757,6 +762,20 @@ document.write(`
         <span class="p">)</span>
         <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">src_rasters</span>
     <span class="p">]</span>
+    <span class="n">out_dtype</span> <span class="o">=</span> <span class="n">dtype</span>
+    <span class="n">out_nodata</span> <span class="o">=</span> <span class="n">nodata</span>
+    <span class="k">if</span> <span class="n">is_bool</span><span class="p">(</span><span class="n">out_dtype</span><span class="p">):</span>
+        <span class="c1"># Painting finds missing cells by their value, and a bool null value</span>
+        <span class="c1"># is also a valid bool value. Paint bool data as uint8 with a null</span>
+        <span class="c1"># value outside {0, 1} and cast back at the end. The sum of bools</span>
+        <span class="c1"># is their logical or, which is max on {0, 1}.</span>
+        <span class="n">dtype</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="s2">"uint8"</span><span class="p">)</span>
+        <span class="n">nodata</span> <span class="o">=</span> <span class="mi">2</span>
+        <span class="n">src_rasters_in_dst</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">r</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">dtype</span><span class="p">,</span> <span class="n">new_null_value</span><span class="o">=</span><span class="n">nodata</span><span class="p">)</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">src_rasters_in_dst</span>
+        <span class="p">]</span>
+        <span class="k">if</span> <span class="n">mosaic_method</span> <span class="o">==</span> <span class="s2">"sum"</span><span class="p">:</span>
+            <span class="n">mosaic_method</span> <span class="o">=</span> <span class="s2">"max"</span>
     <span class="n">dst_raster</span> <span class="o">=</span> <span class="n">raster_on_target</span><span class="p">(</span>
         <span class="n">da</span><span class="o">.</span><span class="n">full</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span> <span class="o">*</span><span class="n">target</span><span class="o">.</span><span class="n">geobox</span><span class="o">.</span><span class="n">shape</span><span class="p">),</span> <span class="n">nodata</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">),</span>
         <span class="n">target</span><span class="p">,</span>
@@ -771,8 +790,10 @@ document.write(`
         <span class="n">target_chunks</span> <span class="o">=</span> <span class="p">((</span><span class="mi">1</span><span class="p">,)</span> <span class="o">*</span> <span class="n">sr</span><span class="o">.</span><span class="n">nbands</span><span class="p">,</span> <span class="o">*</span><span class="n">target_chunks_2d</span><span class="p">)</span>
         <span class="n">tmp</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">sr</span><span class="o">.</span><span class="n">chunk</span><span class="p">(</span><span class="n">target_chunks</span><span class="p">))</span>
     <span class="n">src_rasters_in_dst</span> <span class="o">=</span> <span class="n">tmp</span>
-    <span class="c1"># TODO: check for all boolean</span>
-    <span class="k">return</span> <span class="n">_mosaic</span><span class="p">(</span><span class="n">src_rasters_in_dst</span><span class="p">,</span> <span class="n">dst_raster</span><span class="p">,</span> <span class="n">mosaic_method</span><span class="p">)</span></div>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">_mosaic</span><span class="p">(</span><span class="n">src_rasters_in_dst</span><span class="p">,</span> <span class="n">dst_raster</span><span class="p">,</span> <span class="n">mosaic_method</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">is_bool</span><span class="p">(</span><span class="n">out_dtype</span><span class="p">):</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">out_dtype</span><span class="p">,</span> <span class="n">new_null_value</span><span class="o">=</span><span class="n">out_nodata</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">result</span></div>
 </pre></div>
 
                 </article>

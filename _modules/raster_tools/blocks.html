@@ -482,7 +482,7 @@ document.write(`
     <span class="n">map_overlap_any_depth</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.dtypes</span><span class="w"> </span><span class="kn">import</span> <span class="n">is_int</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.masking</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_default_null_value</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.masking</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_default_null_value</span><span class="p">,</span> <span class="n">storable_null_value</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.raster</span><span class="w"> </span><span class="kn">import</span> <span class="n">Raster</span><span class="p">,</span> <span class="n">data_to_raster_like</span><span class="p">,</span> <span class="n">get_raster</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">raster_tools.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">nan_equal</span>
 
@@ -619,7 +619,7 @@ document.write(`
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">crs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">xdata</span> <span class="o">=</span> <span class="n">xdata</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_crs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">crs</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">nodata</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">xdata</span> <span class="o">=</span> <span class="n">xdata</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_nodata</span><span class="p">(</span><span class="n">nodata</span><span class="p">)</span>
+            <span class="n">xdata</span> <span class="o">=</span> <span class="n">xdata</span><span class="o">.</span><span class="n">rio</span><span class="o">.</span><span class="n">write_nodata</span><span class="p">(</span><span class="n">storable_null_value</span><span class="p">(</span><span class="n">nodata</span><span class="p">))</span>
         <span class="k">if</span> <span class="n">mask</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">xdata</span>
         <span class="k">if</span> <span class="n">mask</span><span class="o">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">shape</span><span class="p">:</span>
