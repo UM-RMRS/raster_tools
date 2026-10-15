@@ -523,17 +523,15 @@ def _validate_lonlat_coords(lon, lat):
         )
 
 
-def _estimate_min_resolution(lon, lat):
-    x1 = lon[0]
-    y1 = lat.max()
-    x2 = lon[1]
-    y2 = y1
-    xmin = np.sqrt(_haversine_dist_sqr(x1, y1, x2, y2))
-    x1 = lon[0]
-    x2 = lon[0]
-    # Get two largest latitudes
-    y1, y2 = np.partition(lat, -2)[-2:]
-    ymin = np.sqrt(_haversine_dist_sqr(x1, y1, x2, y2))
+def _estimate_min_resolution(lon, lat, resolution):
+    # Cell size in meters, with the width taken at the latitude farthest
+    # from the equator, where cells are narrowest. The height is the same at
+    # every latitude on a sphere. The cell size in degrees comes from the
+    # grid, so a raster one cell wide along an axis works too.
+    dx, dy = np.abs(resolution)
+    y = np.abs(lat).max()
+    xmin = np.sqrt(_haversine_dist_sqr(lon[0], y, lon[0] + dx, y))
+    ymin = np.sqrt(_haversine_dist_sqr(lon[0], 0.0, lon[0], dy))
     return xmin, ymin
 
 
@@ -583,7 +581,7 @@ def _proximity_analysis(
             # at highest latitude) and use that for chunk overlap calculation.
             # Use minimum so that we always overestimate and never
             # underestimate the depth.
-            resolution = _estimate_min_resolution(x, y)
+            resolution = _estimate_min_resolution(x, y, raster.resolution)
         xdepth, ydepth = np.ceil(max_distance / np.abs(resolution)).astype(int)
         # Along an axis shorter than the depth, one chunk holds every cell
         # in reach and nothing lies past the edges, so no overlap is needed
