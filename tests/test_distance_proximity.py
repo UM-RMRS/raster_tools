@@ -3,11 +3,12 @@ import numba as nb
 import numpy as np
 import pytest
 import xarray as xr
+from affine import Affine
 
 from raster_tools.distance import proximity as prx
 from raster_tools.dtypes import F32
 from raster_tools.masking import get_default_null_value
-from raster_tools.raster import Raster
+from raster_tools.raster import Raster, data_to_raster
 from tests import testdata
 from tests.utils import (
     NARROW_SHAPES,
@@ -366,3 +367,24 @@ def test_max_distance_wider_than_raster(func, shape, masked):
 
     expected = run_on_null_padded(op, raster, 4, 3)
     assert_matches_null_padded(op(raster), raster, expected)
+
+
+@pytest.mark.parametrize("shape", [(1, 4), (4, 1)], ids=["row", "column"])
+def test_great_circle_max_distance_one_cell_wide(shape):
+    # https://github.com/UM-RMRS/raster_tools/issues/98
+    data = np.array([0.0, 1, 0, 0]).reshape((1, *shape))
+    raster = data_to_raster(
+        data, affine=Affine(0.1, 0, -110.5, 0, -0.1, 45.2), crs=4326
+    ).set_null_value(0)
+    max_distance = 15_000
+    full = prx.pa_proximity(raster, distance_metric="haversine").to_numpy()
+
+    result = prx.pa_proximity(
+        raster, distance_metric="haversine", max_distance=max_distance
+    )
+    assert_valid_raster(result)
+    beyond = full > max_distance
+    assert beyond.any()
+    assert not beyond.all()
+    assert np.array_equal(result.mask.compute(), beyond)
+    assert np.allclose(result.to_numpy()[~beyond], full[~beyond])
