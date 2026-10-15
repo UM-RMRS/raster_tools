@@ -536,6 +536,30 @@ def test_focal_output_type():
     assert res.dtype.kind == "f"
 
 
+@pytest.mark.parametrize("masked", [False, True])
+@pytest.mark.parametrize("dtype", ["uint8", "int8"])
+@pytest.mark.parametrize("stat", sorted(focal.FOCAL_STATS))
+def test_focal_small_int_matches_int16(stat, dtype, masked):
+    # Small int types give the same results as int16. Stats that keep the
+    # input type on int16 keep the small int type instead.
+    data = np.arange(36).reshape(1, 6, 6) % 5
+    raster = make_raster(data, dtype=dtype, null=4 if masked else None)
+    expected = focal.focal(raster.astype("int16"), stat, 3, 3)
+
+    result = focal.focal(raster, stat, 3, 3)
+    assert_valid_raster(result)
+    if expected.dtype == np.dtype("int16"):
+        assert result.dtype == raster.dtype
+    else:
+        assert result.dtype == expected.dtype
+    assert result._masked == masked
+    if masked:
+        assert np.isnan(result.null_value)
+        assert np.isnan(expected.null_value)
+    assert np.array_equal(result.mask.compute(), expected.mask.compute())
+    assert np.allclose(result.to_numpy(), expected.to_numpy(), equal_nan=True)
+
+
 def test_correlate_integration():
     rs = make_raster("arange", dtype="float64", shape=(4, 16, 16), null=np.nan)
     rsnp = rs.to_numpy()
