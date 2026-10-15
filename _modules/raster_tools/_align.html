@@ -922,7 +922,9 @@ document.write(`
 <span class="sd">    resolution : scalar, optional</span>
 <span class="sd">        Cell size of the destination grid, in units of the destination CRS.</span>
 <span class="sd">        Only consulted when `dst_grid` is not provided. The default is the</span>
-<span class="sd">        cell size of the inputs.</span>
+<span class="sd">        cell size of the first input or, when the destination CRS differs</span>
+<span class="sd">        from its CRS, the cell size of GDAL's default grid for reprojecting</span>
+<span class="sd">        it.</span>
 <span class="sd">    resampling_method : str, optional</span>
 <span class="sd">        Resampling method used when reprojecting rasters onto the destination</span>
 <span class="sd">        grid. The default is ``'nearest'``. See</span>

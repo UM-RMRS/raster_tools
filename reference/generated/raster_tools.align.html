@@ -542,7 +542,9 @@ when <cite>dst_grid</cite> is not provided. The default is the CRS of the
 inputs.</p></li>
 <li><p><strong>resolution</strong> (<em>scalar</em><em>, </em><em>optional</em>) – Cell size of the destination grid, in units of the destination CRS.
 Only consulted when <cite>dst_grid</cite> is not provided. The default is the
-cell size of the inputs.</p></li>
+cell size of the first input or, when the destination CRS differs
+from its CRS, the cell size of GDAL’s default grid for reprojecting
+it.</p></li>
 <li><p><strong>resampling_method</strong> (<em>str</em><em>, </em><em>optional</em>) – Resampling method used when reprojecting rasters onto the destination
 grid. The default is <code class="docutils literal notranslate"><span class="pre">'nearest'</span></code>. See
 <code class="xref py py-func docutils literal notranslate"><span class="pre">raster_tools.reproject()</span></code> for the valid methods.</p></li>

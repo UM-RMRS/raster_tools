@@ -567,7 +567,8 @@ document.write(`
 <span class="sd">    Notes</span>
 <span class="sd">    -----</span>
 <span class="sd">    When `dst_grid` is not provided, the output CRS and resolution default to</span>
-<span class="sd">    those of the first raster in `rasters`. Reordering the input list can</span>
+<span class="sd">    those of the first raster in `rasters` (with `dst_crs`, the cell size of</span>
+<span class="sd">    GDAL's default grid for reprojecting it). Reordering the input list can</span>
 <span class="sd">    therefore change the output grid; pass `dst_crs`, `resolution`, or</span>
 <span class="sd">    `dst_grid` explicitly when that dependency is undesirable.</span>
 

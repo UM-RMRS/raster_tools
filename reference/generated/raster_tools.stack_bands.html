@@ -585,7 +585,8 @@ inputs’ null values.</p></li>
 </dl>
 <p class="rubric">Notes</p>
 <p>When <cite>dst_grid</cite> is not provided, the output CRS and resolution default to
-those of the first raster in <cite>rasters</cite>. Reordering the input list can
+those of the first raster in <cite>rasters</cite> (with <cite>dst_crs</cite>, the cell size of
+GDAL’s default grid for reprojecting it). Reordering the input list can
 therefore change the output grid; pass <cite>dst_crs</cite>, <cite>resolution</cite>, or
 <cite>dst_grid</cite> explicitly when that dependency is undesirable.</p>
 </dd></dl>
