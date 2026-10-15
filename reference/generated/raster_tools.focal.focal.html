@@ -496,7 +496,9 @@ document.write(`
 <dd><p>Applies a focal filter to raster bands individually.</p>
 <p>The filter uses a window/footprint that is created using the
 <cite>width_or_radius</cite> and <cite>height</cite> parameters. The window can be a
-rectangle, circle or annulus.</p>
+rectangle, circle or annulus. Along an axis with an even number of
+cells, the window has one more cell after the center cell (below or to
+the right of it) than before, as in ESRI’s focal tools.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">

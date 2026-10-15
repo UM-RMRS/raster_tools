@@ -747,21 +747,36 @@ document.write(`
 
     <span class="n">kernel</span> <span class="o">=</span> <span class="n">kernel</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">bool</span><span class="p">)</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">nan_aware</span> <span class="ow">and</span> <span class="n">stat</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"min"</span><span class="p">,</span> <span class="s2">"max"</span><span class="p">,</span> <span class="s2">"sum"</span><span class="p">):</span>
-        <span class="c1"># Use ndfilters which is faster but dosn't handle nan values</span>
+        <span class="c1"># Use ndfilters which is faster but dosn't handle nan values.</span>
+        <span class="c1"># Shift pixel origins for even shaped kernels to place the window as</span>
+        <span class="c1"># _focal_chunk and correlate do, with the extra cell after the center.</span>
+        <span class="n">origin</span> <span class="o">=</span> <span class="p">[</span><span class="o">-</span><span class="mi">1</span> <span class="k">if</span> <span class="n">d</span> <span class="o">%</span> <span class="mi">2</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">else</span> <span class="mi">0</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">kernel</span><span class="o">.</span><span class="n">shape</span><span class="p">]</span>
         <span class="k">if</span> <span class="n">stat</span> <span class="o">==</span> <span class="s2">"min"</span><span class="p">:</span>
             <span class="n">func</span> <span class="o">=</span> <span class="n">partial</span><span class="p">(</span>
-                <span class="n">ndfilters</span><span class="o">.</span><span class="n">minimum_filter</span><span class="p">,</span> <span class="n">footprint</span><span class="o">=</span><span class="n">kernel</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">"nearest"</span>
+                <span class="n">ndfilters</span><span class="o">.</span><span class="n">minimum_filter</span><span class="p">,</span>
+                <span class="n">footprint</span><span class="o">=</span><span class="n">kernel</span><span class="p">,</span>
+                <span class="n">mode</span><span class="o">=</span><span class="s2">"nearest"</span><span class="p">,</span>
+                <span class="n">origin</span><span class="o">=</span><span class="n">origin</span><span class="p">,</span>
             <span class="p">)</span>
         <span class="k">elif</span> <span class="n">stat</span> <span class="o">==</span> <span class="s2">"max"</span><span class="p">:</span>
             <span class="n">func</span> <span class="o">=</span> <span class="n">partial</span><span class="p">(</span>
-                <span class="n">ndfilters</span><span class="o">.</span><span class="n">maximum_filter</span><span class="p">,</span> <span class="n">footprint</span><span class="o">=</span><span class="n">kernel</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">"nearest"</span>
+                <span class="n">ndfilters</span><span class="o">.</span><span class="n">maximum_filter</span><span class="p">,</span>
+                <span class="n">footprint</span><span class="o">=</span><span class="n">kernel</span><span class="p">,</span>
+                <span class="n">mode</span><span class="o">=</span><span class="s2">"nearest"</span><span class="p">,</span>
+                <span class="n">origin</span><span class="o">=</span><span class="n">origin</span><span class="p">,</span>
             <span class="p">)</span>
         <span class="k">elif</span> <span class="n">stat</span> <span class="o">==</span> <span class="s2">"sum"</span><span class="p">:</span>
             <span class="n">func</span> <span class="o">=</span> <span class="n">partial</span><span class="p">(</span>
-                <span class="n">ndfilters</span><span class="o">.</span><span class="n">correlate</span><span class="p">,</span> <span class="n">weights</span><span class="o">=</span><span class="n">kernel</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">"constant"</span>
+                <span class="n">ndfilters</span><span class="o">.</span><span class="n">correlate</span><span class="p">,</span>
+                <span class="n">weights</span><span class="o">=</span><span class="n">kernel</span><span class="p">,</span>
+                <span class="n">mode</span><span class="o">=</span><span class="s2">"constant"</span><span class="p">,</span>
+                <span class="n">origin</span><span class="o">=</span><span class="n">origin</span><span class="p">,</span>
             <span class="p">)</span>
         <span class="c1"># The depth that ndfilters overlaps the data by</span>
-        <span class="n">depth</span> <span class="o">=</span> <span class="p">{</span><span class="mi">0</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">:</span> <span class="n">kernel</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">//</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">:</span> <span class="n">kernel</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">//</span> <span class="mi">2</span><span class="p">}</span>
+        <span class="n">rdepth</span><span class="p">,</span> <span class="n">cdepth</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">s</span> <span class="o">//</span> <span class="mi">2</span> <span class="o">+</span> <span class="nb">abs</span><span class="p">(</span><span class="n">o</span><span class="p">)</span> <span class="k">for</span> <span class="n">s</span><span class="p">,</span> <span class="n">o</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">kernel</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">origin</span><span class="p">,</span> <span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="n">depth</span> <span class="o">=</span> <span class="p">{</span><span class="mi">0</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">:</span> <span class="n">rdepth</span><span class="p">,</span> <span class="mi">2</span><span class="p">:</span> <span class="n">cdepth</span><span class="p">}</span>
         <span class="n">boundary</span> <span class="o">=</span> <span class="mi">0</span> <span class="k">if</span> <span class="n">stat</span> <span class="o">==</span> <span class="s2">"sum"</span> <span class="k">else</span> <span class="s2">"nearest"</span>
         <span class="p">(</span><span class="n">data</span><span class="p">,),</span> <span class="n">_</span><span class="p">,</span> <span class="n">unpad</span> <span class="o">=</span> <span class="n">pad_short_axes</span><span class="p">([</span><span class="n">data</span><span class="p">],</span> <span class="n">depth</span><span class="p">,</span> <span class="p">[</span><span class="n">boundary</span><span class="p">])</span>
         <span class="n">data</span> <span class="o">=</span> <span class="n">unpad</span><span class="p">(</span><span class="n">da</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">func</span><span class="p">(</span><span class="n">d</span><span class="p">)</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">data</span><span class="p">]))</span>
@@ -796,7 +811,9 @@ document.write(`
 
 <span class="sd">    The filter uses a window/footprint that is created using the</span>
 <span class="sd">    `width_or_radius` and `height` parameters. The window can be a</span>
-<span class="sd">    rectangle, circle or annulus.</span>
+<span class="sd">    rectangle, circle or annulus. Along an axis with an even number of</span>
+<span class="sd">    cells, the window has one more cell after the center cell (below or to</span>
+<span class="sd">    the right of it) than before, as in ESRI's focal tools.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
@@ -878,7 +895,9 @@ document.write(`
             <span class="c1"># replace them with nan</span>
             <span class="n">data</span> <span class="o">=</span> <span class="n">da</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">data</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="k">if</span> <span class="n">focal_type</span> <span class="o">==</span> <span class="s2">"mode"</span> <span class="ow">and</span> <span class="n">is_int</span><span class="p">(</span><span class="n">raster</span><span class="o">.</span><span class="n">dtype</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">focal_type</span> <span class="o">==</span> <span class="s2">"mode"</span> <span class="ow">and</span> <span class="p">(</span>
+            <span class="n">is_int</span><span class="p">(</span><span class="n">raster</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span> <span class="ow">or</span> <span class="n">is_bool</span><span class="p">(</span><span class="n">raster</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+        <span class="p">):</span>
             <span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">raster</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
         <span class="k">elif</span> <span class="n">focal_type</span> <span class="o">==</span> <span class="s2">"unique"</span><span class="p">:</span>
             <span class="n">n</span> <span class="o">=</span> <span class="n">window</span><span class="o">.</span><span class="n">size</span>

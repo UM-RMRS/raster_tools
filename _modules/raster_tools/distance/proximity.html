@@ -963,17 +963,15 @@ document.write(`
         <span class="p">)</span>
 
 
-<span class="k">def</span><span class="w"> </span><span class="nf">_estimate_min_resolution</span><span class="p">(</span><span class="n">lon</span><span class="p">,</span> <span class="n">lat</span><span class="p">):</span>
-    <span class="n">x1</span> <span class="o">=</span> <span class="n">lon</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-    <span class="n">y1</span> <span class="o">=</span> <span class="n">lat</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
-    <span class="n">x2</span> <span class="o">=</span> <span class="n">lon</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
-    <span class="n">y2</span> <span class="o">=</span> <span class="n">y1</span>
-    <span class="n">xmin</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">_haversine_dist_sqr</span><span class="p">(</span><span class="n">x1</span><span class="p">,</span> <span class="n">y1</span><span class="p">,</span> <span class="n">x2</span><span class="p">,</span> <span class="n">y2</span><span class="p">))</span>
-    <span class="n">x1</span> <span class="o">=</span> <span class="n">lon</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-    <span class="n">x2</span> <span class="o">=</span> <span class="n">lon</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-    <span class="c1"># Get two largest latitudes</span>
-    <span class="n">y1</span><span class="p">,</span> <span class="n">y2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">partition</span><span class="p">(</span><span class="n">lat</span><span class="p">,</span> <span class="o">-</span><span class="mi">2</span><span class="p">)[</span><span class="o">-</span><span class="mi">2</span><span class="p">:]</span>
-    <span class="n">ymin</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">_haversine_dist_sqr</span><span class="p">(</span><span class="n">x1</span><span class="p">,</span> <span class="n">y1</span><span class="p">,</span> <span class="n">x2</span><span class="p">,</span> <span class="n">y2</span><span class="p">))</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_estimate_min_resolution</span><span class="p">(</span><span class="n">lon</span><span class="p">,</span> <span class="n">lat</span><span class="p">,</span> <span class="n">resolution</span><span class="p">):</span>
+    <span class="c1"># Cell size in meters, with the width taken at the latitude farthest</span>
+    <span class="c1"># from the equator, where cells are narrowest. The height is the same at</span>
+    <span class="c1"># every latitude on a sphere. The cell size in degrees comes from the</span>
+    <span class="c1"># grid, so a raster one cell wide along an axis works too.</span>
+    <span class="n">dx</span><span class="p">,</span> <span class="n">dy</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">resolution</span><span class="p">)</span>
+    <span class="n">y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">lat</span><span class="p">)</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
+    <span class="n">xmin</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">_haversine_dist_sqr</span><span class="p">(</span><span class="n">lon</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">y</span><span class="p">,</span> <span class="n">lon</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">dx</span><span class="p">,</span> <span class="n">y</span><span class="p">))</span>
+    <span class="n">ymin</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">_haversine_dist_sqr</span><span class="p">(</span><span class="n">lon</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">lon</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">dy</span><span class="p">))</span>
     <span class="k">return</span> <span class="n">xmin</span><span class="p">,</span> <span class="n">ymin</span>
 
 
@@ -1023,7 +1021,7 @@ document.write(`
             <span class="c1"># at highest latitude) and use that for chunk overlap calculation.</span>
             <span class="c1"># Use minimum so that we always overestimate and never</span>
             <span class="c1"># underestimate the depth.</span>
-            <span class="n">resolution</span> <span class="o">=</span> <span class="n">_estimate_min_resolution</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+            <span class="n">resolution</span> <span class="o">=</span> <span class="n">_estimate_min_resolution</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">raster</span><span class="o">.</span><span class="n">resolution</span><span class="p">)</span>
         <span class="n">xdepth</span><span class="p">,</span> <span class="n">ydepth</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">max_distance</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">resolution</span><span class="p">))</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
         <span class="c1"># Along an axis shorter than the depth, one chunk holds every cell</span>
         <span class="c1"># in reach and nothing lies past the edges, so no overlap is needed</span>
