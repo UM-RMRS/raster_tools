@@ -2978,12 +2978,11 @@ class Raster(_RasterBase):
             The target grid to reproject the raster to. This can be a
             projection string, EPSG code string or integer, a CRS object, or a
             GeoBox object. When a CRS is given, the output grid is the
-            smallest one that covers the raster's footprint in the new CRS.
-            Its origin is the top-left corner of the footprint's bounding box,
-            not snapped to a multiple of the cell size. `resolution` can also
-            be specified to change the output raster's resolution in the new
-            CRS. If `crs_or_geobox` is not provided, `resolution` must be
-            specified.
+            default one GDAL suggests for the reprojection, which can have
+            coarse cells for rasters that contain a pole or cross the
+            antimeridian. Pass `resolution` for finer cells. See
+            :func:`raster_tools.reproject` for details. If `crs_or_geobox` is
+            not provided, `resolution` must be specified.
         resample_method : str, optional
             The data resampling method to use. Null pixels are ignored for all
             methods. Some methods require specific versions of GDAL. These are

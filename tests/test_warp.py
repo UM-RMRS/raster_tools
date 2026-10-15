@@ -3,23 +3,14 @@ import numpy as np
 import pytest
 from affine import Affine
 from odc.geo.geobox import GeoBox
+from pyproj import Transformer
 
 import raster_tools as rts
 from raster_tools import warp
+from raster_tools._grids import grids_close
 from raster_tools.masking import get_default_null_value
 from tests import testdata
-from tests.utils import assert_valid_raster
-
-
-def _footprint_grid(geobox, crs, resolution=None):
-    # Smallest grid covering the footprint of `geobox` in `crs`, with its
-    # origin at the footprint's top-left corner. This mirrors how reproject
-    # builds its grid, so tests using it check the data, not the grid; the
-    # tests with hard-coded shapes and origins pin the grid itself.
-    bbox = geobox.footprint(crs, npoints=100).boundingbox
-    if resolution is None:
-        resolution = geobox.to_crs(crs).resolution
-    return GeoBox.from_bbox(bbox, crs, resolution=resolution, tight=True)
+from tests.utils import assert_valid_raster, gdal_default_grid
 
 
 def _repoject(raster, crs_or_geobox, method):
@@ -30,7 +21,7 @@ def _repoject(raster, crs_or_geobox, method):
     )
     dst_geobox = crs_or_geobox
     if not isinstance(dst_geobox, GeoBox):
-        dst_geobox = _footprint_grid(raster.geobox, crs_or_geobox)
+        dst_geobox = gdal_default_grid(raster.geobox, crs_or_geobox)
     xreprojected = raster.xdata.odc.reproject(
         dst_geobox, resampling=method, dst_nodata=nv
     )
@@ -102,7 +93,7 @@ def test_reproject_crs(crs_or_geobox):
     if isinstance(crs_or_geobox, GeoBox):
         dst_geobox = crs_or_geobox
     else:
-        dst_geobox = _footprint_grid(raster.geobox, crs_or_geobox)
+        dst_geobox = gdal_default_grid(raster.geobox, crs_or_geobox)
     truth_reprojected, truth_mask = _repoject(
         raster, crs_or_geobox, "bilinear"
     )
@@ -126,7 +117,8 @@ def test_reproject_crs(crs_or_geobox):
             list(result.xdata.rio.transform()), list(dst_geobox.affine)
         )
     else:
-        assert result.geobox == dst_geobox
+        # Coordinates carry the affine at float precision
+        assert grids_close(result.geobox, dst_geobox)
     assert result.null_value == truth_reprojected.rio.nodata
     assert np.allclose(result.to_numpy(), truth_reprojected.to_numpy())
     assert np.allclose(result.xmask, truth_mask)
@@ -181,7 +173,7 @@ def test_reproject_crs_and_resolution(crs, resolution):
         if resolution is not None:
             target_grid = target_grid.zoom_to(resolution=resolution)
     else:
-        target_grid = _footprint_grid(raster.geobox, crs, resolution)
+        target_grid = gdal_default_grid(raster.geobox, crs, resolution)
 
     truth_reprojected, truth_mask = _repoject(raster, target_grid, "bilinear")
 
@@ -190,7 +182,7 @@ def test_reproject_crs_and_resolution(crs, resolution):
     )
     assert_valid_raster(result)
     assert result.crs == target_grid.crs
-    assert result.resolution == target_grid.resolution.xy
+    assert result.resolution == pytest.approx(target_grid.resolution.xy)
     assert result.null_value == truth_reprojected.rio.nodata
     assert np.allclose(result.to_numpy(), truth_reprojected.to_numpy())
     assert np.allclose(result.xmask, truth_mask)
@@ -200,7 +192,7 @@ def test_reproject_crs_and_resolution(crs, resolution):
     )
     assert_valid_raster(result)
     assert result.crs == target_grid.crs
-    assert result.resolution == target_grid.resolution.xy
+    assert result.resolution == pytest.approx(target_grid.resolution.xy)
     assert result.null_value == truth_reprojected.rio.nodata
     assert np.allclose(result.to_numpy(), truth_reprojected.to_numpy())
     assert np.allclose(result.xmask, truth_mask)
@@ -225,32 +217,37 @@ def _unaligned_raster():
     )
 
 
-def test_reproject_to_crs_gives_tight_grid():
+def test_reproject_to_crs_gives_gdal_default_grid():
     raster = _unaligned_raster()
 
     result = warp.reproject(raster, "EPSG:32613")
     assert_valid_raster(result)
-    # The footprint in EPSG:32613 spans about 10.5 x 10.9 cells from
-    # (1425861.26, 2574214.66). Snapping the origin to a multiple of the cell
-    # size, or padding the footprint, would add rows and columns of nulls.
-    assert result.shape == (1, 11, 11)
-    assert result.resolution == (30.0, -30.0)
-    assert result.affine.c == pytest.approx(1425861.259, abs=1e-3)
-    assert result.affine.f == pytest.approx(2574214.657, abs=1e-3)
+    assert grids_close(
+        result.geobox, gdal_default_grid(raster.geobox, "EPSG:32613")
+    )
     valid = ~result.mask.compute()[0]
     assert valid[0].any()
     assert valid[:, 0].any()
 
 
-def test_reproject_to_crs_with_resolution_keeps_tight_origin():
+def test_reproject_to_crs_with_resolution_covers_gdal_default_extent():
     raster = _unaligned_raster()
+    default = gdal_default_grid(raster.geobox, "EPSG:32613")
 
     result = warp.reproject(raster, "EPSG:32613", resolution=20)
     assert_valid_raster(result)
+    assert grids_close(
+        result.geobox,
+        gdal_default_grid(raster.geobox, "EPSG:32613", resolution=20),
+    )
     assert result.resolution == (20.0, -20.0)
-    assert result.affine.c == pytest.approx(1425861.259, abs=1e-3)
-    assert result.affine.f == pytest.approx(2574214.657, abs=1e-3)
-    assert result.shape == (1, 17, 16)
+    # The top-left corner is kept and the size rounded up, so the grid
+    # covers GDAL's default extent
+    xmin, ymin, xmax, ymax = result.bounds
+    dxmin, dymin, dxmax, dymax = default.boundingbox
+    assert (xmin, ymax) == pytest.approx((dxmin, dymax))
+    assert xmax >= dxmax
+    assert ymin <= dymin
 
 
 def test_reproject_resolution_keeps_origin():
@@ -438,3 +435,89 @@ def test_reproject_unmasked_int_matches_warp_in_own_dtype(method):
     assert result.data.chunksize == raster.data.chunksize
     assert np.array_equal(result.xmask, truth_mask)
     assert np.array_equal(result.xdata, truth)
+
+
+def _polar_raster(half_width, cell_size, crs=3413):
+    # A square polar stereographic raster centered on the pole
+    n = round(2 * half_width / cell_size)
+    return rts.data_to_raster(
+        np.ones((1, n, n)),
+        affine=Affine(cell_size, 0, -half_width, 0, -cell_size, half_width),
+        crs=crs,
+    )
+
+
+@pytest.mark.parametrize(
+    "half_width,cell_size,crs,resolution",
+    [
+        (3_000_000, 25_000, 3413, None),
+        (100_000, 2000, 3413, None),
+        (100_000, 2000, 3413, 0.1),
+        (100_000, 2000, 3031, None),
+        (100_000, 2000, 3031, 0.1),
+        (50_000, 1000, 3413, None),
+        (50_000, 1000, 3031, 0.1),
+    ],
+)
+def test_reproject_raster_containing_pole_to_lonlat(
+    half_width, cell_size, crs, resolution
+):
+    # https://github.com/UM-RMRS/raster_tools/issues/78
+    raster = _polar_raster(half_width, cell_size, crs)
+
+    result = warp.reproject(raster, 4326, resolution=resolution)
+    assert_valid_raster(result)
+    xmin, ymin, xmax, ymax = result.bounds
+    assert xmin == pytest.approx(-180)
+    assert xmax >= 180 - 1e-9
+    assert -90 - 1e-9 <= ymin < ymax <= 90 + 1e-9
+    if crs == 3413:
+        assert ymax == pytest.approx(90)
+    else:
+        assert ymin == pytest.approx(-90)
+    if resolution is not None:
+        assert result.resolution == pytest.approx((resolution, -resolution))
+    valid = ~result.mask.compute()[0]
+    assert valid.any()
+    assert np.all(result.to_numpy()[0][valid] == 1)
+    if resolution is not None:
+        # Every column reaches the pole, so the row at the pole is all data.
+        # GDAL's default cells are too coarse for this: most of their
+        # centers fall outside the small raster.
+        assert valid[0 if crs == 3413 else -1].all()
+
+
+def _cells_inside_source(result, raster):
+    # Cells of `result` whose centers fall inside `raster`'s extent
+    ny, nx = result.shape[1:]
+    cols, rows = np.meshgrid(np.arange(nx) + 0.5, np.arange(ny) + 0.5)
+    x, y = result.affine * (cols, rows)
+    to_src = Transformer.from_crs(result.crs, raster.crs, always_xy=True)
+    sx, sy = to_src.transform(x, y)
+    xmin, ymin, xmax, ymax = raster.bounds
+    return (sx > xmin) & (sx < xmax) & (sy > ymin) & (sy < ymax)
+
+
+@pytest.mark.parametrize("resolution", [None, 0.05])
+def test_reproject_raster_across_antimeridian_to_lonlat(resolution):
+    # 200 x 100 km in UTM zone 60N, crossing longitude 180 near 45N
+    raster = rts.data_to_raster(
+        np.ones((1, 100, 200)),
+        affine=Affine(1000, 0, 600_000, 0, -1000, 5_000_000),
+        crs=32660,
+    )
+
+    result = warp.reproject(raster, 4326, resolution=resolution)
+    assert_valid_raster(result)
+    valid = ~result.mask.compute()[0]
+    assert valid.any()
+    assert np.all(result.to_numpy()[0][valid] == 1)
+    # Every cell inside the raster's footprint gets data
+    inside = _cells_inside_source(result, raster)
+    assert valid[inside].all()
+    if resolution is not None:
+        # On both sides of longitude 180. GDAL's default cells are too
+        # coarse for this.
+        lon, _ = result.affine * (np.arange(result.shape[2]) + 0.5, 0.5)
+        assert valid[:, lon < 0].any()
+        assert valid[:, lon > 0].any()

@@ -127,7 +127,8 @@ def stack_bands(
     Notes
     -----
     When `dst_grid` is not provided, the output CRS and resolution default to
-    those of the first raster in `rasters`. Reordering the input list can
+    those of the first raster in `rasters` (with `dst_crs`, the cell size of
+    GDAL's default grid for reprojecting it). Reordering the input list can
     therefore change the output grid; pass `dst_crs`, `resolution`, or
     `dst_grid` explicitly when that dependency is undesirable.
 

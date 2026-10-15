@@ -3,8 +3,11 @@ import math
 import geopandas as gpd
 import numpy as np
 import shapely
+from affine import Affine
 from odc.geo import resxy_
+from odc.geo.crs import norm_crs
 from odc.geo.geobox import GeoBox
+from rasterio.warp import calculate_default_transform, transform_bounds
 
 
 def build_coords(affine, shape_3d):
@@ -140,28 +143,80 @@ def are_all_grids_same(grids):
     return all(grids_close(gtest, g) for g in grids[1:])
 
 
-def reproject_grid(grid, crs, resolution=None):
-    """Smallest grid in `crs` that covers `grid`'s footprint.
+def _fit_between_poles(grid):
+    """Keep a north-up geographic `grid` between latitudes -90 and 90.
 
-    The origin is the top-left corner of the footprint's bounding box in
-    `crs`; it is not snapped to a multiple of the cell size. The cell size is
-    `resolution` if given, otherwise the one odc-geo's ``GeoBox.to_crs``
-    picks. If `crs` is `grid`'s CRS, `grid` is returned, with its cell size
-    changed to `resolution` (keeping the origin) if given.
+    Rounding a grid up to whole cells can carry it past a pole, giving it
+    cells whose latitudes do not exist. Warping onto such a grid works, but
+    its coordinates would not be valid latitudes, so it is moved north to end
+    at -90, or south to end at 90. If its rows span more than 180 degrees,
+    they are shortened so that the same number of rows spans -90 to 90
+    exactly, which keeps everything the grid covers at the cost of slightly
+    non-square cells.
+    """
+    a = grid.affine
+    if grid.crs is None or not grid.crs.geographic or a.e >= 0:
+        return grid
+    ny, nx = grid.shape
+    cell = -a.e
+    # Allow float noise in the grid's edges
+    eps = 1e-12
+    top = a.f
+    if top - ny * cell >= -90 - eps and top <= 90 + eps:
+        return grid
+    if ny * cell >= 180 - eps:
+        top, cell = 90, 180 / ny
+    elif top > 90:
+        top = 90
+    else:
+        top = -90 + ny * cell
+    return GeoBox((ny, nx), Affine(a.a, a.b, a.c, a.d, -cell, top), grid.crs)
+
+
+def reproject_grid(grid, crs, resolution=None):
+    """GDAL's default grid for reprojecting `grid` to `crs`.
+
+    The grid is the one GDAL's ``GDALSuggestedWarpOutput2`` suggests, via
+    ``rasterio.warp.calculate_default_transform``, which handles poles inside
+    `grid`, crossing the antimeridian, and edge points that are off the
+    globe. Where GDAL suggests no rows, or one row of zero height, as it does
+    for a small grid around a pole, one row spanning the grid's latitudes
+    from ``rasterio.warp.transform_bounds`` is used instead. If `resolution`
+    is given, it replaces GDAL's cell size, keeping the top-left corner, and
+    the cell counts are rounded up as rasterio does, so the grid still covers
+    GDAL's extent. A geographic grid is then kept
+    between the poles (see :func:`_fit_between_poles`). If `crs` is `grid`'s
+    CRS, `grid` is returned, with its cell size changed to `resolution`
+    (keeping the origin) if given.
     """
     if resolution is not None and resolution <= 0:
         raise ValueError("Resolution must be a positive value")
-    # Unlike GeoBox.to_crs, do not buffer the footprint, which would pad the
-    # result by about a cell on every side.
-    bbox = grid.footprint(crs, npoints=100).boundingbox
-    dst_crs = bbox.crs
+    dst_crs = norm_crs(crs)
     if dst_crs == grid.crs:
         if resolution is None:
             return grid
         return grid.zoom_to(resolution=resolution)
-    if resolution is None:
-        resolution = grid.to_crs(dst_crs).resolution
-    return GeoBox.from_bbox(bbox, dst_crs, resolution=resolution, tight=True)
+    ny, nx = grid.shape
+    a, width, height = calculate_default_transform(
+        grid.crs, dst_crs, nx, ny, *grid.boundingbox
+    )
+    if height == 0 or a.e == 0:
+        # For a small grid around a pole, GDAL's cells are a few degrees
+        # tall and its row count is rounded to the nearest whole number,
+        # which gives no rows, or one row of zero height at the south pole.
+        # Use one row spanning the grid's latitudes instead.
+        _, south, _, north = transform_bounds(
+            grid.crs, dst_crs, *grid.boundingbox, densify_pts=21
+        )
+        height = 1
+        a = Affine(a.a, a.b, a.c, a.d, south - north, north)
+    width = max(width, 1)
+    if resolution is not None:
+        # The same sizing as calculate_default_transform's resolution option
+        width = math.ceil(width * (a.a / resolution))
+        height = math.ceil(height * (a.e / -resolution))
+        a = Affine(resolution, a.b, a.c, a.d, -resolution, a.f)
+    return _fit_between_poles(GeoBox((height, width), a, dst_crs))
 
 
 def get_grid_bbox(grid):
@@ -195,12 +250,17 @@ def combine_grids(grids, how=None, dst_crs=None, resolution=None):
         The CRS of the resulting grid. If ``None``, the CRS of the first input
         grid is used. When the input grids do not share a CRS, they are
         reprojected to ``dst_crs`` (or the first grid's CRS) before being
-        combined. Default is ``None``.
+        combined, each taking the extent of GDAL's default grid for it in
+        ``dst_crs``. A geographic result built from reprojected grids is kept
+        between latitudes -90 and 90 (see :func:`_fit_between_poles`).
+        Default is ``None``.
     resolution : scalar, optional
         Pixel resolution of the resulting grid, in units of ``dst_crs``. If
         ``None``, the x and y resolutions of the first input grid are used
-        when `dst_crs` is its CRS, and its x resolution is used for both
-        axes otherwise. Default is ``None``.
+        when `dst_crs` is its CRS. Otherwise, the x resolution of GDAL's
+        default grid for reprojecting the first input grid to `dst_crs` is
+        used for both axes, except that a geographic grid's rows can be
+        shortened to fit between the poles. Default is ``None``.
 
     Returns
     -------
@@ -222,18 +282,22 @@ def combine_grids(grids, how=None, dst_crs=None, resolution=None):
             resolution=resolution,
         )
 
-    if dst_crs is None:
-        dst_crs = grids[0].crs
+    dst_crs = norm_crs(dst_crs if dst_crs is not None else grids[0].crs)
     dst_resolution = resolution
     if resolution is None:
-        resolution = np.abs(grids[0].resolution.x)
+        res = reproject_grid(grids[0], dst_crs).resolution
+        resolution = abs(res.x)
         dst_resolution = resolution
         if dst_crs == grids[0].crs:
             # Keep the first grid's cell size along both axes
-            res = grids[0].resolution
             dst_resolution = resxy_(abs(res.x), -abs(res.y))
+    # A grid in dst_crs is sized to the resolution; any other takes the
+    # extent of GDAL's default grid for it in dst_crs.
     grids_dst = [
-        reproject_grid(g, dst_crs, resolution=resolution) for g in grids
+        reproject_grid(
+            g, dst_crs, resolution=resolution if g.crs == dst_crs else None
+        )
+        for g in grids
     ]
     bboxes_dst = [get_grid_bbox(g) for g in grids_dst]
     if how == "union":
@@ -253,4 +317,6 @@ def combine_grids(grids, how=None, dst_crs=None, resolution=None):
         dst_grid = GeoBox.from_bbox(
             bbox.bounds, crs=dst_crs, resolution=dst_resolution, tight=True
         )
+    if any(g.crs != dst_crs for g in grids):
+        dst_grid = _fit_between_poles(dst_grid)
     return dst_grid

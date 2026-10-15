@@ -4,6 +4,8 @@ import numpy as np
 import rasterio as rio
 import xarray as xr
 from affine import Affine
+from odc.geo.geobox import GeoBox
+from rasterio.warp import calculate_default_transform
 
 import raster_tools as rts
 from raster_tools.dtypes import is_bool, is_scalar
@@ -64,6 +66,19 @@ def _apply_null_patterns(data, mask, patterns, nv, depth=0):
 
 
 DIRECTIONS = ("E", "W", "N", "S", "NE", "SE", "NW", "SW")
+
+
+def gdal_default_grid(geobox, crs, resolution=None):
+    """GDAL's default grid for reprojecting `geobox` to `crs`.
+
+    This is the grid reproject builds for a CRS target, computed here straight
+    from rasterio so that tests pin it without going through raster_tools.
+    """
+    ny, nx = geobox.shape
+    affine, width, height = calculate_default_transform(
+        geobox.crs, crs, nx, ny, *geobox.boundingbox, resolution=resolution
+    )
+    return GeoBox((height, width), affine, crs)
 
 
 def make_raster(

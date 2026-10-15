@@ -10,7 +10,7 @@ from raster_tools.dtypes import F64, I16, U8
 from raster_tools.masking import get_default_null_value
 from raster_tools.warp import SUPPORTED_RESAMPLE_METHODS
 from tests import testdata
-from tests.utils import assert_valid_raster, make_raster
+from tests.utils import assert_valid_raster, gdal_default_grid, make_raster
 
 
 def _grid_raster(
@@ -612,31 +612,25 @@ def test_different_crs_is_reprojected():
 
 
 @pytest.mark.parametrize("join", ["inner", "outer"])
-def test_different_crs_footprint_is_not_padded(join):
+def test_different_crs_takes_gdal_default_grid(join):
     # 30 m cells whose origin is not a multiple of the cell size
     src = make_raster(
         np.ones((10, 10)),
         affine=Affine(30, 0, 1007, 0, -30, 2013),
         crs="EPSG:5070",
     )
-    # Smallest 30 m grid covering src's footprint in EPSG:32613, which spans
-    # about 10.5 x 10.9 cells
-    tight = GeoBox(
-        (11, 11),
-        Affine(30, 0, 1425861.259191, 0, -30, 2574214.656564),
-        "EPSG:32613",
-    )
+    default = gdal_default_grid(src.geobox, "EPSG:32613")
     if join == "inner":
-        # A larger raster on its own lattice that contains src
-        xmin, ymin, xmax, ymax = tight.extent.boundingbox
+        # A larger raster with the same cell size that contains src
+        xmin, ymin, xmax, ymax = default.extent.boundingbox
         other_grid = GeoBox.from_bbox(
             (xmin - 1000, ymin - 1000, xmax + 1000, ymax + 1000),
             crs="EPSG:32613",
-            resolution=30,
+            resolution=default.resolution,
             tight=True,
         )
     else:
-        other_grid = tight
+        other_grid = default
     other = make_raster(
         np.ones(other_grid.shape.yx),
         affine=other_grid.affine,
@@ -644,10 +638,8 @@ def test_different_crs_footprint_is_not_padded(join):
     )
     out = align([other, src], join=join)
     _assert_on_common_grid(out)
-    # Snapping the origin to the cell size, or padding the footprint, would
-    # add rows and columns of nulls around src.
-    assert out[0].shape == (1, 11, 11)
-    assert np.allclose(list(out[0].affine), list(tight.affine))
+    assert out[0].shape == (1, *default.shape)
+    assert np.allclose(list(out[0].affine), list(default.affine))
     valid = ~out[1].mask.compute()[0]
     assert valid[0].any()
     assert valid[:, 0].any()

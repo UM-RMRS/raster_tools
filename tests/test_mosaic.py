@@ -8,7 +8,12 @@ import raster_tools as rts
 import raster_tools._mosaic as mosaic
 from raster_tools.masking import get_default_null_value
 from tests import testdata
-from tests.utils import assert_rasters_equal, assert_valid_raster, make_raster
+from tests.utils import (
+    assert_rasters_equal,
+    assert_valid_raster,
+    gdal_default_grid,
+    make_raster,
+)
 
 
 def _raster(data, y, x):
@@ -1186,3 +1191,34 @@ def test_mosaic_differing_resolutions():
     rb = result.bounds
     assert rb[0] <= 0  # minx covers r1
     assert rb[2] >= 8  # maxx covers r2
+
+
+def test_mosaic_polar_rasters_to_lonlat_sizes_cells_in_degrees():
+    # Without a resolution, the cells take the size of the first raster's
+    # cells in GDAL's default grid for it in dst_crs, not their size in
+    # meters
+    big = rts.data_to_raster(
+        np.ones((1, 600, 600)),
+        affine=Affine(10_000, 0, -3e6, 0, -10_000, 3e6),
+        crs=3413,
+    )
+    small = rts.data_to_raster(
+        np.full((1, 200, 200), 2.0),
+        affine=Affine(1000, 0, -1e5, 0, -1000, 1e5),
+        crs=3413,
+    )
+    result = mosaic.mosaic([big, small], dst_crs=4326)
+    assert_valid_raster(result)
+    assert result.crs == 4326
+    cell = abs(gdal_default_grid(big.geobox, "EPSG:4326").resolution.x)
+    assert result.resolution == pytest.approx((cell, -cell))
+    xmin, ymin, xmax, ymax = result.bounds
+    assert xmin == pytest.approx(-180)
+    assert xmax >= 180 - 1e-9
+    assert ymax == pytest.approx(90)
+    assert -90 <= ymin < ymax
+    data = result.to_numpy()[0]
+    valid = ~result.mask.compute()[0]
+    # The small raster, last, covers the pole
+    assert np.all(data[0][valid[0]] == 2)
+    assert set(np.unique(data[valid])) == {1, 2}
